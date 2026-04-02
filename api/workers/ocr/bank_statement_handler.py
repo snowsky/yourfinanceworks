@@ -86,7 +86,8 @@ class BankStatementMessageHandler(BaseMessageHandler):
 
                     # Ensure file is local using the real statement object
                     try:
-                        file_path = await self._ensure_local_statement_file(db, statement, file_path, tenant_id)
+                        # Pass payload to handle cloud key derivation and race conditions
+                        file_path = await self._ensure_local_statement_file(db, statement, file_path, tenant_id, payload)
                     except Exception as e:
                         self.logger.error(f"Failed to ensure local file for batch statement: {e}")
                         statement.status = 'failed'
@@ -262,7 +263,7 @@ class BankStatementMessageHandler(BaseMessageHandler):
 
                     # Ensure file is local
                     try:
-                        file_path = await self._ensure_local_statement_file(db, stmt, original_file_path, tenant_id)
+                        file_path = await self._ensure_local_statement_file(db, stmt, original_file_path, tenant_id, payload)
                     except Exception as e:
                         return await self._handle_statement_error(consumer, message, db, stmt, e, attempt, payload)
 
@@ -372,62 +373,108 @@ class BankStatementMessageHandler(BaseMessageHandler):
         await self._commit_message(consumer, message)
         return ProcessingResult(success=False, committed=True)
 
-    async def _ensure_local_statement_file(self, db, stmt, file_path: str, tenant_id: int) -> str:
+    async def _ensure_local_statement_file(self, db, stmt, file_path: str, tenant_id: int, payload: Dict[str, Any] = None) -> str:
         """
         Ensure the statement file is available locally.
         Downloads from cloud storage if missing and caches the local path.
+        Includes retry logic for race conditions with background cloud uploads.
         """
         if os.path.exists(file_path):
             self.logger.info(f"Using local file path: {file_path}")
             return file_path
 
-        self.logger.info(f"File path '{file_path}' doesn't exist locally - attempting cloud storage download for statement {stmt.id}...")
+        self.logger.info(f"File path '{file_path}' doesn't exist locally - checking for cloud storage...")
 
         # 1. Check for cached local file
         if stmt.local_cache_path and os.path.exists(stmt.local_cache_path) and os.path.getsize(stmt.local_cache_path) > 0:
             self.logger.info(f"Using cached local file from previous download: {stmt.local_cache_path}")
             return stmt.local_cache_path
 
-        # 2. Download from cloud storage
-        try:
-            from commercial.cloud_storage.service import CloudStorageService
-            from commercial.cloud_storage.config import get_cloud_storage_config
-            import tempfile
+        # 2. Download from cloud storage with retry for race conditions
+        max_retries = 3
+        retry_delay = 3.0  # Seconds
+        
+        for attempt in range(max_retries):
+            try:
+                from commercial.cloud_storage.service import CloudStorageService
+                from commercial.cloud_storage.config import get_cloud_storage_config
+                import tempfile
+                from core.models.models_per_tenant import BatchFileProcessing
 
-            cloud_config = get_cloud_storage_config()
-            cloud_storage_service = CloudStorageService(db, cloud_config)
+                cloud_config = get_cloud_storage_config()
+                cloud_storage_service = CloudStorageService(db, cloud_config)
 
-            # Retrieve from cloud
-            # Use file_path as key (this is how it's stored in upload_statements)
-            retrieve_result = await cloud_storage_service.retrieve_file(
-                file_key=file_path,
-                tenant_id=str(tenant_id),
-                user_id=1,  # System user
-                generate_url=False
-            )
+                # Find the correct cloud key
+                # Priority 1: From current statement record
+                cloud_key = stmt.cloud_file_url
+                
+                # Priority 2: From BatchFileProcessing record (might have been updated by background task)
+                if not cloud_key and payload and payload.get("batch_file_id"):
+                    db.refresh(stmt) # Ensure we have latest
+                    batch_file = db.query(BatchFileProcessing).filter(
+                        BatchFileProcessing.id == int(payload["batch_file_id"])
+                    ).first()
+                    if batch_file and batch_file.cloud_file_url:
+                        cloud_key = batch_file.cloud_file_url
+                        stmt.cloud_file_url = cloud_key
+                        db.commit()
 
-            if retrieve_result.success and retrieve_result.file_content:
-                # Save to temp file
-                suffix = f"_{stmt.id}_{os.path.basename(file_path)}"
-                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-                    temp_file.write(retrieve_result.file_content)
-                    temp_path = temp_file.name
+                # Priority 3: Derived from batch_job_id and filename (standard pattern)
+                if not cloud_key and payload and payload.get("batch_job_id") and payload.get("original_filename"):
+                    job_id = payload["batch_job_id"]
+                    filename = payload["original_filename"]
+                    cloud_key = f"{job_id}/{filename}"
+                    self.logger.info(f"Derived cloud key: {cloud_key}")
 
-                # Cache the local path
-                stmt.local_cache_path = temp_path
-                db.commit()
-                self.logger.info(f"Successfully downloaded and cached cloud file to {temp_path}")
-                return temp_path
-            else:
-                error_msg = retrieve_result.error_message or "Unknown cloud storage error"
-                raise Exception(f"Failed to retrieve file from cloud: {error_msg}")
+                if not cloud_key:
+                    # If this is not the last attempt, wait and retry
+                    if attempt < max_retries - 1:
+                        self.logger.warning(f"No cloud key found for statement {stmt.id} yet. Retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})")
+                        await asyncio.sleep(retry_delay)
+                        db.expire_all() # Refresh all objects for next attempt
+                        continue
+                    else:
+                        raise Exception("No cloud key available after retries")
 
-        except ImportError:
-            self.logger.warning("Commercial CloudStorageService not found, using original path")
-            return file_path
-        except Exception as e:
-            self.logger.error(f"Cloud download failed: {e}")
-            raise
+                # Retrieve from cloud
+                self.logger.info(f"Retrieving file from cloud using key: {cloud_key}")
+                retrieve_result = await cloud_storage_service.retrieve_file(
+                    file_key=cloud_key,
+                    tenant_id=str(tenant_id),
+                    user_id=1,  # System user
+                    generate_url=False
+                )
+
+                if retrieve_result.success and retrieve_result.file_content:
+                    # Save to temp file
+                    suffix = f"_{stmt.id}_{os.path.basename(file_path)}"
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+                        temp_file.write(retrieve_result.file_content)
+                        temp_path = temp_file.name
+
+                    # Cache the local path
+                    stmt.local_cache_path = temp_path
+                    db.commit()
+                    self.logger.info(f"Successfully downloaded and cached cloud file to {temp_path}")
+                    return temp_path
+                else:
+                    error_msg = retrieve_result.error_message or "Unknown cloud storage error"
+                    if attempt < max_retries - 1:
+                        self.logger.warning(f"Cloud retrieval failed: {error_msg}. Retrying in {retry_delay}s...")
+                        await asyncio.sleep(retry_delay)
+                        continue
+                    else:
+                        raise Exception(f"Failed to retrieve file from cloud after retries: {error_msg}")
+
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    self.logger.warning(f"Error during cloud download attempt {attempt + 1}: {e}. Retrying...")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    self.logger.error(f"Cloud download failed after {max_retries} attempts: {e}")
+                    raise
+
+        raise Exception(f"Failed to ensure local statement file for {stmt.id}")
 
     async def _get_ai_config(self, db) -> Optional[Dict[str, Any]]:
         """Get AI configuration from database"""

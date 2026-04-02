@@ -213,12 +213,22 @@ class BatchJobCreationMixin:
                     with bypass_plugin_isolation():
                         with SessionLocal_tenant() as db:
                             # Re-fetch configuration in the new session
-                            dest_config = db.query(ExportDestinationConfig).filter(
-                                ExportDestinationConfig.id == export_dest_id
-                            ).first()
+                            if export_dest_id:
+                                dest_config = db.query(ExportDestinationConfig).filter(
+                                    ExportDestinationConfig.id == export_dest_id
+                                ).first()
+                            else:
+                                # Try to find default destination for tenant if none was provided
+                                from sqlalchemy import and_
+                                dest_config = db.query(ExportDestinationConfig).filter(
+                                    and_(
+                                        ExportDestinationConfig.tenant_id == tenant_id,
+                                        ExportDestinationConfig.is_default == True
+                                    )
+                                ).first()
                             
                             if not dest_config:
-                                logger.error(f"Export destination {export_dest_id} not found in background task")
+                                logger.warning(f"No export destination found for tenant {tenant_id} in background task. Skipping cloud upload.")
                                 return
 
                             for file_info in file_info_list:
@@ -238,11 +248,15 @@ class BatchJobCreationMixin:
                                             BatchFileProcessing.id == file_id
                                         ).update({"cloud_file_url": cloud_url})
                                         db.commit()
-                                        logger.info(f"Uploaded {file_info['original_filename']} to cloud")
+                                        logger.info(f"✅ [Background] Uploaded {file_info['original_filename']} to cloud for job {job_id}")
+                                    else:
+                                        logger.error(f"❌ [Background] Failed to get cloud URL for {file_info['original_filename']} (job {job_id})")
                                 except Exception as e:
-                                    logger.warning(
-                                        f"Failed to upload {file_info['original_filename']} to cloud: {e}"
+                                    logger.error(
+                                        f"❌ [Background] Error uploading {file_info['original_filename']} for job {job_id}: {e}"
                                     )
+                            
+                            logger.info(f"🏁 [Background] Completed cloud upload phase for job {job_id}")
 
                 try:
                     asyncio.create_task(upload_files_to_cloud())
