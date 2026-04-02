@@ -311,27 +311,32 @@ def run_install(job_id: str) -> None:
             _ok(step, job, f"Backend installed to plugins/{folder_name}/")
 
             # ── 5. Copy frontend plugin files (if present) ───────────────────
-            ui_source = None
-            for candidate in (
-                tmp_dir / "ui" / "src" / "plugins" / folder_name,
-                tmp_dir / "plugin" / "ui",
-                tmp_dir / "ui" / "plugin-ui",
-                tmp_dir / "ui",
-            ):
-                if candidate.exists() and (candidate / "index.ts").exists():
-                    ui_source = candidate
-                    break
-
-            if ui_source and _UI_PLUGINS_DIR.exists():
+            # ── 5. Copy frontend plugin files (if present) ───────────────────
+            # Standard Mirrored Layout: if ui/ exists, copy the entire repo root
+            # so that ui/ and shared/ land side-by-side in the main app.
+            ui_marker = tmp_dir / "ui"
+            if ui_marker.exists() and _UI_PLUGINS_DIR.exists():
                 step = _step(job, "Installing frontend plugin files")
                 dest_ui = _UI_PLUGINS_DIR / folder_name
                 overwritten = dest_ui.exists()
                 if overwritten:
                     shutil.rmtree(str(dest_ui))
-                shutil.copytree(str(ui_source), str(dest_ui))
+                
+                # Copy entire repo to preserve relative paths like ui/ -> ../shared/
+                shutil.copytree(
+                    str(tmp_dir), 
+                    str(dest_ui),
+                    ignore=shutil.ignore_patterns(
+                        ".git", "__pycache__", "*.pyc", ".ruff_cache",
+                        "standalone", "docs", ".env", ".env.*",
+                        "docker-compose.yml", "tsconfig.json", "requirements.txt",
+                        "plugin.json", "__init__.py", "api", "plugin"
+                    )
+                )
+                
                 san_warnings = _validate_and_sanitize_ui_plugin(dest_ui)
                 suffix = " (overwritten)" if overwritten else ""
-                msg = f"Frontend installed to ui/src/plugins/{folder_name}/{suffix}"
+                msg = f"Frontend (mirrored) installed to ui/src/plugins/{folder_name}/{suffix}"
                 if san_warnings:
                     msg += "; auto-fixed: " + ", ".join(san_warnings)
                 _ok(step, job, msg)
