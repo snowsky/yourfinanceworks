@@ -8,7 +8,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from core.models.models_per_tenant import BatchFileProcessing, ExportDestinationConfig
 
