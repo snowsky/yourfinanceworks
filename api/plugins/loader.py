@@ -72,6 +72,7 @@ class PluginLoader:
         self._discovered: list[DiscoveredPlugin] = []
         self._discovery_done = False
         self._table_registry: dict[str, str] = {}
+        self._permissions_registry: dict[str, set[str]] = {}
         self._load_errors: dict[str, str] = {}  # plugin_id → human-readable error
         self._plugin_route_map: dict[str, str] = {}  # route_prefix → plugin_id
         self._plugin_dir_cache: dict[str, Path] = {}  # plugin_id → plugin_dir
@@ -252,6 +253,11 @@ class PluginLoader:
         self.discover()  # ensure cache is populated
         return self._plugin_dir_cache.get(plugin_id)
 
+    def get_permitted_core_tables(self, plugin_id: str) -> set[str]:
+        """Return the set of core tables a plugin is explicitly permitted to access."""
+        self.discover()  # ensure registry is populated
+        return self._permissions_registry.get(plugin_id, set())
+
     def is_dynamic_plugin(self, plugin_id: str) -> bool:
         """Return True if the plugin was loaded from the dynamic plugins directory."""
         p_dir = self.get_plugin_dir(plugin_id)
@@ -294,7 +300,7 @@ class PluginLoader:
         if self._table_registry:
             return self._table_registry
 
-    # Ensure models are imported first
+        # Ensure models are imported first
         self.import_models()
 
         # Import TenantBase to inspect registered tables
