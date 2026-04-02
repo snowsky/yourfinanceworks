@@ -17,6 +17,7 @@ from core.models.models_per_tenant import (
     ExportDestinationConfig,
 )
 from core.utils.audit import log_audit_event
+from core.utils.plugin_context import bypass_plugin_isolation
 
 logger = logging.getLogger(__name__)
 
@@ -209,38 +210,39 @@ class BatchJobCreationMixin:
                     from core.services.tenant_database_manager import tenant_db_manager
                     SessionLocal_tenant = tenant_db_manager.get_tenant_session(tenant_id)
                     
-                    with SessionLocal_tenant() as db:
-                        # Re-fetch configuration in the new session
-                        dest_config = db.query(ExportDestinationConfig).filter(
-                            ExportDestinationConfig.id == export_dest_id
-                        ).first()
-                        
-                        if not dest_config:
-                            logger.error(f"Export destination {export_dest_id} not found in background task")
-                            return
+                    with bypass_plugin_isolation():
+                        with SessionLocal_tenant() as db:
+                            # Re-fetch configuration in the new session
+                            dest_config = db.query(ExportDestinationConfig).filter(
+                                ExportDestinationConfig.id == export_dest_id
+                            ).first()
+                            
+                            if not dest_config:
+                                logger.error(f"Export destination {export_dest_id} not found in background task")
+                                return
 
-                        for file_info in file_info_list:
-                            file_id = file_info["id"]
-                            try:
-                                cloud_url = await self._upload_file_to_cloud(
-                                    file_path=file_info["file_path"],
-                                    original_filename=file_info["original_filename"],
-                                    destination_config=dest_config,
-                                    tenant_id=tenant_id,
-                                    job_id=job_id,
-                                    db=db
-                                )
-                                if cloud_url:
-                                    # Update record in the background task's session
-                                    db.query(BatchFileProcessing).filter(
-                                        BatchFileProcessing.id == file_id
-                                    ).update({"cloud_file_url": cloud_url})
-                                    db.commit()
-                                    logger.info(f"Uploaded {file_info['original_filename']} to cloud")
-                            except Exception as e:
-                                logger.warning(
-                                    f"Failed to upload {file_info['original_filename']} to cloud: {e}"
-                                )
+                            for file_info in file_info_list:
+                                file_id = file_info["id"]
+                                try:
+                                    cloud_url = await self._upload_file_to_cloud(
+                                        file_path=file_info["file_path"],
+                                        original_filename=file_info["original_filename"],
+                                        destination_config=dest_config,
+                                        tenant_id=tenant_id,
+                                        job_id=job_id,
+                                        db=db
+                                    )
+                                    if cloud_url:
+                                        # Update record in the background task's session
+                                        db.query(BatchFileProcessing).filter(
+                                            BatchFileProcessing.id == file_id
+                                        ).update({"cloud_file_url": cloud_url})
+                                        db.commit()
+                                        logger.info(f"Uploaded {file_info['original_filename']} to cloud")
+                                except Exception as e:
+                                    logger.warning(
+                                        f"Failed to upload {file_info['original_filename']} to cloud: {e}"
+                                    )
 
                 try:
                     asyncio.create_task(upload_files_to_cloud())
