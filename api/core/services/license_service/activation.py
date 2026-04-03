@@ -1,594 +1,125 @@
 """
-License Service for Customer-Side License Verification
-
-This service handles:
-- License verification with JWT signature validation
-- Trial management (30-day trial + 7-day grace period)
-- License activation and deactivation
-- Feature availability checks
-- Caching for performance optimization
+License activation, deactivation, trial management, installation ID management,
+and status reporting mixin.
 """
 
-import jwt
-import hashlib
 import uuid
-import os
 import logging
-from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
 
-from core.models.models_per_tenant import InstallationInfo, LicenseValidationLog
-from core.models.models import GlobalInstallationInfo, GlobalLicenseValidationLog, Tenant, TenantPluginSettings
+from sqlalchemy.orm import Session
+
+from core.models.models_per_tenant import InstallationInfo
+from core.models.models import GlobalInstallationInfo, Tenant
+
+from ._shared import TRIAL_DURATION_DAYS, GRACE_PERIOD_DAYS, VALIDATION_CACHE_TTL_HOURS
 
 logger = logging.getLogger(__name__)
 
 
-# Default key ID for licenses without explicit kid
-DEFAULT_KEY_ID = os.getenv("LICENSE_DEFAULT_KEY_ID", "v2")
+class LicenseActivationMixin:
+    """Mixin providing trial management, license activation/deactivation, installation ID
+    management, and comprehensive status reporting."""
 
-# Keys directory path
-KEYS_DIR = Path(__file__).parent.parent / "keys"
+    # ==================== Installation Helpers ====================
 
-
-def generate_key_pair() -> tuple[str, str]:
-    """
-    Generate a new RSA key pair for license signing.
-
-    Returns:
-        Tuple of (private_key_pem, public_key_pem) as strings
-    """
-    try:
-        from cryptography.hazmat.primitives.asymmetric import rsa
-        from cryptography.hazmat.primitives import serialization
-        from cryptography.hazmat.backends import default_backend
-
-        print("Generating new RSA key pair (2048-bit)...")
-
-        # Generate private key
-        private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=2048, backend=default_backend()
-        )
-
-        # Serialize private key
-        private_pem = private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption(),
-        ).decode("utf-8")
-
-        # Get public key
-        public_key = private_key.public_key()
-
-        # Serialize public key
-        public_pem = public_key.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        ).decode("utf-8")
-
-        return private_pem, public_pem
-
-    except ImportError:
-        raise ImportError(
-            "cryptography package is required to generate keys. "
-            "Install it with: pip install cryptography"
-        )
-
-
-def save_generated_keys(private_key: str, public_key: str, version: str = None) -> None:
-    """
-    Save generated keys to the keys directory.
-
-    Args:
-        private_key: Private key PEM string
-        public_key: Public key PEM string
-        version: Optional version identifier (e.g., "v2")
-    """
-    # Create keys directory if it doesn't exist
-    KEYS_DIR.mkdir(parents=True, exist_ok=True)
-
-    # Determine filenames
-    if version:
-        private_path = KEYS_DIR / f"private_key_{version}.pem"
-        public_path = KEYS_DIR / f"public_key_{version}.pem"
-    else:
-        private_path = KEYS_DIR / "private_key.pem"
-        public_path = KEYS_DIR / "public_key.pem"
-
-    # Save private key
-    private_path.write_text(private_key)
-    os.chmod(private_path, 0o600)  # Secure permissions
-    print(f"✓ Saved private key to: {private_path}")
-
-    # Save public key
-    public_path.write_text(public_key)
-    os.chmod(public_path, 0o644)  # Readable by all
-    print(f"✓ Saved public key to: {public_path}")
-
-    # Create README if it doesn't exist
-    readme_path = KEYS_DIR / "README.md"
-    if not readme_path.exists():
-        readme_path.write_text(
-            """# Auto-Generated License Keys
-
-These keys were automatically generated on first startup.
-
-## Security Notes
-
-⚠️ **IMPORTANT**: The private key must be kept secure!
-
-- **private_key.pem** - Used to sign licenses (KEEP SECURE!)
-  - Should only be on the license server
-  - Never commit to version control
-  - Permissions: 600 (owner read/write only)
-
-- **public_key.pem** - Used to verify licenses
-  - Embedded in the application
-  - Safe to distribute
-  - Permissions: 644 (readable by all)
-
-## Key Rotation
-
-To rotate keys, see: docs/admin-guide/LICENSE_KEY_ROTATION_GUIDE.md
-"""
-        )
-
-    print("\n" + "=" * 60)
-    print("⚠️  IMPORTANT SECURITY NOTES:")
-    print("=" * 60)
-    print(f"- Private key saved to: {private_path}")
-    print(f"- Keep the private key SECURE and NEVER commit to version control")
-    print(f"- Add '{private_path.name}' to .gitignore")
-    print(f"- Public key saved to: {public_path}")
-    print(f"- The public key is safe to distribute with the application")
-    print("=" * 60 + "\n")
-
-
-def create_symlinks_to_latest_version() -> None:
-    """
-    Create symlinks from non-versioned names to the latest versioned files.
-
-    This allows using 'private_key.pem' which points to 'private_key_v2.pem'
-    making it easier to use without specifying versions.
-    """
-    if not KEYS_DIR.exists():
-        return
-
-    # Find the latest version by looking at versioned files
-    versioned_private_keys = list(KEYS_DIR.glob("private_key_v*.pem"))
-    versioned_public_keys = list(KEYS_DIR.glob("public_key_v*.pem"))
-
-    if not versioned_private_keys and not versioned_public_keys:
-        return  # No versioned keys to link to
-
-    # Extract versions and find the latest (e.g., v2, v3, v10)
-    versions = set()
-    for key_file in versioned_private_keys + versioned_public_keys:
-        # Extract version from filename (e.g., private_key_v2.pem -> v2)
-        version = key_file.stem.split("_")[-1]  # Get last part after underscore
-        if version.startswith("v"):
-            versions.add(version)
-
-    if not versions:
-        return
-
-    # Sort versions (v2, v3, v10, etc.) - handle numeric sorting
-    def version_key(v):
-        try:
-            return int(v[1:])  # Remove 'v' and convert to int
-        except:
-            return 0
-
-    latest_version = sorted(versions, key=version_key)[-1]
-
-    # Create symlinks if they don't exist or point to wrong version
-    private_link = KEYS_DIR / "private_key.pem"
-    public_link = KEYS_DIR / "public_key.pem"
-
-    private_target = f"private_key_{latest_version}.pem"
-    public_target = f"public_key_{latest_version}.pem"
-
-    # Check if target files exist
-    if (
-        not (KEYS_DIR / private_target).exists()
-        or not (KEYS_DIR / public_target).exists()
-    ):
-        return
-
-    # Create/update private key symlink
-    if private_link.is_symlink():
-        current_target = os.readlink(private_link)
-        if current_target != private_target:
-            private_link.unlink()
-            private_link.symlink_to(private_target)
-            print(f"Updated symlink: private_key.pem -> {private_target}")
-    elif not private_link.exists():
-        private_link.symlink_to(private_target)
-        print(f"Created symlink: private_key.pem -> {private_target}")
-
-    # Create/update public key symlink
-    if public_link.is_symlink():
-        current_target = os.readlink(public_link)
-        if current_target != public_target:
-            public_link.unlink()
-            public_link.symlink_to(public_target)
-            print(f"Updated symlink: public_key.pem -> {public_target}")
-    elif not public_link.exists():
-        public_link.symlink_to(public_target)
-        print(f"Created symlink: public_key.pem -> {public_target}")
-
-
-def load_public_keys() -> Dict[str, str]:
-    """
-    Load public keys from files in the keys directory.
-
-    If no keys are found, automatically generates a new key pair.
-    Automatically creates symlinks from non-versioned names to latest version.
-
-    Looks for files matching pattern: public_key_*.pem or public_key.pem
-    The key version is extracted from the filename.
-
-    Also supports loading from environment variables:
-    - LICENSE_PUBLIC_KEY_V2, LICENSE_PUBLIC_KEY_V3, etc.
-
-    Returns:
-        Dict mapping key version to public key content
-    """
-    public_keys = {}
-
-    # Create symlinks to latest version if versioned keys exist
-    try:
-        create_symlinks_to_latest_version()
-    except Exception as e:
-        print(f"Warning: Failed to create symlinks: {e}")
-
-    # Load from environment variables first (highest priority)
-    for env_var, value in os.environ.items():
-        if env_var.startswith("LICENSE_PUBLIC_KEY_"):
-            # Extract version from env var name (e.g., LICENSE_PUBLIC_KEY_V2 -> v2)
-            version = env_var.replace("LICENSE_PUBLIC_KEY_", "").lower()
-            public_keys[version] = value
-            print(f"Loaded public key {version} from environment variable")
-
-    # Load master public key from environment variable (highest priority for server_v1)
-    master_key_env = os.getenv("LICENSE_MASTER_PUBLIC_KEY")
-    if master_key_env:
-        public_keys["server_v1"] = master_key_env
-        print("Loaded master public key from LICENSE_MASTER_PUBLIC_KEY environment variable")
-
-    # Load from files in keys directory
-    if KEYS_DIR.exists():
-        # Look for versioned keys: public_key_v2.pem, public_key_v3.pem, etc.
-        for key_file in KEYS_DIR.glob("public_key_v*.pem"):
-            # Extract version from filename (e.g., public_key_v2.pem -> v2)
-            version = key_file.stem.replace("public_key_", "")
-            if version not in public_keys:  # Don't override env vars
-                try:
-                    # Resolve symlinks to get actual file
-                    actual_file = key_file.resolve()
-                    with open(actual_file, "r") as f:
-                        public_keys[version] = f.read()
-                    print(f"Loaded public key {version} from {key_file}")
-                except Exception as e:
-                    print(f"Warning: Failed to load {key_file}: {e}")
-
-        # Also check for default public_key.pem (maps to DEFAULT_KEY_ID)
-        default_key_file = KEYS_DIR / "public_key.pem"
-        if default_key_file.exists() and DEFAULT_KEY_ID not in public_keys:
-            try:
-                # Resolve symlinks to get actual file
-                actual_file = default_key_file.resolve()
-                with open(actual_file, "r") as f:
-                    public_keys[DEFAULT_KEY_ID] = f.read()
-                print(
-                    f"Loaded default public key as {DEFAULT_KEY_ID} from {default_key_file}"
-                )
-            except Exception as e:
-                print(f"Warning: Failed to load {default_key_file}: {e}")
-
-        # Explicitly check for master_public_key.pem (central server key)
-        # This allows verifying licenses signed by the server's master key
-        master_key_file = KEYS_DIR / "master_public_key.pem"
-        if master_key_file.exists():
-            try:
-                with open(master_key_file, "r") as f:
-                    master_key_content = f.read()
-                    # 'server_v1' is the dedicated ID for the master key
-                    public_keys["server_v1"] = master_key_content
-                print(f"Loaded master public key as 'server_v1' from {master_key_file}")
-            except Exception as e:
-                print(f"Warning: Failed to load {master_key_file}: {e}")
-
-    # Warn if private key files are on the filesystem — recommend using env vars instead
-    if KEYS_DIR.exists():
-        fs_private_keys = list(KEYS_DIR.glob("private_key*.pem"))
-        if fs_private_keys:
-            env_key_provided = bool(
-                os.getenv("DEPLOYMENT_PRIVATE_KEY") or os.getenv("PRIVATE_KEY")
-            )
-            if not env_key_provided:
-                print(
-                    "\nWARNING: License private key(s) found on filesystem: "
-                    + ", ".join(str(p) for p in fs_private_keys)
-                    + "\n  Consider moving private keys to a secret manager and injecting via "
-                    "DEPLOYMENT_PRIVATE_KEY env var to avoid storing credentials on disk.\n"
-                )
-
-    # Check if we have LOCAL signing keys (not just the master server key)
-    # The master_public_key.pem (server_v1) is for verifying server-issued licenses,
-    # but we also need local keys for signing our own licenses
-    local_keys = {k: v for k, v in public_keys.items() if k not in ["server_v1"]}
-
-    # Check environment variable to control RSA key pair auto-generation
-    auto_generate_keys = os.getenv("LICENSE_KEY_AUTO_GENERATE", "true").lower() == "true"
-
-    # Auto-generate RSA key pair if no local signing keys found and auto-generation is enabled
-    if not local_keys and auto_generate_keys:
-        print("\n" + "=" * 60)
-        print("No local license keys found - generating new key pair...")
-        print("(master_public_key.pem exists for server license verification)")
-        print("=" * 60 + "\n")
-
-        try:
-            private_key, public_key = generate_key_pair()
-            save_generated_keys(private_key, public_key, version=DEFAULT_KEY_ID)
-
-            # Use the generated public key
-            public_keys[DEFAULT_KEY_ID] = public_key
-            print(f"✓ Generated and loaded new key pair as version {DEFAULT_KEY_ID}")
-
-        except Exception as e:
-            print(f"✗ Failed to generate keys: {e}")
-            print(
-                "Please generate keys manually using: python api/scripts/generate_license_keys.py"
-            )
-            raise RuntimeError(
-                f"No local license keys found and auto-generation failed: {e}\n"
-                "Please generate keys manually or provide them via environment variables."
-            )
-    elif not local_keys and not auto_generate_keys:
-        print("\n" + "=" * 60)
-        print("WARNING: No local RSA key pairs found and auto-generation is disabled")
-        print("Set LICENSE_KEY_AUTO_GENERATE=true to enable auto-generation")
-        print("Or generate keys manually: python api/scripts/generate_license_keys.py")
-        print("=" * 60 + "\n")
-
-    return public_keys
-
-
-# Load public keys on module import
-PUBLIC_KEYS = load_public_keys()
-
-# Trial configuration
-TRIAL_DURATION_DAYS = 30
-GRACE_PERIOD_DAYS = 7
-VALIDATION_CACHE_TTL_HOURS = 1
-
-
-class LicenseService:
-    """Service for managing license verification and trial functionality"""
-
-    def __init__(self, db: Session, master_db: Optional[Session] = None):
-        self.db = db
-        self.master_db = master_db
-
-    # ==================== License Verification ====================
-
-    def verify_license(self, license_key: str) -> Dict[str, Any]:
-        """
-        Verify a license key using JWT signature verification.
-        Supports multiple public keys for key rotation.
-
-        Args:
-            license_key: JWT license key to verify
-
-        Returns:
-            Dict with verification result:
-            {
-                "valid": bool,
-                "payload": dict or None,
-                "error": str or None,
-                "error_code": str or None
-            }
-        """
-        # First, decode without verification to get the key ID
-        try:
-            unverified_payload = jwt.decode(
-                license_key, options={"verify_signature": False}
-            )
-            key_id = unverified_payload.get("kid", DEFAULT_KEY_ID)
-        except Exception:
-            # If we can't decode at all, try with default key
-            key_id = DEFAULT_KEY_ID
-
-        # Get the appropriate public key
-        public_key = PUBLIC_KEYS.get(key_id)
-        if not public_key:
-            return {
-                "valid": False,
-                "payload": None,
-                "error": f"Unknown key ID: {key_id}. This license may be from an unsupported version.",
-                "error_code": "UNKNOWN_KEY_ID",
-            }
-
-        try:
-            # Check if we should allow expired licenses for testing
-            allow_expired = (
-                os.getenv("ALLOW_EXPIRED_LICENSES", "false").lower() == "true"
-            )
-
-            # Decode and verify JWT signature with the correct key
-            if allow_expired:
-                # For testing: decode without expiration verification, then check manually
-                payload = jwt.decode(
-                    license_key,
-                    public_key,
-                    algorithms=["RS256"],
-                    options={
-                        "verify_exp": False
-                    },  # Don't verify expiration automatically
-                )
-
-                # Manual expiration check with warning
-                exp_timestamp = payload.get("exp")
-                if exp_timestamp:
-                    exp_date = datetime.fromtimestamp(exp_timestamp, tz=timezone.utc)
-                    if datetime.now(timezone.utc) > exp_date:
-                        import warnings
-
-                        warnings.warn(
-                            "Expired license being activated (ALLOW_EXPIRED_LICENSES=true)",
-                            UserWarning,
-                        )
-            else:
-                # Normal verification with automatic expiration checking
-                payload = jwt.decode(license_key, public_key, algorithms=["RS256"])
-
-            return {
-                "valid": True,
-                "payload": payload,
-                "error": None,
-                "error_code": None,
-            }
-
-        except jwt.ExpiredSignatureError:
-            # Check if we should allow expired licenses for testing
-            allow_expired = (
-                os.getenv("ALLOW_EXPIRED_LICENSES", "false").lower() == "true"
-            )
-
-            if allow_expired:
-                # For testing: decode without verification to get the payload
-                try:
-                    payload = jwt.decode(
-                        license_key,
-                        options={"verify_signature": False, "verify_exp": False},
-                    )
-                    import warnings
-
-                    warnings.warn(
-                        "Expired license being activated (ALLOW_EXPIRED_LICENSES=true)",
-                        UserWarning,
-                    )
-                    return {
-                        "valid": True,
-                        "payload": payload,
-                        "error": None,
-                        "error_code": None,
-                    }
-                except Exception:
-                    pass
-
-            return {
-                "valid": False,
-                "payload": None,
-                "error": "License signature has expired",
-                "error_code": "EXPIRED",
-            }
-        except jwt.InvalidSignatureError:
-            return {
-                "valid": False,
-                "payload": None,
-                "error": "Invalid license signature",
-                "error_code": "INVALID_SIGNATURE",
-            }
-        except jwt.DecodeError:
-            return {
-                "valid": False,
-                "payload": None,
-                "error": "Malformed license key",
-                "error_code": "MALFORMED",
-            }
-        except Exception as e:
-            return {
-                "valid": False,
-                "payload": None,
-                "error": f"License verification failed: {str(e)}",
-                "error_code": "VERIFICATION_ERROR",
-            }
-
-    def _get_license_key_hash(self, license_key: str) -> str:
-        """Generate SHA-256 hash of license key for logging"""
-        return hashlib.sha256(license_key.encode()).hexdigest()
-
-    def _log_validation(
-        self,
-        installation: InstallationInfo,
-        validation_type: str,
-        validation_result: str,
-        license_key: Optional[str] = None,
-        features: Optional[List[str]] = None,
-        expiration_date: Optional[datetime] = None,
-        error_code: Optional[str] = None,
-        error_message: Optional[str] = None,
-        max_tenants: Optional[int] = None,
-        user_id: Optional[int] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        **kwargs # Accept extra arguments like 'details' without crashing
-    ):
-        """Log license validation attempt"""
-        try:
-            log_entry = LicenseValidationLog(
-                installation_id=installation.id,
-                validation_type=validation_type,
-                validation_result=validation_result,
-                license_key_hash=(
-                    self._get_license_key_hash(license_key) if license_key else None
-                ),
-                features_validated=features,
-                expiration_date=expiration_date,
-                max_tenants_validated=max_tenants,
-                error_code=error_code,
-                error_message=error_message,
-                user_id=user_id,
-                ip_address=ip_address,
-                user_agent=user_agent,
-            )
-            self.db.add(log_entry)
-            self.db.commit()
-        except Exception as e:
-            # Log the error but don't fail the operation
-            logger.error(f"Failed to log promotion to tenant audit log: {e}")
-            self.db.rollback()
-
-    def _log_global_validation(
-        self,
-        action: str,
-        status: str,
-        installation_id: str,
-        tenant_id: Optional[int] = None,
-        user_id: Optional[int] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
-        error_message: Optional[str] = None,
-    ):
-        """Log system-wide license validation attempt"""
+    def _get_or_create_global_installation(self) -> GlobalInstallationInfo:
+        """Get or create the global installation info in the master database"""
         if not self.master_db:
-            return
+            # Fallback for when master_db is not provided (should be rare)
+            from core.models.database import get_master_db
+            try:
+                self.master_db = next(get_master_db())
+            except Exception as e:
+                logger.error(f"Failed to get master_db for global installation: {e}")
+                raise RuntimeError("Master database session is required for global licensing operations")
 
-        try:
-            log_entry = GlobalLicenseValidationLog(
-                action=action,
-                status=status,
-                installation_id=installation_id,
-                tenant_id=tenant_id,
-                user_id=user_id,
-                ip_address=ip_address,
-                user_agent=user_agent,
-                details=details,
-                error_message=error_message,
+        global_info = self.master_db.query(GlobalInstallationInfo).first()
+
+        if not global_info:
+            # Auto-create global installation record
+            global_info = GlobalInstallationInfo(
+                installation_id=str(uuid.uuid4()),
+                license_status="invalid",
             )
-            self.master_db.add(log_entry)
+            self.master_db.add(global_info)
             self.master_db.commit()
-        except Exception as e:
-            logger.error(f"Failed to log global license action: {e}")
-            self.master_db.rollback()
+            self.master_db.refresh(global_info)
 
-    # ==================== Usage Type Selection ====================
+            # Log system-wide installation creation
+            self._log_global_validation(
+                action="installation_created",
+                status="success",
+                installation_id=global_info.installation_id
+            )
+
+        return global_info
+
+    def _get_or_create_installation(self) -> InstallationInfo:
+        """Get existing installation or create new one synced with global ID"""
+        from sqlalchemy.exc import ProgrammingError
+        from sqlalchemy import inspect
+        inspector = inspect(self.db.get_bind())
+
+        # Get the global installation ID to ensure consistency across all tenants
+        global_info = self._get_or_create_global_installation()
+        global_id = global_info.installation_id
+
+        # Handle case where table doesn't exist (e.g. Master DB check or uninitialized tenant)
+        try:
+            if not inspector.has_table(InstallationInfo.__tablename__):
+                logger.debug("Using master/missing context for license check (installation_info table missing)")
+                # Return a virtual installation object for master-only context
+                return InstallationInfo(
+                    installation_id=global_id,
+                    license_status="invalid",
+                    usage_type=None,
+                    trial_start_date=None,
+                    trial_end_date=None,
+                )
+        except Exception as e:
+            logger.warning(f"Error checking for installation_info table: {e}")
+            return InstallationInfo(
+                installation_id=global_id,
+                license_status="invalid",
+            )
+
+        installation = self.db.query(InstallationInfo).first()
+
+        if not installation:
+            # Auto-create local installation record synced with global ID
+            # NO LONGER AUTO-CREATE TRIAL - only create basic installation record
+            installation = InstallationInfo(
+                installation_id=global_id,
+                original_installation_id=global_id,  # Store original global ID
+                license_status="invalid",  # Changed from "trial" to "invalid"
+                usage_type=None,
+                trial_start_date=None,  # Removed automatic trial creation
+                trial_end_date=None,  # Removed automatic trial creation
+            )
+            self.db.add(installation)
+            self.db.commit()
+            self.db.refresh(installation)
+
+            # Log local installation creation (no trial)
+            self._log_validation(
+                installation=installation,
+                validation_type="installation_created",
+                validation_result="success",
+            )
+        elif installation.installation_id != global_id and not installation.custom_installation_id:
+            # Auto-sync with global ID if no custom ID is set
+            # This is critical for cloud deployments where ID is injected via env var
+            logger.info(f"Syncing local installation ID from {installation.installation_id} to global ID {global_id}")
+            installation.installation_id = global_id
+            installation.original_installation_id = global_id
+            self.db.commit()
+            self.db.refresh(installation)
+
+        return installation
+
+    # ==================== Trial Management ====================
 
     def select_usage_type(
         self,
@@ -698,104 +229,6 @@ class LicenseService:
             ),
             "license_status": installation.license_status,
         }
-
-    # ==================== Trial Management ====================
-
-    def _get_or_create_global_installation(self) -> GlobalInstallationInfo:
-        """Get or create the global installation info in the master database"""
-        if not self.master_db:
-            # Fallback for when master_db is not provided (should be rare)
-            from core.models.database import get_master_db
-            try:
-                self.master_db = next(get_master_db())
-            except Exception as e:
-                logger.error(f"Failed to get master_db for global installation: {e}")
-                raise RuntimeError("Master database session is required for global licensing operations")
-
-        global_info = self.master_db.query(GlobalInstallationInfo).first()
-
-        if not global_info:
-            # Auto-create global installation record
-            global_info = GlobalInstallationInfo(
-                installation_id=str(uuid.uuid4()),
-                license_status="invalid",
-            )
-            self.master_db.add(global_info)
-            self.master_db.commit()
-            self.master_db.refresh(global_info)
-
-            # Log system-wide installation creation
-            self._log_global_validation(
-                action="installation_created",
-                status="success",
-                installation_id=global_info.installation_id
-            )
-
-        return global_info
-
-    def _get_or_create_installation(self) -> InstallationInfo:
-        """Get existing installation or create new one synced with global ID"""
-        from sqlalchemy.exc import ProgrammingError
-
-        from sqlalchemy import inspect
-        inspector = inspect(self.db.get_bind())
-
-        # Get the global installation ID to ensure consistency across all tenants
-        global_info = self._get_or_create_global_installation()
-        global_id = global_info.installation_id
-
-        # Handle case where table doesn't exist (e.g. Master DB check or uninitialized tenant)
-        try:
-            if not inspector.has_table(InstallationInfo.__tablename__):
-                logger.debug("Using master/missing context for license check (installation_info table missing)")
-                # Return a virtual installation object for master-only context
-                return InstallationInfo(
-                    installation_id=global_id,
-                    license_status="invalid",
-                    usage_type=None,
-                    trial_start_date=None,
-                    trial_end_date=None,
-                )
-        except Exception as e:
-            logger.warning(f"Error checking for installation_info table: {e}")
-            return InstallationInfo(
-                installation_id=global_id,
-                license_status="invalid",
-            )
-
-        installation = self.db.query(InstallationInfo).first()
-
-        if not installation:
-            # Auto-create local installation record synced with global ID
-            # NO LONGER AUTO-CREATE TRIAL - only create basic installation record
-            installation = InstallationInfo(
-                installation_id=global_id,
-                original_installation_id=global_id, # Store original global ID
-                license_status="invalid",  # Changed from "trial" to "invalid"
-                usage_type=None,
-                trial_start_date=None,  # Removed automatic trial creation
-                trial_end_date=None,  # Removed automatic trial creation
-            )
-            self.db.add(installation)
-            self.db.commit()
-            self.db.refresh(installation)
-
-            # Log local installation creation (no trial)
-            self._log_validation(
-                installation=installation,
-                validation_type="installation_created",
-                validation_result="success",
-            )
-        elif installation.installation_id != global_id and not installation.custom_installation_id:
-            # Auto-sync with global ID if no custom ID is set
-            # This is critical for cloud deployments where ID is injected via env var
-            logger.info(f"Syncing local installation ID from {installation.installation_id} to global ID {global_id}")
-            installation.installation_id = global_id
-            installation.original_installation_id = global_id
-            self.db.commit()
-            self.db.refresh(installation)
-
-        return installation
 
     def is_trial_active(self) -> bool:
         """
@@ -1293,7 +726,7 @@ class LicenseService:
             }
 
         if not license_installation_id:
-             return {"success": False, "message": "License missing installation ID", "error": "MISSING_ID"}
+            return {"success": False, "message": "License missing installation ID", "error": "MISSING_ID"}
 
         if license_installation_id != global_info.installation_id:
             return {
@@ -1321,14 +754,14 @@ class LicenseService:
         if max_tenants:
             try:
                 global_info.max_tenants = int(max_tenants)
-            except:
+            except Exception:
                 pass
 
         max_users = payload.get("max_users") or payload.get("metadata", {}).get("max_users")
         if max_users:
             try:
                 global_info.max_users = int(max_users)
-            except:
+            except Exception:
                 pass
 
         self.master_db.commit()
@@ -1349,7 +782,12 @@ class LicenseService:
             "expires_at": global_info.license_expires_at
         }
 
-    def deactivate_global_license(self, user_id=None, ip_address=None, user_agent=None) -> Dict[str, Any]:
+    def deactivate_global_license(
+        self,
+        user_id: Optional[int] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """Remove the global license from the master database."""
         global_info = self._get_or_create_global_installation()
         old_key = global_info.license_key
@@ -1375,189 +813,28 @@ class LicenseService:
 
         return {"success": True, "message": "Global license deactivated"}
 
-    # ==================== Feature Checks ====================
-
-    def get_enabled_features(self) -> List[str]:
-        """
-        Get list of licensed features.
-
-        Returns:
-            List of feature IDs that are enabled
-        """
-        installation = self._get_or_create_installation()
-        enabled_features = ["core"]
-
-        # 1. Check local license status first
-        if installation.license_status == "personal":
-            # Personal use: only core features
-            pass
-        elif self.is_trial_active() or self.is_in_grace_period():
-            return ["all"]
-        elif installation.license_status in ["active", "commercial", "trial"] and (installation.license_key if installation.license_status == "trial" else True):
-            # Verify local license isn't expired
-            exp_date = installation.license_expires_at
-            if exp_date and exp_date.tzinfo is None:
-                exp_date = exp_date.replace(tzinfo=timezone.utc)
-            if not exp_date or datetime.now(timezone.utc) <= exp_date:
-                enabled_features.extend(installation.licensed_features or [])
-
-        # 2. Local license missing or expired - Fallback to Global license
-        if len(enabled_features) <= 1:
-            global_info = self._get_or_create_global_installation()
-            ids_match = installation.installation_id == global_info.installation_id
-
-            if ids_match and global_info.license_status in ["active", "commercial", "trial"] and (global_info.license_key if global_info.license_status == "trial" else True):
-                # Verify global license isn't expired
-                global_exp = global_info.license_expires_at
-                if global_exp and global_exp.tzinfo is None:
-                    global_exp = global_exp.replace(tzinfo=timezone.utc)
-                if not global_exp or datetime.now(timezone.utc) <= global_exp:
-                    enabled_features.extend(global_info.licensed_features or [])
-
-        # 3. Add enabled plugins from TenantPluginSettings (Master DB)
-        try:
-            from core.models.database import get_tenant_context
-            tenant_id = get_tenant_context()
-
-            # Use master_db if available
-            if tenant_id and self.master_db:
-                settings = self.master_db.query(TenantPluginSettings).filter(
-                    TenantPluginSettings.tenant_id == tenant_id
-                ).first()
-                if settings and settings.enabled_plugins:
-                    for plugin_id in settings.enabled_plugins:
-                        if plugin_id not in enabled_features:
-                            enabled_features.append(plugin_id)
-        except Exception as e:
-            logger.warning(f"Failed to fetch enabled plugins for feature check: {e}")
-
-        return list(set(enabled_features))
-
-    def has_feature(self, feature_id: str, tier: str = "commercial") -> bool:
-        """
-        Check if a specific feature is enabled.
-
-        Args:
-            feature_id: Feature ID to check (e.g., "ai_invoice", "tax_integration")
-            tier: License tier of the feature ("core" or "commercial")
-
-        Returns:
-            True if feature is enabled, False otherwise
-        """
-        enabled_features = self.get_enabled_features()
-
-        # "all" means all features are enabled (trial/grace period)
-        if "all" in enabled_features:
-            return True
-
-        # If checking for a core feature, it's enabled if "core" is in the list
-        if tier == "core":
-            return "core" in enabled_features or "all" in enabled_features
-
-        # For commercial features, check specific ID
-        return feature_id in enabled_features
-
-    def has_feature_for_gating(self, feature_id: str, tier: str = "commercial") -> bool:
-        """
-        Check if a specific feature is enabled for API gating purposes.
-        This method ignores ALLOW_EXPIRED_LICENSES and checks actual expiration status.
-        """
-        enabled_features = self.get_enabled_features()
-
-        # If no features enabled, definitely False
-        if not enabled_features:
-            return False
-
-        # "all" means all features are enabled (trial/grace period)
-        if "all" in enabled_features:
-            return True
-
-        if tier == "core":
-            return "core" in enabled_features
-
-        return feature_id in enabled_features
-
-    def has_feature_read_only(self, feature_id: str, tier: str = "commercial") -> bool:
-        """
-        Check if a specific feature is enabled for read-only access.
-        """
-        # Read-only allows access to features that were previously licensed
-        # even if they are now expired.
-        enabled_features = self.get_enabled_features()
-        if feature_id in enabled_features or "all" in enabled_features:
-            return True
-
-        expired_features = self.get_expired_features()
-        if feature_id in expired_features:
-            return True
-
-        if tier == "core":
-            return "core" in enabled_features or "core" in expired_features
-
-        return False
-
-    def get_max_tenants(self) -> int:
-        """
-        Get maximum number of tenants allowed by current license.
-        Uses the highest limit between global and local licenses.
-        """
-        installation = self._get_or_create_installation()
-        global_info = self._get_or_create_global_installation()
-
-        # personal or trial: no limit
-        if (
-            installation.license_status == "personal"
-            or self.is_trial_active()
-            or self.is_in_grace_period()
-        ):
-            return 999999
-
-        # commercial: check local first, then global
-        local_limit = installation.max_tenants if installation.license_status in ["active", "commercial"] else 0
-        global_limit = global_info.max_tenants if global_info.license_status in ["active", "commercial"] else 0
-
-        # Take the maximum allowed across all active licenses
-        limit = max(local_limit or 1, global_limit or 1)
-
-        # If no active license, return 1 as base limit
-        if installation.license_status not in ["active", "commercial"] and global_info.license_status not in ["active", "commercial"]:
-             return 1
-
-        return limit
-
-    def _is_tenant_exempted(self) -> bool:
-        """Check if current tenant is exempted from global license counting"""
-        from core.models.database import get_tenant_context
-        curr_tenant_id = get_tenant_context()
-        if curr_tenant_id and self.master_db:
-            from core.models.models import Tenant
-            tenant = self.master_db.query(Tenant).filter(Tenant.id == curr_tenant_id).first()
-            if tenant and not tenant.count_against_license:
-                return True
-        return False
-
-
     # ==================== Installation ID Management ====================
 
-    def regenerate_installation_id(self, user_id=None, ip_address=None, user_agent=None) -> Dict[str, Any]:
+    def regenerate_installation_id(
+        self,
+        user_id: Optional[int] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Regenerate the installation ID for a tenant.
         This enables extracting a tenant from the global license system.
-        allowed only ONCE per tenant.
+        Allowed only ONCE per tenant.
         """
         installation = self._get_or_create_installation()
 
         # Check if already regenerated
         if installation.custom_installation_id:
-             return {
+            return {
                 "success": False,
                 "message": "Installation ID has already been regenerated. This action can only be performed once.",
                 "error": "ALREADY_REGENERATED"
             }
-
-        # Check if tenant is exempted (technically enforced by checking if global applies, but explicit check here)
-        # We allow regeneration even if not strictly exempted in DB settings, as this action essentially exempts them
-        # However, to be safe, we should ensure they know what they are doing.
 
         new_id = str(uuid.uuid4())
 
@@ -1573,7 +850,7 @@ class LicenseService:
         installation.installation_id = new_id
 
         # Reset license status as the old license is no longer valid for this new ID
-        installation.license_status = "invalid" # Changed from "trial" to "invalid"
+        installation.license_status = "invalid"  # Changed from "trial" to "invalid"
         installation.is_licensed = False
         installation.license_key = None
         installation.license_activated_at = None
@@ -1600,16 +877,22 @@ class LicenseService:
             "installation_id": new_id
         }
 
-    def update_installation_id(self, new_installation_id: str, user_id=None, ip_address=None, user_agent=None) -> Dict[str, Any]:
+    def update_installation_id(
+        self,
+        new_installation_id: str,
+        user_id: Optional[int] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Update the installation ID for a tenant to a specific value.
-        
+
         This allows setting a custom installation ID for license management.
         Unlike regenerate_installation_id, this can be done multiple times
         but requires admin privileges.
         """
         installation = self._get_or_create_installation()
-        
+
         # Validate UUID format (already validated in router, but double-check)
         import re
         uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$', re.IGNORECASE)
@@ -1618,26 +901,26 @@ class LicenseService:
                 "success": False,
                 "message": "Invalid UUID format. Expected format: 123e4567-e89b-12d3-a456-426614174000"
             }
-        
+
         # Check if the new ID is the same as current
         if installation.installation_id == new_installation_id:
             return {
                 "success": False,
                 "message": "New installation ID is the same as the current one."
             }
-        
+
         old_id = installation.installation_id
-        
+
         # Save current ID as original if not already saved and this is the first custom ID
         if not installation.original_installation_id and not installation.custom_installation_id:
             from core.models.models import GlobalInstallationInfo
             global_info = self.master_db.query(GlobalInstallationInfo).first()
             installation.original_installation_id = global_info.installation_id if global_info else installation.installation_id
-        
+
         # Update installation ID
         installation.custom_installation_id = new_installation_id
         installation.installation_id = new_installation_id
-        
+
         # Reset license status as the old license is no longer valid for this new ID
         installation.license_status = "invalid"  # Changed from "trial" to "invalid"
         installation.is_licensed = False
@@ -1645,10 +928,10 @@ class LicenseService:
         installation.license_activated_at = None
         installation.license_expires_at = None
         installation.licensed_features = None
-        
+
         self.db.commit()
         self.db.refresh(installation)
-        
+
         # Log change
         self._log_validation(
             installation=installation,
@@ -1659,7 +942,7 @@ class LicenseService:
             ip_address=ip_address,
             user_agent=user_agent
         )
-        
+
         return {
             "success": True,
             "message": "Installation ID updated successfully. Please activate a new license.",
@@ -1667,14 +950,20 @@ class LicenseService:
             "installation_id": new_installation_id
         }
 
-    def switch_license_mode(self, mode: str, user_id=None, ip_address=None, user_agent=None) -> Dict[str, Any]:
+    def switch_license_mode(
+        self,
+        mode: str,
+        user_id: Optional[int] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Switch between 'global' and 'local' license modes.
         global: uses the system-wide installation ID
         local: uses the custom designated installation ID (if exists)
         """
         if mode not in ["global", "local"]:
-             return {"success": False, "message": "Invalid mode. Must be 'global' or 'local'."}
+            return {"success": False, "message": "Invalid mode. Must be 'global' or 'local'."}
 
         installation = self._get_or_create_installation()
         global_info = self._get_or_create_global_installation()
@@ -1682,7 +971,7 @@ class LicenseService:
         target_id = None
         if mode == "global":
             target_id = global_info.installation_id
-        else: # local
+        else:  # local
             if not installation.custom_installation_id:
                 return {
                     "success": False,
@@ -1692,7 +981,7 @@ class LicenseService:
             target_id = installation.custom_installation_id
 
         if installation.installation_id == target_id:
-             return {"success": True, "message": f"Already in {mode} mode"}
+            return {"success": True, "message": f"Already in {mode} mode"}
 
         # Perform switch
         old_id = installation.installation_id
@@ -1719,44 +1008,6 @@ class LicenseService:
         return {"success": True, "message": f"Switched to {mode} license mode"}
 
     # ==================== Status Information ====================
-
-    def get_expired_features(self) -> List[str]:
-        """
-        Get list of features that were previously licensed but now expired, 
-        UNLESS they are currently covered by another active license (e.g., Global).
-        """
-        installation = self._get_or_create_installation()
-        global_info = self._get_or_create_global_installation()
-
-        now = datetime.now(timezone.utc)
-        enabled = set(self.get_enabled_features())
-        expired = set()
-
-        # Check local
-        if installation.license_expires_at:
-            local_exp = installation.license_expires_at.replace(tzinfo=timezone.utc)
-            if now > local_exp:
-                for f in (installation.licensed_features or []):
-                    if f not in enabled:
-                        expired.add(f)
-
-        # Check global
-        if global_info.license_expires_at:
-            global_exp = global_info.license_expires_at.replace(tzinfo=timezone.utc)
-            if now > global_exp:
-                for f in (global_info.licensed_features or []):
-                    if f not in enabled:
-                        expired.add(f)
-
-        return list(expired)
-
-    def _ensure_utc(self, dt: datetime) -> datetime:
-        """Helper to ensure a datetime is timezone-aware and in UTC"""
-        if dt is None:
-            return None
-        if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
 
     def is_license_expired(self) -> bool:
         """
@@ -1904,7 +1155,7 @@ class LicenseService:
             return []
 
         tenants = self.master_db.query(Tenant).all()
-        global_info = self._get_or_create_global_installation()
+        self._get_or_create_global_installation()
 
         results = []
         for tenant in tenants:
@@ -1978,7 +1229,13 @@ class LicenseService:
         self.master_db.commit()
         return True
 
-    def update_global_signup_settings(self, allow_password: Optional[bool] = None, allow_sso: Optional[bool] = None, max_tenants: Optional[int] = None, max_users: Optional[int] = None) -> bool:
+    def update_global_signup_settings(
+        self,
+        allow_password: Optional[bool] = None,
+        allow_sso: Optional[bool] = None,
+        max_tenants: Optional[int] = None,
+        max_users: Optional[int] = None,
+    ) -> bool:
         """
         Update global signup controls and capacity limits.
         """
