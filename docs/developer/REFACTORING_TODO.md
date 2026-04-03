@@ -17,6 +17,7 @@ Large files to split into focused modules, ranked by size and impact.
 | `api/workers/ocr_consumer.py` | 1,940 | → 5 modules in `api/workers/ocr/`: `expense_handler`, `bank_statement_handler`, `invoice_handler`, `base_handler`, `consumer` + `_shared` |
 | `api/core/routers/auth.py` | 1,996 | → 5 modules in `api/core/routers/auth/`: `login_register`, `password`, `invites`, `sso` + `_shared` |
 | `api/core/services/license_service.py` | 2,004 | → 3 mixin modules in `api/core/services/license_service/`: `validation`, `features`, `activation` + `_shared` |
+| `api/core/routers/super_admin.py` | 2,072 | → 3 modules in `api/core/routers/super_admin/`: `tenants`, `users`, `system` + `_shared` |
 
 ## Remaining
 
@@ -30,5 +31,4 @@ Large files to split into focused modules, ranked by size and impact.
 | 7 | 2,299 | `api/commercial/ai/router.py` | Split by feature: OCR, chat, embeddings, config |
 | 8 | 2,262 | `api/commercial/workflows/approvals/router.py` | Split by entity: expense approvals, invoice approvals, delegations |
 | 9 | 2,176 | `api/core/services/storage_monitoring_service.py` | Split by storage provider |
-| 10 | 2,072 | `api/core/routers/super_admin.py` | Split by domain: tenants, users, system |
 
