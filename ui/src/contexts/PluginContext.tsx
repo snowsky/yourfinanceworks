@@ -122,7 +122,7 @@ class PluginValidator {
     }
 
     if (metadata.dependencies && (!Array.isArray(metadata.dependencies) ||
-        !metadata.dependencies.every(dep => typeof dep === 'string'))) {
+        !metadata.dependencies.every((dep: unknown) => typeof dep === 'string'))) {
       errors.push('Plugin dependencies must be an array of strings');
     }
 
@@ -163,7 +163,7 @@ class PluginValidator {
     return { isValid: false, errors };
   }
 
-  static validatePluginConfiguration(plugin: Plugin): { isValid: boolean; errors: string[] } {
+  static validatePluginConfiguration(_plugin: Plugin): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
 
     // Check for duplicate IDs (this would be called with the full plugin registry)
@@ -175,9 +175,7 @@ class PluginValidator {
 
 // Plugin discovery system
 class PluginDiscovery {
-  private static readonly PLUGIN_REGISTRY_KEY = 'pluginRegistry';
   private static readonly DISCOVERY_CACHE_KEY = 'pluginDiscoveryCache';
-  private static readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
   static async discoverPlugins(): Promise<{ plugins: Plugin[]; errors: string[] }> {
     const errors: string[] = [];
@@ -355,32 +353,6 @@ class PluginDiscovery {
   }
 
 
-  private static getCachedDiscovery(): { plugins: Plugin[]; errors: string[] } | null {
-    if (!PluginStorage.isStorageAvailable()) {
-      return null;
-    }
-
-    try {
-      const cached = localStorage.getItem(this.DISCOVERY_CACHE_KEY);
-      if (!cached) {
-        return null;
-      }
-
-      const parsed = JSON.parse(cached);
-      const cacheTime = new Date(parsed.timestamp);
-      const now = new Date();
-
-      if (now.getTime() - cacheTime.getTime() > this.CACHE_DURATION) {
-        localStorage.removeItem(this.DISCOVERY_CACHE_KEY);
-        return null;
-      }
-
-      return parsed.data;
-    } catch (error) {
-      console.warn('Failed to load cached plugin discovery:', error);
-      return null;
-    }
-  }
 
   private static cacheDiscoveryResults(results: { plugins: Plugin[]; errors: string[] }): void {
     if (!PluginStorage.isStorageAvailable()) {
@@ -784,7 +756,7 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [enabledPlugins, setEnabledPlugins] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [storageError, setStorageError] = useState<string | null>(null);
-  const [storageWarnings, setStorageWarnings] = useState<string[]>([]);
+  const [storageWarnings] = useState<string[]>([]);
   const [pluginInitializationErrors, setPluginInitializationErrors] = useState<Record<string, { error: string; lastAttempt: Date }>>({});
   const [discoveryErrors, setDiscoveryErrors] = useState<string[]>([]);
 
@@ -1154,7 +1126,7 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           ? `/plugins/settings/${pluginId}/enable`
           : `/plugins/settings/${pluginId}/disable`;
 
-        const result = await apiRequest<{
+        await apiRequest<{
           tenant_id: number;
           enabled_plugins: string[];
           message: string;
@@ -1231,8 +1203,8 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     };
 
-    const handleRetryInitialization = async (event: CustomEvent) => {
-      const { pluginId } = event.detail;
+    const handleRetryInitialization = async (event: Event) => {
+      const { pluginId } = (event as CustomEvent).detail;
       console.log(`Retrying initialization for plugin: ${pluginId}`);
 
       try {
@@ -1250,8 +1222,8 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     };
 
-    const handlePluginErrorDisable = async (event: CustomEvent) => {
-      const { pluginId, reason } = event.detail;
+    const handlePluginErrorDisable = async (event: Event) => {
+      const { pluginId, reason } = (event as CustomEvent).detail;
       console.warn(`Disabling plugin ${pluginId} due to error: ${reason}`);
 
       if (enabledPlugins.includes(pluginId)) {
@@ -1281,14 +1253,14 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     // Add event listeners
     window.addEventListener('plugin-storage-retry', handleStorageRetry);
     window.addEventListener('plugin-discovery-refresh', handleDiscoveryRefresh);
-    window.addEventListener('plugin-retry-initialization', handleRetryInitialization as EventListener);
-    window.addEventListener('plugin-error-disable', handlePluginErrorDisable as EventListener);
+    window.addEventListener('plugin-retry-initialization', handleRetryInitialization);
+    window.addEventListener('plugin-error-disable', handlePluginErrorDisable);
 
     return () => {
       window.removeEventListener('plugin-storage-retry', handleStorageRetry);
       window.removeEventListener('plugin-discovery-refresh', handleDiscoveryRefresh);
-      window.removeEventListener('plugin-retry-initialization', handleRetryInitialization as EventListener);
-      window.removeEventListener('plugin-error-disable', handlePluginErrorDisable as EventListener);
+      window.removeEventListener('plugin-retry-initialization', handleRetryInitialization);
+      window.removeEventListener('plugin-error-disable', handlePluginErrorDisable);
     };
   }, [plugins, enabledPlugins]);
 

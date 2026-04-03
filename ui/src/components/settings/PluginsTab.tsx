@@ -754,7 +754,7 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
   const { plugins, togglePlugin, loading, storageError, discoveryErrors, refreshPluginDiscovery } = usePlugins();
   const { isFeatureEnabled, isFeatureExpired, refetch: refetchFeatures, licenseStatus } = useFeatures();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [forceUpdate, setForceUpdate] = useState(0);
+  const [, setForceUpdate] = useState(0);
   const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');

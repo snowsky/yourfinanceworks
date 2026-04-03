@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { FolderKanban, Clock, Plus, Download, Search, DollarSign, Users, RefreshCw, Activity, Calendar } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { FolderKanban, Clock, Plus, Download, Search, DollarSign, Users, Activity, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProjects, useCreateProject, useTimeEntries } from '@/plugins/time_tracking/plugin/ui/hooks';
@@ -87,7 +87,7 @@ function ProjectsTab() {
     (p.client_name || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newProject.name || !newProject.client_id) return;
     const result = await createProject.mutateAsync({
