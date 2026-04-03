@@ -265,7 +265,7 @@ def run_install(job_id: str) -> None:
                     timeout=300,
                 )
                 if result.returncode != 0:
-                    _fail(step, job, result.stderr.strip()[:500])
+                    _fail(step, job, result.stderr.strip()[:4000])
                     raise RuntimeError("pip install failed")
                 _ok(step, job, "Dependencies installed")
 
@@ -334,7 +334,7 @@ def run_install(job_id: str) -> None:
                         ".git", "__pycache__", "*.pyc", ".ruff_cache",
                         "standalone", "docs", ".env", ".env.*",
                         "docker-compose.yml", "tsconfig.json", "requirements.txt",
-                        "plugin.json", "__init__.py", "api",
+                        "plugin.json", "__init__.py",
                         # Note: "plugin/" is intentionally NOT excluded here.
                         # plugin/ui/index.ts is the frontend entry point discovered
                         # by the host app via import.meta.glob("../plugins_dynamic/*/plugin/ui/index.ts").
