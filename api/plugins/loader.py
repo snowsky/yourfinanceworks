@@ -391,6 +391,11 @@ class PluginLoader:
 
         Each plugin must expose ``GET /plugin.json`` on port 8000 at the Docker service
         hostname ``plugin_<name>`` within the shared ``invoice_app_network``.
+
+        Plugins that are not reachable at startup are retried in a background thread
+        (up to ``_SIDECAR_RETRY_ATTEMPTS`` times with ``_SIDECAR_RETRY_DELAY`` seconds
+        between attempts) so that slow-starting containers are eventually registered
+        without requiring an API restart.
         """
         declared = [n.strip() for n in os.getenv("SIDECAR_PLUGINS", "").split(",") if n.strip()]
         if not declared:
@@ -403,32 +408,81 @@ class PluginLoader:
             return []
 
         found: list[DiscoveredPlugin] = []
+        pending: list[str] = []
+
         for name in declared:
-            service_name = f"plugin_{name.replace('-', '_')}"
-            url = f"http://{service_name}:8000/plugin.json"
-            try:
-                resp = httpx.get(url, timeout=2.0)
-                resp.raise_for_status()
-                manifest = resp.json()
-            except Exception as exc:
-                logger.debug("Sidecar plugin '%s' not reachable at %s: %s", name, url, exc)
-                continue
+            plugin = self._probe_sidecar(name, httpx)
+            if plugin:
+                found.append(plugin)
+            else:
+                pending.append(name)
 
-            if not self._validate_manifest(name, manifest):
-                continue
-
-            found.append(
-                DiscoveredPlugin(
-                    plugin_id=name,
-                    package="",
-                    manifest=manifest,
-                    plugin_dir=Path(f"/sidecar/{name}"),
-                    is_sidecar=True,
-                )
-            )
-            logger.info("Sidecar plugin discovered: %s at %s", name, url)
+        if pending:
+            import threading
+            threading.Thread(
+                target=self._retry_sidecar_plugins,
+                args=(pending, httpx),
+                daemon=True,
+                name="sidecar-plugin-retry",
+            ).start()
 
         return found
+
+    _SIDECAR_RETRY_ATTEMPTS = 10
+    _SIDECAR_RETRY_DELAY = 5  # seconds between attempts
+
+    def _probe_sidecar(self, name: str, httpx: Any) -> Optional[DiscoveredPlugin]:
+        service_name = f"plugin_{name.replace('-', '_')}"
+        url = f"http://{service_name}:8000/plugin.json"
+        try:
+            resp = httpx.get(url, timeout=2.0)
+            resp.raise_for_status()
+            manifest = resp.json()
+        except Exception as exc:
+            logger.debug("Sidecar plugin '%s' not reachable at %s: %s", name, url, exc)
+            return None
+
+        if not self._validate_manifest(name, manifest):
+            return None
+
+        plugin = DiscoveredPlugin(
+            plugin_id=name,
+            package="",
+            manifest=manifest,
+            plugin_dir=Path(f"/sidecar/{name}"),
+            is_sidecar=True,
+        )
+        logger.info("Sidecar plugin discovered: %s at %s", name, url)
+        return plugin
+
+    def _retry_sidecar_plugins(self, names: list[str], httpx: Any) -> None:
+        import time
+        remaining = list(names)
+        for attempt in range(1, self._SIDECAR_RETRY_ATTEMPTS + 1):
+            time.sleep(self._SIDECAR_RETRY_DELAY)
+            still_pending = []
+            for name in remaining:
+                plugin = self._probe_sidecar(name, httpx)
+                if plugin:
+                    self._discovered.append(plugin)
+                    self._plugin_dir_cache[plugin.plugin_id] = plugin.plugin_dir
+                    permitted = set(plugin.manifest.get("permitted_core_tables", []))
+                    self._permissions_registry[plugin.plugin_id] = permitted
+                    logger.info(
+                        "Sidecar plugin '%s' registered after %d retry attempt(s).",
+                        name, attempt,
+                    )
+                else:
+                    still_pending.append(name)
+            remaining = still_pending
+            if not remaining:
+                break
+
+        for name in remaining:
+            logger.warning(
+                "Sidecar plugin '%s' never became reachable after %d attempts — giving up.",
+                name, self._SIDECAR_RETRY_ATTEMPTS,
+            )
 
     @staticmethod
     def _load_manifest(path: Path) -> dict:

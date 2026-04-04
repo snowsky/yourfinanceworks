@@ -9,6 +9,8 @@ export interface LoadedPluginModule {
   pluginIcons?: Record<string, LucideIcon>;
   /** True for sidecar plugins whose nav items come from the API registry, not the Vite glob. */
   isSidecar?: boolean;
+  /** Base URL for the sidecar plugin UI (e.g. /plugins/socialhub/). Only set when isSidecar=true. */
+  uiEntry?: string;
 }
 
 // Lazy glob both repo-based and dynamic plugins
@@ -31,7 +33,7 @@ async function _fetchSidecarNavItems(): Promise<LoadedPluginModule[]> {
     const data = await apiRequest<{ plugins: any[] }>('/plugins/registry');
     return (data.plugins ?? [])
       .filter((p: any) => p.is_sidecar && Array.isArray(p.nav_items) && p.nav_items.length > 0)
-      .map((p: any) => ({ navItems: p.nav_items as PluginNavItem[], isSidecar: true }));
+      .map((p: any) => ({ navItems: p.nav_items as PluginNavItem[], isSidecar: true, uiEntry: p.ui_entry as string }));
   } catch {
     return [];
   }
