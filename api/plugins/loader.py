@@ -54,6 +54,7 @@ class DiscoveredPlugin:
     package: str            # e.g. "plugins.investments"
     manifest: dict          # full plugin.json content
     plugin_dir: Path        # absolute path to the plugin folder
+    is_sidecar: bool = False  # True when plugin runs as a separate Docker service
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +179,7 @@ class PluginLoader:
         Plugins that have no ``models.py`` are silently skipped.
         """
         for plugin in self.discover():
-            if plugin.package == "__sidecar__":
+            if plugin.is_sidecar:
                 continue  # Sidecar plugins manage their own DB; nothing to import in-process
             models_module = f"{plugin.package}.models"
             try:
@@ -206,7 +207,7 @@ class PluginLoader:
            existing ``investments`` and ``time_tracking`` plugins
         """
         for plugin in self.discover():
-            if plugin.package == "__sidecar__":
+            if plugin.is_sidecar:
                 logger.info(
                     "Sidecar plugin '%s': routed via nginx, no in-process registration needed.",
                     plugin.plugin_id,
@@ -292,7 +293,7 @@ class PluginLoader:
     def is_sidecar_plugin(self, plugin_id: str) -> bool:
         """Return True if the plugin runs as a sidecar Docker service."""
         self.discover()
-        return any(p.plugin_id == plugin_id and p.package == "__sidecar__" for p in self._discovered)
+        return any(p.plugin_id == plugin_id and p.is_sidecar for p in self._discovered)
 
     def get_registry(self) -> list[dict]:
         """Return a list of manifest dicts suitable for the /plugins/registry endpoint.
@@ -308,7 +309,7 @@ class PluginLoader:
             entry = dict(p.manifest)
             if p.plugin_id in self._load_errors:
                 entry["load_error"] = self._load_errors[p.plugin_id]
-            if p.package == "__sidecar__":
+            if p.is_sidecar:
                 entry["is_sidecar"] = True
             elif self.is_dynamic_plugin(p.plugin_id):
                 entry["is_external"] = True
@@ -419,9 +420,10 @@ class PluginLoader:
             found.append(
                 DiscoveredPlugin(
                     plugin_id=name,
-                    package="__sidecar__",
+                    package="",
                     manifest=manifest,
                     plugin_dir=Path(f"/sidecar/{name}"),
+                    is_sidecar=True,
                 )
             )
             logger.info("Sidecar plugin discovered: %s at %s", name, url)
