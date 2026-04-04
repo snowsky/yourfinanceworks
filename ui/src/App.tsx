@@ -75,8 +75,8 @@ const SearchDialog = React.lazy(() => import("./components/search/SearchDialog")
 const MenuSearchDialog = React.lazy(() => import("./components/search/MenuSearchDialog").then(module => ({ default: module.MenuSearchDialog })));
 const FeatureProvider = React.lazy(() => import("./contexts/FeatureContext").then(module => ({ default: module.FeatureProvider })));
 const PluginProvider = React.lazy(() => import("./contexts/PluginContext").then(module => ({ default: module.PluginProvider })));
-const PluginStorageNotifications = React.lazy(() => import("./components/notifications/PluginStorageNotifications").then(module => ({ default: module.PluginStorageNotifications })));
-const PluginAccessApprovalPrompt = React.lazy(() => import("./components/notifications/PluginAccessApprovalPrompt").then(module => ({ default: module.PluginAccessApprovalPrompt })));
+import { PluginStorageNotifications } from "./components/notifications/PluginStorageNotifications";
+import { PluginAccessApprovalPrompt } from "./components/notifications/PluginAccessApprovalPrompt";
 const PluginRouteErrorBoundary = React.lazy(() => import("./components/plugins/PluginRouteErrorBoundary").then(module => ({ default: module.PluginRouteErrorBoundary })));
 const PluginRouteGuard = React.lazy(() => import("./components/plugins/PluginRouteGuard").then(module => ({ default: module.PluginRouteGuard })));
 const ApprovalDashboard = React.lazy(() => import("./components/approvals/ApprovalDashboard").then(module => ({ default: module.ApprovalDashboard })));
