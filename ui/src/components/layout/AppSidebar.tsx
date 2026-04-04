@@ -439,13 +439,13 @@ export function AppSidebar() {
     }] : [])
   ];
 
-  // Plugin menu items — auto-discovered from each plugin's navItems export via import.meta.glob.
-  // The glob runs at module level (above) so the reference is stable across renders.
+  // Plugin menu items — static plugins via import.meta.glob, sidecar plugins via API registry.
+  // Sidecar items bypass the isPluginEnabled check: deploying a sidecar means it's active.
   const pluginMenuItems = useMemo(() => {
     return pluginModules
-      .flatMap((m) => m.navItems ?? [])
+      .flatMap((m) => (m.navItems ?? []).map((item) => ({ ...item, _sidecar: m.isSidecar ?? false })))
       .sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999))
-      .filter((item) => isPluginEnabled(item.id));
+      .filter((item) => item._sidecar || isPluginEnabled(item.id));
   }, [pluginModules, enabledPlugins, isPluginEnabled]);
 
   const isActive = (path: string) => {
