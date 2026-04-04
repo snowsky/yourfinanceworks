@@ -118,6 +118,7 @@ services:
     volumes:
       - ./ui:/app
       - /app/node_modules
+      - ui_vite_cache:/app/.vite-cache
       - ui_plugins_dynamic_data:/app/src/plugins_dynamic
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080"]
@@ -541,6 +542,7 @@ volumes:
   opensearch_data:
   api_plugins_dynamic_data:
   ui_plugins_dynamic_data:
+  ui_vite_cache:
 
 networks:
   invoice_app_network:
