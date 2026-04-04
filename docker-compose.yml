@@ -71,6 +71,8 @@ services:
       - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-true}
       # Plugin installer - path where frontend plugin files are written (Dynamic Volume)
       - UI_PLUGINS_DIR=/ui_plugins_dynamic
+      # Sidecar plugins: comma-separated plugin names to discover via HTTP probe
+      - SIDECAR_PLUGINS=${SIDECAR_PLUGINS:-}
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -131,6 +133,7 @@ services:
       - "8080:80"
     volumes:
       - ./infra/docker/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./infra/docker/nginx-plugins:/etc/nginx/conf.d/plugins:ro
     depends_on:
       - api
       - ui
