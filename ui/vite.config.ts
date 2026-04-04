@@ -29,6 +29,9 @@ export default defineConfig({
     port: 8080,
     host: '0.0.0.0',
     allowedHosts: ['ui', 'localhost', '127.0.0.1', '0.0.0.0', 'demo.yourfinanceworks.com'],
+    warmup: {
+      clientFiles: ['./src/App.tsx', './src/main.tsx'],
+    },
     hmr: {
       clientPort: 443, // Assuming they use HTTPS on the demo site
     },
