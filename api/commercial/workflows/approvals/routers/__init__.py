@@ -1,19 +1,6 @@
-"""
-Approval workflow router.
-
-Assembles focused sub-routers into the /approvals prefix.
-"""
-
-from fastapi import APIRouter
-
 from commercial.workflows.approvals.routers.expenses import router as expenses_router
 from commercial.workflows.approvals.routers.invoices import router as invoices_router
 from commercial.workflows.approvals.routers.analytics import router as analytics_router
 from commercial.workflows.approvals.routers.delegates import router as delegates_router
 
-router = APIRouter(prefix="/approvals", tags=["approvals"])
-
-router.include_router(expenses_router)
-router.include_router(invoices_router)
-router.include_router(analytics_router)
-router.include_router(delegates_router)
+__all__ = ["expenses_router", "invoices_router", "analytics_router", "delegates_router"]
