@@ -30,7 +30,7 @@ reportlab==4.4.3  # PDF generation for email attachments
 
 # AI/LLM dependencies
 openai==2.21.0  # OpenAI client (compatible with litellm)
-litellm==1.75.0  # Unified interface for multiple LLM providers
+litellm==1.83.0  # Unified interface for multiple LLM providers
 langchain==1.0.3  # LangChain main package
 langchain-community==0.4.1  # LangChain community components
 langchain-core==1.2.22  # LangChain core components
