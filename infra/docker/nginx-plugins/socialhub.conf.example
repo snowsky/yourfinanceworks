@@ -1,27 +1,15 @@
-# Example nginx location blocks for yfw-socialhub sidecar plugin.
-# Copy to socialhub.conf (without .example) to activate routing.
+# yfw-socialhub sidecar plugin — nginx routing.
+# Copy to socialhub.conf (without .example) to activate.
 #
-# NOTE: proxy_pass with a variable does not strip the location prefix automatically.
-# The rewrite directive is used to strip /plugins/socialhub/ before proxying.
+# Requires plugin_socialhub and plugin_socialhub_ui on invoice_app_network.
+# Start with:
+#   docker compose -f docker-compose.yml -f yfw-socialhub/docker-compose.plugin.yml up
 
-# Plugin API — proxied to the sidecar backend
-location /plugins/socialhub/api/ {
-    rewrite ^/plugins/socialhub/api/(.*) /api/$1 break;
-    set $upstream_socialhub plugin_socialhub:8000;
-    proxy_pass http://$upstream_socialhub;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header Authorization $http_authorization;
-    proxy_read_timeout 60s;
-}
-
-# Plugin API at /api/v1/socialhub/ — direct backend routing
+# API traffic: /api/v1/socialhub/* → plugin_socialhub backend
+# Must appear before the main /api/ block (longer prefix wins).
 location /api/v1/socialhub/ {
     set $upstream_socialhub plugin_socialhub:8000;
     proxy_pass http://$upstream_socialhub;
-    rewrite ^/api/v1/socialhub/(.*) /api/v1/socialhub/$1 break;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -30,12 +18,15 @@ location /api/v1/socialhub/ {
     proxy_read_timeout 60s;
 }
 
-# Plugin UI assets — proxied to the sidecar frontend
+# UI assets: /plugins/socialhub/* → plugin_socialhub_ui frontend
+# rewrite strips /plugins/socialhub/ prefix before proxying because
+# proxy_pass with a variable does not perform URI substitution.
 location /plugins/socialhub/ {
-    rewrite ^/plugins/socialhub/(.*) /$1 break;
+    rewrite ^/plugins/socialhub/(.*)$ /$1 break;
     set $upstream_socialhub_ui plugin_socialhub_ui:80;
     proxy_pass http://$upstream_socialhub_ui;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
-    proxy_cache_bypass $http_pragma;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
 }
