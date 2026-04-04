@@ -242,7 +242,6 @@ const AppContent = () => {
                                 src={m.uiEntry}
                                 style={{ width: '100%', height: '100%', border: 'none' }}
                                 title={item.label}
-                                allow="same-origin"
                               />
                             </div>
                           }
