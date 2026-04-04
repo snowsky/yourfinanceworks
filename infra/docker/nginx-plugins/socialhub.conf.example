@@ -22,8 +22,8 @@ location /api/v1/socialhub/ {
 # rewrite strips /plugins/socialhub/ prefix before proxying because
 # proxy_pass with a variable does not perform URI substitution.
 location /plugins/socialhub/ {
-    rewrite ^/plugins/socialhub/(.*)$ /$1 break;
     set $upstream_socialhub_ui plugin_socialhub_ui:80;
+    rewrite ^/plugins/socialhub/(.*)$ /$1 break;
     proxy_pass http://$upstream_socialhub_ui;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
