@@ -27,8 +27,8 @@ Each third-party plugin runs as its own Docker service (like yfw-socialhub stand
 - `plugin/` = embedded in-process plugin
 
 ## Next Steps
-- [ ] Design the "sidecar plugin" Docker protocol
-- [ ] Define how main app discovers and registers running plugin containers
-- [ ] Define auth handshake (shared JWT secret vs. per-plugin service token)
-- [ ] Define how plugin frontend UI is served/embedded (iframe vs. module federation)
+- [x] Design the "sidecar plugin" Docker protocol — **implemented**, see [SIDECAR_PLUGIN_GUIDE.md](./SIDECAR_PLUGIN_GUIDE.md)
+- [x] Define how main app discovers and registers running plugin containers — via `SIDECAR_PLUGINS` env var + background retry in `api/plugins/loader.py`
+- [x] Define auth handshake — shared JWT secret (`YFW_SECRET_KEY`) forwarded to plugin container
+- [x] Define how plugin frontend UI is served/embedded — nginx reverse proxy + `<iframe>` with Vite `base` path
 - [ ] Decide: apply Option B only to third-party plugins, keep Option A for first-party?
