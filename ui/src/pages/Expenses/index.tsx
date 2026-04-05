@@ -297,6 +297,17 @@ const Expenses = () => {
       setExpenses(result.expenses);
       setTotalExpenses(result.total);
 
+      // Auto-start polling for any expenses still processing/queued
+      const processingIds = result.expenses
+        .filter((e: any) => e.analysis_status === 'processing' || e.analysis_status === 'queued')
+        .map((e: any) => e.id);
+      if (processingIds.length > 0) {
+        const startPolling = (window as any).startExpensePolling;
+        if (typeof startPolling === 'function') {
+          processingIds.forEach((id: number) => startPolling(id));
+        }
+      }
+
     } catch (e) {
       toast.error(t('expenses.load_failed', { defaultValue: 'Failed to load expenses' }));
     } finally {
@@ -382,8 +393,7 @@ const Expenses = () => {
       setUploadingId(id);
       await expenseApi.uploadReceipt(id, file);
       // Refresh list
-      const data = await expenseApi.getExpenses(categoryFilter);
-      setExpenses(data);
+      await fetchExpenses();
 
       addNotification?.('success', 'Expense Receipt Uploaded', `Successfully uploaded receipt file. AI analysis in progress.`);
       const startPolling = (window as any).startExpensePolling;
@@ -421,8 +431,13 @@ const Expenses = () => {
       toast.success(t('expenses.reprocess.started', { defaultValue: 'Expense reprocessing started' }));
 
       // Refresh the expense list
-      const data = await expenseApi.getExpenses(categoryFilter);
-      setExpenses(data);
+      await fetchExpenses();
+
+      // Start polling for the requeued expense
+      const startPolling = (window as any).startExpensePolling;
+      if (typeof startPolling === 'function') {
+        startPolling(expenseId);
+      }
 
       // Remove from processing locks after a delay
       setTimeout(() => {
