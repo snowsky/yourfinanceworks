@@ -308,6 +308,19 @@ const Expenses = () => {
     fetchExpenses();
   }, [fetchExpenses]);
 
+  // Listen for polling completion events
+  useEffect(() => {
+    const handleRefresh = () => {
+      fetchExpenses();
+    };
+    window.addEventListener('expense-processed', handleRefresh);
+    window.addEventListener('expense-failed', handleRefresh);
+    return () => {
+      window.removeEventListener('expense-processed', handleRefresh);
+      window.removeEventListener('expense-failed', handleRefresh);
+    };
+  }, [fetchExpenses]);
+
   // Initialize from URL on first render
   useEffect(() => {
     try {
