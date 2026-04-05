@@ -19,6 +19,8 @@ Large files to split into focused modules, ranked by size and impact.
 | `api/core/services/license_service.py` | 2,004 | → 3 mixin modules in `api/core/services/license_service/`: `validation`, `features`, `activation` + `_shared` |
 | `api/core/routers/super_admin.py` | 2,072 | → 3 modules in `api/core/routers/super_admin/`: `tenants`, `users`, `system` + `_shared` |
 | `api/core/services/storage_monitoring_service.py` | 2,176 | → 4 mixin modules in `api/core/services/storage_monitoring_service/`: `health`, `metrics`, `alerts`, `reports` + `_shared` |
+| `api/commercial/workflows/approvals/router.py` | 2,262 | → 4 modules in `api/commercial/workflows/approvals/routers/`: `expense_approvals`, `invoice_approvals`, `delegations`, `_shared` |
+
 
 ## Remaining
 
@@ -30,5 +32,4 @@ Large files to split into focused modules, ranked by size and impact.
 | 5 | 2,450 | `api/MCP/server.py` | Split tool registration from server lifecycle |
 | 6 | 2,326 | `api/commercial/ai/services/ocr_service.py` | Split by document type / processing stage |
 | 7 | 2,299 | `api/commercial/ai/router.py` | Split by feature: OCR, chat, embeddings, config |
-| 8 | 2,262 | `api/commercial/workflows/approvals/router.py` | Split by entity: expense approvals, invoice approvals, delegations |
 
