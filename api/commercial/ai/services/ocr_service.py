@@ -5,7 +5,7 @@ import logging
 import os
 import time
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from sqlalchemy.orm import Session
 from sqlalchemy import text
