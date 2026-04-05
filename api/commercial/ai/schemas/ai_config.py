@@ -131,10 +131,10 @@ SUPPORTED_PROVIDERS = {
         display_name="Ollama (Local)",
         description="Run AI models locally with Ollama for privacy and offline use",
         website="https://ollama.ai",
-        models=["llama3.2-vision:11b", "llama3.2:3b", "mistral:7b", "codellama:7b"],
+        models=["gemma4", "llama3.2-vision:11b", "llama3.2:3b", "mistral:7b", "codellama:7b"],
         supports_ocr=True,
         requires_api_key=False,
-        default_model="llama3.2-vision:11b",
+        default_model="gemma4",
         default_max_tokens=4096
     ),
     "google": AIProviderInfo(

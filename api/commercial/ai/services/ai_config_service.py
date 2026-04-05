@@ -93,7 +93,7 @@ class AIConfigService:
 
     # Default models for each provider
     DEFAULT_MODELS = {
-        "ollama": "llama3.2-vision:11b",
+        "ollama": "gemma4",
         "openai": "gpt-4-vision-preview",
         "anthropic": "claude-3-haiku",
         "google": "gemini-pro-vision",
@@ -259,7 +259,7 @@ class AIConfigService:
 
             # Set default model if not specified
             if not env_model:
-                env_model = cls.DEFAULT_MODELS.get(provider_name, "llama3.2-vision:11b")
+                env_model = cls.DEFAULT_MODELS.get(provider_name, "gemma4")
 
             # Set default API base if not specified
             if not env_api_base:

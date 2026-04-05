@@ -1506,7 +1506,7 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
                 provider_name = "ollama"
 
         if not model_name:
-            model_name = os.getenv("LLM_MODEL_EXPENSES", os.getenv("OLLAMA_MODEL", "llama3.2-vision:11b"))
+            model_name = os.getenv("LLM_MODEL_EXPENSES", os.getenv("OLLAMA_MODEL", "gemma4"))
 
         if not base_url:
             # Only default to local Ollama if provider is ollama or generic
