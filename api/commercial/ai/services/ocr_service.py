@@ -1435,6 +1435,24 @@ async def _retry_ocr_with_ai(
         return None
 
 
+def _pdf_pages_to_png_bytes(file_path: str, max_pages: int = 5) -> List[bytes]:
+    """Convert PDF pages to PNG bytes using PyMuPDF. Returns up to max_pages pages."""
+    try:
+        import fitz  # PyMuPDF
+        doc = fitz.open(file_path)
+        pages_bytes = []
+        for page_num in range(min(len(doc), max_pages)):
+            page = doc[page_num]
+            # 2x zoom for better OCR quality
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+            pages_bytes.append(pix.tobytes("png"))
+        doc.close()
+        return pages_bytes
+    except Exception as e:
+        logger.warning(f"Failed to convert PDF to images with PyMuPDF: {e}")
+        return []
+
+
 async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_config: Optional[Dict[str, Any]] = None, db_session: Optional[Session] = None) -> Dict[str, Any]:
     """Run OCR using the configured AI provider. Supports multiple providers via LiteLLM."""
     OCR_VERSION = "2024.01.24.03"  # Updated for prompt management logging
@@ -1552,15 +1570,24 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
                 # Use base_url to create client
                 client = ollama.Client(host=base_url)
 
-                # Load image as bytes
-                with open(file_path, "rb") as f:
-                    img_bytes = f.read()
+                # Load image as bytes; convert PDF pages to images first
+                is_pdf = file_path.lower().endswith('.pdf')
+                if is_pdf:
+                    pdf_pages = _pdf_pages_to_png_bytes(file_path)
+                    if not pdf_pages:
+                        logger.error(f"Failed to convert PDF to images for Ollama OCR: {file_path}")
+                        return {"error": "Failed to convert PDF to images for OCR"}
+                    images_bytes = pdf_pages
+                    logger.info(f"Converted PDF to {len(images_bytes)} page image(s) for Ollama OCR")
+                else:
+                    with open(file_path, "rb") as f:
+                        images_bytes = [f.read()]
 
                 messages = [
                     {
                         "role": "user",
                         "content": prompt_text,
-                        "images": [img_bytes]
+                        "images": images_bytes
                     }
                 ]
 
@@ -1662,8 +1689,6 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
             except ValueError as e:
                 logger.error(str(e))
                 return {"error": f"Invalid file path: {e}"}
-            with open(safe_path, "rb") as image_file:
-                image_data = base64.b64encode(image_file.read()).decode('utf-8')
 
             is_pdf = file_path.lower().endswith('.pdf')
 
@@ -1679,30 +1704,53 @@ async def _run_ocr(file_path: str, custom_prompt: Optional[str] = None, ai_confi
 
             prompt = prompt_text
 
-            # PDFs must be sent as documents (Anthropic format); images use image_url
+            # Build content blocks for the message
             if is_pdf and provider_name == "anthropic":
-                file_content_block = {
-                    "type": "document",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "application/pdf",
-                        "data": image_data,
+                # Anthropic natively accepts PDFs as documents
+                with open(safe_path, "rb") as image_file:
+                    image_data = base64.b64encode(image_file.read()).decode('utf-8')
+                file_content_blocks = [
+                    {
+                        "type": "document",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "application/pdf",
+                            "data": image_data,
+                        }
                     }
-                }
+                ]
+            elif is_pdf:
+                # Non-Anthropic providers: convert PDF pages to PNG images
+                pdf_pages = _pdf_pages_to_png_bytes(safe_path)
+                if not pdf_pages:
+                    logger.error(f"Failed to convert PDF to images for OCR: {safe_path}")
+                    return {"error": "Failed to convert PDF to images for OCR"}
+                logger.info(f"Converted PDF to {len(pdf_pages)} page image(s) for {provider_name} OCR")
+                file_content_blocks = [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{base64.b64encode(page_bytes).decode('utf-8')}"}
+                    }
+                    for page_bytes in pdf_pages
+                ]
             else:
-                file_content_block = {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/{image_format};base64,{image_data}"
+                with open(safe_path, "rb") as image_file:
+                    image_data = base64.b64encode(image_file.read()).decode('utf-8')
+                file_content_blocks = [
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/{image_format};base64,{image_data}"
+                        }
                     }
-                }
+                ]
 
             messages = [
                 {
                     "role": "user",
                     "content": [
                         {"type": "text", "text": prompt},
-                        file_content_block,
+                        *file_content_blocks,
                     ]
                 }
             ]
