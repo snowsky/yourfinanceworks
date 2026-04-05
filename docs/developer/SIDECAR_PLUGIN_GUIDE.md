@@ -154,19 +154,45 @@ The main nginx includes all files in `infra/docker/nginx-plugins/*.conf` automat
 
 ---
 
-## 7. Docker Compose (`docker-compose.plugin.yml`)
+## 7. Plugin Folder Location
+
+The plugin repository folder (e.g. `yfw-socialhub/`) **must be placed in the root of the `yourfinanceworks` repository**:
+
+```
+yourfinanceworks/
+├── api/
+├── ui/
+├── infra/
+├── yfw-socialhub/        ← plugin folder here
+│   ├── plugin.json
+│   ├── backend/
+│   ├── frontend/
+│   └── docker-compose.plugin.yml
+└── docker-compose.yml
+```
+
+This is required because:
+- Docker Compose build context paths in `docker-compose.plugin.yml` are resolved relative to `yourfinanceworks/` (the directory of the first `-f` file).
+- The `docker-compose.plugin.yml` references `./yfw-socialhub/backend` and `./yfw-socialhub/frontend` as build contexts.
+- The main app's nginx volume mount (`./infra/docker/nginx-plugins/`) is also relative to `yourfinanceworks/`.
+
+If the plugin folder is elsewhere, symlink it or adjust the context paths in `docker-compose.plugin.yml`.
+
+---
+
+## 8. Docker Compose (`docker-compose.plugin.yml`)
 
 ```yaml
 services:
   plugin_socialhub:
     build:
-      context: ./yfw-socialhub          # relative to invoice_app/ (the -f base)
+      context: ./yfw-socialhub          # relative to yourfinanceworks/ (the -f base)
       dockerfile: backend/Dockerfile
     environment:
       YFW_SECRET_KEY: ${SECRET_KEY}
       SOCIALHUB_DATABASE_URL: postgresql://...
     networks:
-      - invoice_app_network
+      - yourfinanceworks_network
 
   plugin_socialhub_ui:
     build:
@@ -177,21 +203,21 @@ services:
     environment:
       BACKEND_HOST: plugin_socialhub
     networks:
-      - invoice_app_network
+      - yourfinanceworks_network
 
 networks:
-  invoice_app_network:
+  yourfinanceworks_network:
     driver: bridge   # Docker reuses the main app network when merged via -f
 ```
 
-**Context paths** are relative to the **first** `-f` file's directory (invoice_app/), not this file's location.
+**Context paths** are relative to the **first** `-f` file's directory (yourfinanceworks/), not this file's location.
 
 ---
 
 ## 8. Deployment
 
 ```bash
-# From invoice_app/ directory:
+# From yourfinanceworks/ directory:
 
 # Build and start plugin services
 docker compose -f docker-compose.yml -f yfw-socialhub/docker-compose.plugin.yml \
