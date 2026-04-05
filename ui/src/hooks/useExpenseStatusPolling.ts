@@ -28,10 +28,12 @@ export function useExpenseStatusPolling() {
               addNotification('success', 'Expense Analysis Complete', `Expense #${id} has been analyzed and processed.`);
               trackedExpenses.current.delete(id);
               attemptsRef.current.delete(id);
+              window.dispatchEvent(new CustomEvent('expense-processed', { detail: { id } }));
             } else if (status === 'failed') {
               addNotification('error', 'Expense Analysis Failed', `Expense #${id} analysis failed.`);
               trackedExpenses.current.delete(id);
               attemptsRef.current.delete(id);
+              window.dispatchEvent(new CustomEvent('expense-failed', { detail: { id } }));
             } else {
               // Still in progress — increment attempt count
               attemptsRef.current.set(id, (attemptsRef.current.get(id) ?? 0) + 1);
