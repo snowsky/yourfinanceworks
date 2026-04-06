@@ -2,7 +2,7 @@
 Plugin management router for handling plugin settings and configuration.
 Commercial feature - requires plugin_management license.
 """
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from typing import Optional
@@ -313,10 +313,10 @@ async def update_plugin_settings(
             detail=f"Invalid plugin IDs: {', '.join(invalid_plugins)}"
         )
 
-    # Get or create settings
+    # Get or create settings with row lock to prevent race conditions
     settings = db.query(TenantPluginSettings).filter(
         TenantPluginSettings.tenant_id == tenant_id
-    ).first()
+    ).with_for_update().first()
 
     if not settings:
         settings = TenantPluginSettings(
@@ -375,7 +375,7 @@ async def enable_plugin(
 
     settings = db.query(TenantPluginSettings).filter(
         TenantPluginSettings.tenant_id == tenant_id
-    ).first()
+    ).with_for_update().first()
 
     if not settings:
         settings = TenantPluginSettings(
@@ -438,7 +438,7 @@ async def disable_plugin(
 
     settings = db.query(TenantPluginSettings).filter(
         TenantPluginSettings.tenant_id == tenant_id
-    ).first()
+    ).with_for_update().first()
 
     if not settings:
         raise HTTPException(
@@ -539,10 +539,10 @@ async def update_plugin_config(
             detail="config must be a dictionary"
         )
 
-    # Get or create settings
+    # Get or create settings with a lock for update to prevent concurrent modification races
     settings = db.query(TenantPluginSettings).filter(
         TenantPluginSettings.tenant_id == tenant_id
-    ).first()
+    ).with_for_update().first()
 
     if not settings:
         settings = TenantPluginSettings(
@@ -552,9 +552,16 @@ async def update_plugin_config(
         )
         db.add(settings)
     else:
-        # Update plugin_config
+        # Update plugin_config safely
         current_config = settings.plugin_config or {}
-        current_config[plugin_id] = config
+        existing_plugin_cfg = current_config.get(plugin_id, {})
+        
+        # Merge the new config, but preserve public_access which is managed separately
+        new_plugin_cfg = dict(config)
+        if _PUBLIC_ACCESS_KEY in existing_plugin_cfg:
+            new_plugin_cfg[_PUBLIC_ACCESS_KEY] = existing_plugin_cfg[_PUBLIC_ACCESS_KEY]
+            
+        current_config[plugin_id] = new_plugin_cfg
         settings.plugin_config = current_config
         # Mark the column as modified so SQLAlchemy detects the change
         flag_modified(settings, 'plugin_config')
@@ -568,6 +575,156 @@ async def update_plugin_config(
         "plugin_id": plugin_id,
         "config": config,
         "message": f"Configuration for plugin '{plugin_id}' updated successfully"
+    }
+
+
+# ---------------------------------------------------------------------------
+# Plugin public access configuration
+# ---------------------------------------------------------------------------
+
+_PUBLIC_ACCESS_KEY = "public_access"
+_PUBLIC_ACCESS_DEFAULTS = {"enabled": False, "require_login": True}
+
+
+def _get_public_access_config(plugin_config: dict | None, plugin_id: str) -> dict:
+    """Extract public_access settings for a plugin, returning safe defaults."""
+    cfg = (plugin_config or {}).get(plugin_id, {})
+    pa = cfg.get(_PUBLIC_ACCESS_KEY, {})
+    return {
+        "enabled": bool(pa.get("enabled", False)),
+        "require_login": bool(pa.get("require_login", True)),
+    }
+
+
+@router.get("/{plugin_id}/public-access")
+async def get_plugin_public_access(
+    plugin_id: str,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Get the public-access configuration for a plugin.
+    Returns whether the plugin's public page is enabled and whether login is required.
+    Admin-only.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
+
+    plugin_id = _normalize_plugin_id(plugin_id)
+    settings = db.query(TenantPluginSettings).filter(
+        TenantPluginSettings.tenant_id == current_user.tenant_id
+    ).first()
+
+    pa = _get_public_access_config(settings.plugin_config if settings else None, plugin_id)
+
+    # Include manifest public_page metadata so the UI knows the target path/label
+    manifest = next((p for p in plugin_loader.get_registry() if p.get("name") == plugin_id), {})
+    return {
+        "plugin_id": plugin_id,
+        "enabled": pa["enabled"],
+        "require_login": pa["require_login"],
+        "public_page": manifest.get("public_page"),
+    }
+
+
+@router.put("/{plugin_id}/public-access")
+async def update_plugin_public_access(
+    plugin_id: str,
+    payload: dict,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Update the public-access configuration for a plugin.
+    Payload: {"enabled": bool, "require_login": bool}
+    Admin-only.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
+
+    plugin_id = _normalize_plugin_id(plugin_id)
+
+    enabled = bool(payload.get("enabled", False))
+    require_login = bool(payload.get("require_login", True))
+
+    settings = db.query(TenantPluginSettings).filter(
+        TenantPluginSettings.tenant_id == current_user.tenant_id
+    ).with_for_update().first()
+
+    if not settings:
+        settings = TenantPluginSettings(
+            tenant_id=current_user.tenant_id,
+            enabled_plugins=[],
+            plugin_config={plugin_id: {_PUBLIC_ACCESS_KEY: {"enabled": enabled, "require_login": require_login}}},
+        )
+        db.add(settings)
+    else:
+        cfg = settings.plugin_config or {}
+        plugin_cfg = cfg.get(plugin_id, {})
+        plugin_cfg[_PUBLIC_ACCESS_KEY] = {"enabled": enabled, "require_login": require_login}
+        cfg[plugin_id] = plugin_cfg
+        settings.plugin_config = cfg
+        flag_modified(settings, "plugin_config")
+        settings.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    return {
+        "plugin_id": plugin_id,
+        "enabled": enabled,
+        "require_login": require_login,
+        "message": f"Public access for plugin '{plugin_id}' updated",
+    }
+
+
+@router.get("/public-config/{plugin_id}")
+async def get_plugin_public_config(
+    request: Request,
+    plugin_id: str,
+    tenant_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_master_db),
+):
+    """
+    Return the public-access config for a plugin + tenant.
+    No authentication required — used by the frontend to decide whether to render
+    the public plugin page and whether to enforce login.
+
+    tenant_id is optional: when omitted the tenant is resolved from the Host header
+    subdomain (e.g. demo.yourfinanceworks.com → subdomain 'demo').
+    """
+    from core.models.models import Tenant
+
+    # Normalize without validating against discovered plugins —
+    # the plugin may be a sidecar not fully registered yet.
+    plugin_id = plugin_id.strip().lower().replace("_", "-")
+
+    # Prioritize explicitly passed tenant_id (for single-domain multi-org sharing via ?t=)
+    resolved_tenant_id = tenant_id
+
+    # Fallback to resolving from subdomain in Host header if no explicit tenant passed
+    if resolved_tenant_id is None:
+        host = request.headers.get("host", "").split(":")[0]  # strip port
+        subdomain = host.split(".")[0] if "." in host else None
+        
+        if subdomain and subdomain != "localhost":
+            tenant = db.query(Tenant).filter(Tenant.subdomain == subdomain).first()
+            if tenant:
+                resolved_tenant_id = tenant.id
+
+    if resolved_tenant_id is None:
+        return {"plugin_id": plugin_id, "enabled": False, "require_login": True, "public_page": None}
+
+    settings = db.query(TenantPluginSettings).filter(
+        TenantPluginSettings.tenant_id == resolved_tenant_id
+    ).first()
+
+    pa = _get_public_access_config(settings.plugin_config if settings else None, plugin_id)
+
+    manifest = next((p for p in plugin_loader.get_registry() if p.get("name") == plugin_id), {})
+    return {
+        "plugin_id": plugin_id,
+        "enabled": pa["enabled"],
+        "require_login": pa["require_login"],
+        "public_page": manifest.get("public_page"),
     }
 
 

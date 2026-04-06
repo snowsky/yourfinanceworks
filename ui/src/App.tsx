@@ -98,6 +98,7 @@ const PromptManagement = React.lazy(() => import("./pages/PromptManagement"));
 // ---------------------------------------------------------------------------
 import { buildPluginElement } from "./components/plugins/PluginRoutes";
 import { usePluginModules } from "./hooks/usePluginModules";
+import { PublicPluginWrapper } from "./components/plugins/PublicPluginWrapper";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -108,6 +109,18 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Public plugin portal — /p/:pluginId/
+// Each plugin can expose a public URL at /p/{pluginId}/ (e.g. /p/socialhub).
+// Access is controlled per-tenant in Settings → Plugins → Configure → Public Access.
+// This catch-all handles sidecar plugins when their route is not yet registered
+// (e.g. unauthenticated visitors); PublicPluginWrapper resolves the iframe URL
+// from the no-auth config API (public_page.ui_entry in plugin.json).
+const PublicPluginCatchAll = () => {
+  const { pluginId } = useParams<{ pluginId: string }>();
+  if (!pluginId) return null;
+  return <PublicPluginWrapper pluginId={pluginId} />;
+};
 
 // Simple redirect component for expense IDs
 const ExpenseRedirect = () => {
@@ -134,6 +147,7 @@ const AppContent = () => {
   const publicPluginRoutes = allPluginRoutes.filter(r => r.isPublic);
   const privatePluginRoutes = allPluginRoutes.filter(r => !r.isPublic);
   const sidecarPluginModules = pluginModules.filter(m => m.isSidecar && m.uiEntry);
+  const publicPageModules = pluginModules.filter(m => m.publicPage != null);
   const { notifications, addNotification, markAsRead, clearAll } = useNotifications();
   const { startPolling } = useExpenseStatusPolling();
   const { startPolling: startStatementPolling } = useStatementStatusPolling();
@@ -195,6 +209,30 @@ const AppContent = () => {
                   {publicPluginRoutes.map(r => (
                     <Route key={r.path} path={r.path} element={buildPluginElement(r)} />
                   ))}
+
+                  {/* Catch-all for /p/* — handles sidecar plugins when not logged in
+                      (specific routes below take precedence when registered) */}
+                  <Route path="/p/:pluginId/*" element={<PublicPluginCatchAll />} />
+
+                  {/* Public Plugin Portal Routes — /p/{plugin_id}/ */}
+                  {publicPageModules.map(m => {
+                    const pp = m.publicPage!;
+                    return (
+                      <Route
+                        key={pp.path}
+                        path={`${pp.path}/*`}
+                        element={
+                          <PublicPluginWrapper pluginId={pp.pluginId} iframeUrl={pp.uiEntry}>
+                            {pp.component && (
+                              <React.Suspense fallback={<LoadingSpinner fullScreen />}>
+                                <pp.component />
+                              </React.Suspense>
+                            )}
+                          </PublicPluginWrapper>
+                        }
+                      />
+                    );
+                  })}
 
                   <Route element={<ProtectedRoute><AuthenticatedLayout /></ProtectedRoute>}>
                     <Route path="/" element={<Index />} />

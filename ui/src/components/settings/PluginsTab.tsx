@@ -575,8 +575,9 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
             )}
           </div>
 
-          {(plugin.homepage || plugin.repository) && (
-            <div className="flex items-center gap-2 pt-2">
+          {/* Action buttons row */}
+          {(plugin.homepage || plugin.repository || isAdmin) && (
+            <div className="flex flex-wrap items-center gap-2 pt-2">
               {plugin.homepage && (
                 <Button
                   variant="outline"
@@ -599,54 +600,49 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
                   {t('plugins.repository')}
                 </Button>
               )}
-            </div>
-          )}
-
-          {/* Configure button for plugins with settings */}
-          {plugin.enabled && plugin.id === 'investments' && isAdmin && (
-            <div className="pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs h-7"
-                onClick={() => setShowSettingsModal(true)}
-              >
-                <Settings className="w-3 h-3 mr-1" />
-                {t('plugins.configure', 'Configure')}
-              </Button>
-            </div>
-          )}
-
-          {/* Uninstall button — admin only */}
-          {isAdmin && onUninstall && (
-            <div className="pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs h-7 text-red-600 border-red-200 hover:bg-red-50"
-                onClick={() => setShowUninstallDialog(true)}
-                disabled={isUninstalling}
-              >
-                {isUninstalling
-                  ? <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                  : <Trash2 className="w-3 h-3 mr-1" />}
-                Uninstall
-              </Button>
-            </div>
-          )}
-
-          {/* Reinstall button — admin only, external plugins only */}
-          {isAdmin && onReinstall && (
-            <div className="pt-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs h-7 text-blue-600 border-blue-200 hover:bg-blue-50"
-                onClick={() => setReinstallState('confirm')}
-              >
-                <RotateCcw className="w-3 h-3 mr-1" />
-                Reinstall
-              </Button>
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => setShowSettingsModal(true)}
+                >
+                  <Settings className="w-3 h-3 mr-1" />
+                  {t('plugins.configure', 'Configure')}
+                </Button>
+              )}
+              {isAdmin && onReinstall && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7 text-blue-600 border-blue-200 hover:bg-blue-50"
+                  onClick={() => setReinstallState('confirm')}
+                >
+                  <RotateCcw className="w-3 h-3 mr-1" />
+                  Reinstall
+                </Button>
+              )}
+              {isAdmin && onUninstall && !plugin.is_sidecar && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7 text-red-600 border-red-200 hover:bg-red-50"
+                  onClick={() => setShowUninstallDialog(true)}
+                  disabled={isUninstalling}
+                >
+                  {isUninstalling
+                    ? <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    : <Trash2 className="w-3 h-3 mr-1" />}
+                  Uninstall
+                </Button>
+              )}
+              {/* Sidecar plugin note — uninstall not available */}
+              {plugin.is_sidecar && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Info className="w-3 h-3 shrink-0" />
+                  Managed as an external service. Stop the Docker container to remove it.
+                </span>
+              )}
             </div>
           )}
         </div>

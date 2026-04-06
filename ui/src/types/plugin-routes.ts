@@ -23,6 +23,31 @@ export interface PluginNavItem {
 }
 
 /**
+ * PluginPublicPage — declares a plugin's public-facing portal page.
+ *
+ * Plugins that want a public URL at `/p/{pluginId}/` export one of these
+ * as `publicPage` from their `plugin/ui/index.ts`.
+ *
+ * - In-process plugins set `component` (a lazy-loaded React component).
+ * - Sidecar plugins set `uiEntry` (the iframe URL served by the sidecar service).
+ *
+ * Access is gated by the tenant's public-access settings for the plugin.
+ * Default: disabled. Configurable in Settings → Plugins.
+ */
+export interface PluginPublicPage {
+  /** Must match the plugin ID (e.g. 'surveys'). */
+  pluginId: string;
+  /** Human-readable name. */
+  pluginName: string;
+  /** Frontend path, e.g. '/p/surveys'. */
+  path: string;
+  /** In-process plugin: lazy React component. */
+  component?: React.LazyExoticComponent<React.ComponentType<any>>;
+  /** Sidecar plugin: iframe source URL. */
+  uiEntry?: string;
+}
+
+/**
  * PluginRouteConfig — the contract between a plugin's index.ts and App.tsx.
  *
  * Each plugin declares an array of these in its `index.ts` and exports it
