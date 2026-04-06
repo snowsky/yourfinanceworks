@@ -2168,34 +2168,45 @@ export default function Statements() {
 
 
             {/* Receipt Detection Banner */}
-            {detail?.is_possible_receipt && detail.status === 'processed' && (
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3 text-amber-800 dark:text-amber-300 slide-in">
-                <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 text-sm">
-                  <span className="font-bold">{t('statements.receipt_detected_title', { defaultValue: 'Looks like a receipt' })}</span>
-                  <span className="ml-1">{t('statements.receipt_detected_message', { defaultValue: 'AI detected this file may be a receipt, not a bank statement. Would you like to convert the transaction(s) to expenses?' })}</span>
+            {detail?.is_possible_receipt && detail.status === 'processed' && (() => {
+              const allConverted = rows.filter(r => r.transaction_type === 'debit').every(r => !!(r as any).expense_id);
+              return (
+                <div className={`border rounded-xl p-4 flex items-start gap-3 slide-in ${allConverted ? 'bg-green-500/10 border-green-500/30 text-green-800 dark:text-green-300' : 'bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300'}`}>
+                  <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 text-sm">
+                    <span className="font-bold">
+                      {allConverted
+                        ? t('statements.receipt_converted_title', { defaultValue: 'Converted to expense' })
+                        : t('statements.receipt_detected_title', { defaultValue: 'Looks like a receipt' })}
+                    </span>
+                    <span className="ml-1">
+                      {allConverted
+                        ? t('statements.receipt_converted_message', { defaultValue: 'This receipt has been saved as an expense.' })
+                        : t('statements.receipt_detected_message', { defaultValue: 'AI detected this file may be a receipt, not a bank statement. Would you like to convert the transaction(s) to expenses?' })}
+                    </span>
+                  </div>
+                  {!allConverted && (
+                    <ProfessionalButton
+                      variant="outline"
+                      size="sm"
+                      className="flex-shrink-0 border-amber-500/50 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20"
+                      onClick={async () => {
+                        const debitIndices = rows
+                          .map((r, i) => ({ r, i }))
+                          .filter(({ r }) => r.transaction_type === 'debit' && !(r as any).expense_id)
+                          .map(({ i }) => i);
+                        for (const idx of debitIndices) {
+                          await createExpenseFromTransaction(idx);
+                        }
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      {t('statements.receipt_convert_all', { defaultValue: 'Convert to Expense' })}
+                    </ProfessionalButton>
+                  )}
                 </div>
-                {rows.some(r => r.transaction_type === 'debit' && !(r as any).expense_id) && (
-                  <ProfessionalButton
-                    variant="outline"
-                    size="sm"
-                    className="flex-shrink-0 border-amber-500/50 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20"
-                    onClick={async () => {
-                      const debitIndices = rows
-                        .map((r, i) => ({ r, i }))
-                        .filter(({ r }) => r.transaction_type === 'debit' && !(r as any).expense_id)
-                        .map(({ i }) => i);
-                      for (const idx of debitIndices) {
-                        await createExpenseFromTransaction(idx);
-                      }
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    {t('statements.receipt_convert_all', { defaultValue: 'Convert to Expense' })}
-                  </ProfessionalButton>
-                )}
-              </div>
-            )}
+              );
+            })()}
 
             {/* Summary Statistics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
