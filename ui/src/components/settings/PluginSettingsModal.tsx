@@ -202,7 +202,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
@@ -421,7 +421,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
           )}
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="sticky bottom-0 -mx-6 -mb-6 mt-6 flex justify-end gap-2 border-t bg-background px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             {t('common.cancel', 'Cancel')}
           </Button>
