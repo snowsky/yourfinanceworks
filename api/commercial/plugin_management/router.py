@@ -772,6 +772,93 @@ def _mark_plugin_payment_completed(
     return billing
 
 
+def _stripe_session_is_paid(stripe_module, session_obj) -> tuple[bool, Optional[str]]:
+    payment_status = getattr(session_obj, "payment_status", None) or session_obj.get("payment_status")
+    subscription_id = getattr(session_obj, "subscription", None) or session_obj.get("subscription")
+    subscription_status = None
+    paid = payment_status == "paid"
+
+    if subscription_id:
+        subscription = stripe_module.Subscription.retrieve(subscription_id)
+        subscription_status = getattr(subscription, "status", None) or subscription.get("status")
+        if subscription_status in {"active", "trialing"}:
+            paid = True
+
+    return paid, subscription_status
+
+
+def _list_stripe_transactions_for_tenant(
+    *,
+    tenant_id: int,
+    plugin_id: Optional[str] = None,
+    limit: int = 20,
+) -> list[dict]:
+    payment_settings = _get_tenant_payment_settings(tenant_id)
+    stripe_secret_key = payment_settings["stripe_secret_key"] or os.getenv("STRIPE_SECRET_KEY", "").strip()
+    if not stripe_secret_key:
+        return []
+
+    import stripe
+
+    stripe.api_key = stripe_secret_key
+    sessions = stripe.checkout.Session.list(limit=max(limit, 20))
+    transactions = []
+    for session in getattr(sessions, "data", []):
+        metadata = session.get("metadata", {})
+        if str(metadata.get("tenant_id", "")) != str(tenant_id):
+            continue
+        session_plugin_id = _normalize_plugin_id(str(metadata.get("plugin_id", "") or ""))
+        if plugin_id and session_plugin_id != plugin_id:
+            continue
+
+        paid, subscription_status = _stripe_session_is_paid(stripe, session)
+        customer_details = getattr(session, "customer_details", None)
+        customer_email = (
+            getattr(customer_details, "email", None)
+            if customer_details is not None
+            else (session.get("customer_details", {}) or {}).get("email")
+        )
+
+        transactions.append({
+            "id": getattr(session, "id", None) or session.get("id"),
+            "plugin_id": session_plugin_id or None,
+            "created": getattr(session, "created", None) or session.get("created"),
+            "mode": getattr(session, "mode", None) or session.get("mode"),
+            "status": getattr(session, "status", None) or session.get("status"),
+            "payment_status": getattr(session, "payment_status", None) or session.get("payment_status"),
+            "subscription_status": subscription_status,
+            "is_paid": paid,
+            "customer_email": customer_email,
+            "amount_total": getattr(session, "amount_total", None) or session.get("amount_total"),
+            "currency": getattr(session, "currency", None) or session.get("currency"),
+        })
+        if len(transactions) >= limit:
+            break
+
+    return transactions
+
+
+def _sync_plugin_payment_completion_from_stripe(
+    *,
+    db: Session,
+    tenant_id: int,
+    plugin_id: str,
+) -> dict:
+    settings = _get_plugin_settings_row(db, tenant_id)
+    billing = _normalize_billing_config(settings.plugin_config if settings else None, plugin_id)
+    if billing["payment_completed"] or billing["provider"] != "stripe":
+        return billing
+
+    try:
+        transactions = _list_stripe_transactions_for_tenant(tenant_id=tenant_id, plugin_id=plugin_id, limit=10)
+        if any(tx["is_paid"] for tx in transactions):
+            return _mark_plugin_payment_completed(db=db, tenant_id=tenant_id, plugin_id=plugin_id)
+    except Exception:
+        return billing
+
+    return billing
+
+
 @router.get("/{plugin_id}/public-access")
 async def get_plugin_public_access(
     plugin_id: str,
@@ -958,7 +1045,11 @@ async def get_plugin_public_config(
     settings = _get_plugin_settings_row(db, resolved_tenant_id)
 
     pa = _get_public_access_config(settings.plugin_config if settings else None, plugin_id)
-    billing = _normalize_billing_config(settings.plugin_config if settings else None, plugin_id)
+    billing = _sync_plugin_payment_completion_from_stripe(
+        db=db,
+        tenant_id=resolved_tenant_id,
+        plugin_id=plugin_id,
+    )
 
     manifest = next((p for p in plugin_loader.get_registry() if p.get("name") == plugin_id), {})
     return {
@@ -1177,36 +1268,37 @@ async def list_plugin_public_transactions(
     if resolved_tenant_id is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to resolve tenant")
 
-    payment_settings = _get_tenant_payment_settings(resolved_tenant_id)
-    stripe_secret_key = payment_settings["stripe_secret_key"] or os.getenv("STRIPE_SECRET_KEY", "").strip()
-    if not stripe_secret_key:
-        return {"transactions": []}
+    try:
+        transactions = _list_stripe_transactions_for_tenant(
+            tenant_id=resolved_tenant_id,
+            plugin_id=plugin_id,
+            limit=limit,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Stripe transactions lookup failed: {exc}") from exc
+
+    return {"transactions": transactions}
+
+
+@router.get("/payment-transactions")
+async def list_payment_transactions(
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    List recent Stripe transactions for the current tenant across all plugins.
+    Admin-only.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
 
     try:
-        import stripe
-
-        stripe.api_key = stripe_secret_key
-        sessions = stripe.checkout.Session.list(limit=20)
-        transactions = []
-        for session in getattr(sessions, "data", []):
-            metadata = session.get("metadata", {})
-            if str(metadata.get("tenant_id", "")) != str(resolved_tenant_id):
-                continue
-            if _normalize_plugin_id(str(metadata.get("plugin_id", "") or "")) != plugin_id:
-                continue
-
-            transactions.append({
-                "id": getattr(session, "id", None) or session.get("id"),
-                "created": getattr(session, "created", None) or session.get("created"),
-                "mode": getattr(session, "mode", None) or session.get("mode"),
-                "status": getattr(session, "status", None) or session.get("status"),
-                "payment_status": getattr(session, "payment_status", None) or session.get("payment_status"),
-                "customer_email": getattr(session, "customer_details", None).email if getattr(session, "customer_details", None) and getattr(session.customer_details, "email", None) else (session.get("customer_details", {}) or {}).get("email"),
-                "amount_total": getattr(session, "amount_total", None) or session.get("amount_total"),
-                "currency": getattr(session, "currency", None) or session.get("currency"),
-            })
-            if len(transactions) >= limit:
-                break
+        transactions = _list_stripe_transactions_for_tenant(
+            tenant_id=current_user.tenant_id,
+            plugin_id=None,
+            limit=limit,
+        )
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Stripe transactions lookup failed: {exc}") from exc
 

@@ -245,4 +245,21 @@ export const pluginApi = {
       }>;
     }>;
   },
+
+  getPaymentTransactions: (limit = 20) =>
+    apiRequest<{
+      transactions: Array<{
+        id: string;
+        plugin_id?: string | null;
+        created?: number | null;
+        mode?: string | null;
+        status?: string | null;
+        payment_status?: string | null;
+        subscription_status?: string | null;
+        is_paid?: boolean;
+        customer_email?: string | null;
+        amount_total?: number | null;
+        currency?: string | null;
+      }>;
+    }>(`/plugins/payment-transactions?limit=${limit}`),
 };
