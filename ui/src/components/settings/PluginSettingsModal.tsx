@@ -137,18 +137,18 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await Promise.all([
-        pluginApi.updatePluginConfig(pluginId, config),
-        publicAccess !== null
-          ? pluginApi.updatePublicAccessConfig(pluginId, {
-              enabled: publicAccess.enabled,
-              require_login: publicAccess.require_login,
-            })
-          : Promise.resolve(),
-        billing !== null
-          ? pluginApi.updateBillingConfig(pluginId, billing)
-          : Promise.resolve(),
-      ]);
+      await pluginApi.updatePluginConfig(pluginId, config);
+
+      if (publicAccess !== null) {
+        await pluginApi.updatePublicAccessConfig(pluginId, {
+          enabled: publicAccess.enabled,
+          require_login: publicAccess.require_login,
+        });
+      }
+
+      if (billing !== null) {
+        await pluginApi.updateBillingConfig(pluginId, billing);
+      }
       toast.success('Plugin settings updated successfully');
       onOpenChange(false);
     } catch (error) {
