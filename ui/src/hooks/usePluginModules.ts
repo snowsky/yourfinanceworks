@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import type { PluginNavItem, PluginRouteConfig } from '@/types/plugin-routes';
+import type { PluginNavItem, PluginPublicPage, PluginRouteConfig } from '@/types/plugin-routes';
 import { apiRequest } from '@/lib/api';
 
 export interface LoadedPluginModule {
@@ -11,6 +11,12 @@ export interface LoadedPluginModule {
   isSidecar?: boolean;
   /** Base URL for the sidecar plugin UI (e.g. /plugins/socialhub/). Only set when isSidecar=true. */
   uiEntry?: string;
+  /**
+   * Public portal page for this plugin.
+   * Exported by in-process plugins from plugin/ui/index.ts,
+   * or derived from the manifest for sidecar plugins.
+   */
+  publicPage?: PluginPublicPage;
 }
 
 // Lazy glob both repo-based and dynamic plugins
@@ -33,7 +39,22 @@ async function _fetchSidecarNavItems(): Promise<LoadedPluginModule[]> {
     const data = await apiRequest<{ plugins: any[] }>('/plugins/registry');
     return (data.plugins ?? [])
       .filter((p: any) => p.is_sidecar && Array.isArray(p.nav_items) && p.nav_items.length > 0)
-      .map((p: any) => ({ navItems: p.nav_items as PluginNavItem[], isSidecar: true, uiEntry: p.ui_entry as string }));
+      .map((p: any) => {
+        const publicPage: PluginPublicPage | undefined = p.public_page?.ui_entry
+          ? {
+              pluginId: p.name as string,
+              pluginName: p.description as string,
+              path: (p.public_page.path as string) ?? `/p/${p.name}`,
+              uiEntry: p.public_page.ui_entry as string,
+            }
+          : undefined;
+        return {
+          navItems: p.nav_items as PluginNavItem[],
+          isSidecar: true,
+          uiEntry: p.ui_entry as string,
+          publicPage,
+        };
+      });
   } catch {
     return [];
   }

@@ -98,6 +98,7 @@ const PromptManagement = React.lazy(() => import("./pages/PromptManagement"));
 // ---------------------------------------------------------------------------
 import { buildPluginElement } from "./components/plugins/PluginRoutes";
 import { usePluginModules } from "./hooks/usePluginModules";
+import { PublicPluginWrapper } from "./components/plugins/PublicPluginWrapper";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -134,6 +135,7 @@ const AppContent = () => {
   const publicPluginRoutes = allPluginRoutes.filter(r => r.isPublic);
   const privatePluginRoutes = allPluginRoutes.filter(r => !r.isPublic);
   const sidecarPluginModules = pluginModules.filter(m => m.isSidecar && m.uiEntry);
+  const publicPageModules = pluginModules.filter(m => m.publicPage != null);
   const { notifications, addNotification, markAsRead, clearAll } = useNotifications();
   const { startPolling } = useExpenseStatusPolling();
   const { startPolling: startStatementPolling } = useStatementStatusPolling();
@@ -195,6 +197,26 @@ const AppContent = () => {
                   {publicPluginRoutes.map(r => (
                     <Route key={r.path} path={r.path} element={buildPluginElement(r)} />
                   ))}
+
+                  {/* Public Plugin Portal Routes — /p/{plugin_id}/ */}
+                  {publicPageModules.map(m => {
+                    const pp = m.publicPage!;
+                    return (
+                      <Route
+                        key={pp.path}
+                        path={`${pp.path}/*`}
+                        element={
+                          <PublicPluginWrapper pluginId={pp.pluginId} iframeUrl={pp.uiEntry}>
+                            {pp.component && (
+                              <React.Suspense fallback={<LoadingSpinner fullScreen />}>
+                                <pp.component />
+                              </React.Suspense>
+                            )}
+                          </PublicPluginWrapper>
+                        }
+                      />
+                    );
+                  })}
 
                   <Route element={<ProtectedRoute><AuthenticatedLayout /></ProtectedRoute>}>
                     <Route path="/" element={<Index />} />

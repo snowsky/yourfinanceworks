@@ -10,9 +10,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Loader2, Settings } from 'lucide-react';
+import { Loader2, Settings, Globe, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { pluginApi } from '@/lib/api';
+
+interface PublicAccessState {
+  enabled: boolean;
+  require_login: boolean;
+  publicPagePath: string | null;
+}
 
 interface PluginSettingsModalProps {
   open: boolean;
@@ -31,10 +37,14 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<Record<string, any>>({});
+  const [publicAccess, setPublicAccess] = useState<PublicAccessState | null>(null);
+  const [savingPublicAccess, setSavingPublicAccess] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (open) {
       loadConfig();
+      loadPublicAccessConfig();
     }
   }, [open, pluginId]);
 
@@ -55,6 +65,52 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadPublicAccessConfig = async () => {
+    try {
+      const response = await pluginApi.getPublicAccessConfig(pluginId);
+      if (response.public_page) {
+        setPublicAccess({
+          enabled: response.enabled,
+          require_login: response.require_login,
+          publicPagePath: response.public_page?.path ?? null,
+        });
+      } else {
+        setPublicAccess(null);
+      }
+    } catch {
+      // Plugin doesn't support public access — silently ignore
+      setPublicAccess(null);
+    }
+  };
+
+  const handleSavePublicAccess = async () => {
+    if (!publicAccess) return;
+    setSavingPublicAccess(true);
+    try {
+      await pluginApi.updatePublicAccessConfig(pluginId, {
+        enabled: publicAccess.enabled,
+        require_login: publicAccess.require_login,
+      });
+      toast.success('Public access settings saved');
+    } catch (error) {
+      toast.error('Failed to save public access settings');
+    } finally {
+      setSavingPublicAccess(false);
+    }
+  };
+
+  const publicUrl = publicAccess?.publicPagePath
+    ? `${window.location.origin}${publicAccess.publicPagePath}`
+    : null;
+
+  const handleCopyLink = () => {
+    if (!publicUrl) return;
+    navigator.clipboard.writeText(publicUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   const handleSave = async () => {
@@ -125,13 +181,91 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="py-4 space-y-6">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin" />
             </div>
           ) : (
             renderConfigForm()
+          )}
+
+          {/* Public Access section — only shown when plugin declares a public_page */}
+          {publicAccess !== null && (
+            <div className="border rounded-lg p-4 space-y-4">
+              <div className="flex items-center gap-2 font-medium text-sm">
+                <Globe className="w-4 h-4" />
+                {t('plugins.public_access.title', 'Public Access')}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="public-access-enabled">
+                    {t('plugins.public_access.enable', 'Enable public link')}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t('plugins.public_access.enable_desc', 'Allow access via a shareable URL')}
+                  </p>
+                </div>
+                <Switch
+                  id="public-access-enabled"
+                  checked={publicAccess.enabled}
+                  onCheckedChange={(checked) =>
+                    setPublicAccess({ ...publicAccess, enabled: checked })
+                  }
+                />
+              </div>
+
+              {publicAccess.enabled && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="require-login">
+                        {t('plugins.public_access.require_login', 'Require login')}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {t(
+                          'plugins.public_access.require_login_desc',
+                          'Visitors must be logged in to access this page',
+                        )}
+                      </p>
+                    </div>
+                    <Switch
+                      id="require-login"
+                      checked={publicAccess.require_login}
+                      onCheckedChange={(checked) =>
+                        setPublicAccess({ ...publicAccess, require_login: checked })
+                      }
+                    />
+                  </div>
+
+                  {publicUrl && (
+                    <div className="flex items-center gap-2 p-2 bg-muted rounded text-xs font-mono break-all">
+                      <span className="flex-1">{publicUrl}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="shrink-0 h-6 w-6 p-0"
+                        onClick={handleCopyLink}
+                      >
+                        {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={handleSavePublicAccess}
+                  disabled={savingPublicAccess}
+                >
+                  {savingPublicAccess && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                  {t('common.save', 'Save')}
+                </Button>
+              </div>
+            </div>
           )}
         </div>
 
