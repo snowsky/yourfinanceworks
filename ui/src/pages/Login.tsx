@@ -278,9 +278,10 @@ const Login = () => {
                     type="button"
                     variant="outline"
                     className="w-full gap-3"
-                    onClick={() =>
-                      (window.location.href = `${API_BASE_URL}/auth/google/login?next=${encodeURIComponent("/dashboard")}`)
-                    }
+                    onClick={() => {
+                      const redirectTo = new URLSearchParams(window.location.search).get("redirect") || "/dashboard";
+                      window.location.href = `${API_BASE_URL}/auth/google/login?next=${encodeURIComponent(redirectTo)}`;
+                    }}
                   >
                     <GoogleIcon />
                     {t("auth.sign_in_with_google")}
@@ -291,9 +292,10 @@ const Login = () => {
                     type="button"
                     variant="outline"
                     className="w-full gap-3"
-                    onClick={() =>
-                      (window.location.href = `${API_BASE_URL}/auth/azure/login?next=${encodeURIComponent("/dashboard")}`)
-                    }
+                    onClick={() => {
+                      const redirectTo = new URLSearchParams(window.location.search).get("redirect") || "/dashboard";
+                      window.location.href = `${API_BASE_URL}/auth/azure/login?next=${encodeURIComponent(redirectTo)}`;
+                    }}
                   >
                     <MicrosoftIcon />
                     {t("auth.sign_in_with_microsoft")}
