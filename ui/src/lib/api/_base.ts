@@ -90,7 +90,8 @@ export async function apiRequest<T>(
           localStorage.removeItem('user');
           localStorage.removeItem('selected_tenant_id');
           // Show toast and redirect to login only if not already on login page
-          if (!window.location.pathname.includes('/login')) {
+          const isPublicPluginPage = window.location.pathname.startsWith('/p/');
+          if (!window.location.pathname.includes('/login') && !isPublicPluginPage) {
             toast.error('Session expired. Please log in again.');
             setTimeout(() => window.location.replace('/login'), 100);
           }

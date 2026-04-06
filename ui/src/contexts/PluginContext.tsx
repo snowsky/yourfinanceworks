@@ -324,6 +324,11 @@ class PluginDiscovery {
       'investment-management': 'investments',
     };
 
+    // Skip API call when not authenticated — avoids 401 redirect on public pages
+    if (!localStorage.getItem('user')) {
+      return [];
+    }
+
     try {
       const { apiRequest } = await import('@/lib/api');
       const data = await apiRequest<{ plugins: any[] }>('/plugins/registry', { method: 'GET' });
