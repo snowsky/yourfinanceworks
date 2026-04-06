@@ -697,12 +697,15 @@ async def get_plugin_public_config(
     # the plugin may be a sidecar not fully registered yet.
     plugin_id = plugin_id.strip().lower().replace("_", "-")
 
+    # Prioritize explicitly passed tenant_id (for single-domain multi-org sharing via ?t=)
     resolved_tenant_id = tenant_id
+
+    # Fallback to resolving from subdomain in Host header if no explicit tenant passed
     if resolved_tenant_id is None:
-        # Resolve tenant from subdomain in Host header
         host = request.headers.get("host", "").split(":")[0]  # strip port
         subdomain = host.split(".")[0] if "." in host else None
-        if subdomain:
+        
+        if subdomain and subdomain != "localhost":
             tenant = db.query(Tenant).filter(Tenant.subdomain == subdomain).first()
             if tenant:
                 resolved_tenant_id = tenant.id

@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Settings, Globe, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { pluginApi } from '@/lib/api';
+import { getTenantId } from '@/lib/api/_base';
 
 interface PublicAccessState {
   enabled: boolean;
@@ -85,7 +86,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
   };
 
   const publicUrl = publicAccess?.publicPagePath
-    ? `${window.location.origin}${publicAccess.publicPagePath}`
+    ? `${window.location.origin}${publicAccess.publicPagePath}?t=${getTenantId() || ''}`
     : null;
 
   const handleCopyLink = () => {

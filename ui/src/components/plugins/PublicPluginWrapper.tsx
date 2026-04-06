@@ -28,7 +28,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { pluginApi } from '@/lib/api/plugins';
-import { getTenantId } from '@/lib/api/_base';
 
 interface PublicAccessConfig {
   enabled: boolean;
@@ -52,10 +51,12 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const tenantId = getTenantId();
+    // Extract the explicit tenant ID from the URL (used for sharing single-domain installations across multiple orgs)
+    const searchParams = new URLSearchParams(location.search);
+    const explicitTenantId = searchParams.get('t') || undefined;
 
     pluginApi
-      .getPluginPublicConfig(pluginId, tenantId)
+      .getPluginPublicConfig(pluginId, explicitTenantId)
       .then((data) => {
         setConfig(data);
         setLoading(false);
