@@ -2,7 +2,7 @@
 Plugin management router for handling plugin settings and configuration.
 Commercial feature - requires plugin_management license.
 """
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from typing import Optional
@@ -671,21 +671,40 @@ async def update_plugin_public_access(
 
 @router.get("/public-config/{plugin_id}")
 async def get_plugin_public_config(
+    request: Request,
     plugin_id: str,
-    tenant_id: int,
+    tenant_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_master_db),
 ):
     """
     Return the public-access config for a plugin + tenant.
     No authentication required — used by the frontend to decide whether to render
     the public plugin page and whether to enforce login.
+
+    tenant_id is optional: when omitted the tenant is resolved from the Host header
+    subdomain (e.g. demo.yourfinanceworks.com → subdomain 'demo').
     """
+    from core.models.models import Tenant
+
     # Normalize without validating against discovered plugins —
     # the plugin may be a sidecar not fully registered yet.
     plugin_id = plugin_id.strip().lower().replace("_", "-")
 
+    resolved_tenant_id = tenant_id
+    if resolved_tenant_id is None:
+        # Resolve tenant from subdomain in Host header
+        host = request.headers.get("host", "").split(":")[0]  # strip port
+        subdomain = host.split(".")[0] if "." in host else None
+        if subdomain:
+            tenant = db.query(Tenant).filter(Tenant.subdomain == subdomain).first()
+            if tenant:
+                resolved_tenant_id = tenant.id
+
+    if resolved_tenant_id is None:
+        return {"plugin_id": plugin_id, "enabled": False, "require_login": True, "public_page": None}
+
     settings = db.query(TenantPluginSettings).filter(
-        TenantPluginSettings.tenant_id == tenant_id
+        TenantPluginSettings.tenant_id == resolved_tenant_id
     ).first()
 
     pa = _get_public_access_config(settings.plugin_config if settings else None, plugin_id)

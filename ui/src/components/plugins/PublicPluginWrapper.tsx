@@ -40,12 +40,6 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
 
   useEffect(() => {
     const tenantId = getTenantId();
-    if (!tenantId) {
-      // No tenant context at all — treat as disabled
-      setConfig({ enabled: false, require_login: true, public_page: null });
-      setLoading(false);
-      return;
-    }
 
     pluginApi
       .getPluginPublicConfig(pluginId, tenantId)

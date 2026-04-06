@@ -72,12 +72,15 @@ export const pluginApi = {
    * No-auth check — used by PublicPluginWrapper to determine access mode.
    * Calls directly without Bearer token so it works for unauthenticated visitors.
    */
-  getPluginPublicConfig: (pluginId: string, tenantId: number | string) =>
-    fetch(`/api/v1/plugins/public-config/${pluginId}?tenant_id=${tenantId}`)
-      .then((r) => r.json()) as Promise<{
-        plugin_id: string;
-        enabled: boolean;
-        require_login: boolean;
-        public_page: { path: string; label: string; description?: string; ui_entry?: string } | null;
-      }>,
+  getPluginPublicConfig: (pluginId: string, tenantId?: number | string) => {
+    const url = tenantId != null
+      ? `/api/v1/plugins/public-config/${pluginId}?tenant_id=${tenantId}`
+      : `/api/v1/plugins/public-config/${pluginId}`;
+    return fetch(url).then((r) => r.json()) as Promise<{
+      plugin_id: string;
+      enabled: boolean;
+      require_login: boolean;
+      public_page: { path: string; label: string; description?: string; ui_entry?: string } | null;
+    }>;
+  },
 };
