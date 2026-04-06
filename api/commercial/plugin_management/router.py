@@ -1038,14 +1038,18 @@ async def create_plugin_public_checkout_session(
         import stripe
 
         stripe.api_key = stripe_secret_key
+        price = stripe.Price.retrieve(stripe_price_id)
+        checkout_mode = "subscription" if getattr(price, "type", None) == "recurring" else "payment"
         session = stripe.checkout.Session.create(
-            mode="payment",
+            mode=checkout_mode,
             line_items=[{"price": stripe_price_id, "quantity": 1}],
             success_url=success_url,
             cancel_url=cancel_url,
             metadata={
                 "tenant_id": str(resolved_tenant_id),
                 "plugin_id": plugin_id,
+                "stripe_price_id": stripe_price_id,
+                "checkout_mode": checkout_mode,
             },
         )
     except Exception as exc:
@@ -1054,6 +1058,7 @@ async def create_plugin_public_checkout_session(
     return {
         "plugin_id": plugin_id,
         "tenant_id": resolved_tenant_id,
+        "checkout_mode": checkout_mode,
         "checkout_url": getattr(session, "url", None),
         "session_id": getattr(session, "id", None),
     }
