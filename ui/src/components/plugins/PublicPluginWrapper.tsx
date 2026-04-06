@@ -76,8 +76,8 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
   }
 
   if (config.require_login) {
-    const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
-    if (!token) {
+    const user = localStorage.getItem('user');
+    if (!user) {
       // Redirect to login with a return URL
       navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`, {
         replace: true,
