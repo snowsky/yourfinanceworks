@@ -182,4 +182,67 @@ export const pluginApi = {
       session_id?: string | null;
     }>;
   },
+
+  getPublicCheckoutStatus: (
+    pluginId: string,
+    payload: { tenantId?: number | string; sessionId: string },
+  ) => {
+    const params = new URLSearchParams();
+    params.set('session_id', payload.sessionId);
+    if (payload.tenantId != null) {
+      params.set('tenant_id', String(payload.tenantId));
+    }
+
+    return fetch(`/api/v1/plugins/public-checkout-status/${pluginId}?${params.toString()}`, {
+      credentials: 'include',
+    }).then(async (r) => {
+      const data = await r.json();
+      if (!r.ok) {
+        throw new Error(data?.detail || `Checkout status failed with status ${r.status}`);
+      }
+      return data;
+    }) as Promise<{
+      plugin_id: string;
+      tenant_id: number;
+      session_id: string;
+      checkout_status?: string | null;
+      payment_status?: string | null;
+      subscription_status?: string | null;
+      payment_completed: boolean;
+    }>;
+  },
+
+  getPublicTransactions: (
+    pluginId: string,
+    payload: { tenantId?: number | string; limit?: number } = {},
+  ) => {
+    const params = new URLSearchParams();
+    if (payload.tenantId != null) {
+      params.set('tenant_id', String(payload.tenantId));
+    }
+    if (payload.limit != null) {
+      params.set('limit', String(payload.limit));
+    }
+
+    return fetch(`/api/v1/plugins/public-transactions/${pluginId}?${params.toString()}`, {
+      credentials: 'include',
+    }).then(async (r) => {
+      const data = await r.json();
+      if (!r.ok) {
+        throw new Error(data?.detail || `Transactions lookup failed with status ${r.status}`);
+      }
+      return data;
+    }) as Promise<{
+      transactions: Array<{
+        id: string;
+        created?: number | null;
+        mode?: string | null;
+        status?: string | null;
+        payment_status?: string | null;
+        customer_email?: string | null;
+        amount_total?: number | null;
+        currency?: string | null;
+      }>;
+    }>;
+  },
 };

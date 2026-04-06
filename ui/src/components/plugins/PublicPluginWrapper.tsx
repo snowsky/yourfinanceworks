@@ -62,6 +62,38 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
   }, [pluginId, location.search]);
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const checkoutState = searchParams.get('checkout');
+    const sessionId = searchParams.get('session_id');
+    const explicitTenantId = searchParams.get('t') || undefined;
+
+    if (checkoutState !== 'success' || !sessionId || !config?.billing?.payment_required) {
+      return;
+    }
+
+    pluginApi
+      .getPublicCheckoutStatus(pluginId, {
+        tenantId: explicitTenantId,
+        sessionId,
+      })
+      .then((status) => {
+        if (!status.payment_completed) {
+          return;
+        }
+        return pluginApi.getPluginPublicConfig(pluginId, explicitTenantId).then((updated) => {
+          setConfig(updated);
+          const nextUrl = new URL(window.location.href);
+          nextUrl.searchParams.delete('checkout');
+          nextUrl.searchParams.delete('session_id');
+          window.history.replaceState({}, '', nextUrl.toString());
+        });
+      })
+      .catch(() => {
+        // Keep the paywall visible if verification fails.
+      });
+  }, [config?.billing?.payment_required, location.search, pluginId]);
+
+  useEffect(() => {
     if (!config?.enabled || config.billing?.payment_required) {
       return;
     }
@@ -184,6 +216,16 @@ function PaymentRequiredMessage({ config }: { config: PublicPluginConfig }) {
   const buttonLabel = billing.button_label || 'Continue to payment';
   const [creatingCheckout, setCreatingCheckout] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<Array<{
+    id: string;
+    created?: number | null;
+    mode?: string | null;
+    status?: string | null;
+    payment_status?: string | null;
+    customer_email?: string | null;
+    amount_total?: number | null;
+    currency?: string | null;
+  }>>([]);
 
   const usageSummary = billing.free_endpoint_calls < 0
     ? `${billing.usage_count} billable service calls tracked`
@@ -214,6 +256,29 @@ function PaymentRequiredMessage({ config }: { config: PublicPluginConfig }) {
       setCheckoutError(message);
     } finally {
       setCreatingCheckout(false);
+    }
+  };
+
+  useEffect(() => {
+    const tenantId = new URLSearchParams(window.location.search).get('t') || undefined;
+    pluginApi.getPublicTransactions(config.plugin_id, { tenantId, limit: 5 })
+      .then((response) => setTransactions(response.transactions || []))
+      .catch(() => setTransactions([]));
+  }, [config.plugin_id]);
+
+  const formatAmount = (amount?: number | null, currency?: string | null) => {
+    if (amount == null) {
+      return 'N/A';
+    }
+
+    const normalizedCurrency = (currency || 'usd').toUpperCase();
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: normalizedCurrency,
+      }).format(amount / 100);
+    } catch {
+      return `${(amount / 100).toFixed(2)} ${normalizedCurrency}`;
     }
   };
 
@@ -302,6 +367,44 @@ function PaymentRequiredMessage({ config }: { config: PublicPluginConfig }) {
         {checkoutError && (
           <div style={{ marginTop: 16, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 14, padding: 16 }}>
             {checkoutError}
+          </div>
+        )}
+
+        {transactions.length > 0 && (
+          <div style={{ marginTop: 24 }}>
+            <div style={{ fontSize: 13, color: '#64748b', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+              Recent transactions
+            </div>
+            <div style={{ display: 'grid', gap: 10 }}>
+              {transactions.map((transaction) => (
+                <div
+                  key={transaction.id}
+                  style={{
+                    border: '1px solid rgba(148,163,184,0.2)',
+                    borderRadius: 14,
+                    padding: 14,
+                    background: '#fff',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    alignItems: 'center',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a' }}>
+                      {formatAmount(transaction.amount_total, transaction.currency)}
+                    </div>
+                    <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>
+                      {transaction.payment_status || transaction.status || transaction.mode || 'unknown'}
+                      {transaction.customer_email ? ` • ${transaction.customer_email}` : ''}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', textAlign: 'right' }}>
+                    {transaction.created ? new Date(transaction.created * 1000).toLocaleString() : ''}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

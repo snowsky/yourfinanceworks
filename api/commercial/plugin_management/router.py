@@ -750,6 +750,28 @@ def _get_tenant_payment_settings(tenant_id: int) -> dict:
         tenant_db.close()
 
 
+def _mark_plugin_payment_completed(
+    *,
+    db: Session,
+    tenant_id: int,
+    plugin_id: str,
+) -> dict:
+    settings = _get_plugin_settings_row(db, tenant_id, for_update=True)
+    plugin_cfg = _get_plugin_config_blob(settings.plugin_config if settings else None, plugin_id)
+    billing = _normalize_billing_config(settings.plugin_config if settings else None, plugin_id)
+    billing["payment_completed"] = True
+    plugin_cfg[_BILLING_KEY] = billing
+    _save_plugin_config_blob(
+        settings,
+        db=db,
+        tenant_id=tenant_id,
+        plugin_id=plugin_id,
+        plugin_cfg=plugin_cfg,
+    )
+    db.commit()
+    return billing
+
+
 @router.get("/{plugin_id}/public-access")
 async def get_plugin_public_access(
     plugin_id: str,
@@ -1029,8 +1051,18 @@ async def create_plugin_public_checkout_session(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Stripe price ID is not configured for this plugin")
 
     current_url = str(payload.get("current_url", "") or "").strip()
-    success_url = payment_settings["checkout_success_url"] or current_url
-    cancel_url = payment_settings["checkout_cancel_url"] or current_url
+    base_success_url = payment_settings["checkout_success_url"] or current_url
+    base_cancel_url = payment_settings["checkout_cancel_url"] or current_url
+    if base_success_url:
+        separator = "&" if "?" in base_success_url else "?"
+        success_url = f"{base_success_url}{separator}checkout=success&session_id={{CHECKOUT_SESSION_ID}}"
+    else:
+        success_url = ""
+    if base_cancel_url:
+        separator = "&" if "?" in base_cancel_url else "?"
+        cancel_url = f"{base_cancel_url}{separator}checkout=cancel"
+    else:
+        cancel_url = ""
     if not success_url or not cancel_url:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Checkout success and cancel URLs are not configured")
 
@@ -1062,6 +1094,123 @@ async def create_plugin_public_checkout_session(
         "checkout_url": getattr(session, "url", None),
         "session_id": getattr(session, "id", None),
     }
+
+
+@router.get("/public-checkout-status/{plugin_id}")
+async def get_plugin_public_checkout_status(
+    request: Request,
+    plugin_id: str,
+    session_id: str,
+    tenant_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_master_db),
+):
+    """
+    Verify a Stripe Checkout session after redirect back to the public page.
+    This provides a non-webhook fallback for unlocking the plugin.
+    """
+    plugin_id = _normalize_plugin_id(plugin_id)
+    resolved_tenant_id = _resolve_public_tenant_id(request, db, tenant_id)
+    if resolved_tenant_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to resolve tenant")
+
+    payment_settings = _get_tenant_payment_settings(resolved_tenant_id)
+    stripe_secret_key = payment_settings["stripe_secret_key"] or os.getenv("STRIPE_SECRET_KEY", "").strip()
+    if not stripe_secret_key:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Stripe secret key is not configured")
+
+    try:
+        import stripe
+
+        stripe.api_key = stripe_secret_key
+        session = stripe.checkout.Session.retrieve(session_id)
+        metadata = session.get("metadata", {})
+        if str(metadata.get("tenant_id", "")) != str(resolved_tenant_id) or _normalize_plugin_id(str(metadata.get("plugin_id", "") or "")) != plugin_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Checkout session metadata mismatch")
+
+        payment_status = getattr(session, "payment_status", None) or session.get("payment_status")
+        status_value = getattr(session, "status", None) or session.get("status")
+        subscription_id = getattr(session, "subscription", None) or session.get("subscription")
+        subscription_status = None
+        paid = payment_status == "paid"
+        if subscription_id:
+            subscription = stripe.Subscription.retrieve(subscription_id)
+            subscription_status = getattr(subscription, "status", None) or subscription.get("status")
+            if subscription_status in {"active", "trialing"}:
+                paid = True
+
+        billing = None
+        if paid:
+            billing = _mark_plugin_payment_completed(db=db, tenant_id=resolved_tenant_id, plugin_id=plugin_id)
+        else:
+            settings = _get_plugin_settings_row(db, resolved_tenant_id)
+            billing = _normalize_billing_config(settings.plugin_config if settings else None, plugin_id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Stripe checkout status failed: {exc}") from exc
+
+    return {
+        "plugin_id": plugin_id,
+        "tenant_id": resolved_tenant_id,
+        "session_id": session_id,
+        "checkout_status": status_value,
+        "payment_status": payment_status,
+        "subscription_status": subscription_status,
+        "payment_completed": billing["payment_completed"],
+    }
+
+
+@router.get("/public-transactions/{plugin_id}")
+async def list_plugin_public_transactions(
+    request: Request,
+    plugin_id: str,
+    tenant_id: Optional[int] = Query(default=None),
+    limit: int = Query(default=5, ge=1, le=20),
+    db: Session = Depends(get_master_db),
+):
+    """
+    List recent Stripe checkout transactions for the plugin paywall.
+    No authentication required; results are scoped to the plugin + tenant metadata.
+    """
+    plugin_id = _normalize_plugin_id(plugin_id)
+    resolved_tenant_id = _resolve_public_tenant_id(request, db, tenant_id)
+    if resolved_tenant_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to resolve tenant")
+
+    payment_settings = _get_tenant_payment_settings(resolved_tenant_id)
+    stripe_secret_key = payment_settings["stripe_secret_key"] or os.getenv("STRIPE_SECRET_KEY", "").strip()
+    if not stripe_secret_key:
+        return {"transactions": []}
+
+    try:
+        import stripe
+
+        stripe.api_key = stripe_secret_key
+        sessions = stripe.checkout.Session.list(limit=20)
+        transactions = []
+        for session in getattr(sessions, "data", []):
+            metadata = session.get("metadata", {})
+            if str(metadata.get("tenant_id", "")) != str(resolved_tenant_id):
+                continue
+            if _normalize_plugin_id(str(metadata.get("plugin_id", "") or "")) != plugin_id:
+                continue
+
+            transactions.append({
+                "id": getattr(session, "id", None) or session.get("id"),
+                "created": getattr(session, "created", None) or session.get("created"),
+                "mode": getattr(session, "mode", None) or session.get("mode"),
+                "status": getattr(session, "status", None) or session.get("status"),
+                "payment_status": getattr(session, "payment_status", None) or session.get("payment_status"),
+                "customer_email": getattr(session, "customer_details", None).email if getattr(session, "customer_details", None) and getattr(session.customer_details, "email", None) else (session.get("customer_details", {}) or {}).get("email"),
+                "amount_total": getattr(session, "amount_total", None) or session.get("amount_total"),
+                "currency": getattr(session, "currency", None) or session.get("currency"),
+            })
+            if len(transactions) >= limit:
+                break
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Stripe transactions lookup failed: {exc}") from exc
+
+    return {"transactions": transactions}
 
 
 @router.post("/stripe/webhook")
@@ -1119,19 +1268,7 @@ async def handle_plugin_stripe_webhook(
     if not plugin_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing plugin metadata")
 
-    settings = _get_plugin_settings_row(db, resolved_tenant_id, for_update=True)
-    plugin_cfg = _get_plugin_config_blob(settings.plugin_config if settings else None, plugin_id)
-    billing = _normalize_billing_config(settings.plugin_config if settings else None, plugin_id)
-    billing["payment_completed"] = True
-    plugin_cfg[_BILLING_KEY] = billing
-    _save_plugin_config_blob(
-        settings,
-        db=db,
-        tenant_id=resolved_tenant_id,
-        plugin_id=plugin_id,
-        plugin_cfg=plugin_cfg,
-    )
-    db.commit()
+    _mark_plugin_payment_completed(db=db, tenant_id=resolved_tenant_id, plugin_id=plugin_id)
 
     return {"received": True, "plugin_id": plugin_id, "tenant_id": resolved_tenant_id}
 
