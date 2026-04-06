@@ -93,6 +93,9 @@ class BankStatementMessageHandler(BaseMessageHandler):
                         db.commit()
                         raise e
 
+                    # Classify document type — detect if it's a receipt uploaded by mistake
+                    await self._classify_and_flag_receipt(db, statement, file_path, ai_conf)
+
                     # Try unified OCR first, fallback to legacy
                     card_type = payload.get("card_type", "auto")
                     txns = []
@@ -266,6 +269,9 @@ class BankStatementMessageHandler(BaseMessageHandler):
                     except Exception as e:
                         return await self._handle_statement_error(consumer, message, db, stmt, e, attempt, payload)
 
+                    # Classify document type — detect if it's a receipt uploaded by mistake
+                    await self._classify_and_flag_receipt(db, stmt, file_path, ai_conf)
+
                     # Check LLM availability and process
                     try:
                         llm_ok = is_bank_llm_reachable(ai_conf)
@@ -371,6 +377,33 @@ class BankStatementMessageHandler(BaseMessageHandler):
             db.rollback()
         await self._commit_message(consumer, message)
         return ProcessingResult(success=False, committed=True)
+
+    async def _classify_and_flag_receipt(self, db, stmt, file_path: str, ai_conf: Optional[Dict[str, Any]]) -> None:
+        """
+        Run AI document classification on the uploaded file.
+        If the AI identifies it as a receipt (not a bank statement), set is_possible_receipt=True
+        so the frontend can prompt the user to convert transactions to expenses.
+        Failures are non-fatal — classification is advisory only.
+        """
+        try:
+            from commercial.ai_invoice.services.invoice_ai_service import InvoiceAIService
+
+            service = InvoiceAIService(db_session=db)
+            result = await service.classify_invoice_type(file_path)
+
+            if result.get("success"):
+                doc_type = result.get("classification", {}).get("document_type", "")
+                if doc_type == "receipt":
+                    self.logger.info(f"Document classified as receipt for statement {stmt.id} — setting is_possible_receipt=True")
+                    stmt.is_possible_receipt = True
+                    db.add(stmt)
+                    db.commit()
+                else:
+                    self.logger.info(f"Document classified as '{doc_type}' for statement {stmt.id}")
+            else:
+                self.logger.warning(f"Classification skipped for statement {stmt.id}: {result.get('error')}")
+        except Exception as e:
+            self.logger.warning(f"Receipt classification failed for statement {stmt.id} (non-fatal): {e}")
 
     async def _ensure_local_statement_file(self, db, stmt, file_path: str, tenant_id: int) -> str:
         """

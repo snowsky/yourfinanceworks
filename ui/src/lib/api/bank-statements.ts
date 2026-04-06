@@ -46,6 +46,7 @@ export interface BankStatementSummary {
   review_status?: 'not_started' | 'pending' | 'diff_found' | 'no_diff' | 'reviewed' | 'failed' | 'rejected';
   review_result?: any;
   reviewed_at?: string;
+  is_possible_receipt?: boolean;
 }
 
 export interface BankStatementDetail extends BankStatementSummary {

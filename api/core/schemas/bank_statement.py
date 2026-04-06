@@ -56,6 +56,8 @@ class BankStatementBase(BaseModel):
     notes: Optional[str] = Field(None, description="Additional notes")
     card_type: str = Field("debit", description="debit|credit")
 
+    is_possible_receipt: bool = Field(False, description="AI detected this document may be a receipt, not a bank statement")
+
     # Review Worker fields
     review_status: Optional[str] = Field("not_started", description="Review process status: not_started|pending|diff_found|no_diff|reviewed|failed")
     review_result: Optional[Dict[str, Any]] = Field(None, description="Data extracted by reviewer")

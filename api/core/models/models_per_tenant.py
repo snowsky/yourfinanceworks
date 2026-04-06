@@ -498,6 +498,7 @@ class BankStatement(Base):
     notes = Column(Text, nullable=True)
     labels = Column(JSON, nullable=True)
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # User attribution
+    is_possible_receipt = Column(Boolean, default=False, nullable=False)  # AI detected this may be a receipt
 
     # Soft delete fields for recycle bin functionality
     is_deleted = Column(Boolean, default=False, nullable=False)
