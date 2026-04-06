@@ -38,7 +38,6 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<Record<string, any>>({});
   const [publicAccess, setPublicAccess] = useState<PublicAccessState | null>(null);
-  const [savingPublicAccess, setSavingPublicAccess] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -85,22 +84,6 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
     }
   };
 
-  const handleSavePublicAccess = async () => {
-    if (!publicAccess) return;
-    setSavingPublicAccess(true);
-    try {
-      await pluginApi.updatePublicAccessConfig(pluginId, {
-        enabled: publicAccess.enabled,
-        require_login: publicAccess.require_login,
-      });
-      toast.success('Public access settings saved');
-    } catch (error) {
-      toast.error('Failed to save public access settings');
-    } finally {
-      setSavingPublicAccess(false);
-    }
-  };
-
   const publicUrl = publicAccess?.publicPagePath
     ? `${window.location.origin}${publicAccess.publicPagePath}`
     : null;
@@ -116,7 +99,15 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await pluginApi.updatePluginConfig(pluginId, config);
+      await Promise.all([
+        pluginApi.updatePluginConfig(pluginId, config),
+        publicAccess !== null
+          ? pluginApi.updatePublicAccessConfig(pluginId, {
+              enabled: publicAccess.enabled,
+              require_login: publicAccess.require_login,
+            })
+          : Promise.resolve(),
+      ]);
       toast.success('Plugin settings updated successfully');
       onOpenChange(false);
     } catch (error) {
@@ -255,16 +246,6 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                 </>
               )}
 
-              <div className="flex justify-end">
-                <Button
-                  size="sm"
-                  onClick={handleSavePublicAccess}
-                  disabled={savingPublicAccess}
-                >
-                  {savingPublicAccess && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-                  {t('common.save', 'Save')}
-                </Button>
-              </div>
             </div>
           )}
         </div>

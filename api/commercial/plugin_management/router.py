@@ -603,7 +603,7 @@ async def get_plugin_public_access(
     if not _is_admin(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
 
-    plugin_id = _validate_plugin_id(plugin_id)
+    plugin_id = _normalize_plugin_id(plugin_id)
     settings = db.query(TenantPluginSettings).filter(
         TenantPluginSettings.tenant_id == current_user.tenant_id
     ).first()
@@ -635,7 +635,7 @@ async def update_plugin_public_access(
     if not _is_admin(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
 
-    plugin_id = _validate_plugin_id(plugin_id)
+    plugin_id = _normalize_plugin_id(plugin_id)
 
     enabled = bool(payload.get("enabled", False))
     require_login = bool(payload.get("require_login", True))
