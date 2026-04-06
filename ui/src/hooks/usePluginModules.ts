@@ -35,6 +35,9 @@ let _cache: LoadedPluginModule[] | null = null;
 const _listeners = new Set<() => void>();
 
 async function _fetchSidecarNavItems(): Promise<LoadedPluginModule[]> {
+  if (!localStorage.getItem('user')) {
+    return [];
+  }
   try {
     const data = await apiRequest<{ plugins: any[] }>('/plugins/registry');
     return (data.plugins ?? [])

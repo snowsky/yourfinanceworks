@@ -1,16 +1,29 @@
 /**
  * PublicPluginWrapper
  *
- * Wraps a plugin's public portal page (`/p/{pluginId}/`) and enforces the
- * tenant's public-access settings before rendering.
+ * Every plugin can expose a shareable public URL at `/p/{pluginId}/`.
+ * Example: https://demo.yourfinanceworks.com/p/socialhub
  *
- * Access modes (configured in Settings → Plugins → Public Access):
- *   - disabled (default): shows "page not available"
- *   - require_login: true  → redirects unauthenticated visitors to /login
- *   - require_login: false → renders freely for anyone
+ * The URL namespace `/p/` stands for "public plugin portal". Tenants control
+ * access per-plugin in Settings → Plugins → Configure → Public Access:
+ *   - disabled (default) → shows "page not available"
+ *   - enabled + require_login: true  → unauthenticated visitors are redirected
+ *     to /login and returned here after signing in
+ *   - enabled + require_login: false → accessible to anyone without login
  *
- * Works for both in-process plugins (renders children) and sidecar plugins
- * (renders an iframe pointing to the sidecar's public UI).
+ * The public page path is declared by each plugin in its plugin.json manifest:
+ *   "public_page": { "path": "/p/socialhub", "ui_entry": "/plugins/socialhub/public/" }
+ *
+ * Plugin types:
+ *   - In-process plugins (e.g. yfw-surveys): export a React component as
+ *     `publicPage` from plugin/ui/index.ts — rendered as children
+ *   - Sidecar plugins (e.g. yfw-socialhub): declare a `ui_entry` URL in
+ *     plugin.json — rendered as an iframe
+ *
+ * Tenant resolution (for unauthenticated visitors):
+ *   The tenant is identified from the Host header subdomain on the backend
+ *   (e.g. demo.yourfinanceworks.com → subdomain "demo"). No login is needed
+ *   to check whether a public page is enabled.
  */
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -80,11 +93,12 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
     }
   }
 
-  // Sidecar: render via iframe
-  if (iframeUrl) {
+  // Sidecar: render via iframe (explicit prop takes priority; fall back to manifest ui_entry)
+  const resolvedIframeUrl = iframeUrl ?? config.public_page?.ui_entry ?? undefined;
+  if (resolvedIframeUrl) {
     return (
       <iframe
-        src={iframeUrl}
+        src={resolvedIframeUrl}
         style={{ width: '100%', height: 'calc(100vh - 4rem)', border: 'none' }}
         title={pluginId}
       />

@@ -110,6 +110,18 @@ const queryClient = new QueryClient({
   },
 });
 
+// Public plugin portal — /p/:pluginId/
+// Each plugin can expose a public URL at /p/{pluginId}/ (e.g. /p/socialhub).
+// Access is controlled per-tenant in Settings → Plugins → Configure → Public Access.
+// This catch-all handles sidecar plugins when their route is not yet registered
+// (e.g. unauthenticated visitors); PublicPluginWrapper resolves the iframe URL
+// from the no-auth config API (public_page.ui_entry in plugin.json).
+const PublicPluginCatchAll = () => {
+  const { pluginId } = useParams<{ pluginId: string }>();
+  if (!pluginId) return null;
+  return <PublicPluginWrapper pluginId={pluginId} />;
+};
+
 // Simple redirect component for expense IDs
 const ExpenseRedirect = () => {
   const { id } = useParams();
@@ -197,6 +209,10 @@ const AppContent = () => {
                   {publicPluginRoutes.map(r => (
                     <Route key={r.path} path={r.path} element={buildPluginElement(r)} />
                   ))}
+
+                  {/* Catch-all for /p/* — handles sidecar plugins when not logged in
+                      (specific routes below take precedence when registered) */}
+                  <Route path="/p/:pluginId/*" element={<PublicPluginCatchAll />} />
 
                   {/* Public Plugin Portal Routes — /p/{plugin_id}/ */}
                   {publicPageModules.map(m => {
