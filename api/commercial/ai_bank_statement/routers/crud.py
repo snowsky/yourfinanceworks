@@ -642,6 +642,7 @@ async def get_statement(
             "created_by_username": s.created_by.email if s.created_by else None,
             "created_by_email": s.created_by.email if s.created_by else None,
             "card_type": getattr(s, "card_type", "debit"),
+            "is_possible_receipt": getattr(s, "is_possible_receipt", False),
             "review_status": getattr(s, "review_status", "not_started"),
             "review_result": getattr(s, "review_result", None),
             "reviewed_at": (
