@@ -650,6 +650,15 @@ def _coerce_non_negative_int(value: object, default: int = 0) -> int:
         return default
 
 
+def _coerce_usage_limit(value: object, default: int = -1) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+
+    return -1 if parsed < 0 else parsed
+
+
 def _normalize_billing_config(plugin_config: dict | None, plugin_id: str) -> dict:
     cfg = _get_plugin_config_blob(plugin_config, plugin_id)
     raw = dict(cfg.get(_BILLING_KEY, {}) or {})
@@ -660,7 +669,7 @@ def _normalize_billing_config(plugin_config: dict | None, plugin_id: str) -> dic
     billing = {
         "enabled": bool(raw.get("enabled", _BILLING_DEFAULTS["enabled"])),
         "provider": str(raw.get("provider", _BILLING_DEFAULTS["provider"]) or "stripe"),
-        "free_endpoint_calls": _coerce_non_negative_int(raw.get("free_endpoint_calls", 0)),
+        "free_endpoint_calls": _coerce_usage_limit(raw.get("free_endpoint_calls", -1)),
         "usage_count": _coerce_non_negative_int(raw.get("usage_count", 0)),
         "usage_by_endpoint": {
             str(key): _coerce_non_negative_int(value)
@@ -679,7 +688,8 @@ def _normalize_billing_config(plugin_config: dict | None, plugin_id: str) -> dic
 def _billing_response_payload(plugin_id: str, billing: dict) -> dict:
     free_calls = billing["free_endpoint_calls"]
     usage_count = billing["usage_count"]
-    payment_required = billing["enabled"] and free_calls > 0 and usage_count >= free_calls and not billing["payment_completed"]
+    usage_limited = free_calls >= 0
+    payment_required = billing["enabled"] and usage_limited and usage_count >= free_calls and not billing["payment_completed"]
     payment_configured = bool(billing["checkout_url"])
 
     return {
@@ -697,7 +707,7 @@ def _billing_response_payload(plugin_id: str, billing: dict) -> dict:
         "payment_completed": billing["payment_completed"],
         "payment_required": payment_required,
         "payment_configured": payment_configured,
-        "remaining_free_calls": max(free_calls - usage_count, 0) if free_calls > 0 else None,
+        "remaining_free_calls": max(free_calls - usage_count, 0) if usage_limited else None,
     }
 
 
@@ -787,7 +797,7 @@ async def update_plugin_billing_config(
 
     billing["enabled"] = bool(payload.get("enabled", billing["enabled"]))
     billing["provider"] = str(payload.get("provider", billing["provider"]) or "stripe")
-    billing["free_endpoint_calls"] = _coerce_non_negative_int(
+    billing["free_endpoint_calls"] = _coerce_usage_limit(
         payload.get("free_endpoint_calls", billing["free_endpoint_calls"])
     )
     billing["checkout_url"] = str(payload.get("checkout_url", billing["checkout_url"]) or "").strip()

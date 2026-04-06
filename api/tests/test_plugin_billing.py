@@ -67,3 +67,46 @@ def test_plugin_billing_threshold_triggers_public_paywall(client: TestClient, db
         assert stored_billing["checkout_url"] == "https://buy.stripe.com/test-link"
     finally:
         app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_plugin_billing_zero_requires_payment_and_negative_one_is_unlimited(client: TestClient):
+    app.dependency_overrides[get_current_user] = _override_admin_user
+    try:
+        immediate_response = client.put(
+            "/api/v1/plugins/investments/billing-config",
+            json={
+                "enabled": True,
+                "provider": "stripe",
+                "free_endpoint_calls": 0,
+                "checkout_url": "https://buy.stripe.com/pay-now",
+                "payment_completed": False,
+            },
+        )
+        assert immediate_response.status_code == 200, immediate_response.text
+        assert immediate_response.json()["payment_required"] is True
+
+        public_immediate = client.get("/api/v1/plugins/public-config/investments?tenant_id=1")
+        assert public_immediate.status_code == 200, public_immediate.text
+        assert public_immediate.json()["billing"]["payment_required"] is True
+
+        unlimited_response = client.put(
+            "/api/v1/plugins/investments/billing-config",
+            json={
+                "enabled": True,
+                "provider": "stripe",
+                "free_endpoint_calls": -1,
+                "checkout_url": "https://buy.stripe.com/unlimited",
+                "payment_completed": False,
+                "usage_count": 99,
+            },
+        )
+        assert unlimited_response.status_code == 200, unlimited_response.text
+        assert unlimited_response.json()["payment_required"] is False
+        assert unlimited_response.json()["remaining_free_calls"] is None
+
+        public_unlimited = client.get("/api/v1/plugins/public-config/investments?tenant_id=1")
+        assert public_unlimited.status_code == 200, public_unlimited.text
+        assert public_unlimited.json()["billing"]["payment_required"] is False
+        assert public_unlimited.json()["billing"]["free_endpoint_calls"] == -1
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)

@@ -301,7 +301,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                 <div className="space-y-0.5">
                   <Label htmlFor="billing-enabled">Enable paid access</Label>
                   <p className="text-xs text-muted-foreground">
-                    After free usage is exhausted, the public page will show a payment prompt.
+                    After the free service-call quota is exhausted, the public page will show a payment prompt.
                   </p>
                 </div>
                 <Switch
@@ -329,15 +329,18 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                       <Input
                         id="free-endpoint-calls"
                         type="number"
-                        min={0}
+                        min={-1}
                         value={billing.free_endpoint_calls}
                         onChange={(event) =>
                           setBilling({
                             ...billing,
-                            free_endpoint_calls: Math.max(Number(event.target.value || 0), 0),
+                            free_endpoint_calls: Number(event.target.value || -1),
                           })
                         }
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Use `-1` for unlimited, `0` to require payment before any billable service call.
+                      </p>
                     </div>
                   </div>
 
@@ -399,7 +402,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
 
                   <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm">
                     <span className="text-muted-foreground">Tracked usage</span>
-                    <span className="font-medium">{billing.usage_count}</span>
+                    <span className="font-medium">{billing.usage_count} service calls</span>
                   </div>
 
                   <div className="flex items-center justify-between">

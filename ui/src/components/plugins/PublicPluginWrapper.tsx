@@ -51,20 +51,7 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
 
     pluginApi
       .getPluginPublicConfig(pluginId, explicitTenantId)
-      .then(async (data) => {
-        if (data.enabled && data.billing?.enabled && !data.billing.payment_required) {
-          try {
-            const usage = await pluginApi.recordPublicUsage(pluginId, {
-              tenantId: explicitTenantId,
-              endpointKey: 'public_page_view',
-              quantity: 1,
-            });
-            data = { ...data, billing: usage };
-          } catch {
-            // Non-fatal: the public page should still render even if usage logging fails.
-          }
-        }
-
+      .then((data) => {
         setConfig(data);
         setLoading(false);
       })
@@ -73,6 +60,55 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
         setLoading(false);
       });
   }, [pluginId, location.search]);
+
+  useEffect(() => {
+    if (!config?.enabled || config.billing?.payment_required) {
+      return;
+    }
+
+    const searchParams = new URLSearchParams(location.search);
+    const explicitTenantId = searchParams.get('t') || undefined;
+
+    const recordUsage = async (endpointKey: string, quantity = 1) => {
+      try {
+        const billing = await pluginApi.recordPublicUsage(pluginId, {
+          tenantId: explicitTenantId,
+          endpointKey,
+          quantity,
+        });
+        setConfig((current) => current ? { ...current, billing } : current);
+      } catch {
+        // Ignore metering failures to avoid blocking the plugin experience.
+      }
+    };
+
+    const handleWindowUsage = (event: Event) => {
+      const customEvent = event as CustomEvent<{ pluginId?: string; endpointKey?: string; quantity?: number }>;
+      if (customEvent.detail?.pluginId && customEvent.detail.pluginId !== pluginId) {
+        return;
+      }
+      recordUsage(customEvent.detail?.endpointKey || 'service_call', customEvent.detail?.quantity || 1);
+    };
+
+    const handleMessageUsage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || data.type !== 'plugin-public-usage') {
+        return;
+      }
+      if (data.pluginId && data.pluginId !== pluginId) {
+        return;
+      }
+      recordUsage(data.endpointKey || 'service_call', data.quantity || 1);
+    };
+
+    window.addEventListener('plugin-public-usage', handleWindowUsage as EventListener);
+    window.addEventListener('message', handleMessageUsage);
+
+    return () => {
+      window.removeEventListener('plugin-public-usage', handleWindowUsage as EventListener);
+      window.removeEventListener('message', handleMessageUsage);
+    };
+  }, [config?.enabled, config?.billing?.payment_required, location.search, pluginId]);
 
   if (loading) {
     return (
@@ -147,6 +183,12 @@ function PaymentRequiredMessage({ config }: { config: PublicPluginConfig }) {
   const description = billing.description || 'The free usage quota for this public plugin has been used.';
   const buttonLabel = billing.button_label || 'Continue to payment';
 
+  const usageSummary = billing.free_endpoint_calls < 0
+    ? `${billing.usage_count} billable service calls tracked`
+    : billing.free_endpoint_calls === 0
+      ? 'Payment is required before the first billable service call'
+      : `${billing.usage_count} / ${billing.free_endpoint_calls} free service calls used`;
+
   return (
     <div
       style={{
@@ -193,7 +235,7 @@ function PaymentRequiredMessage({ config }: { config: PublicPluginConfig }) {
           <div>
             <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4 }}>Usage</div>
             <div style={{ fontSize: 16, color: '#0f172a', fontWeight: 600 }}>
-              {billing.usage_count} / {billing.free_endpoint_calls} free calls used
+              {usageSummary}
             </div>
           </div>
           {billing.price_label && (
