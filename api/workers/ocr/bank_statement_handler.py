@@ -393,8 +393,8 @@ class BankStatementMessageHandler(BaseMessageHandler):
 
             if result.get("success"):
                 doc_type = result.get("classification", {}).get("document_type", "")
-                if doc_type == "receipt":
-                    self.logger.info(f"Document classified as receipt for statement {stmt.id} — setting is_possible_receipt=True")
+                if doc_type in ("receipt", "bill"):
+                    self.logger.info(f"Document classified as '{doc_type}' for statement {stmt.id} — setting is_possible_receipt=True")
                     stmt.is_possible_receipt = True
                     db.add(stmt)
                     db.commit()
