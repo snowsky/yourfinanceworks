@@ -72,7 +72,8 @@ const Login = () => {
       localStorage.setItem("user", JSON.stringify(data.user));
       window.dispatchEvent(new Event("auth-changed"));
       toast.success(t("auth.login_success"));
-      navigate("/dashboard");
+      const redirectTo = new URLSearchParams(window.location.search).get("redirect") || "/dashboard";
+      navigate(redirectTo, { replace: true });
     } catch (err: any) {
       setError(getErrorMessage(err, t));
     } finally {
