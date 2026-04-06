@@ -313,10 +313,10 @@ async def update_plugin_settings(
             detail=f"Invalid plugin IDs: {', '.join(invalid_plugins)}"
         )
 
-    # Get or create settings
+    # Get or create settings with row lock to prevent race conditions
     settings = db.query(TenantPluginSettings).filter(
         TenantPluginSettings.tenant_id == tenant_id
-    ).first()
+    ).with_for_update().first()
 
     if not settings:
         settings = TenantPluginSettings(
@@ -375,7 +375,7 @@ async def enable_plugin(
 
     settings = db.query(TenantPluginSettings).filter(
         TenantPluginSettings.tenant_id == tenant_id
-    ).first()
+    ).with_for_update().first()
 
     if not settings:
         settings = TenantPluginSettings(
@@ -438,7 +438,7 @@ async def disable_plugin(
 
     settings = db.query(TenantPluginSettings).filter(
         TenantPluginSettings.tenant_id == tenant_id
-    ).first()
+    ).with_for_update().first()
 
     if not settings:
         raise HTTPException(
@@ -539,10 +539,10 @@ async def update_plugin_config(
             detail="config must be a dictionary"
         )
 
-    # Get or create settings
+    # Get or create settings with a lock for update to prevent concurrent modification races
     settings = db.query(TenantPluginSettings).filter(
         TenantPluginSettings.tenant_id == tenant_id
-    ).first()
+    ).with_for_update().first()
 
     if not settings:
         settings = TenantPluginSettings(
@@ -552,9 +552,16 @@ async def update_plugin_config(
         )
         db.add(settings)
     else:
-        # Update plugin_config
+        # Update plugin_config safely
         current_config = settings.plugin_config or {}
-        current_config[plugin_id] = config
+        existing_plugin_cfg = current_config.get(plugin_id, {})
+        
+        # Merge the new config, but preserve public_access which is managed separately
+        new_plugin_cfg = dict(config)
+        if _PUBLIC_ACCESS_KEY in existing_plugin_cfg:
+            new_plugin_cfg[_PUBLIC_ACCESS_KEY] = existing_plugin_cfg[_PUBLIC_ACCESS_KEY]
+            
+        current_config[plugin_id] = new_plugin_cfg
         settings.plugin_config = current_config
         # Mark the column as modified so SQLAlchemy detects the change
         flag_modified(settings, 'plugin_config')
@@ -642,7 +649,7 @@ async def update_plugin_public_access(
 
     settings = db.query(TenantPluginSettings).filter(
         TenantPluginSettings.tenant_id == current_user.tenant_id
-    ).first()
+    ).with_for_update().first()
 
     if not settings:
         settings = TenantPluginSettings(
