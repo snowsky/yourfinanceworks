@@ -182,12 +182,40 @@ function PaymentRequiredMessage({ config }: { config: PublicPluginConfig }) {
   const title = billing.title || 'Payment required';
   const description = billing.description || 'The free usage quota for this public plugin has been used.';
   const buttonLabel = billing.button_label || 'Continue to payment';
+  const [creatingCheckout, setCreatingCheckout] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const usageSummary = billing.free_endpoint_calls < 0
     ? `${billing.usage_count} billable service calls tracked`
     : billing.free_endpoint_calls === 0
       ? 'Payment is required before the first billable service call'
       : `${billing.usage_count} / ${billing.free_endpoint_calls} free service calls used`;
+
+  const startCheckout = async () => {
+    if (billing.checkout_url) {
+      window.location.href = billing.checkout_url;
+      return;
+    }
+
+    const tenantId = new URLSearchParams(window.location.search).get('t') || undefined;
+    setCreatingCheckout(true);
+    setCheckoutError(null);
+    try {
+      const session = await pluginApi.createPublicCheckoutSession(config.plugin_id, {
+        tenantId,
+        currentUrl: window.location.href,
+      });
+      if (!session.checkout_url) {
+        throw new Error('Checkout session did not return a URL');
+      }
+      window.location.href = session.checkout_url;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to start checkout';
+      setCheckoutError(message);
+    } finally {
+      setCreatingCheckout(false);
+    }
+  };
 
   return (
     <div
@@ -243,9 +271,10 @@ function PaymentRequiredMessage({ config }: { config: PublicPluginConfig }) {
           )}
         </div>
 
-        {billing.checkout_url ? (
-          <a
-            href={billing.checkout_url}
+        {billing.checkout_url || billing.stripe_price_id ? (
+          <button
+            onClick={startCheckout}
+            disabled={creatingCheckout}
             style={{
               marginTop: 24,
               display: 'inline-flex',
@@ -258,13 +287,21 @@ function PaymentRequiredMessage({ config }: { config: PublicPluginConfig }) {
               color: '#fff',
               fontWeight: 600,
               textDecoration: 'none',
+              border: 'none',
+              cursor: creatingCheckout ? 'progress' : 'pointer',
+              opacity: creatingCheckout ? 0.8 : 1,
             }}
           >
-            {buttonLabel}
-          </a>
+            {creatingCheckout ? 'Starting checkout…' : buttonLabel}
+          </button>
         ) : (
           <div style={{ marginTop: 24, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 14, padding: 16 }}>
             Payment is required, but checkout is not configured for this plugin yet.
+          </div>
+        )}
+        {checkoutError && (
+          <div style={{ marginTop: 16, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 14, padding: 16 }}>
+            {checkoutError}
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@
 Plugin management router for handling plugin settings and configuration.
 Commercial feature - requires plugin_management license.
 """
+import os
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
@@ -13,6 +14,7 @@ from core.models.database import get_master_db
 from core.routers.auth import get_current_user
 from core.services.plugin_access_control_service import PluginAccessControlService
 from core.services.tenant_database_manager import tenant_db_manager
+from core.models.models_per_tenant import Settings as TenantSetting
 from plugins.loader import plugin_loader
 from commercial.plugin_management.services.git_installer import (
     start_install,
@@ -592,12 +594,14 @@ _BILLING_DEFAULTS = {
     "usage_count": 0,
     "usage_by_endpoint": {},
     "checkout_url": "",
+    "stripe_price_id": "",
     "price_label": "",
     "title": "",
     "description": "",
     "button_label": "",
     "payment_completed": False,
 }
+_PAYMENT_SETTINGS_KEY = "plugin_payment_settings"
 
 
 def _get_public_access_config(plugin_config: dict | None, plugin_id: str) -> dict:
@@ -676,6 +680,7 @@ def _normalize_billing_config(plugin_config: dict | None, plugin_id: str) -> dic
             for key, value in usage_by_endpoint.items()
         },
         "checkout_url": str(raw.get("checkout_url", "") or "").strip(),
+        "stripe_price_id": str(raw.get("stripe_price_id", "") or "").strip(),
         "price_label": str(raw.get("price_label", "") or "").strip(),
         "title": str(raw.get("title", "") or "").strip(),
         "description": str(raw.get("description", "") or "").strip(),
@@ -700,6 +705,7 @@ def _billing_response_payload(plugin_id: str, billing: dict) -> dict:
         "usage_count": usage_count,
         "usage_by_endpoint": billing["usage_by_endpoint"],
         "checkout_url": billing["checkout_url"] or None,
+        "stripe_price_id": billing["stripe_price_id"] or None,
         "price_label": billing["price_label"] or None,
         "title": billing["title"] or None,
         "description": billing["description"] or None,
@@ -724,6 +730,24 @@ def _resolve_public_tenant_id(request: Request, db: Session, tenant_id: Optional
         if tenant:
             return tenant.id
     return None
+
+
+def _get_tenant_payment_settings(tenant_id: int) -> dict:
+    tenant_session_factory = tenant_db_manager.get_tenant_session(tenant_id)
+    tenant_db = tenant_session_factory()
+    try:
+        row = tenant_db.query(TenantSetting).filter(TenantSetting.key == _PAYMENT_SETTINGS_KEY).first()
+        value = row.value if row and isinstance(row.value, dict) else {}
+        return {
+            "provider": str(value.get("provider", "stripe") or "stripe"),
+            "stripe_secret_key": str(value.get("stripe_secret_key", "") or "").strip(),
+            "stripe_publishable_key": str(value.get("stripe_publishable_key", "") or "").strip(),
+            "stripe_webhook_secret": str(value.get("stripe_webhook_secret", "") or "").strip(),
+            "checkout_success_url": str(value.get("checkout_success_url", "") or "").strip(),
+            "checkout_cancel_url": str(value.get("checkout_cancel_url", "") or "").strip(),
+        }
+    finally:
+        tenant_db.close()
 
 
 @router.get("/{plugin_id}/public-access")
@@ -801,6 +825,7 @@ async def update_plugin_billing_config(
         payload.get("free_endpoint_calls", billing["free_endpoint_calls"])
     )
     billing["checkout_url"] = str(payload.get("checkout_url", billing["checkout_url"]) or "").strip()
+    billing["stripe_price_id"] = str(payload.get("stripe_price_id", billing["stripe_price_id"]) or "").strip()
     billing["price_label"] = str(payload.get("price_label", billing["price_label"]) or "").strip()
     billing["title"] = str(payload.get("title", billing["title"]) or "").strip()
     billing["description"] = str(payload.get("description", billing["description"]) or "").strip()
@@ -965,6 +990,145 @@ async def record_plugin_public_usage(
             db.commit()
 
     return _billing_response_payload(plugin_id, billing)
+
+
+@router.post("/public-checkout/{plugin_id}")
+async def create_plugin_public_checkout_session(
+    request: Request,
+    plugin_id: str,
+    payload: dict,
+    tenant_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_master_db),
+):
+    """
+    Create a Stripe Checkout session for a public plugin paywall.
+    No authentication required.
+    """
+    plugin_id = _normalize_plugin_id(plugin_id)
+    resolved_tenant_id = _resolve_public_tenant_id(request, db, tenant_id)
+    if resolved_tenant_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to resolve tenant")
+
+    settings = _get_plugin_settings_row(db, resolved_tenant_id)
+    billing = _normalize_billing_config(settings.plugin_config if settings else None, plugin_id)
+    billing_payload = _billing_response_payload(plugin_id, billing)
+
+    if not billing_payload["payment_required"]:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Payment is not currently required")
+
+    if billing["provider"] != "stripe":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported billing provider")
+
+    payment_settings = _get_tenant_payment_settings(resolved_tenant_id)
+    stripe_secret_key = payment_settings["stripe_secret_key"] or os.getenv("STRIPE_SECRET_KEY", "").strip()
+    if not stripe_secret_key:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Stripe secret key is not configured")
+
+    stripe_price_id = billing["stripe_price_id"]
+    if not stripe_price_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Stripe price ID is not configured for this plugin")
+
+    current_url = str(payload.get("current_url", "") or "").strip()
+    success_url = payment_settings["checkout_success_url"] or current_url
+    cancel_url = payment_settings["checkout_cancel_url"] or current_url
+    if not success_url or not cancel_url:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Checkout success and cancel URLs are not configured")
+
+    try:
+        import stripe
+
+        stripe.api_key = stripe_secret_key
+        session = stripe.checkout.Session.create(
+            mode="payment",
+            line_items=[{"price": stripe_price_id, "quantity": 1}],
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={
+                "tenant_id": str(resolved_tenant_id),
+                "plugin_id": plugin_id,
+            },
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Stripe checkout session failed: {exc}") from exc
+
+    return {
+        "plugin_id": plugin_id,
+        "tenant_id": resolved_tenant_id,
+        "checkout_url": getattr(session, "url", None),
+        "session_id": getattr(session, "id", None),
+    }
+
+
+@router.post("/stripe/webhook")
+async def handle_plugin_stripe_webhook(
+    request: Request,
+    db: Session = Depends(get_master_db),
+):
+    """
+    Stripe webhook endpoint for plugin billing checkout completion.
+    """
+    payload = await request.body()
+    signature = request.headers.get("stripe-signature", "")
+
+    try:
+        import stripe
+        candidate_secrets = []
+        env_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "").strip()
+        if env_secret:
+            candidate_secrets.append(env_secret)
+
+        for tenant_id in tenant_db_manager.get_existing_tenant_ids():
+            tenant_secret = _get_tenant_payment_settings(tenant_id).get("stripe_webhook_secret", "")
+            if tenant_secret and tenant_secret not in candidate_secrets:
+                candidate_secrets.append(tenant_secret)
+
+        if not candidate_secrets:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Stripe webhook secret is not configured")
+
+        event = None
+        last_error: Optional[Exception] = None
+        for candidate_secret in candidate_secrets:
+            try:
+                event = stripe.Webhook.construct_event(payload=payload, sig_header=signature, secret=candidate_secret)
+                break
+            except Exception as exc:
+                last_error = exc
+
+        if event is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Stripe webhook: {last_error}")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Stripe webhook: {exc}") from exc
+
+    if event.get("type") != "checkout.session.completed":
+        return {"received": True}
+
+    session_object = event["data"]["object"]
+    metadata = session_object.get("metadata", {})
+    try:
+        resolved_tenant_id = int(metadata.get("tenant_id"))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing tenant metadata") from exc
+    plugin_id = _normalize_plugin_id(str(metadata.get("plugin_id", "") or ""))
+    if not plugin_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing plugin metadata")
+
+    settings = _get_plugin_settings_row(db, resolved_tenant_id, for_update=True)
+    plugin_cfg = _get_plugin_config_blob(settings.plugin_config if settings else None, plugin_id)
+    billing = _normalize_billing_config(settings.plugin_config if settings else None, plugin_id)
+    billing["payment_completed"] = True
+    plugin_cfg[_BILLING_KEY] = billing
+    _save_plugin_config_blob(
+        settings,
+        db=db,
+        tenant_id=resolved_tenant_id,
+        plugin_id=plugin_id,
+        plugin_cfg=plugin_cfg,
+    )
+    db.commit()
+
+    return {"received": True, "plugin_id": plugin_id, "tenant_id": resolved_tenant_id}
 
 
 # ---------------------------------------------------------------------------

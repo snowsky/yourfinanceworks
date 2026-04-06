@@ -4,7 +4,7 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
   Building2, FileText, Percent, Cpu, Bell, Activity, Search,
-  Database, User, Lock, Mail, Shield, ExternalLink, ShieldCheck, Terminal, Trophy, Puzzle, Settings2, Palette
+  Database, User, Lock, Mail, Shield, ExternalLink, ShieldCheck, Terminal, Trophy, Puzzle, Settings2, Palette, CreditCard
 } from "lucide-react";
 import { getCurrentUser } from "@/utils/auth";
 import {
@@ -12,7 +12,7 @@ import {
   NotificationsTab, DataManagementTab, CurrenciesTab, SearchSettingsTab,
   CookieSettingsTab, ExportDestinationsTab, EmailIntegrationSettingsTab,
   APIClientManagementTab, LicenseManagementTab, GamificationTab, PluginsTab,
-  AppearanceTab
+  AppearanceTab, PaymentSettingsTab
 } from "@/components/settings";
 import PromptManagement from "./PromptManagement";
 
@@ -127,6 +127,7 @@ const Settings = () => {
                   <NavItem value="currencies" icon={Activity} label={t('settings.tabs.currencies', 'Currencies')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="api-integrations" icon={Mail} label={t('settings.tabs.email', 'Email')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="api-clients" icon={ShieldCheck} label={t('settings.tabs.api_keys', 'API Keys')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="payments" icon={CreditCard} label={'Payments'} activeTab={activeTab} onClick={setActiveTab} />
 
                   {/* System */}
                   <div className="border-t border-border/30 my-1" />
@@ -203,6 +204,10 @@ const Settings = () => {
 
                 <TabsContent value="api-clients" className="m-0 focus-visible:outline-none">
                   <APIClientManagementTab />
+                </TabsContent>
+
+                <TabsContent value="payments" className="m-0 focus-visible:outline-none">
+                  <PaymentSettingsTab />
                 </TabsContent>
 
                 <TabsContent value="prompts" className="m-0 focus-visible:outline-none">

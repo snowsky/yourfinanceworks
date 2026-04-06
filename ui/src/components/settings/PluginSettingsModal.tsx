@@ -29,6 +29,7 @@ interface BillingState {
   free_endpoint_calls: number;
   usage_count: number;
   checkout_url: string;
+  stripe_price_id: string;
   price_label: string;
   title: string;
   description: string;
@@ -111,6 +112,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
         free_endpoint_calls: response.free_endpoint_calls || 0,
         usage_count: response.usage_count || 0,
         checkout_url: response.checkout_url || '',
+        stripe_price_id: response.stripe_price_id || '',
         price_label: response.price_label || '',
         title: response.title || '',
         description: response.description || '',
@@ -354,6 +356,19 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                     />
                     <p className="text-xs text-muted-foreground">
                       Paste a Stripe Payment Link or your own checkout route.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="stripe-price-id">Stripe price ID</Label>
+                    <Input
+                      id="stripe-price-id"
+                      value={billing.stripe_price_id}
+                      onChange={(event) => setBilling({ ...billing, stripe_price_id: event.target.value })}
+                      placeholder="price_1234567890"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Used by the built-in Checkout session endpoint. Keep `Checkout URL` empty if you want the app to create the session for you.
                     </p>
                   </div>
 

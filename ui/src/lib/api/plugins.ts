@@ -20,6 +20,7 @@ export interface PluginBillingConfig {
   usage_count: number;
   usage_by_endpoint: Record<string, number>;
   checkout_url?: string | null;
+  stripe_price_id?: string | null;
   price_label?: string | null;
   title?: string | null;
   description?: string | null;
@@ -149,5 +150,36 @@ export const pluginApi = {
         quantity: payload.quantity,
       }),
     }).then((r) => r.json()) as Promise<PluginBillingConfig>;
+  },
+
+  createPublicCheckoutSession: (
+    pluginId: string,
+    payload: { tenantId?: number | string; currentUrl?: string } = {},
+  ) => {
+    const tenantSuffix = payload.tenantId != null
+      ? `?tenant_id=${encodeURIComponent(String(payload.tenantId))}`
+      : '';
+
+    return fetch(`/api/v1/plugins/public-checkout/${pluginId}${tenantSuffix}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        current_url: payload.currentUrl,
+      }),
+    }).then(async (r) => {
+      const data = await r.json();
+      if (!r.ok) {
+        throw new Error(data?.detail || `Checkout failed with status ${r.status}`);
+      }
+      return data;
+    }) as Promise<{
+      plugin_id: string;
+      tenant_id: number;
+      checkout_url?: string | null;
+      session_id?: string | null;
+    }>;
   },
 };

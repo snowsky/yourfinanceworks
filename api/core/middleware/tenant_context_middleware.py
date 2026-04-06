@@ -202,6 +202,8 @@ async def tenant_context_middleware(request: Request, call_next):
     if (
         request.url.path.startswith("/api/v1/plugins/public-config/")
         or request.url.path.startswith("/api/v1/plugins/public-usage/")
+        or request.url.path.startswith("/api/v1/plugins/public-checkout/")
+        or request.url.path.startswith("/api/v1/plugins/stripe/webhook")
     ):
         return await call_next(request)
 
