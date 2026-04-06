@@ -602,8 +602,8 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
             </div>
           )}
 
-          {/* Configure button for plugins with settings */}
-          {plugin.enabled && plugin.id === 'investments' && isAdmin && (
+          {/* Configure button — shown for all plugins when admin */}
+          {isAdmin && (
             <div className="pt-2">
               <Button
                 variant="outline"
@@ -617,8 +617,8 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
             </div>
           )}
 
-          {/* Uninstall button — admin only */}
-          {isAdmin && onUninstall && (
+          {/* Uninstall button — admin only, not for sidecar plugins */}
+          {isAdmin && onUninstall && !plugin.is_sidecar && (
             <div className="pt-2">
               <Button
                 variant="outline"
@@ -632,6 +632,14 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
                   : <Trash2 className="w-3 h-3 mr-1" />}
                 Uninstall
               </Button>
+            </div>
+          )}
+
+          {/* Sidecar plugin note — uninstall not available */}
+          {plugin.is_sidecar && (
+            <div className="pt-2 text-xs text-muted-foreground flex items-center gap-1">
+              <Info className="w-3 h-3 shrink-0" />
+              Managed as an external service. Stop the Docker container to remove it.
             </div>
           )}
 

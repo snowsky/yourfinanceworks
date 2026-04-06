@@ -27,6 +27,7 @@ export interface Plugin {
   translationError?: string;
   required_access?: PluginAccessRequirement[];
   is_external?: boolean;
+  is_sidecar?: boolean;
   git_source?: { git_url: string; ref: string };
 }
 
@@ -82,6 +83,7 @@ interface PluginMetadata {
   repository?: string;
   required_access?: PluginAccessRequirement[];
   is_external?: boolean;
+  is_sidecar?: boolean;
   git_source?: { git_url: string; ref: string };
 }
 
@@ -343,6 +345,7 @@ class PluginDiscovery {
           required_access: p.required_access,
           load_error: p.load_error,
           is_external: p.is_external,
+          is_sidecar: p.is_sidecar,
           git_source: p.git_source,
         };
       });
