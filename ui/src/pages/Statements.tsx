@@ -2066,6 +2066,16 @@ export default function Statements() {
 
                   <ProfessionalButton
                     variant="outline"
+                    className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                    leftIcon={<Trash2 className="h-4 w-4" />}
+                    disabled={readOnly}
+                    onClick={() => { if (selected) { setStatementToDelete(selected); setDeleteModalOpen(true); } }}
+                  >
+                    {t('common.delete', 'Delete')}
+                  </ProfessionalButton>
+
+                  <ProfessionalButton
+                    variant="outline"
                     onClick={toggleSplitView}
                     disabled={detail?.status === 'merged'}
                     leftIcon={<Columns className="h-4 w-4" />}
