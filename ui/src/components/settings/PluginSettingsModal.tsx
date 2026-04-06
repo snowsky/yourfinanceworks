@@ -10,7 +10,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Loader2, Settings, Globe, Copy, Check } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Loader2, Settings, Globe, Copy, Check, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { pluginApi } from '@/lib/api';
 import { getTenantId } from '@/lib/api/_base';
@@ -19,6 +21,19 @@ interface PublicAccessState {
   enabled: boolean;
   require_login: boolean;
   publicPagePath: string | null;
+}
+
+interface BillingState {
+  enabled: boolean;
+  provider: string;
+  free_endpoint_calls: number;
+  usage_count: number;
+  checkout_url: string;
+  price_label: string;
+  title: string;
+  description: string;
+  button_label: string;
+  payment_completed: boolean;
 }
 
 interface PluginSettingsModalProps {
@@ -39,12 +54,14 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<Record<string, any>>({});
   const [publicAccess, setPublicAccess] = useState<PublicAccessState | null>(null);
+  const [billing, setBilling] = useState<BillingState | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (open) {
       loadConfig();
       loadPublicAccessConfig();
+      loadBillingConfig();
     }
   }, [open, pluginId]);
 
@@ -85,6 +102,26 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
     }
   };
 
+  const loadBillingConfig = async () => {
+    try {
+      const response = await pluginApi.getBillingConfig(pluginId);
+      setBilling({
+        enabled: response.enabled,
+        provider: response.provider || 'stripe',
+        free_endpoint_calls: response.free_endpoint_calls || 0,
+        usage_count: response.usage_count || 0,
+        checkout_url: response.checkout_url || '',
+        price_label: response.price_label || '',
+        title: response.title || '',
+        description: response.description || '',
+        button_label: response.button_label || '',
+        payment_completed: response.payment_completed || false,
+      });
+    } catch {
+      setBilling(null);
+    }
+  };
+
   const publicUrl = publicAccess?.publicPagePath
     ? `${window.location.origin}${publicAccess.publicPagePath}?t=${getTenantId() || ''}`
     : null;
@@ -107,6 +144,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
               enabled: publicAccess.enabled,
               require_login: publicAccess.require_login,
             })
+          : Promise.resolve(),
+        billing !== null
+          ? pluginApi.updateBillingConfig(pluginId, billing)
           : Promise.resolve(),
       ]);
       toast.success('Plugin settings updated successfully');
@@ -247,6 +287,136 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                 </>
               )}
 
+            </div>
+          )}
+
+          {billing !== null && (
+            <div className="border rounded-lg p-4 space-y-4">
+              <div className="flex items-center gap-2 font-medium text-sm">
+                <CreditCard className="w-4 h-4" />
+                Billing & Paywall
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="billing-enabled">Enable paid access</Label>
+                  <p className="text-xs text-muted-foreground">
+                    After free usage is exhausted, the public page will show a payment prompt.
+                  </p>
+                </div>
+                <Switch
+                  id="billing-enabled"
+                  checked={billing.enabled}
+                  onCheckedChange={(checked) => setBilling({ ...billing, enabled: checked })}
+                />
+              </div>
+
+              {billing.enabled && (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="billing-provider">Provider</Label>
+                      <Input
+                        id="billing-provider"
+                        value={billing.provider}
+                        onChange={(event) => setBilling({ ...billing, provider: event.target.value || 'stripe' })}
+                        placeholder="stripe"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="free-endpoint-calls">Free endpoint calls</Label>
+                      <Input
+                        id="free-endpoint-calls"
+                        type="number"
+                        min={0}
+                        value={billing.free_endpoint_calls}
+                        onChange={(event) =>
+                          setBilling({
+                            ...billing,
+                            free_endpoint_calls: Math.max(Number(event.target.value || 0), 0),
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="checkout-url">Checkout URL</Label>
+                    <Input
+                      id="checkout-url"
+                      value={billing.checkout_url}
+                      onChange={(event) => setBilling({ ...billing, checkout_url: event.target.value })}
+                      placeholder="https://buy.stripe.com/..."
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Paste a Stripe Payment Link or your own checkout route.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="price-label">Price label</Label>
+                      <Input
+                        id="price-label"
+                        value={billing.price_label}
+                        onChange={(event) => setBilling({ ...billing, price_label: event.target.value })}
+                        placeholder="$19 / month"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="button-label">Button label</Label>
+                      <Input
+                        id="button-label"
+                        value={billing.button_label}
+                        onChange={(event) => setBilling({ ...billing, button_label: event.target.value })}
+                        placeholder="Continue to payment"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="billing-title">Paywall title</Label>
+                    <Input
+                      id="billing-title"
+                      value={billing.title}
+                      onChange={(event) => setBilling({ ...billing, title: event.target.value })}
+                      placeholder="Unlock full access"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="billing-description">Paywall description</Label>
+                    <Textarea
+                      id="billing-description"
+                      value={billing.description}
+                      onChange={(event) => setBilling({ ...billing, description: event.target.value })}
+                      placeholder="You have used the free quota for this public plugin."
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm">
+                    <span className="text-muted-foreground">Tracked usage</span>
+                    <span className="font-medium">{billing.usage_count}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="payment-completed">Grant paid access</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Use this to manually unlock the public plugin after payment is confirmed.
+                      </p>
+                    </div>
+                    <Switch
+                      id="payment-completed"
+                      checked={billing.payment_completed}
+                      onCheckedChange={(checked) => setBilling({ ...billing, payment_completed: checked })}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

@@ -27,13 +27,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { pluginApi } from '@/lib/api/plugins';
-
-interface PublicAccessConfig {
-  enabled: boolean;
-  require_login: boolean;
-  public_page: { path: string; label: string; ui_entry?: string } | null;
-}
+import { pluginApi, type PublicPluginConfig } from '@/lib/api/plugins';
 
 interface Props {
   pluginId: string;
@@ -46,7 +40,7 @@ interface Props {
 export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [config, setConfig] = useState<PublicAccessConfig | null>(null);
+  const [config, setConfig] = useState<PublicPluginConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +51,20 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
 
     pluginApi
       .getPluginPublicConfig(pluginId, explicitTenantId)
-      .then((data) => {
+      .then(async (data) => {
+        if (data.enabled && data.billing?.enabled && !data.billing.payment_required) {
+          try {
+            const usage = await pluginApi.recordPublicUsage(pluginId, {
+              tenantId: explicitTenantId,
+              endpointKey: 'public_page_view',
+              quantity: 1,
+            });
+            data = { ...data, billing: usage };
+          } catch {
+            // Non-fatal: the public page should still render even if usage logging fails.
+          }
+        }
+
         setConfig(data);
         setLoading(false);
       })
@@ -65,7 +72,7 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
         setError('Could not load page configuration.');
         setLoading(false);
       });
-  }, [pluginId]);
+  }, [pluginId, location.search]);
 
   if (loading) {
     return (
@@ -81,6 +88,10 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
 
   if (!config?.enabled) {
     return <UnavailableMessage message="This page is not publicly available." />;
+  }
+
+  if (config.billing?.payment_required) {
+    return <PaymentRequiredMessage config={config} />;
   }
 
   if (config.require_login) {
@@ -126,6 +137,95 @@ function UnavailableMessage({ message }: { message: string }) {
     >
       <div style={{ fontSize: 32 }}>🔒</div>
       <div style={{ fontSize: 16, fontWeight: 500 }}>{message}</div>
+    </div>
+  );
+}
+
+function PaymentRequiredMessage({ config }: { config: PublicPluginConfig }) {
+  const billing = config.billing;
+  const title = billing.title || 'Payment required';
+  const description = billing.description || 'The free usage quota for this public plugin has been used.';
+  const buttonLabel = billing.button_label || 'Continue to payment';
+
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '2rem',
+        background:
+          'radial-gradient(circle at top, rgba(59,130,246,0.14), transparent 45%), linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)',
+        fontFamily: 'system-ui, sans-serif',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 560,
+          borderRadius: 24,
+          background: 'rgba(255,255,255,0.92)',
+          border: '1px solid rgba(148,163,184,0.2)',
+          boxShadow: '0 24px 80px rgba(15,23,42,0.12)',
+          padding: '2rem',
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#2563eb', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          {billing.provider || 'Stripe'}
+        </div>
+        <h1 style={{ marginTop: 12, marginBottom: 12, fontSize: 32, lineHeight: 1.1, color: '#0f172a' }}>{title}</h1>
+        <p style={{ margin: 0, fontSize: 16, lineHeight: 1.6, color: '#475569' }}>{description}</p>
+
+        <div
+          style={{
+            marginTop: 24,
+            padding: 16,
+            borderRadius: 18,
+            background: '#f8fafc',
+            border: '1px solid rgba(148,163,184,0.2)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 16,
+            alignItems: 'center',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4 }}>Usage</div>
+            <div style={{ fontSize: 16, color: '#0f172a', fontWeight: 600 }}>
+              {billing.usage_count} / {billing.free_endpoint_calls} free calls used
+            </div>
+          </div>
+          {billing.price_label && (
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a' }}>{billing.price_label}</div>
+          )}
+        </div>
+
+        {billing.checkout_url ? (
+          <a
+            href={billing.checkout_url}
+            style={{
+              marginTop: 24,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              padding: '0.95rem 1.25rem',
+              borderRadius: 14,
+              background: '#0f172a',
+              color: '#fff',
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
+            {buttonLabel}
+          </a>
+        ) : (
+          <div style={{ marginTop: 24, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 14, padding: 16 }}>
+            Payment is required, but checkout is not configured for this plugin yet.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

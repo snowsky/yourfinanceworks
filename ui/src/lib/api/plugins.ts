@@ -12,6 +12,33 @@ export interface InstallJob {
   created_at: string;
 }
 
+export interface PluginBillingConfig {
+  plugin_id: string;
+  enabled: boolean;
+  provider: string;
+  free_endpoint_calls: number;
+  usage_count: number;
+  usage_by_endpoint: Record<string, number>;
+  checkout_url?: string | null;
+  price_label?: string | null;
+  title?: string | null;
+  description?: string | null;
+  button_label?: string | null;
+  payment_completed: boolean;
+  payment_required: boolean;
+  payment_configured: boolean;
+  remaining_free_calls?: number | null;
+  message?: string;
+}
+
+export interface PublicPluginConfig {
+  plugin_id: string;
+  enabled: boolean;
+  require_login: boolean;
+  public_page: { path: string; label: string; description?: string; ui_entry?: string } | null;
+  billing: PluginBillingConfig;
+}
+
 // Plugin Management API
 export const pluginApi = {
   getPluginConfig: (pluginId: string) => {
@@ -68,6 +95,30 @@ export const pluginApi = {
       { method: 'PUT', body: JSON.stringify(config) },
     ),
 
+  getBillingConfig: (pluginId: string) =>
+    apiRequest<PluginBillingConfig>(`/plugins/${pluginId}/billing-config`),
+
+  updateBillingConfig: (
+    pluginId: string,
+    config: Partial<PluginBillingConfig> & {
+      enabled: boolean;
+      provider: string;
+      free_endpoint_calls: number;
+      checkout_url?: string;
+      price_label?: string;
+      title?: string;
+      description?: string;
+      button_label?: string;
+      payment_completed?: boolean;
+      usage_count?: number;
+      usage_by_endpoint?: Record<string, number>;
+    },
+  ) =>
+    apiRequest<PluginBillingConfig>(`/plugins/${pluginId}/billing-config`, {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    }),
+
   /**
    * No-auth check — used by PublicPluginWrapper to determine access mode.
    * Calls directly without Bearer token so it works for unauthenticated visitors.
@@ -76,11 +127,27 @@ export const pluginApi = {
     const url = tenantId != null
       ? `/api/v1/plugins/public-config/${pluginId}?tenant_id=${tenantId}`
       : `/api/v1/plugins/public-config/${pluginId}`;
-    return fetch(url).then((r) => r.json()) as Promise<{
-      plugin_id: string;
-      enabled: boolean;
-      require_login: boolean;
-      public_page: { path: string; label: string; description?: string; ui_entry?: string } | null;
-    }>;
+    return fetch(url).then((r) => r.json()) as Promise<PublicPluginConfig>;
+  },
+
+  recordPublicUsage: (
+    pluginId: string,
+    payload: { tenantId?: number | string; endpointKey?: string; quantity?: number } = {},
+  ) => {
+    const tenantSuffix = payload.tenantId != null
+      ? `?tenant_id=${encodeURIComponent(String(payload.tenantId))}`
+      : '';
+
+    return fetch(`/api/v1/plugins/public-usage/${pluginId}${tenantSuffix}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        endpoint_key: payload.endpointKey,
+        quantity: payload.quantity,
+      }),
+    }).then((r) => r.json()) as Promise<PluginBillingConfig>;
   },
 };

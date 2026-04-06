@@ -584,6 +584,20 @@ async def update_plugin_config(
 
 _PUBLIC_ACCESS_KEY = "public_access"
 _PUBLIC_ACCESS_DEFAULTS = {"enabled": False, "require_login": True}
+_BILLING_KEY = "billing"
+_BILLING_DEFAULTS = {
+    "enabled": False,
+    "provider": "stripe",
+    "free_endpoint_calls": 0,
+    "usage_count": 0,
+    "usage_by_endpoint": {},
+    "checkout_url": "",
+    "price_label": "",
+    "title": "",
+    "description": "",
+    "button_label": "",
+    "payment_completed": False,
+}
 
 
 def _get_public_access_config(plugin_config: dict | None, plugin_id: str) -> dict:
@@ -594,6 +608,112 @@ def _get_public_access_config(plugin_config: dict | None, plugin_id: str) -> dic
         "enabled": bool(pa.get("enabled", False)),
         "require_login": bool(pa.get("require_login", True)),
     }
+
+
+def _get_plugin_settings_row(db: Session, tenant_id: int, for_update: bool = False) -> Optional[TenantPluginSettings]:
+    query = db.query(TenantPluginSettings).filter(TenantPluginSettings.tenant_id == tenant_id)
+    return query.with_for_update().first() if for_update else query.first()
+
+
+def _get_plugin_config_blob(plugin_config: dict | None, plugin_id: str) -> dict:
+    return dict((plugin_config or {}).get(plugin_id, {}) or {})
+
+
+def _save_plugin_config_blob(
+    settings: Optional[TenantPluginSettings],
+    *,
+    db: Session,
+    tenant_id: int,
+    plugin_id: str,
+    plugin_cfg: dict,
+) -> TenantPluginSettings:
+    if not settings:
+        settings = TenantPluginSettings(
+            tenant_id=tenant_id,
+            enabled_plugins=[],
+            plugin_config={plugin_id: plugin_cfg},
+        )
+        db.add(settings)
+    else:
+        cfg = settings.plugin_config or {}
+        cfg[plugin_id] = plugin_cfg
+        settings.plugin_config = cfg
+        flag_modified(settings, "plugin_config")
+        settings.updated_at = datetime.now(timezone.utc)
+    return settings
+
+
+def _coerce_non_negative_int(value: object, default: int = 0) -> int:
+    try:
+        return max(int(value), 0)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_billing_config(plugin_config: dict | None, plugin_id: str) -> dict:
+    cfg = _get_plugin_config_blob(plugin_config, plugin_id)
+    raw = dict(cfg.get(_BILLING_KEY, {}) or {})
+    usage_by_endpoint = raw.get("usage_by_endpoint", {})
+    if not isinstance(usage_by_endpoint, dict):
+        usage_by_endpoint = {}
+
+    billing = {
+        "enabled": bool(raw.get("enabled", _BILLING_DEFAULTS["enabled"])),
+        "provider": str(raw.get("provider", _BILLING_DEFAULTS["provider"]) or "stripe"),
+        "free_endpoint_calls": _coerce_non_negative_int(raw.get("free_endpoint_calls", 0)),
+        "usage_count": _coerce_non_negative_int(raw.get("usage_count", 0)),
+        "usage_by_endpoint": {
+            str(key): _coerce_non_negative_int(value)
+            for key, value in usage_by_endpoint.items()
+        },
+        "checkout_url": str(raw.get("checkout_url", "") or "").strip(),
+        "price_label": str(raw.get("price_label", "") or "").strip(),
+        "title": str(raw.get("title", "") or "").strip(),
+        "description": str(raw.get("description", "") or "").strip(),
+        "button_label": str(raw.get("button_label", "") or "").strip(),
+        "payment_completed": bool(raw.get("payment_completed", False)),
+    }
+    return billing
+
+
+def _billing_response_payload(plugin_id: str, billing: dict) -> dict:
+    free_calls = billing["free_endpoint_calls"]
+    usage_count = billing["usage_count"]
+    payment_required = billing["enabled"] and free_calls > 0 and usage_count >= free_calls and not billing["payment_completed"]
+    payment_configured = bool(billing["checkout_url"])
+
+    return {
+        "plugin_id": plugin_id,
+        "enabled": billing["enabled"],
+        "provider": billing["provider"],
+        "free_endpoint_calls": free_calls,
+        "usage_count": usage_count,
+        "usage_by_endpoint": billing["usage_by_endpoint"],
+        "checkout_url": billing["checkout_url"] or None,
+        "price_label": billing["price_label"] or None,
+        "title": billing["title"] or None,
+        "description": billing["description"] or None,
+        "button_label": billing["button_label"] or None,
+        "payment_completed": billing["payment_completed"],
+        "payment_required": payment_required,
+        "payment_configured": payment_configured,
+        "remaining_free_calls": max(free_calls - usage_count, 0) if free_calls > 0 else None,
+    }
+
+
+def _resolve_public_tenant_id(request: Request, db: Session, tenant_id: Optional[int]) -> Optional[int]:
+    from core.models.models import Tenant
+
+    if tenant_id is not None:
+        return tenant_id
+
+    host = request.headers.get("host", "").split(":")[0]
+    subdomain = host.split(".")[0] if "." in host else None
+    if subdomain and subdomain != "localhost":
+        tenant = db.query(Tenant).filter(Tenant.subdomain == subdomain).first()
+        if tenant:
+            return tenant.id
+    return None
 
 
 @router.get("/{plugin_id}/public-access")
@@ -625,6 +745,79 @@ async def get_plugin_public_access(
         "require_login": pa["require_login"],
         "public_page": manifest.get("public_page"),
     }
+
+
+@router.get("/{plugin_id}/billing-config")
+async def get_plugin_billing_config(
+    plugin_id: str,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Get billing/paywall configuration for a plugin.
+    Admin-only.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
+
+    plugin_id = _normalize_plugin_id(plugin_id)
+    settings = _get_plugin_settings_row(db, current_user.tenant_id)
+    billing = _normalize_billing_config(settings.plugin_config if settings else None, plugin_id)
+    return _billing_response_payload(plugin_id, billing)
+
+
+@router.put("/{plugin_id}/billing-config")
+async def update_plugin_billing_config(
+    plugin_id: str,
+    payload: dict,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Update billing/paywall configuration for a plugin.
+    Admin-only.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
+
+    plugin_id = _normalize_plugin_id(plugin_id)
+    settings = _get_plugin_settings_row(db, current_user.tenant_id, for_update=True)
+    plugin_cfg = _get_plugin_config_blob(settings.plugin_config if settings else None, plugin_id)
+    billing = _normalize_billing_config(settings.plugin_config if settings else None, plugin_id)
+
+    billing["enabled"] = bool(payload.get("enabled", billing["enabled"]))
+    billing["provider"] = str(payload.get("provider", billing["provider"]) or "stripe")
+    billing["free_endpoint_calls"] = _coerce_non_negative_int(
+        payload.get("free_endpoint_calls", billing["free_endpoint_calls"])
+    )
+    billing["checkout_url"] = str(payload.get("checkout_url", billing["checkout_url"]) or "").strip()
+    billing["price_label"] = str(payload.get("price_label", billing["price_label"]) or "").strip()
+    billing["title"] = str(payload.get("title", billing["title"]) or "").strip()
+    billing["description"] = str(payload.get("description", billing["description"]) or "").strip()
+    billing["button_label"] = str(payload.get("button_label", billing["button_label"]) or "").strip()
+    billing["payment_completed"] = bool(payload.get("payment_completed", billing["payment_completed"]))
+
+    if "usage_count" in payload:
+        billing["usage_count"] = _coerce_non_negative_int(payload.get("usage_count", billing["usage_count"]))
+    if "usage_by_endpoint" in payload and isinstance(payload.get("usage_by_endpoint"), dict):
+        billing["usage_by_endpoint"] = {
+            str(key): _coerce_non_negative_int(value)
+            for key, value in payload["usage_by_endpoint"].items()
+        }
+
+    plugin_cfg[_BILLING_KEY] = billing
+    _save_plugin_config_blob(
+        settings,
+        db=db,
+        tenant_id=current_user.tenant_id,
+        plugin_id=plugin_id,
+        plugin_cfg=plugin_cfg,
+    )
+    db.commit()
+
+    response = _billing_response_payload(plugin_id, billing)
+    response["message"] = f"Billing config for plugin '{plugin_id}' updated"
+    return response
 
 
 @router.put("/{plugin_id}/public-access")
@@ -691,33 +884,24 @@ async def get_plugin_public_config(
     tenant_id is optional: when omitted the tenant is resolved from the Host header
     subdomain (e.g. demo.yourfinanceworks.com → subdomain 'demo').
     """
-    from core.models.models import Tenant
-
     # Normalize without validating against discovered plugins —
     # the plugin may be a sidecar not fully registered yet.
     plugin_id = plugin_id.strip().lower().replace("_", "-")
-
-    # Prioritize explicitly passed tenant_id (for single-domain multi-org sharing via ?t=)
-    resolved_tenant_id = tenant_id
-
-    # Fallback to resolving from subdomain in Host header if no explicit tenant passed
-    if resolved_tenant_id is None:
-        host = request.headers.get("host", "").split(":")[0]  # strip port
-        subdomain = host.split(".")[0] if "." in host else None
-        
-        if subdomain and subdomain != "localhost":
-            tenant = db.query(Tenant).filter(Tenant.subdomain == subdomain).first()
-            if tenant:
-                resolved_tenant_id = tenant.id
+    resolved_tenant_id = _resolve_public_tenant_id(request, db, tenant_id)
 
     if resolved_tenant_id is None:
-        return {"plugin_id": plugin_id, "enabled": False, "require_login": True, "public_page": None}
+        return {
+            "plugin_id": plugin_id,
+            "enabled": False,
+            "require_login": True,
+            "public_page": None,
+            "billing": _billing_response_payload(plugin_id, _normalize_billing_config(None, plugin_id)),
+        }
 
-    settings = db.query(TenantPluginSettings).filter(
-        TenantPluginSettings.tenant_id == resolved_tenant_id
-    ).first()
+    settings = _get_plugin_settings_row(db, resolved_tenant_id)
 
     pa = _get_public_access_config(settings.plugin_config if settings else None, plugin_id)
+    billing = _normalize_billing_config(settings.plugin_config if settings else None, plugin_id)
 
     manifest = next((p for p in plugin_loader.get_registry() if p.get("name") == plugin_id), {})
     return {
@@ -725,7 +909,52 @@ async def get_plugin_public_config(
         "enabled": pa["enabled"],
         "require_login": pa["require_login"],
         "public_page": manifest.get("public_page"),
+        "billing": _billing_response_payload(plugin_id, billing),
     }
+
+
+@router.post("/public-usage/{plugin_id}")
+async def record_plugin_public_usage(
+    request: Request,
+    plugin_id: str,
+    payload: dict,
+    tenant_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_master_db),
+):
+    """
+    Increment public-plugin usage counters so a public page can switch to
+    a paywall after the free threshold has been consumed.
+    No authentication required.
+    """
+    plugin_id = _normalize_plugin_id(plugin_id)
+    resolved_tenant_id = _resolve_public_tenant_id(request, db, tenant_id)
+
+    if resolved_tenant_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to resolve tenant")
+
+    settings = _get_plugin_settings_row(db, resolved_tenant_id, for_update=True)
+    plugin_cfg = _get_plugin_config_blob(settings.plugin_config if settings else None, plugin_id)
+    billing = _normalize_billing_config(settings.plugin_config if settings else None, plugin_id)
+
+    if billing["enabled"]:
+        quantity = min(_coerce_non_negative_int(payload.get("quantity", 1), default=1), 1000)
+        endpoint_key = str(payload.get("endpoint_key", "public_page_view") or "public_page_view").strip()[:120]
+        if quantity > 0:
+            billing["usage_count"] += quantity
+            billing["usage_by_endpoint"][endpoint_key] = (
+                _coerce_non_negative_int(billing["usage_by_endpoint"].get(endpoint_key, 0)) + quantity
+            )
+            plugin_cfg[_BILLING_KEY] = billing
+            _save_plugin_config_blob(
+                settings,
+                db=db,
+                tenant_id=resolved_tenant_id,
+                plugin_id=plugin_id,
+                plugin_cfg=plugin_cfg,
+            )
+            db.commit()
+
+    return _billing_response_payload(plugin_id, billing)
 
 
 # ---------------------------------------------------------------------------
