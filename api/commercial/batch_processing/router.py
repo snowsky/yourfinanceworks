@@ -60,7 +60,7 @@ async def get_api_key_auth(
             )
         
         # Lookup the user in the tenant database
-        from core.models.database import tenant_db_manager
+        from core.services.tenant_database_manager import tenant_db_manager
         tenant_session_factory = tenant_db_manager.get_tenant_session(auth_context.tenant_id)
         tenant_db = tenant_session_factory()
         try:
