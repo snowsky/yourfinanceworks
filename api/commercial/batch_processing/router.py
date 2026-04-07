@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header, UploadFil
 from sqlalchemy.orm import Session
 
 from core.models.database import get_db, get_master_db
-from core.models.models import MasterUser
+from core.models.models import MasterUser, TenantPluginSettings, User
 from core.models.api_models import APIClient
 from core.models.models_per_tenant import BatchProcessingJob
 from core.routers.auth import get_current_user
@@ -41,28 +41,64 @@ async def get_api_key_auth(
     if (auth_context and auth_context.is_authenticated and 
         auth_context.authentication_method == "internal_secret"):
         
-        # Create a mock client object to satisfy downstream logic
-        class MockClient:
-            def __init__(self, auth):
-                self.client_id = auth.api_key_id or auth.username
-                self.client_name = auth.username
-                self.tenant_id = auth.tenant_id
-                self.user_id = 0 # System/Admin user
-                self.total_requests = 0
-                self.total_transactions_submitted = 0
-                self.rate_limit_per_minute = 1000
-                self.rate_limit_per_hour = 10000
-                self.rate_limit_per_day = 100000
-                self.custom_quotas = {}
-                self.allowed_document_types = ["invoice", "expense", "statement"]
-                self.status = "active"
-                self.id = 0
-                self.user = None
+        # sidecar requests (from public portal) MUST be attributed to a configured admin user
+        # We need a platform DB session to read plugin settings
+        from core.models.database import get_master_db
+        master_db_session = next(get_master_db())
         
-        from core.models.database import set_tenant_context
-        set_tenant_context(auth_context.tenant_id)
-        mock_client = MockClient(auth_context)
-        return (auth_context.tenant_id, mock_client.user_id, mock_client.client_id, mock_client)
+        plugin_settings = master_db_session.query(TenantPluginSettings).filter(
+            TenantPluginSettings.tenant_id == auth_context.tenant_id
+        ).first()
+        
+        plugin_config = (plugin_settings.plugin_config or {}).get("statement-tools", {}) if plugin_settings else {}
+        default_user_email = plugin_config.get("default_background_user_email")
+        
+        if not default_user_email:
+            raise HTTPException(
+                status_code=403, 
+                detail="Plugin 'statement-tools' is not configured with a default background user. Please set 'default_background_user_email' in plugin settings."
+            )
+        
+        # Lookup the user in the tenant database
+        from core.models.database import tenant_db_manager
+        tenant_session_factory = tenant_db_manager.get_tenant_session(auth_context.tenant_id)
+        tenant_db = tenant_session_factory()
+        try:
+            tenant_user = tenant_db.query(User).filter(
+                User.email == default_user_email,
+                User.is_active == True
+            ).first()
+            
+            if not tenant_user:
+                raise HTTPException(
+                    status_code=403, 
+                    detail=f"Configured background user '{default_user_email}' does not exist or is inactive in this tenant."
+                )
+
+            # Create a mock client object to satisfy downstream logic
+            class MockClient:
+                def __init__(self, auth, user_id):
+                    self.client_id = auth.api_key_id or auth.username
+                    self.client_name = auth.username
+                    self.tenant_id = auth.tenant_id
+                    self.user_id = user_id  # Mandatory for batch job attribution
+                    self.total_requests = 0
+                    self.total_transactions_submitted = 0
+                    self.rate_limit_per_minute = 1000
+                    self.rate_limit_per_hour = 10000
+                    self.rate_limit_per_day = 100000
+                    self.custom_quotas = {}
+                    self.allowed_document_types = ["invoice", "expense", "statement"]
+                    self.status = "active"
+                    self.id = 0
+                    self.user = None
+            
+            from core.models.database import set_tenant_context
+            set_tenant_context(auth_context.tenant_id)
+            mock_client = MockClient(auth_context, tenant_user.id)
+            return (auth_context.tenant_id, mock_client.user_id, mock_client.client_id, mock_client)
+        finally:
+            tenant_db.close()
 
     # 2. Traditional API key authentication
     import hashlib

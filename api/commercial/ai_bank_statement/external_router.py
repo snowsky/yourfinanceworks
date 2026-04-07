@@ -18,6 +18,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from core.models.database import get_db, get_master_db, set_tenant_context
+from core.models.models import TenantPluginSettings, User
 from core.models.api_models import APIClient, ExternalTransaction
 from core.services.external_api_auth_service import ExternalAPIAuthService, AuthContext, Permission
 from core.decorators.sandbox_validation import require_production_auth_context
@@ -136,16 +137,44 @@ async def process_statement_pdf(
     # Get API client for rate limiting and permissions
     api_client = None
     if auth_context.authentication_method == "internal_secret":
+        # 1. Fetch plugin settings to find the attributed user for this sidecar request
+        # sidecar requests (from public portal) MUST be attributed to a configured admin user
+        plugin_settings = master_db.query(TenantPluginSettings).filter(
+            TenantPluginSettings.tenant_id == auth_context.tenant_id
+        ).first()
+        
+        plugin_config = (plugin_settings.plugin_config or {}).get("statement-tools", {}) if plugin_settings else {}
+        default_user_email = plugin_config.get("default_background_user_email")
+        
+        if not default_user_email:
+            raise HTTPException(
+                status_code=403, 
+                detail="Plugin 'statement-tools' is not configured with a default background user. Please set 'default_background_user_email' in plugin settings."
+            )
+        
+        # 2. Lookup the user in the tenant database
+        tenant_user = db.query(User).filter(
+            User.email == default_user_email,
+            User.is_active == True
+        ).first()
+        
+        if not tenant_user:
+            raise HTTPException(
+                status_code=403, 
+                detail=f"Configured background user '{default_user_email}' does not exist or is inactive in this tenant."
+            )
+
         # Create a mock client object to satisfy downstream logic without requiring a real API client
         class MockClient:
-            def __init__(self, auth):
+            def __init__(self, auth, user_id):
                 self.client_id = auth.api_key_id or auth.username
                 self.client_name = auth.username
                 self.tenant_id = auth.tenant_id
+                self.user_id = user_id  # Mandatory for batch job attribution
                 self.total_requests = 0
                 self.total_transactions_submitted = 0
 
-        api_client = MockClient(auth_context)
+        api_client = MockClient(auth_context, tenant_user.id)
     else:
         api_client = master_db.query(APIClient).filter(
             APIClient.client_id == auth_context.api_key_id,

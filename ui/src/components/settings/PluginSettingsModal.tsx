@@ -12,9 +12,16 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Settings, Globe, Copy, Check, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
-import { pluginApi } from '@/lib/api';
+import { pluginApi, api } from '@/lib/api';
 import { getTenantId } from '@/lib/api/_base';
 
 interface PublicAccessState {
@@ -57,14 +64,27 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
   const [publicAccess, setPublicAccess] = useState<PublicAccessState | null>(null);
   const [billing, setBilling] = useState<BillingState | null>(null);
   const [copied, setCopied] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
 
   useEffect(() => {
     if (open) {
       loadConfig();
       loadPublicAccessConfig();
       loadBillingConfig();
+      if (pluginId === 'statement-tools') {
+        loadUsers();
+      }
     }
   }, [open, pluginId]);
+
+  const loadUsers = async () => {
+    try {
+      const res = await api.get("/auth/users");
+      setUsers(Array.isArray(res) ? res : []);
+    } catch (e) {
+      console.error("Failed to load users:", e);
+    }
+  };
 
   const loadConfig = async () => {
     setLoading(true);
@@ -189,10 +209,49 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
     );
   };
 
+  const renderStatementToolsConfig = () => {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="default-user-email">
+            {t('plugins.statement_tools.default_user', 'Default Background User')}
+          </Label>
+          <Select
+            value={config.default_background_user_email || ''}
+            onValueChange={(value) =>
+              setConfig({ ...config, default_background_user_email: value })
+            }
+          >
+            <SelectTrigger id="default-user-email">
+              <SelectValue placeholder={t('plugins.statement_tools.select_user', 'Select a user account')} />
+            </SelectTrigger>
+            <SelectContent>
+              {users.map((u) => (
+                <SelectItem key={u.email} value={u.email}>
+                  {u.first_name || u.last_name 
+                    ? `${u.first_name || ''} ${u.last_name || ''} (${u.email})`.trim()
+                    : u.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            {t(
+              'plugins.statement_tools.default_user_desc',
+              'All visitor-driven bank statement processing will be attributed to this user account. This is required for the public portal to function.'
+            )}
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   const renderConfigForm = () => {
     switch (pluginId) {
       case 'investments':
         return renderInvestmentsConfig();
+      case 'statement-tools':
+        return renderStatementToolsConfig();
       default:
         return (
           <p className="text-sm text-muted-foreground">
