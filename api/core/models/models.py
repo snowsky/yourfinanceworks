@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, Table, DateTime, Boolean, JSON, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Session
 from datetime import datetime, timezone
 from sqlalchemy.orm import declarative_base
 
