@@ -37,10 +37,14 @@ async def get_api_auth_context(
     x_api_key: Optional[str] = Header(None),
     db: Session = Depends(get_master_db)
 ) -> AuthContext:
-    """
-    Authenticate API requests using API key from Authorization header or X-API-Key header.
-    Supports both 'Bearer <api_key>' and direct API key formats.
-    """
+    # 0. Check if already authenticated via middleware (trusted sidecar)
+    auth_context = getattr(request.state, "auth", None)
+    if auth_context and auth_context.is_authenticated:
+        # Also ensure tenant context is set
+        if auth_context.tenant_id:
+            set_tenant_context(auth_context.tenant_id)
+        return auth_context
+
     api_key = None
     
     # Try Authorization header first (Bearer token format)
@@ -91,17 +95,17 @@ async def process_statement_pdf(
 ) -> StreamingResponse:
     """
     Process a bank statement PDF/CSV file and return extracted transactions.
-    
+
     **Authentication**: Requires valid API key via Authorization header or X-API-Key header.
-    
+
     **Parameters**:
     - `file`: PDF or CSV bank statement file (max 20MB)
     - `format`: Response format - "csv" (default) or "json"
-    
-    **Returns**: 
+
+    **Returns**:
     - CSV format: Streaming CSV file with transactions
     - JSON format: JSON array of transaction objects
-    
+
     **Rate Limits**: Subject to API client rate limits
     """
     # Validate permissions
@@ -110,7 +114,7 @@ async def process_statement_pdf(
             status_code=403,
             detail="Document processing permission required"
         )
-    
+
     # Validate file
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required")
@@ -119,7 +123,7 @@ async def process_statement_pdf(
     file_content = await file.read()
     if len(file_content) > 20 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File size must be <= 20MB")
-    
+
     # Check file type
     allowed_types = {"application/pdf", "text/csv", "application/vnd.ms-excel"}
     if file.content_type not in allowed_types:
@@ -128,49 +132,62 @@ async def process_statement_pdf(
             detail="Only PDF and CSV files are supported"
         )
     validate_file_magic_bytes(file_content, file.content_type)
-    
+
     # Get API client for rate limiting and permissions
-    api_client = master_db.query(APIClient).filter(
-        APIClient.client_id == auth_context.api_key_id,
-        APIClient.is_active == True
-    ).first()
-    
-    if not api_client:
-        raise HTTPException(status_code=401, detail="API client not found")
-    
-    # Check rate limits
-    rate_limit_ok, rate_limit_msg, retry_after = await auth_service.check_rate_limits(
-        master_db, api_client
-    )
-    if not rate_limit_ok:
-        raise HTTPException(
-            status_code=429,
-            detail=rate_limit_msg or "Rate limit exceeded",
-            headers={"Retry-After": str(retry_after)} if retry_after else None
+    api_client = None
+    if auth_context.authentication_method == "internal_secret":
+        # Create a mock client object to satisfy downstream logic without requiring a real API client
+        class MockClient:
+            def __init__(self, auth):
+                self.client_id = auth.api_key_id or auth.username
+                self.client_name = auth.username
+                self.tenant_id = auth.tenant_id
+                self.total_requests = 0
+                self.total_transactions_submitted = 0
+
+        api_client = MockClient(auth_context)
+    else:
+        api_client = master_db.query(APIClient).filter(
+            APIClient.client_id == auth_context.api_key_id,
+            APIClient.is_active == True
+        ).first()
+
+        if not api_client:
+            raise HTTPException(status_code=401, detail="API client not found")
+
+        # Check rate limits
+        rate_limit_ok, rate_limit_msg, retry_after = await auth_service.check_rate_limits(
+            master_db, api_client
         )
-    
+        if not rate_limit_ok:
+            raise HTTPException(
+                status_code=429,
+                detail=rate_limit_msg or "Rate limit exceeded",
+                headers={"Retry-After": str(retry_after)} if retry_after else None
+            )
+
     # Save file temporarily for processing
     # Sanitize filename to prevent path traversal
     safe_filename = os.path.basename(file.filename)
     file_extension = Path(safe_filename).suffix.lower()
     if file_extension not in ['.pdf', '.csv']:
         file_extension = '.pdf'  # Default to PDF
-    
+
     try:
         # Store file in cloud storage for processing and audit trail
         stored_file_path = None
         cloud_file_key = None
-        
+
         try:
             from commercial.cloud_storage.service import CloudStorageService
             from commercial.cloud_storage.config import get_cloud_storage_config
-            
+
             cloud_config = get_cloud_storage_config()
             cloud_storage_service = CloudStorageService(db, cloud_config)
-            
+
             # Generate unique file key for cloud storage
             file_key = f"bank_statements/api/{api_client.client_id}/{uuid.uuid4().hex}_{safe_filename}"
-            
+
             # Store file in cloud storage
             storage_result = await cloud_storage_service.store_file(
                 file_content=file_content,
@@ -189,11 +206,11 @@ async def process_statement_pdf(
                     "file_key": file_key  # Store the original file key in metadata
                 }
             )
-            
+
             if storage_result.success:
                 cloud_file_key = file_key
                 logger.info(f"Bank statement stored in cloud storage: {file_key}")
-                
+
                 # For processing, we still need a local temporary file
                 with tempfile.NamedTemporaryFile(
                     delete=False, 
@@ -212,7 +229,7 @@ async def process_statement_pdf(
                 ) as temp_file:
                     temp_file.write(file_content)
                     stored_file_path = temp_file.name
-                    
+
         except ImportError:
             logger.info("Cloud storage not available, using temporary file")
             # Fallback to temporary file
@@ -223,24 +240,24 @@ async def process_statement_pdf(
             ) as temp_file:
                 temp_file.write(file_content)
                 stored_file_path = temp_file.name
-        
+
         # Validate file path
         from core.utils.file_validation import validate_file_path
         temp_file_path = validate_file_path(stored_file_path)
 
         logger.info(f"Processing statement file for API client {api_client.client_name}: {file.filename}")
-        
+
         # Check if AI service is reachable before processing
         if not is_bank_llm_reachable():
             raise HTTPException(
                 status_code=503,
                 detail="AI processing service is not available. Please ensure the AI provider is configured in Settings > AI Configuration and the service is running."
             )
-        
+
         # Process the file using the unified OCR service
         try:
             from commercial.ai.services.unified_ocr_service import UnifiedOCRService, DocumentType, OCRConfig
-            
+
             # Configure OCR service with AI config from database
             ai_config = None
             try:
@@ -249,7 +266,7 @@ async def process_statement_pdf(
                     AIConfigModel.is_active == True,
                     AIConfigModel.tested == True
                 ).order_by(AIConfigModel.is_default.desc()).first()
-                
+
                 if ai_row:
                     ai_config = {
                         "provider_name": ai_row.provider_name,
@@ -260,7 +277,7 @@ async def process_statement_pdf(
                     logger.info(f"Using AI config: {ai_row.provider_name} ({ai_row.model_name})")
             except Exception as e:
                 logger.warning(f"Failed to load AI config from database: {e}")
-            
+
             # Create OCR service
             ocr_config = OCRConfig(
                 ai_config=ai_config,
@@ -269,10 +286,10 @@ async def process_statement_pdf(
                 timeout_seconds=300
             )
             ocr_service = UnifiedOCRService(ocr_config)
-            
+
             # Extract text from bank statement
             text_result = ocr_service.extract_text(temp_file_path, DocumentType.BANK_STATEMENT)
-            
+
             if not text_result.success:
                 raise Exception(f"Text extraction failed: {text_result.error_message}")
             

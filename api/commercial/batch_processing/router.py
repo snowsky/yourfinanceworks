@@ -7,8 +7,8 @@ Supports uploading multiple files for OCR processing and exporting results.
 
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Header, UploadFile, File, Form
+from typing import List, Optional, Any
+from fastapi import APIRouter, Depends, HTTPException, status, Header, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session
 
 from core.models.database import get_db, get_master_db
@@ -27,27 +27,45 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/external-transactions/batch-processing", tags=["batch-processing"])
 
 
-def get_api_key_auth(
+async def get_api_key_auth(
+    request: Request,
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
     db: Session = Depends(get_master_db)
-) -> tuple[int, int, str, APIClient]:
+) -> tuple[int, int, str, Any]:
     """
     Authenticate using API key and return tenant_id, user_id, api_client_id, and APIClient.
-
-    This validates the API key, checks rate limits, and returns the authenticated context.
-
-    Args:
-        x_api_key: API key from X-API-Key header
-        db: Master database session
-
-    Returns:
-        Tuple of (tenant_id, user_id, api_client_id, api_client)
-
-    Raises:
-        HTTPException: If API key is missing, invalid, or rate limit exceeded
+    Supports both legacy API keys (X-API-Key) and internal_secret (from middleware).
     """
-    import hashlib
+    # 1. Check if already authenticated via middleware (trusted sidecar)
+    auth_context = getattr(request.state, "auth", None)
+    if (auth_context and auth_context.is_authenticated and 
+        auth_context.authentication_method == "internal_secret"):
+        
+        # Create a mock client object to satisfy downstream logic
+        class MockClient:
+            def __init__(self, auth):
+                self.client_id = auth.api_key_id or auth.username
+                self.client_name = auth.username
+                self.tenant_id = auth.tenant_id
+                self.user_id = 0 # System/Admin user
+                self.total_requests = 0
+                self.total_transactions_submitted = 0
+                self.rate_limit_per_minute = 1000
+                self.rate_limit_per_hour = 10000
+                self.rate_limit_per_day = 100000
+                self.custom_quotas = {}
+                self.allowed_document_types = ["invoice", "expense", "statement"]
+                self.status = "active"
+                self.id = 0
+                self.user = None
+        
+        from core.models.database import set_tenant_context
+        set_tenant_context(auth_context.tenant_id)
+        mock_client = MockClient(auth_context)
+        return (auth_context.tenant_id, mock_client.user_id, mock_client.client_id, mock_client)
 
+    # 2. Traditional API key authentication
+    import hashlib
     if not x_api_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -59,10 +77,16 @@ def get_api_key_auth(
 
     # Query API client by hashed key
     api_client = db.query(APIClient).filter(
-            APIClient.api_key_hash == api_key_hash,
-            APIClient.is_active == True,
+        APIClient.api_key_hash == api_key_hash,
+        APIClient.is_active == True,
         APIClient.status == "active"
     ).first()
+
+    if not api_client:
+        logger.warning(f"Invalid API key attempt: {x_api_key[:7]}...")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key"
+        )
 
     if not api_client:
         logger.warning(f"Invalid API key attempt: {x_api_key[:7]}...")
@@ -451,11 +475,14 @@ async def upload_batch(
 
         # Log audit event
         # For API key auth, include both the API key prefix and the associated user's email
-        user_email_display = (
-            f"{api_client.api_key_prefix}*** ({api_client.user.email})"
-            if api_client.user
-            else f"{api_client.api_key_prefix}*** (user_{user_id})"
-        )
+        if api_client and hasattr(api_client, 'api_key_prefix'):
+            user_email_display = (
+                f"{api_client.api_key_prefix}*** ({api_client.user.email})"
+                if api_client.user
+                else f"{api_client.api_key_prefix}*** (user_{user_id})"
+            )
+        else:
+            user_email_display = f"internal:{api_client.client_name if api_client else 'unknown'}"
 
         log_audit_event(
             db=service.db,
