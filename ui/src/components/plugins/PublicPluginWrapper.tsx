@@ -176,12 +176,43 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
   // Sidecar: render via iframe (explicit prop takes priority; fall back to manifest ui_entry)
   const resolvedIframeUrl = iframeUrl ?? config.public_page?.ui_entry ?? undefined;
   if (resolvedIframeUrl) {
+    const url = new URL(resolvedIframeUrl, window.location.origin);
+    // Forward all search parameters from the parent window to the iframe
+    const searchParams = new URLSearchParams(window.location.search);
+    searchParams.forEach((value, key) => {
+      url.searchParams.set(key, value);
+    });
+
     return (
-      <iframe
-        src={resolvedIframeUrl}
-        style={{ width: '100%', height: 'calc(100vh - 4rem)', border: 'none' }}
-        title={pluginId}
-      />
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        {config.organization && (
+          <div style={{ 
+            height: '4rem', 
+            display: 'flex', 
+            alignItems: 'center', 
+            padding: '0 2rem', 
+            borderBottom: '1px solid #e5e7eb',
+            background: '#fff',
+            justifyContent: 'space-between',
+            fontFamily: 'system-ui, sans-serif'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {config.organization.logo_url && (
+                <img src={config.organization.logo_url} style={{ height: '2rem' }} alt="" />
+              )}
+              <span style={{ fontWeight: 600, color: '#111827' }}>{config.organization.name}</span>
+            </div>
+            <div style={{ fontSize: 12, color: '#6b7280' }}>
+              Public Portal • {config.public_page?.label || pluginId}
+            </div>
+          </div>
+        )}
+        <iframe
+          src={url.toString()}
+          style={{ width: '100%', flex: 1, border: 'none' }}
+          title={pluginId}
+        />
+      </div>
     );
   }
 

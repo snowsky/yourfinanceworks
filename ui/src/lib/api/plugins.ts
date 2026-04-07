@@ -38,6 +38,11 @@ export interface PublicPluginConfig {
   require_login: boolean;
   public_page: { path: string; label: string; description?: string; ui_entry?: string } | null;
   billing: PluginBillingConfig;
+  organization?: {
+    id: number;
+    name: string;
+    logo_url?: string | null;
+  };
 }
 
 // Plugin Management API

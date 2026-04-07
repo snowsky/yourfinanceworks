@@ -61,6 +61,24 @@ async def get_plugin_registry():
     return {"plugins": plugin_loader.get_registry()}
 
 
+@router.post("/reload")
+async def reload_plugin_registry(
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Force a re-discovery of plugins from the filesystem.
+    Requires admin privileges.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Requires admin privileges",
+        )
+    
+    plugin_loader.discover(force=True)
+    return {"message": "Plugin registry reloaded successfully", "plugins": plugin_loader.get_registry()}
+
+
 @router.post("/access/check")
 async def check_cross_plugin_access(
     payload: dict,
@@ -1051,6 +1069,10 @@ async def get_plugin_public_config(
         plugin_id=plugin_id,
     )
 
+    # Fetch tenant branding info to identify the organization
+    from core.models.models import Tenant
+    tenant = db.query(Tenant).filter(Tenant.id == resolved_tenant_id).first()
+
     manifest = next((p for p in plugin_loader.get_registry() if p.get("name") == plugin_id), {})
     return {
         "plugin_id": plugin_id,
@@ -1058,6 +1080,11 @@ async def get_plugin_public_config(
         "require_login": pa["require_login"],
         "public_page": manifest.get("public_page"),
         "billing": _billing_response_payload(plugin_id, billing),
+        "organization": {
+            "id": resolved_tenant_id,
+            "name": tenant.name if tenant else "Unknown Organization",
+            "logo_url": tenant.company_logo_url if tenant else None,
+        }
     }
 
 

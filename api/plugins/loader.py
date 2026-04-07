@@ -84,13 +84,14 @@ class PluginLoader:
     # Public API
     # ------------------------------------------------------------------
 
-    def discover(self) -> list[DiscoveredPlugin]:
+    def discover(self, force: bool = False) -> list[DiscoveredPlugin]:
         """
         Walk all plugin directories and return validated plugin objects.
 
-        Safe to call multiple times — runs the filesystem scan only once.
+        Safe to call multiple times — runs the filesystem scan only once
+        unless force=True is passed.
         """
-        if self._discovery_done:
+        if self._discovery_done and not force:
             return self._discovered
 
         self._discovered = []
