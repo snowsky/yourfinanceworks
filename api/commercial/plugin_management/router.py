@@ -9,7 +9,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from typing import Optional
 from datetime import datetime, timezone
 
-from core.models.models import TenantPluginSettings, MasterUser
+from core.models.models import TenantPluginSettings, MasterUser, PluginPublicVisitorUsage
 from core.models.database import get_master_db
 from core.routers.auth import get_current_user
 from core.services.plugin_access_control_service import PluginAccessControlService
@@ -1050,6 +1050,9 @@ async def get_plugin_public_config(
     # the plugin may be a sidecar not fully registered yet.
     plugin_id = plugin_id.strip().lower().replace("_", "-")
     resolved_tenant_id = _resolve_public_tenant_id(request, db, tenant_id)
+    visitor_id = Query(default=None)
+    # The frontend may pass it as a query param or header
+    v_id = visitor_id if isinstance(visitor_id, str) else request.headers.get("X-Public-Visitor-Id")
 
     if resolved_tenant_id is None:
         return {
@@ -1074,12 +1077,35 @@ async def get_plugin_public_config(
     tenant = db.query(Tenant).filter(Tenant.id == resolved_tenant_id).first()
 
     manifest = next((p for p in plugin_loader.get_registry() if p.get("name") == plugin_id), {})
+    
+    billing_payload = _billing_response_payload(plugin_id, billing)
+    
+    # If we have a visitor ID, overlay the visitor's specific remaining count if it's lower
+    if v_id and resolved_tenant_id:
+        today = datetime.now(timezone.utc).date()
+        usage = db.query(PluginPublicVisitorUsage).filter(
+            PluginPublicVisitorUsage.tenant_id == resolved_tenant_id,
+            PluginPublicVisitorUsage.plugin_id == plugin_id,
+            PluginPublicVisitorUsage.visitor_id == v_id
+        ).first()
+        
+        v_count = usage.usage_count if (usage and (usage.last_reset_date.date() if hasattr(usage.last_reset_date, 'date') else usage.last_reset_date) == today) else 0
+        v_remaining = max(0, 5 - v_count)
+        
+        # If the visitor's individual limit is reached, flag payment required
+        if v_remaining <= 0:
+            billing_payload["payment_required"] = True
+            billing_payload["message"] = "Daily free-tier quota (5 files) reached. Please upgrade to continue."
+        
+        billing_payload["usage_count"] = max(billing_payload.get("usage_count", 0), v_count)
+        billing_payload["remaining_free_calls"] = min(billing_payload.get("remaining_free_calls", 999) or 999, v_remaining)
+
     return {
         "plugin_id": plugin_id,
         "enabled": pa["enabled"],
         "require_login": pa["require_login"],
         "public_page": manifest.get("public_page"),
-        "billing": _billing_response_payload(plugin_id, billing),
+        "billing": billing_payload,
         "organization": {
             "id": resolved_tenant_id,
             "name": tenant.name if tenant else "Unknown Organization",
@@ -1088,11 +1114,61 @@ async def get_plugin_public_config(
     }
 
 
+@router.get("/public-quota/{plugin_id}")
+async def get_plugin_public_quota(
+    request: Request,
+    plugin_id: str,
+    visitor_id: str = Query(...),
+    tenant_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_master_db),
+):
+    """
+    Check the remaining public quota for a visitor.
+    Returns the count of uploads remaining for today.
+    """
+    plugin_id = _normalize_plugin_id(plugin_id)
+    resolved_tenant_id = _resolve_public_tenant_id(request, db, tenant_id)
+
+    if resolved_tenant_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unable to resolve tenant")
+
+    today = datetime.now(timezone.utc).date()
+    usage = (
+        db.query(PluginPublicVisitorUsage)
+        .filter(
+            PluginPublicVisitorUsage.tenant_id == resolved_tenant_id,
+            PluginPublicVisitorUsage.plugin_id == plugin_id,
+            PluginPublicVisitorUsage.visitor_id == visitor_id
+        )
+        .first()
+    )
+
+    count = 0
+    if usage:
+        # Check reset
+        last_reset = usage.last_reset_date.date() if hasattr(usage.last_reset_date, 'date') else usage.last_reset_date
+        if last_reset == today:
+            count = usage.usage_count
+        else:
+            # It's a new day, count is 0
+            count = 0
+
+    return {
+        "plugin_id": plugin_id,
+        "visitor_id": visitor_id,
+        "usage_count": count,
+        "daily_limit": 5,
+        "remaining": max(0, 5 - count),
+        "resets_at": (datetime.combine(today + timedelta(days=1), datetime.min.time())).isoformat() + "Z"
+    }
+
+
 @router.post("/public-usage/{plugin_id}")
 async def record_plugin_public_usage(
     request: Request,
     plugin_id: str,
     payload: dict,
+    background_tasks: BackgroundTasks,
     tenant_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_master_db),
 ):
@@ -1127,6 +1203,20 @@ async def record_plugin_public_usage(
                 plugin_id=plugin_id,
                 plugin_cfg=plugin_cfg,
             )
+            
+            # Also increment visitor-specific usage if identified
+            visitor_id = payload.get("visitor_id") or request.headers.get("X-Public-Visitor-Id")
+            if visitor_id:
+                # Use a fresh session for the background task to ensure thread safety
+                from core.models.database import SessionLocal
+                def _bg_increment():
+                    bg_db = SessionLocal()
+                    try:
+                        PluginPublicVisitorUsage.increment_usage(bg_db, visitor_id, str(resolved_tenant_id), plugin_id)
+                    finally:
+                        bg_db.close()
+                background_tasks.add_task(_bg_increment)
+
             db.commit()
 
     return _billing_response_payload(plugin_id, billing)

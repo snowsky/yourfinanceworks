@@ -4,6 +4,7 @@ Enhanced authentication middleware for external API integration.
 
 import asyncio
 import logging
+import os
 import time
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
@@ -15,6 +16,9 @@ from sqlalchemy.orm import Session
 from core.models.database import get_master_db, set_tenant_context
 from core.services.external_api_auth_service import ExternalAPIAuthService, AuthContext, AuthenticationMethod, Permission
 from core.models.api_models import APIClient
+from core.models.models import PluginPublicVisitorUsage, MasterUser
+from core.routers.auth import SECRET_KEY
+from typing import Optional, Dict, Any, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +29,7 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
     def __init__(self, app):
         super().__init__(app)
         self.auth_service = ExternalAPIAuthService()
+        self._internal_secret = os.getenv("YFW_SECRET_KEY", SECRET_KEY)
         
     async def dispatch(self, request: Request, call_next) -> Response:
         """Process external API authentication and authorization."""
@@ -46,44 +51,52 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
         db = next(db_gen)
 
         try:
-            # For API client endpoints, require API key authentication
-            if any(request.url.path.startswith(api_path) for api_path in ["/api/v1/external-transactions/", "/api/v1/external/", "/api/v1/tools/"]):
-                # Try API key from X-API-Key header or Authorization: Bearer <key>
-                api_key = request.headers.get("X-API-Key")
-                if not api_key:
-                    auth_header = request.headers.get("Authorization", "")
-                    if auth_header.startswith("Bearer "):
-                        api_key = auth_header[7:]
-                if api_key:
-                    client_ip = self._get_client_ip(request)
-                    auth_context = await self.auth_service.authenticate_api_key(db, api_key, client_ip)
-
-                    if auth_context and auth_context.is_authenticated:
-                        # Set auth context on request
-                        request.state.auth = auth_context
-                        # Set tenant context so get_db() works in route handlers
-                        if auth_context.tenant_id:
-                            set_tenant_context(auth_context.tenant_id)
-                        # Process request
-                        response = await call_next(request)
-                        return response
-                    else:
-                        return JSONResponse(
-                            status_code=401,
-                            content={"detail": "Invalid API key"}
-                        )
-
-                # If no API key provided for API client endpoints, return unauthorized
+            # Authenticate the request
+            auth_context = await self._authenticate_request(request, db)
+            
+            # Check basic authentication
+            if not auth_context or not auth_context.is_authenticated:
+                # If we have a visitor ID and it was rejected, it's likely over quota
+                if request.headers.get("X-Public-Visitor-Id"):
+                    return JSONResponse(
+                        status_code=402, # Payment Required
+                        content={"detail": "Daily free-tier quota (5 files) reached. Please upgrade to continue."}
+                    )
                 return JSONResponse(
                     status_code=401,
-                    content={"detail": "API key required"}
+                    content={"detail": "Authentication required"}
                 )
 
-            # For UI endpoints, let them pass through (they use JWT auth from other middleware)
+            # Check authorization (permissions)
+            if not self._check_authorization(auth_context, request):
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Permission denied"}
+                )
+
             # Set auth context on request
-            request.state.auth = None  # UI will handle its own auth
+            request.state.auth = auth_context
+            
+            # Set tenant context so get_db() works in route handlers
+            if auth_context.tenant_id:
+                set_tenant_context(auth_context.tenant_id)
+
             # Process request
             response = await call_next(request)
+
+            # Post-processing: Increment quota for public visitors on success
+            if (response.status_code == 200 and 
+                auth_context.authentication_method == "internal_secret" and
+                auth_context.roles == ["public_visitor"] and
+                "/statements/process" in request.url.path):
+                
+                visitor_id = request.headers.get("X-Public-Visitor-Id")
+                tenant_id = auth_context.tenant_id
+                plugin_id = request.headers.get("X-Public-Plugin-Id", "statement-tools")
+                
+                if visitor_id and tenant_id:
+                    await self._increment_visitor_usage(db, tenant_id, plugin_id, visitor_id)
+
             return response
 
         except Exception as e:
@@ -95,6 +108,23 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
 
         finally:
             db.close()
+
+    async def _increment_visitor_usage(
+        self, db: Session, tenant_id: int, plugin_id: str, visitor_id: str
+    ) -> None:
+        """Increment the usage counter for an anonymous visitor."""
+        usage = (
+            db.query(PluginPublicVisitorUsage)
+            .filter(
+                PluginPublicVisitorUsage.tenant_id == tenant_id,
+                PluginPublicVisitorUsage.plugin_id == plugin_id,
+                PluginPublicVisitorUsage.visitor_id == visitor_id
+            )
+            .first()
+        )
+        if usage:
+            usage.usage_count += 1
+            db.commit()
     
     def _should_skip_auth(self, path: str) -> bool:
         """Check if authentication should be skipped for this path."""
@@ -158,7 +188,39 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
     async def _authenticate_request(self, request: Request, db: Session) -> AuthContext:
         """Authenticate the request using various methods."""
         
-        # Try API key authentication first
+        # 1. Try Internal Secret authentication (for trusted sidecars)
+        internal_secret = request.headers.get("X-Internal-Secret")
+        if internal_secret and internal_secret == self._internal_secret:
+            visitor_id = request.headers.get("X-Public-Visitor-Id")
+            tenant_id = request.headers.get("X-Public-Tenant-Id")
+            plugin_id = request.headers.get("X-Public-Plugin-Id", "statement-tools")
+            
+            if visitor_id and tenant_id:
+                try:
+                    t_id = int(tenant_id)
+                except (ValueError, TypeError):
+                    return AuthContext()
+                
+                # Check visitor quota
+                is_allowed, usage_count = await self._check_visitor_quota(db, t_id, plugin_id, visitor_id)
+                if not is_allowed:
+                    # Request is valid but over quota
+                    logger.warning("Visitor %s over quota for tenant %s", visitor_id, t_id)
+                    return AuthContext()
+                
+                # Create a trusted context for the sidecar
+                return AuthContext(
+                    user_id=f"visitor:{visitor_id}",
+                    username=f"public_visitor:{visitor_id}",
+                    roles=["public_visitor"],
+                    permissions={Permission.READ, Permission.WRITE, Permission.DOCUMENT_PROCESSING, Permission.TRANSACTION_PROCESSING},
+                    is_authenticated=True,
+                    is_admin=False,
+                    tenant_id=t_id,
+                    authentication_method="internal_secret"
+                )
+
+        # 2. Try API key authentication first
         api_key = request.headers.get("X-API-Key")
         if api_key:
             client_ip = self._get_client_ip(request)
@@ -166,7 +228,7 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
             if auth_context:
                 return auth_context
         
-        # Try OAuth 2.0 Bearer token
+        # 3. Try OAuth 2.0 Bearer token
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header[7:]  # Remove "Bearer " prefix
@@ -182,6 +244,56 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
         
         # Return unauthenticated context
         return AuthContext()
+
+    async def _check_visitor_quota(
+        self, db: Session, tenant_id: int, plugin_id: str, visitor_id: str
+    ) -> Tuple[bool, int]:
+        """
+        Enforce a daily limit of 5 uploads for anonymous visitors.
+        Returns (is_allowed, current_usage).
+        """
+        today = datetime.now(timezone.utc).date()
+        
+        # Find or create usage record
+        usage = (
+            db.query(PluginPublicVisitorUsage)
+            .filter(
+                PluginPublicVisitorUsage.tenant_id == tenant_id,
+                PluginPublicVisitorUsage.plugin_id == plugin_id,
+                PluginPublicVisitorUsage.visitor_id == visitor_id
+            )
+            .first()
+        )
+        
+        if not usage:
+            usage = PluginPublicVisitorUsage(
+                tenant_id=tenant_id,
+                plugin_id=plugin_id,
+                visitor_id=visitor_id,
+                usage_count=0,
+                last_reset_date=today
+            )
+            db.add(usage)
+            db.commit()
+            db.refresh(usage)
+        
+        # Reset if it's a new day
+        if hasattr(usage.last_reset_date, 'date'):
+            last_reset = usage.last_reset_date.date() if hasattr(usage.last_reset_date, 'date') else usage.last_reset_date
+        else:
+            last_reset = usage.last_reset_date
+
+        if last_reset != today:
+            usage.usage_count = 0
+            usage.last_reset_date = today
+            db.commit()
+            db.refresh(usage)
+        
+        # Check quota
+        if usage.usage_count >= 5:
+            return False, usage.usage_count
+        
+        return True, usage.usage_count
     
     def _get_required_oauth_scopes(self, request: Request) -> Optional[list]:
         """Get required OAuth scopes for the request."""

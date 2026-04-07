@@ -108,13 +108,13 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
           endpointKey,
           quantity,
         });
-        setConfig((current) => current ? { ...current, billing } : current);
+        setConfig((current: PublicPluginConfig | null) => current ? { ...current, billing } : current);
       } catch {
         // Ignore metering failures to avoid blocking the plugin experience.
       }
     };
 
-    const handleWindowUsage = (event: Event) => {
+    const handleWindowUsage = (event: any) => {
       const customEvent = event as CustomEvent<{ pluginId?: string; endpointKey?: string; quantity?: number }>;
       if (customEvent.detail?.pluginId && customEvent.detail.pluginId !== pluginId) {
         return;
@@ -122,7 +122,7 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
       recordUsage(customEvent.detail?.endpointKey || 'service_call', customEvent.detail?.quantity || 1);
     };
 
-    const handleMessageUsage = (event: MessageEvent) => {
+    const handleMessageUsage = (event: any) => {
       const data = event.data;
       if (!data || data.type !== 'plugin-public-usage') {
         return;
@@ -407,7 +407,7 @@ function PaymentRequiredMessage({ config }: { config: PublicPluginConfig }) {
               Recent transactions
             </div>
             <div style={{ display: 'grid', gap: 10 }}>
-              {transactions.map((transaction) => (
+              {transactions.map((transaction: any) => (
                 <div
                   key={transaction.id}
                   style={{

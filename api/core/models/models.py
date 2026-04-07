@@ -592,3 +592,62 @@ class TenantPluginSettings(Base):
 
     def __repr__(self):
         return f"<TenantPluginSettings(tenant_id={self.tenant_id}, enabled_plugins={self.enabled_plugins})>"
+
+
+class PluginPublicVisitorUsage(Base):
+    """
+    Tracks usage for unauthenticated public visitors on a per-plugin basis.
+    Used for enforcing free-tier quotas (e.g. 5 free uploads per day).
+    """
+    __tablename__ = "plugin_public_visitor_usage"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    plugin_id = Column(String(100), nullable=False, index=True)
+    visitor_id = Column(String(64), nullable=False, index=True)  # Fingerprint or UUID from browser
+    
+    usage_count = Column(Integer, default=0, nullable=False)
+    last_reset_date = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc).date())
+
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Composite index for faster lookups
+    # (tenant_id, plugin_id, visitor_id)
+
+    @classmethod
+    def increment_usage(cls, db: Session, visitor_id: str, tenant_id: str, plugin_id: str):
+        """
+        Increment the usage count for a visitor.
+        Creates a new record if one doesn't exist for today.
+        Resets count if it's a new day.
+        """
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).date()
+        
+        # Try to find existing record
+        usage = db.query(cls).filter(
+            cls.tenant_id == int(tenant_id),
+            cls.plugin_id == plugin_id,
+            cls.visitor_id == visitor_id
+        ).first()
+        
+        if not usage:
+            usage = cls(
+                tenant_id=int(tenant_id),
+                plugin_id=plugin_id,
+                visitor_id=visitor_id,
+                usage_count=1,
+                last_reset_date=today
+            )
+            db.add(usage)
+        else:
+            # Check for reset
+            last_reset = usage.last_reset_date.date() if hasattr(usage.last_reset_date, 'date') else usage.last_reset_date
+            if last_reset != today:
+                usage.usage_count = 1
+                usage.last_reset_date = today
+            else:
+                usage.usage_count += 1
+        
+        db.commit()

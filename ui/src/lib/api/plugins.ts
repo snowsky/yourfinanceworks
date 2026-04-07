@@ -1,4 +1,5 @@
 import { apiRequest } from './_base';
+import { getVisitorId, getPublicTenantId } from '../visitor';
 
 export interface InstallJob {
   job_id: string;
@@ -130,29 +131,52 @@ export const pluginApi = {
    * Calls directly without Bearer token so it works for unauthenticated visitors.
    */
   getPluginPublicConfig: (pluginId: string, tenantId?: number | string) => {
-    const url = tenantId != null
-      ? `/api/v1/plugins/public-config/${pluginId}?tenant_id=${tenantId}`
-      : `/api/v1/plugins/public-config/${pluginId}`;
-    return fetch(url).then((r) => r.json()) as Promise<PublicPluginConfig>;
+    const visitorId = getVisitorId();
+    const resolvedTenantId = tenantId ?? getPublicTenantId() ?? undefined;
+    
+    const params = new URLSearchParams();
+    if (resolvedTenantId != null) {
+      params.set('tenant_id', String(resolvedTenantId));
+    }
+    if (visitorId) {
+      params.set('visitor_id', visitorId);
+    }
+
+    const queryString = params.toString();
+    const url = `/api/v1/plugins/public-config/${pluginId}${queryString ? `?${queryString}` : ''}`;
+    
+    return fetch(url, {
+      headers: {
+        'X-Public-Visitor-Id': visitorId,
+        'X-Public-Tenant-Id': String(resolvedTenantId || ''),
+      },
+      credentials: 'include',
+    }).then((r) => r.json()) as Promise<PublicPluginConfig>;
   },
 
   recordPublicUsage: (
     pluginId: string,
     payload: { tenantId?: number | string; endpointKey?: string; quantity?: number } = {},
   ) => {
-    const tenantSuffix = payload.tenantId != null
-      ? `?tenant_id=${encodeURIComponent(String(payload.tenantId))}`
+    const visitorId = getVisitorId();
+    const resolvedTenantId = payload.tenantId ?? getPublicTenantId() ?? undefined;
+    
+    const tenantSuffix = resolvedTenantId != null
+      ? `?tenant_id=${encodeURIComponent(String(resolvedTenantId))}`
       : '';
 
     return fetch(`/api/v1/plugins/public-usage/${pluginId}${tenantSuffix}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Public-Visitor-Id': visitorId,
+        'X-Public-Tenant-Id': String(resolvedTenantId || ''),
       },
       credentials: 'include',
       body: JSON.stringify({
         endpoint_key: payload.endpointKey,
         quantity: payload.quantity,
+        visitor_id: visitorId,
       }),
     }).then((r) => r.json()) as Promise<PluginBillingConfig>;
   },
@@ -161,18 +185,24 @@ export const pluginApi = {
     pluginId: string,
     payload: { tenantId?: number | string; currentUrl?: string } = {},
   ) => {
-    const tenantSuffix = payload.tenantId != null
-      ? `?tenant_id=${encodeURIComponent(String(payload.tenantId))}`
+    const visitorId = getVisitorId();
+    const resolvedTenantId = payload.tenantId ?? getPublicTenantId() ?? undefined;
+
+    const tenantSuffix = resolvedTenantId != null
+      ? `?tenant_id=${encodeURIComponent(String(resolvedTenantId))}`
       : '';
 
     return fetch(`/api/v1/plugins/public-checkout/${pluginId}${tenantSuffix}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Public-Visitor-Id': visitorId,
+        'X-Public-Tenant-Id': String(resolvedTenantId || ''),
       },
       credentials: 'include',
       body: JSON.stringify({
         current_url: payload.currentUrl,
+        visitor_id: visitorId,
       }),
     }).then(async (r) => {
       const data = await r.json();
