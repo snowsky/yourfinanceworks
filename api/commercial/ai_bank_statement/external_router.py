@@ -18,7 +18,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from core.models.database import get_db, get_master_db, set_tenant_context
-from core.models.models import TenantPluginSettings, User
+from core.models.models import TenantPluginSettings
+from core.models.models_per_tenant import User as TenantUser
 from core.models.api_models import APIClient, ExternalTransaction
 from core.services.external_api_auth_service import ExternalAPIAuthService, AuthContext, Permission
 from core.decorators.sandbox_validation import require_production_auth_context
@@ -153,9 +154,9 @@ async def process_statement_pdf(
             )
         
         # 2. Lookup the user in the tenant database
-        tenant_user = db.query(User).filter(
-            User.email == default_user_email,
-            User.is_active == True
+        tenant_user = db.query(TenantUser).filter(
+            TenantUser.email == default_user_email,
+            TenantUser.is_active == True
         ).first()
         
         if not tenant_user:
