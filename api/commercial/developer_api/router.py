@@ -19,7 +19,7 @@ from core.schemas.api_schemas import (
     ExternalPortfolioResponse,
 )
 
-router = APIRouter(prefix="/api/v1/external", tags=["developer-api"])
+router = APIRouter(prefix="/external", tags=["developer-api"])
 logger = logging.getLogger(__name__)
 
 auth_service = ExternalAPIAuthService()

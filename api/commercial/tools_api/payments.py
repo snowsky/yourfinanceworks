@@ -22,7 +22,7 @@ from .deps import (
     require_write,
 )
 
-router = APIRouter(prefix="/api/v1/tools/payments", tags=["tools-payments"])
+router = APIRouter(prefix="/tools/payments", tags=["tools-payments"])
 logger = logging.getLogger(__name__)
 
 # Payments are tied to invoices — use "invoice" domain gate.

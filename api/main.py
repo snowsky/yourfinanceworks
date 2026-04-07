@@ -616,8 +616,17 @@ if cloud_storage:
     app.include_router(cloud_storage, prefix="/api/v1")
 if export_router:
     app.include_router(export_router, prefix="/api/v1")
+
+# External & Batch Processing (High priority for plugin integration)
+if external_api:
+    logger.info("Registering external_api router (Bank Statements)")
+    app.include_router(external_api, prefix="/api/v1")
 if batch_processing:
+    logger.info("Registering batch_processing router")
     app.include_router(batch_processing, prefix="/api/v1")
+if external_transactions:
+    logger.info("Registering external_transactions router")
+    app.include_router(external_transactions, prefix="/api/v1")
 
 if external_api_auth:
     app.include_router(external_api_auth, prefix="/api/v1")
@@ -665,13 +674,13 @@ else:
 
 if developer_api_router:
     logger.info("Registering developer_api router")
-    app.include_router(developer_api_router)
+    app.include_router(developer_api_router, prefix="/api/v1")
 else:
     logger.warning("developer_api router is None - not registering")
 
 if tools_api_router:
     logger.info("Registering tools_api router")
-    app.include_router(tools_api_router)
+    app.include_router(tools_api_router, prefix="/api/v1")
 else:
     logger.warning("tools_api router is None - not registering")
 

@@ -20,7 +20,7 @@ from .deps import (
     require_write,
 )
 
-router = APIRouter(prefix="/api/v1/tools/clients", tags=["tools-clients"])
+router = APIRouter(prefix="/tools/clients", tags=["tools-clients"])
 logger = logging.getLogger(__name__)
 
 # Clients are a core entity — no domain-level gating, just require authentication.

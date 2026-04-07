@@ -23,7 +23,7 @@ from .deps import (
     require_write,
 )
 
-router = APIRouter(prefix="/api/v1/tools/invoices", tags=["tools-invoices"])
+router = APIRouter(prefix="/tools/invoices", tags=["tools-invoices"])
 logger = logging.getLogger(__name__)
 
 DOMAIN = "invoice"

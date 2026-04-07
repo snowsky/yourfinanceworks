@@ -21,7 +21,7 @@ from .deps import (
     require_write,
 )
 
-router = APIRouter(prefix="/api/v1/tools/expenses", tags=["tools-expenses"])
+router = APIRouter(prefix="/tools/expenses", tags=["tools-expenses"])
 logger = logging.getLogger(__name__)
 
 DOMAIN = "expense"

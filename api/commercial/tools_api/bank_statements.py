@@ -22,7 +22,7 @@ from .deps import (
     require_write,
 )
 
-router = APIRouter(prefix="/api/v1/tools/bank-statements", tags=["tools-bank-statements"])
+router = APIRouter(prefix="/tools/bank-statements", tags=["tools-bank-statements"])
 logger = logging.getLogger(__name__)
 
 DOMAIN = "statement"
