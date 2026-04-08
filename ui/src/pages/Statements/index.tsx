@@ -30,6 +30,7 @@ import { RecycleBinSection } from './RecycleBinSection';
 import { StatementsListView } from './StatementsListView';
 import { StatementDetailView } from './StatementDetailView';
 import { UploadModal } from './UploadModal';
+import { DuplicateTransactionPanel } from './DuplicateTransactionPanel';
 
 export default function Statements() {
   const { t } = useTranslation();
@@ -781,12 +782,12 @@ export default function Statements() {
           />
         )}
 
-        {/* Duplicate transaction warning banner */}
+        {/* Duplicate transaction warning banner — expandable */}
         {!selected && txnDuplicateCount > 0 && (
-          <div className="rounded-md bg-yellow-50 border border-yellow-200 px-4 py-2 text-sm text-yellow-800 mb-3">
-            <span className="font-semibold">{txnDuplicateCount}</span>
-            {' '}potential duplicate transaction {txnDuplicateCount !== 1 ? 'groups' : 'group'} detected across statements.
-          </div>
+          <DuplicateTransactionPanel
+            groups={txnDuplicateData?.duplicate_groups ?? []}
+            onViewTransaction={openStatement}
+          />
         )}
 
         {/* Statements List */}
