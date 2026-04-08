@@ -238,6 +238,26 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
                     authentication_method="internal_secret"
                 )
 
+            # Fallback: resolve tenant from forwarded user email
+            # Works with JWTs issued before tenant_id was added to the token
+            plugin_user_email = request.headers.get("X-Plugin-User-Email")
+            if plugin_user_email:
+                from core.models.models import MasterUser as _MasterUser
+                master_user = db.query(_MasterUser).filter(
+                    _MasterUser.email == plugin_user_email
+                ).first()
+                if master_user and master_user.tenant_id:
+                    return AuthContext(
+                        user_id=str(master_user.id),
+                        username=plugin_user_email,
+                        roles=["plugin"],
+                        permissions={Permission.READ, Permission.WRITE, Permission.DOCUMENT_PROCESSING, Permission.TRANSACTION_PROCESSING},
+                        is_authenticated=True,
+                        is_admin=True,
+                        tenant_id=master_user.tenant_id,
+                        authentication_method="internal_secret"
+                    )
+
         # 2. Try API key authentication first
         api_key = request.headers.get("X-API-Key")
         if api_key:
