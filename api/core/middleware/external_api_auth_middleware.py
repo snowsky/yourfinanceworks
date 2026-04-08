@@ -200,14 +200,14 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
                     t_id = int(tenant_id)
                 except (ValueError, TypeError):
                     return AuthContext()
-                
+
                 # Check visitor quota
                 is_allowed, usage_count = await self._check_visitor_quota(db, t_id, plugin_id, visitor_id)
                 if not is_allowed:
                     # Request is valid but over quota
                     logger.warning("Visitor %s over quota for tenant %s", visitor_id, t_id)
                     return AuthContext()
-                
+
                 # Create a trusted context for the sidecar
                 return AuthContext(
                     user_id=f"visitor:{visitor_id}",
@@ -216,6 +216,24 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
                     permissions={Permission.READ, Permission.WRITE, Permission.DOCUMENT_PROCESSING, Permission.TRANSACTION_PROCESSING},
                     is_authenticated=True,
                     is_admin=False,
+                    tenant_id=t_id,
+                    authentication_method="internal_secret"
+                )
+
+            # Authenticated sidecar request (no visitor headers): trust the plugin
+            plugin_tenant_str = request.headers.get("X-Plugin-Tenant-Id")
+            if plugin_tenant_str:
+                try:
+                    t_id = int(plugin_tenant_str)
+                except (ValueError, TypeError):
+                    return AuthContext()
+                return AuthContext(
+                    user_id="internal_plugin",
+                    username="internal_plugin",
+                    roles=["plugin"],
+                    permissions={Permission.READ, Permission.WRITE, Permission.DOCUMENT_PROCESSING, Permission.TRANSACTION_PROCESSING},
+                    is_authenticated=True,
+                    is_admin=True,
                     tenant_id=t_id,
                     authentication_method="internal_secret"
                 )
