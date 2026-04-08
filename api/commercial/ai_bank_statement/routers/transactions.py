@@ -23,6 +23,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# ── Duplicate Detection ───────────────────────────────────────────────────────
+
+
+@router.get("/transactions/duplicates", response_model=Dict[str, Any])
+@require_feature("ai_bank_statement")
+async def get_duplicate_transaction_groups(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Return groups of cross-statement transactions that appear to be duplicates.
+
+    A group contains transactions with identical (date, description, amount) across
+    at least two different non-deleted statements that are NOT already linked via
+    a TransactionLink.
+    """
+    tenant_id = get_tenant_id()
+    groups = transaction_link_service.find_cross_statement_duplicate_groups(
+        db=db, tenant_id=tenant_id
+    )
+    return {"success": True, "duplicate_groups": groups, "count": len(groups)}
+
+
 # ── Transaction Link Endpoints ────────────────────────────────────────────────
 
 

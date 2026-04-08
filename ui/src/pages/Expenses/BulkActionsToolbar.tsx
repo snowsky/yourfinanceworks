@@ -33,6 +33,7 @@ interface BulkActionsToolbarProps {
   onRecycleBinRefresh: () => void;
   onBulkRunReview: () => void;
   loading: boolean;
+  onDuplicatesInvalidate?: () => void;
 }
 
 export function BulkActionsToolbar({
@@ -51,6 +52,7 @@ export function BulkActionsToolbar({
   onRecycleBinRefresh,
   onBulkRunReview,
   loading,
+  onDuplicatesInvalidate,
 }: BulkActionsToolbarProps) {
   const { t } = useTranslation();
 
@@ -190,6 +192,7 @@ export function BulkActionsToolbar({
                       console.log('ℹ️ Expenses bulk delete: Recycle bin not open, skipping refresh');
                     }
                     setSelectedIds([]);
+                    onDuplicatesInvalidate?.();
                     toast.success(`Successfully deleted ${selectedIds.length} expense${selectedIds.length > 1 ? 's' : ''}`);
                   } catch (e: any) {
                     toast.error(e?.message || t('expenses.bulk_delete_failed', { defaultValue: 'Failed to delete expenses' }));

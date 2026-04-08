@@ -10,7 +10,7 @@ import { CurrencySelector } from '@/components/ui/currency-selector';
 import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Upload, Package, Eye, Pencil, AlertCircle } from 'lucide-react';
+import { CalendarIcon, Upload, Package, Eye, Pencil, AlertCircle, Trash2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -22,6 +22,17 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { InventoryConsumptionForm } from '@/components/inventory/InventoryConsumptionForm';
 import { ApprovalActionButtons } from '@/components/approvals/ApprovalActionButtons';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ShareButton } from '@/components/sharing/ShareButton';
 import { ExpenseApproval } from '@/types';
@@ -184,13 +195,48 @@ export default function ExpensesView() {
                 </Button>
               )}
               {(!approval || approval.status !== 'pending') && (
-                <Button
-                  onClick={() => navigate(`/expenses/edit/${id}`)}
-                  variant="outline"
-                >
-                  <Pencil className="mr-2 h-4 w-4" />
-                  {t('common.edit')}
-                </Button>
+                <>
+                  <Button
+                    onClick={() => navigate(`/expenses/edit/${id}`)}
+                    variant="outline"
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    {t('common.edit')}
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" className="flex items-center gap-2">
+                        <Trash2 className="w-4 h-4" />
+                        {t('common.delete', { defaultValue: 'Delete' })}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>{t('expenses.delete_single_title', { defaultValue: 'Delete Expense' })}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {t('expenses.delete_single_description', { defaultValue: 'Are you sure you want to delete this expense? This will move it to the recycle bin.' })}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>{t('common.cancel', { defaultValue: 'Cancel' })}</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-white hover:bg-destructive/90"
+                          onClick={async () => {
+                            try {
+                              await expenseApi.deleteExpense(Number(id));
+                              toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted successfully' }));
+                              navigate('/expenses');
+                            } catch (e: any) {
+                              toast.error(e?.message || t('expenses.delete_failed', { defaultValue: 'Failed to delete expense' }));
+                            }
+                          }}
+                        >
+                          {t('common.delete', { defaultValue: 'Delete' })}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
               )}
             </div>
           }

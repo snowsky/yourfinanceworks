@@ -47,6 +47,7 @@ export interface BankStatementSummary {
   review_result?: any;
   reviewed_at?: string;
   is_possible_receipt?: boolean;
+  duplicate_of?: { id: number; original_filename: string; created_at: string | null; } | null;
 }
 
 export interface BankStatementDetail extends BankStatementSummary {
@@ -243,4 +244,10 @@ export const bankStatementApi = {
 
   deleteTransactionLink: (linkId: number) =>
     apiRequest<{ success: boolean }>(`/statements/transactions/links/${linkId}`, { method: 'DELETE' }),
+
+  getDuplicateTransactionGroups: () =>
+    apiRequest<{ success: boolean; duplicate_groups: BankTransactionEntry[][]; count: number }>(
+      '/statements/transactions/duplicates',
+      { method: 'GET' }
+    ),
 };
