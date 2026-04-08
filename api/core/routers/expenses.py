@@ -313,22 +313,37 @@ async def get_potential_expense_duplicates(
         if len(expenses_in_bucket) < 2:
             continue
         expenses_sorted = sorted(expenses_in_bucket, key=_date)
-        cluster = [expenses_sorted[0]]
-        first_date = _date(expenses_sorted[0])
+        
+        current_cluster = [expenses_sorted[0]]
         for e in expenses_sorted[1:]:
-            if abs((_date(e) - first_date).days) <= date_window_days:
-                cluster.append(e)
-        if len(cluster) >= 2:
+            if abs((_date(e) - _date(current_cluster[0])).days) <= date_window_days:
+                current_cluster.append(e)
+            else:
+                if len(current_cluster) >= 2:
+                    groups.append([
+                        {
+                            "id": ex.id,
+                            "amount": ex.amount,
+                            "expense_date": str(_date(ex)),
+                            "vendor": ex.vendor,
+                            "category": ex.category,
+                            "status": ex.status,
+                        }
+                        for ex in current_cluster
+                    ])
+                current_cluster = [e]
+                
+        if len(current_cluster) >= 2:
             groups.append([
                 {
-                    "id": e.id,
-                    "amount": e.amount,
-                    "expense_date": str(_date(e)),
-                    "vendor": e.vendor,
-                    "category": e.category,
-                    "status": e.status,
+                    "id": ex.id,
+                    "amount": ex.amount,
+                    "expense_date": str(_date(ex)),
+                    "vendor": ex.vendor,
+                    "category": ex.category,
+                    "status": ex.status,
                 }
-                for e in cluster
+                for ex in current_cluster
             ])
 
     return {"success": True, "duplicate_groups": groups, "count": len(groups)}
