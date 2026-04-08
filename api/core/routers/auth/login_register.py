@@ -285,7 +285,8 @@ async def register(user: UserCreate, db: Session = Depends(get_master_db)):
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": db_user.email}, expires_delta=access_token_expires
+        data={"sub": db_user.email, "tenant_id": db_user.tenant_id, "user_id": db_user.id},
+        expires_delta=access_token_expires,
     )
 
     organizations = get_user_organizations(db, db_user)
@@ -344,7 +345,8 @@ async def login(user_credentials: UserLogin, response: Response, db: Session = D
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
+        data={"sub": user.email, "tenant_id": user.tenant_id, "user_id": user.id},
+        expires_delta=access_token_expires,
     )
 
     organizations = get_user_organizations(db, user)

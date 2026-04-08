@@ -390,7 +390,7 @@ async def accept_invite(
     finally:
         tenant_db.close()
 
-    access_token = create_access_token(data={"sub": user.email})
+    access_token = create_access_token(data={"sub": user.email, "tenant_id": user.tenant_id, "user_id": user.id})
 
     return {"access_token": access_token, "token_type": "bearer", "user": user}
 
