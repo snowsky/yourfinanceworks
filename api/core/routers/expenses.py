@@ -285,6 +285,8 @@ async def get_potential_expense_duplicates(
     Python after decryption because vendor uses EncryptedColumn.
     """
     from collections import defaultdict
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
 
     def _date(e: Expense):
         return e.expense_date.date() if hasattr(e.expense_date, 'date') else e.expense_date
@@ -299,9 +301,12 @@ async def get_potential_expense_duplicates(
     # Bucket by (round(amount, 2), normalized_vendor) — vendor decrypted by ORM
     buckets: dict = defaultdict(list)
     for e in all_exp:
-        vendor_key = (e.vendor or "").strip().lower()
-        amount_key = round(float(e.amount or 0), 2)
-        buckets[(amount_key, vendor_key)].append(e)
+        try:
+            vendor_key = (e.vendor or "").strip().lower()
+            amount_key = round(float(e.amount or 0), 2)
+            buckets[(amount_key, vendor_key)].append(e)
+        except (TypeError, ValueError) as exc:
+            logger.debug(f"Skipping expense {e.id} in duplicate scan: {exc}")
 
     groups = []
     for expenses_in_bucket in buckets.values():
