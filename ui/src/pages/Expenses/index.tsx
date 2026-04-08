@@ -226,9 +226,10 @@ const Expenses = () => {
   const { data: expenseDuplicateData } = useQuery({
     queryKey: ['expense-potential-duplicates'],
     queryFn: () => expenseApi.getPotentialDuplicates(3),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,           // 30 s — short enough to catch new expenses quickly
     refetchOnWindowFocus: false,
-    enabled: expenses.length > 0,
+    // No 'enabled' gate: we want this to run even before expenses load,
+    // so the banner appears as soon as the page mounts.
   });
   const expenseDuplicateCount = expenseDuplicateData?.count ?? 0;
 
@@ -307,6 +308,9 @@ const Expenses = () => {
 
       setExpenses(result.expenses);
       setTotalExpenses(result.total);
+
+      // Invalidate duplicate detection whenever the expense list changes
+      queryClient.invalidateQueries({ queryKey: ['expense-potential-duplicates'] });
 
       // Auto-start polling for any expenses still processing/queued
       const processingIds = result.expenses

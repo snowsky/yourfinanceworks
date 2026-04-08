@@ -19,7 +19,7 @@ import { useFeatures } from '@/contexts/FeatureContext';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { LicenseAlert } from '@/components/ui/license-alert';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ReviewDiffModal } from '@/components/ReviewDiffModal';
 import { usePageContext } from '@/contexts/PageContext';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -36,6 +36,7 @@ export default function Statements() {
   const { t } = useTranslation();
   const { isFeatureEnabled } = useFeatures();
   const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('statements', STATEMENT_COLUMNS);
+  const queryClient = useQueryClient();
   const [shareStatementId, setShareStatementId] = useState<number | null>(null);
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -460,6 +461,7 @@ export default function Statements() {
       await bankStatementApi.delete(statementToDelete);
       toast.success(t('statements.statement_deleted'));
       await loadList();
+      queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] });
       if (showRecycleBin) fetchDeletedStatements();
       if (selected === statementToDelete) {
         setSelected(null); setDetail(null); setRows([]);
@@ -476,6 +478,7 @@ export default function Statements() {
       for (const id of selectedIds) await bankStatementApi.delete(id);
       toast.success(t('statements.bulk_delete_success', { count: selectedIds.length, defaultValue: 'Statements deleted successfully' }));
       await loadList();
+      queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] });
       if (showRecycleBin) { setRecycleBinCurrentPage(1); await fetchDeletedStatements(); }
       setSelectedIds([]); setBulkDeleteModalOpen(false);
     } catch (e: any) {
@@ -489,6 +492,7 @@ export default function Statements() {
       const resp = await bankStatementApi.merge(selectedIds);
       toast.success(resp.message || t('statements.merge_success', { defaultValue: 'Statements merged successfully' }));
       await loadList();
+      queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] });
       setSelectedIds([]); setBulkMergeModalOpen(false);
       if (resp.id) openStatement(resp.id);
     } catch (e: any) {
@@ -716,6 +720,7 @@ export default function Statements() {
     try {
       await bankStatementApi.deleteTransactionLink(linkId);
       toast.success('Transfer link removed');
+      queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] });
       if (selected) await openStatement(selected);
     } catch (e: any) { toast.error(e?.message || 'Failed to remove transfer link'); }
     finally { setUnlinkModalOpen(false); setRowToUnlink(null); }
@@ -748,7 +753,7 @@ export default function Statements() {
                 <p className="text-lg text-muted-foreground">{t('statements.description')}</p>
               </div>
               <div className="flex gap-3 items-center flex-wrap justify-end">
-                <ProfessionalButton variant="outline" size="default" onClick={loadList} className="whitespace-nowrap" disabled={loading}>
+                <ProfessionalButton variant="outline" size="default" onClick={() => { loadList(); queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] }); }} className="whitespace-nowrap" disabled={loading}>
                   <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                   {t('common.refresh', { defaultValue: 'Refresh' })}
                 </ProfessionalButton>
