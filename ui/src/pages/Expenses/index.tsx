@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CardContent } from '@/components/ui/card';
 import {
   RotateCcw, Plus, ChevronDown, ChevronUp, BarChart3, Trash2, Upload
@@ -39,12 +39,14 @@ import { ExpenseTable } from './ExpenseTable';
 import { RecycleBinSection } from './RecycleBinSection';
 import { ExpenseEditDialog } from './ExpenseEditDialog';
 import { AttachmentPreviewDialog } from './AttachmentPreviewDialog';
+import { DuplicateExpensePanel } from './DuplicateExpensePanel';
 
 const Expenses = () => {
   const { t, i18n } = useTranslation();
   const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('expenses', EXPENSE_COLUMNS);
   const { isFeatureEnabled } = useFeatures();
   const hasAIExpenseFeature = isFeatureEnabled('ai_expense');
+  const queryClient = useQueryClient();
 
   // Helper function to get locale for date formatting
   const getLocale = () => {
@@ -388,6 +390,8 @@ const Expenses = () => {
       if (showRecycleBin) {
         fetchDeletedExpenses();
       }
+      // Invalidate duplicate detection so banner updates immediately
+      queryClient.invalidateQueries({ queryKey: ['expense-potential-duplicates'] });
       toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted' }));
     } catch (e: any) {
       toast.error(e?.message || t('expenses.delete_failed', { defaultValue: 'Failed to delete expense' }));
@@ -533,6 +537,8 @@ const Expenses = () => {
       }
       setExpenses(prev => prev.map(x => (x.id === finalUpdated.id ? finalUpdated : x)));
       setIsEditOpen(false);
+      // Invalidate duplicate detection — an edit may resolve or create a duplicate
+      queryClient.invalidateQueries({ queryKey: ['expense-potential-duplicates'] });
       toast.success(t('expenses.update_success', { defaultValue: 'Expense updated' }));
     } catch (e: any) {
       toast.error(e?.message || t('expenses.update_failed', { defaultValue: 'Failed to update expense' }));
@@ -769,10 +775,9 @@ const Expenses = () => {
           <CardContent className="px-0">
             {/* Potential duplicate expenses warning */}
             {expenseDuplicateCount > 0 && (
-              <div className="rounded-md bg-amber-50 border border-amber-200 px-4 py-2 text-sm text-amber-800 mb-3">
-                <span className="font-semibold">{expenseDuplicateCount}</span>
-                {' '}potential duplicate expense {expenseDuplicateCount !== 1 ? 'groups' : 'group'} detected. Review expenses with the same amount, vendor, and similar dates.
-              </div>
+              <DuplicateExpensePanel
+                groups={expenseDuplicateData?.duplicate_groups ?? []}
+              />
             )}
             {/* Results Count and Selection Toolbar */}
             <div className="space-y-4 mb-6">
@@ -798,6 +803,7 @@ const Expenses = () => {
                 }}
                 onBulkRunReview={handleBulkRunReview}
                 loading={loading}
+                onDuplicatesInvalidate={() => queryClient.invalidateQueries({ queryKey: ['expense-potential-duplicates'] })}
               />
             </div>
             <ExpenseTable
