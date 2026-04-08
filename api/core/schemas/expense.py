@@ -176,6 +176,8 @@ class Expense(ExpenseBase):
     # Bank statement link (reverse lookup)
     statement_transaction_id: Optional[int] = None  # BankStatementTransaction.id
     statement_id: Optional[int] = None              # BankStatement.id (parent statement)
+    # Duplicate detection (populated at create time, not stored in DB)
+    potential_duplicate_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
     

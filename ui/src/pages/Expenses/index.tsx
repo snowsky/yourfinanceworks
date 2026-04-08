@@ -221,6 +221,15 @@ const Expenses = () => {
   // Get timezone from settings, default to UTC
   const timezone = settings?.timezone || 'UTC';
 
+  const { data: expenseDuplicateData } = useQuery({
+    queryKey: ['expense-potential-duplicates'],
+    queryFn: () => expenseApi.getPotentialDuplicates(3),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    enabled: expenses.length > 0,
+  });
+  const expenseDuplicateCount = expenseDuplicateData?.count ?? 0;
+
   // Calculate amount from consumption items for edit expense
   useEffect(() => {
     if (isEditInventoryConsumption && editConsumptionItems.length > 0) {
@@ -758,6 +767,13 @@ const Expenses = () => {
           </div>
 
           <CardContent className="px-0">
+            {/* Potential duplicate expenses warning */}
+            {expenseDuplicateCount > 0 && (
+              <div className="rounded-md bg-amber-50 border border-amber-200 px-4 py-2 text-sm text-amber-800 mb-3">
+                <span className="font-semibold">{expenseDuplicateCount}</span>
+                {' '}potential duplicate expense {expenseDuplicateCount !== 1 ? 'groups' : 'group'} detected. Review expenses with the same amount, vendor, and similar dates.
+              </div>
+            )}
             {/* Results Count and Selection Toolbar */}
             <div className="space-y-4 mb-6">
               <BulkActionsToolbar

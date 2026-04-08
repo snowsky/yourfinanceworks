@@ -40,6 +40,7 @@ export interface Expense {
   is_inventory_consumption?: boolean;
   statement_transaction_id?: number | null;
   statement_id?: number | null;
+  potential_duplicate_id?: number | null;
 }
 
 export interface ExpenseAttachmentMeta {
@@ -293,4 +294,9 @@ export const expenseApi = {
     apiRequest(`/expenses/${id}/permanent`, { method: 'DELETE' }),
   emptyRecycleBin: () =>
     apiRequest('/expenses/recycle-bin/empty', { method: 'POST' }),
+  getPotentialDuplicates: (dateWindowDays: number = 3) =>
+    apiRequest<{ success: boolean; duplicate_groups: Expense[][]; count: number }>(
+      `/expenses/potential-duplicates?date_window_days=${dateWindowDays}`,
+      { method: 'GET' }
+    ),
 };

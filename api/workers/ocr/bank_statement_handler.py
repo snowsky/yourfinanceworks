@@ -507,6 +507,10 @@ class BankStatementMessageHandler(BaseMessageHandler):
             BankStatementTransaction.statement_id == stmt.id
         ).delete()
 
+        # Deduplicate within-statement transactions before inserting
+        from core.services.statement_service import _clean_and_deduplicate_transactions
+        transactions = _clean_and_deduplicate_transactions(transactions)
+
         # Add new transactions
         count = 0
         for txn_data in transactions:

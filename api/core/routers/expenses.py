@@ -77,9 +77,47 @@ def check_expense_modification_allowed(expense: Expense) -> None:
     """Check if an expense can be modified based on its current status"""
     if expense.status in [ExpenseStatus.PENDING_APPROVAL.value, ExpenseStatus.APPROVED.value]:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail=f"Cannot modify expense with status '{expense.status}'. Expense is in approval workflow."
         )
+
+
+def _find_potential_expense_duplicates(
+    db: Session,
+    amount: float,
+    expense_date,
+    date_window_days: int = 3,
+    exclude_id: Optional[int] = None,
+) -> list:
+    """SQL-filter expenses by amount + date window. Vendor comparison must be done
+    in Python because the vendor column uses EncryptedColumn.
+    """
+    from datetime import timedelta
+    window_start = expense_date - timedelta(days=date_window_days)
+    window_end = expense_date + timedelta(days=date_window_days)
+    candidates = (
+        db.query(Expense)
+        .filter(
+            Expense.is_deleted == False,
+            Expense.amount.isnot(None),
+            sa.func.round(sa.cast(Expense.amount, sa.Numeric), 2) == round(float(amount), 2),
+            Expense.expense_date >= window_start,
+            Expense.expense_date <= window_end,
+        )
+        .all()
+    )
+    if exclude_id is not None:
+        candidates = [e for e in candidates if e.id != exclude_id]
+    return [
+        {
+            "id": e.id,
+            "amount": e.amount,
+            "expense_date": str(e.expense_date),
+            "vendor": e.vendor,
+            "category": e.category,
+        }
+        for e in candidates
+    ]
 
 
 @router.get("/", response_model=ExpenseListResponse)
@@ -233,6 +271,62 @@ async def list_expenses(
     except Exception as e:
         logger.error(f"Failed to list expenses: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch expenses")
+
+
+@router.get("/potential-duplicates")
+async def get_potential_expense_duplicates(
+    date_window_days: int = Query(3, ge=1, le=14),
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Return groups of likely duplicate expenses (same amount + vendor, date within ±window days).
+
+    Groups with fewer than 2 members are excluded. Vendor comparison is done in
+    Python after decryption because vendor uses EncryptedColumn.
+    """
+    from collections import defaultdict
+
+    def _date(e: Expense):
+        return e.expense_date.date() if hasattr(e.expense_date, 'date') else e.expense_date
+
+    all_exp = (
+        db.query(Expense)
+        .filter(Expense.is_deleted == False)
+        .order_by(Expense.expense_date, Expense.id)
+        .all()
+    )
+
+    # Bucket by (round(amount, 2), normalized_vendor) — vendor decrypted by ORM
+    buckets: dict = defaultdict(list)
+    for e in all_exp:
+        vendor_key = (e.vendor or "").strip().lower()
+        amount_key = round(float(e.amount or 0), 2)
+        buckets[(amount_key, vendor_key)].append(e)
+
+    groups = []
+    for expenses_in_bucket in buckets.values():
+        if len(expenses_in_bucket) < 2:
+            continue
+        expenses_sorted = sorted(expenses_in_bucket, key=_date)
+        cluster = [expenses_sorted[0]]
+        first_date = _date(expenses_sorted[0])
+        for e in expenses_sorted[1:]:
+            if abs((_date(e) - first_date).days) <= date_window_days:
+                cluster.append(e)
+        if len(cluster) >= 2:
+            groups.append([
+                {
+                    "id": e.id,
+                    "amount": e.amount,
+                    "expense_date": str(_date(e)),
+                    "vendor": e.vendor,
+                    "category": e.category,
+                    "status": e.status,
+                }
+                for e in cluster
+            ])
+
+    return {"success": True, "duplicate_groups": groups, "count": len(groups)}
 
 
 @router.get("/{expense_id:int}", response_model=ExpenseSchema)
@@ -591,7 +685,25 @@ async def create_expense(
             uvicorn_logger.warning(f"Failed to process gamification event for expense {db_expense.id}: {e}")
             # Don't fail the expense creation if gamification processing fails
 
-        return db_expense
+        # Check for potential duplicate at create time (±1 day window)
+        potential_duplicate_id = None
+        try:
+            exp_date = db_expense.expense_date.date() if hasattr(db_expense.expense_date, 'date') else db_expense.expense_date
+            dup_candidates = _find_potential_expense_duplicates(
+                db=db,
+                amount=float(db_expense.amount or 0),
+                expense_date=exp_date,
+                date_window_days=1,
+                exclude_id=db_expense.id,
+            )
+            if dup_candidates:
+                potential_duplicate_id = dup_candidates[0]["id"]
+        except Exception as dup_err:
+            uvicorn_logger.warning(f"Duplicate check failed for expense {db_expense.id}: {dup_err}")
+
+        expense_schema = ExpenseSchema.model_validate(db_expense)
+        expense_schema.potential_duplicate_id = potential_duplicate_id
+        return expense_schema
     except HTTPException:
         raise
     except Exception as e:

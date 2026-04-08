@@ -121,6 +121,15 @@ export default function Statements() {
   });
   const timezone = settings?.timezone || 'UTC';
 
+  const { data: txnDuplicateData } = useQuery({
+    queryKey: ['duplicate-transactions'],
+    queryFn: () => bankStatementApi.getDuplicateTransactionGroups(),
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    enabled: isFeatureEnabled('ai_bank_statement'),
+  });
+  const txnDuplicateCount = txnDuplicateData?.count ?? 0;
+
   const getLocale = useMemo(() => {
     const language = t('language', { defaultValue: 'en' });
     switch (language) {
@@ -377,6 +386,16 @@ export default function Statements() {
         if (typeof startPolling === 'function') startPolling(resp.statements.map((s: any) => s.id));
       }
       addNotification?.('success', t('statements.upload'), `Successfully uploaded ${files.length} statement files.`);
+      resp.statements
+        .filter((s: any) => s.duplicate_of)
+        .forEach((s: any) => {
+          toast.warning(
+            `"${s.original_filename}" may be a duplicate of statement #${s.duplicate_of.id} uploaded on ${
+              s.duplicate_of.created_at ? new Date(s.duplicate_of.created_at).toLocaleDateString() : 'a previous date'
+            }.`,
+            { duration: 8000 }
+          );
+        });
       toast.success(`Uploaded ${files.length} ${t('statements.statements').toLowerCase()}`);
       setFiles([]);
       setUploadModalOpen(false);
@@ -760,6 +779,14 @@ export default function Statements() {
             onPermanentlyDelete={handlePermanentlyDeleteStatement}
             onEmptyRecycleBin={handleEmptyRecycleBin}
           />
+        )}
+
+        {/* Duplicate transaction warning banner */}
+        {!selected && txnDuplicateCount > 0 && (
+          <div className="rounded-md bg-yellow-50 border border-yellow-200 px-4 py-2 text-sm text-yellow-800 mb-3">
+            <span className="font-semibold">{txnDuplicateCount}</span>
+            {' '}potential duplicate transaction {txnDuplicateCount !== 1 ? 'groups' : 'group'} detected across statements.
+          </div>
         )}
 
         {/* Statements List */}

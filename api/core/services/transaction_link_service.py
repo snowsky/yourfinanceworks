@@ -168,3 +168,58 @@ def enrich_transactions_with_links(
                 }
 
     return result
+
+
+def find_cross_statement_duplicate_groups(db: Session, tenant_id: int) -> List[List[Dict]]:
+    """Return groups of transactions sharing (date, description, round(amount, 2))
+    across 2+ different non-deleted statements, excluding already-linked pairs.
+
+    Each group is a list of transaction dicts with statement info.
+    """
+    from collections import defaultdict
+
+    rows = (
+        db.query(BankStatementTransaction, BankStatement)
+        .join(BankStatement, BankStatementTransaction.statement_id == BankStatement.id)
+        .filter(BankStatement.tenant_id == tenant_id, BankStatement.is_deleted == False)
+        .all()
+    )
+
+    buckets: Dict[tuple, List[Dict]] = defaultdict(list)
+    for txn, stmt in rows:
+        key = (str(txn.date), (txn.description or "").strip().lower(), round(float(txn.amount), 2))
+        buckets[key].append({
+            "id": txn.id,
+            "statement_id": txn.statement_id,
+            "statement_filename": stmt.original_filename,
+            "date": str(txn.date),
+            "description": txn.description,
+            "amount": txn.amount,
+            "transaction_type": txn.transaction_type,
+        })
+
+    candidate_groups = [g for g in buckets.values() if len({e["statement_id"] for e in g}) >= 2]
+    if not candidate_groups:
+        return []
+
+    all_ids = {e["id"] for g in candidate_groups for e in g}
+    links = db.query(TransactionLink).filter(
+        or_(
+            TransactionLink.transaction_a_id.in_(all_ids),
+            TransactionLink.transaction_b_id.in_(all_ids),
+        )
+    ).all()
+    linked_pairs = {
+        (min(lnk.transaction_a_id, lnk.transaction_b_id), max(lnk.transaction_a_id, lnk.transaction_b_id))
+        for lnk in links
+    }
+
+    def all_pairs_linked(group: List[Dict]) -> bool:
+        ids = [e["id"] for e in group]
+        return all(
+            (min(ids[i], ids[j]), max(ids[i], ids[j])) in linked_pairs
+            for i in range(len(ids))
+            for j in range(i + 1, len(ids))
+        )
+
+    return [g for g in candidate_groups if not all_pairs_linked(g)]

@@ -1,5 +1,6 @@
 """Upload endpoints for bank statements."""
 
+import hashlib
 import os
 import shutil
 import uuid
@@ -66,6 +67,26 @@ async def upload_statements(
                 )
             validate_file_magic_bytes(contents, f.content_type)
             await f.seek(0)
+
+            file_hash = hashlib.sha256(contents).hexdigest()
+            # Check for existing statement with same file hash (soft warning, not a block)
+            duplicate_of = None
+            existing = (
+                db.query(BankStatement)
+                .filter(
+                    BankStatement.tenant_id == tenant_id,
+                    BankStatement.file_hash == file_hash,
+                    BankStatement.is_deleted == False,
+                )
+                .order_by(BankStatement.created_at.asc())
+                .first()
+            )
+            if existing:
+                duplicate_of = {
+                    "id": existing.id,
+                    "original_filename": existing.original_filename,
+                    "created_at": existing.created_at.isoformat() if existing.created_at else None,
+                }
 
             name = (f.filename or "statement.pdf").strip()
             name = os.path.basename(name)
@@ -139,6 +160,7 @@ async def upload_statements(
                 status="processing",
                 extracted_count=0,
                 card_type=card_type,
+                file_hash=file_hash,
                 created_by_user_id=current_user.id,  # User attribution
             )
             db.add(statement)
@@ -205,6 +227,7 @@ async def upload_statements(
                         if statement.created_at
                         else None
                     ),
+                    "duplicate_of": duplicate_of,
                 }
             )
 
