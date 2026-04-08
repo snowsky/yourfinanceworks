@@ -195,13 +195,48 @@ export default function ExpensesView() {
                 </Button>
               )}
               {(!approval || approval.status !== 'pending') && (
-                <Button
-                  onClick={() => navigate(`/expenses/edit/${id}`)}
-                  variant="outline"
-                >
-                  <Pencil className="mr-2 h-4 w-4" />
-                  {t('common.edit')}
-                </Button>
+                <>
+                  <Button
+                    onClick={() => navigate(`/expenses/edit/${id}`)}
+                    variant="outline"
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    {t('common.edit')}
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" className="flex items-center gap-2">
+                        <Trash2 className="w-4 h-4" />
+                        {t('common.delete', { defaultValue: 'Delete' })}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>{t('expenses.delete_single_title', { defaultValue: 'Delete Expense' })}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {t('expenses.delete_single_description', { defaultValue: 'Are you sure you want to delete this expense? This will move it to the recycle bin.' })}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>{t('common.cancel', { defaultValue: 'Cancel' })}</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-white hover:bg-destructive/90"
+                          onClick={async () => {
+                            try {
+                              await expenseApi.deleteExpense(Number(id));
+                              toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted successfully' }));
+                              navigate('/expenses');
+                            } catch (e: any) {
+                              toast.error(e?.message || t('expenses.delete_failed', { defaultValue: 'Failed to delete expense' }));
+                            }
+                          }}
+                        >
+                          {t('common.delete', { defaultValue: 'Delete' })}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
               )}
             </div>
           }
@@ -585,40 +620,6 @@ export default function ExpensesView() {
             <Pencil className="w-4 h-4" />
             {t('common.edit', { defaultValue: 'Edit' })}
           </Button>
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="flex items-center gap-2">
-                <Trash2 className="w-4 h-4" />
-                {t('common.delete', { defaultValue: 'Delete' })}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>{t('expenses.delete_single_title', { defaultValue: 'Delete Expense' })}</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t('expenses.delete_single_description', { defaultValue: 'Are you sure you want to delete this expense? This will move it to the recycle bin.' })}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{t('common.cancel', { defaultValue: 'Cancel' })}</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-white hover:bg-destructive/90"
-                  onClick={async () => {
-                    try {
-                      await expenseApi.deleteExpense(Number(id));
-                      toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted successfully' }));
-                      navigate('/expenses');
-                    } catch (e: any) {
-                      toast.error(e?.message || t('expenses.delete_failed', { defaultValue: 'Failed to delete expense' }));
-                    }
-                  }}
-                >
-                  {t('common.delete', { defaultValue: 'Delete' })}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         </div>
 
         {/* File inline preview dialog */}
