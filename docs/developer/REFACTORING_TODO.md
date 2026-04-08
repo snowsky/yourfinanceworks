@@ -21,15 +21,15 @@ Large files to split into focused modules, ranked by size and impact.
 | `api/core/services/storage_monitoring_service.py` | 2,176 | → 4 mixin modules in `api/core/services/storage_monitoring_service/`: `health`, `metrics`, `alerts`, `reports` + `_shared` |
 | `api/commercial/workflows/approvals/router.py` | 2,262 | → 4 modules in `api/commercial/workflows/approvals/routers/`: `expense_approvals`, `invoice_approvals`, `delegations`, `_shared` |
 | `api/commercial/ai/router.py` | 2,299 | → 3 modules in `api/commercial/ai/routers/`: `invoice_analysis`, `chat`, `client_notes` + `_shared`; `chat` further split into `chat_models`, `auth_client`, `action_handlers`, `intent_handlers`, `chat_history` (chat.py: 1,949 → 331 lines) |
+| `ui/src/pages/Statements.tsx` | 2,942 | → 8 modules in `ui/src/pages/Statements/`: `StatusBadge`, `CardTypeBadge`, `StatementUploadButton`, `StatementsListView`, `StatementDetailView`, `RecycleBinSection`, `UploadModal` + `types` |
 
 
 ## Remaining
 
 | Priority | Lines | File | Approach |
 |----------|-------|------|----------|
-| 2 | 2,942 | `ui/src/pages/Statements.tsx` | Extract sub-components: table, filters, detail modal, charts |
-| 3 | 2,770 | `api/core/services/statement_service.py` | Split by responsibility: CRUD, extraction, reconciliation, export |
-| 4 | 2,689 | `api/core/routers/expenses.py` | Same pattern as invoices router |
-| 5 | 2,450 | `api/MCP/server.py` | Split tool registration from server lifecycle |
-| 6 | 2,326 | `api/commercial/ai/services/ocr_service.py` | Split by document type / processing stage |
+| 1 | 2,770 | `api/core/services/statement_service.py` | Split by responsibility: CRUD, extraction, reconciliation, export |
+| 2 | 2,689 | `api/core/routers/expenses.py` | Same pattern as invoices router |
+| 3 | 2,450 | `api/MCP/server.py` | Split tool registration from server lifecycle |
+| 4 | 2,326 | `api/commercial/ai/services/ocr_service.py` | Split by document type / processing stage |
 
