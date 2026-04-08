@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { useLocation, useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -327,20 +327,24 @@ export default function Statements() {
   // Get timezone from settings, default to UTC
   const timezone = settings?.timezone || 'UTC';
 
-  // Helper function to get locale for date formatting
-  const getLocale = () => {
+  const getLocale = useMemo(() => {
     const language = t('language', { defaultValue: 'en' });
     switch (language) {
-      case 'es':
-        return 'es-ES';
-      case 'fr':
-        return 'fr-FR';
-      case 'de':
-        return 'de-DE';
-      default:
-        return 'en-US';
+      case 'es': return 'es-ES';
+      case 'fr': return 'fr-FR';
+      case 'de': return 'de-DE';
+      default: return 'en-US';
     }
-  };
+  }, [t]);
+
+  const copyToClipboard = useCallback(async (value: string, successMsg: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(successMsg);
+    } catch {
+      toast.error(t('common.copy_failed', { defaultValue: 'Failed to copy' }));
+    }
+  }, [t]);
 
   // Selection and filtering
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -836,6 +840,17 @@ export default function Statements() {
       setDetailLoading(false);
     }
   };
+
+  const addFiles = useCallback((newFiles: File[]) => {
+    setFiles(prev => {
+      const combined = [...prev, ...newFiles];
+      if (combined.length > 12) {
+        toast.warning(t('statements.max_files_warning', { defaultValue: 'Maximum 12 files allowed. Some files were ignored.' }));
+        return combined.slice(0, 12);
+      }
+      return combined;
+    });
+  }, [t]);
 
   const onUpload = async () => {
     const addNotification = (window as any).addAINotification;
@@ -1756,7 +1771,7 @@ export default function Statements() {
                           <TableCell>
                             <div className="text-sm">
                               <div className="text-muted-foreground">
-                                {s.created_at ? new Date(s.created_at).toLocaleString(getLocale(), {
+                                {s.created_at ? new Date(s.created_at).toLocaleString(getLocale, {
                                   timeZone: timezone,
                                   year: 'numeric',
                                   month: 'short',
@@ -2303,7 +2318,7 @@ export default function Statements() {
                 </div>
                 <div>
                   <label className="text-sm">{t('statements.uploaded_at', { defaultValue: 'Uploaded At' })}</label>
-                  <Input value={detail?.created_at ? new Date(detail.created_at).toLocaleString(getLocale(), { 
+                  <Input value={detail?.created_at ? new Date(detail.created_at).toLocaleString(getLocale, { 
                     timeZone: timezone,
                     year: 'numeric',
                     month: 'short',
@@ -2704,14 +2719,7 @@ export default function Statements() {
                                           {Boolean((r as any).expense_id) && (
                                             <>
                                               <DropdownMenuItem
-                                                onClick={async () => {
-                                                  try {
-                                                    await navigator.clipboard.writeText(String((r as any).expense_id));
-                                                    toast.success(`Copied Expense ID ${(r as any).expense_id}`);
-                                                  } catch (e) {
-                                                    toast.error(t('common.copy_failed', { defaultValue: 'Failed to copy' }));
-                                                  }
-                                                }}
+                                                onClick={() => copyToClipboard(String((r as any).expense_id), `Copied Expense ID ${(r as any).expense_id}`)}
                                               >
                                                 <Copy className="w-4 h-4 mr-2" />
                                                 {t('common.copy_id', { defaultValue: 'Copy ID' })}
@@ -2759,10 +2767,8 @@ export default function Statements() {
                                                   try {
                                                     const invId = Number((r as any).invoice_id);
                                                     const inv = await invoiceApi.getInvoice(invId);
-                                                    const toCopy = inv.number || String(invId);
-                                                    await navigator.clipboard.writeText(toCopy);
-                                                    toast.success(`Copied Invoice No ${toCopy}`);
-                                                  } catch (e) {
+                                                    await copyToClipboard(inv.number || String(invId), `Copied Invoice No ${inv.number || invId}`);
+                                                  } catch {
                                                     toast.error(t('common.copy_failed', { defaultValue: 'Failed to copy' }));
                                                   }
                                                 }}
@@ -2873,14 +2879,7 @@ export default function Statements() {
                               {Boolean((r as any).expense_id) && (
                                 <>
                                   <ContextMenuItem
-                                    onClick={async () => {
-                                      try {
-                                        await navigator.clipboard.writeText(String((r as any).expense_id));
-                                        toast.success(`Copied Expense ID ${(r as any).expense_id}`);
-                                      } catch (e) {
-                                        toast.error(t('common.copy_failed', { defaultValue: 'Failed to copy' }));
-                                      }
-                                    }}
+                                    onClick={() => copyToClipboard(String((r as any).expense_id), `Copied Expense ID ${(r as any).expense_id}`)}
                                   >
                                     <Copy className="w-4 h-4 mr-2" />
                                     {t('common.copy_id', { defaultValue: 'Copy ID' })}
@@ -2928,10 +2927,8 @@ export default function Statements() {
                                       try {
                                         const invId = Number((r as any).invoice_id);
                                         const inv = await invoiceApi.getInvoice(invId);
-                                        const toCopy = inv.number || String(invId);
-                                        await navigator.clipboard.writeText(toCopy);
-                                        toast.success(`Copied Invoice No ${toCopy}`);
-                                      } catch (e) {
+                                        await copyToClipboard(inv.number || String(invId), `Copied Invoice No ${inv.number || invId}`);
+                                      } catch {
                                         toast.error(t('common.copy_failed', { defaultValue: 'Failed to copy' }));
                                       }
                                     }}
@@ -3110,15 +3107,7 @@ export default function Statements() {
                     e.stopPropagation();
                     setDragActive(false);
                     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                      const newFiles = Array.from(e.dataTransfer.files);
-                      setFiles(prev => {
-                        const combined = [...prev, ...newFiles];
-                        if (combined.length > 12) {
-                          toast.warning(t('statements.max_files_warning', { defaultValue: 'Maximum 12 files allowed. Some files were ignored.' }));
-                          return combined.slice(0, 12);
-                        }
-                        return combined;
-                      });
+                      addFiles(Array.from(e.dataTransfer.files));
                     }
                   }}
                 >
@@ -3140,15 +3129,7 @@ export default function Statements() {
                       multiple
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       onChange={(e) => {
-                        const newFiles = Array.from(e.target.files || []);
-                        setFiles(prev => {
-                          const combined = [...prev, ...newFiles];
-                          if (combined.length > 12) {
-                            toast.warning(t('statements.max_files_warning', { defaultValue: 'Maximum 12 files allowed. Some files were ignored.' }));
-                            return combined.slice(0, 12);
-                          }
-                          return combined;
-                        });
+                        addFiles(Array.from(e.target.files || []));
                         e.target.value = '';
                       }}
                     />
