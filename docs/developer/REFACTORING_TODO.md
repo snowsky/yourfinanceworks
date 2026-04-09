@@ -24,12 +24,12 @@ Large files to split into focused modules, ranked by size and impact.
 | `ui/src/pages/Statements.tsx` | 2,942 | → 8 modules in `ui/src/pages/Statements/`: `StatusBadge`, `CardTypeBadge`, `StatementUploadButton`, `StatementsListView`, `StatementDetailView`, `RecycleBinSection`, `UploadModal` + `types` |
 | `api/commercial/ai/services/ocr_service.py` | 2,346 | → 7 modules in `api/commercial/ai/services/ocr_service/`: `_shared`, `text_parsers`, `image_processing`, `expense_extraction`, `kafka_publisher`, `usage_tracking`, `setup` + `__init__` |
 | `api/core/routers/expenses.py` | 2,795 | → 5 modules in `api/core/routers/expenses/`: `crud`, `recycle_bin`, `attachments`, `reviews`, `analytics` + `_shared` |
+| `api/core/services/statement_service.py` | 2,805 | → 4 modules in `api/core/services/statement_service/`: `_shared`, `extraction`, `csv_processing`, `processing` |
 
 
 ## Remaining
 
 | Priority | Lines | File | Approach |
 |----------|-------|------|----------|
-| 1 | 2,770 | `api/core/services/statement_service.py` | Split by responsibility: CRUD, extraction, reconciliation, export |
-| 2 | 2,450 | `api/MCP/server.py` | Split tool registration from server lifecycle |
+| 1 | 2,450 | `api/MCP/server.py` | Split tool registration from server lifecycle |
 
