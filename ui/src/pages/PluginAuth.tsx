@@ -48,7 +48,7 @@ export function PluginAuth({ pluginId, tenantId, onAuthenticated }: PluginAuthPr
       const data = await apiRequest<{access_token: string, user: any}>(`/plugins/${pluginId}/public-auth/${endpoint}`, {
         method: 'POST',
         body: JSON.stringify({ email, password, tenant_id: parseInt(resolvedTenantId, 10) })
-      });
+      }, { isLogin: true });
       
       const tokenKey = `plugin_token_${pluginId}`;
       localStorage.setItem(tokenKey, JSON.stringify(data));

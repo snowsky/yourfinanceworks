@@ -84,8 +84,8 @@ export async function apiRequest<T>(
 
       // Handle authentication errors
       if (!config.isLogin && response.status === 401) {
-        // Don't log out for super-admin endpoints - they might fail for other reasons
-        if (!requestUrl.includes('/super-admin/')) {
+        // Don't log out for super-admin or plugin endpoints - they might fail for other reasons
+        if (!requestUrl.includes('/super-admin/') && !requestUrl.includes('/plugins/')) {
           // Session expired — clear local user data and redirect to login
           localStorage.removeItem('user');
           localStorage.removeItem('selected_tenant_id');
