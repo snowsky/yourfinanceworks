@@ -29,7 +29,7 @@ from config import config
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/plugins", tags=["plugins"])
+router = APIRouter(tags=["plugins"])
 
 from commercial.plugin_management.auth import router as auth_router
 

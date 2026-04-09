@@ -659,7 +659,7 @@ else:
 
 if plugin_management:
     logger.info("Registering plugin_management router")
-    app.include_router(plugin_management, prefix="/api/v1")
+    app.include_router(plugin_management, prefix="/api/v1/plugins")
 else:
     logger.warning("plugin_management router is None - not registering")
 
