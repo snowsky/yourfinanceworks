@@ -9,7 +9,8 @@ from datetime import datetime, date, timezone
 from collections import defaultdict
 
 from core.models.database import get_db
-from core.models.models_per_tenant import Invoice, Client, User, Payment
+from core.models.models_per_tenant import Invoice, Client, User, Payment, Settings
+import stripe
 from core.models.models import MasterUser
 from core.schemas.payment import PaymentCreate, PaymentUpdate, Payment as PaymentSchema, PaymentWithInvoice
 from core.routers.auth import get_current_user
@@ -212,6 +213,50 @@ async def read_payments(
             status_code=500,
             detail=FAILED_TO_FETCH_PAYMENTS
         )
+
+@router.get("/stripe/history")
+async def get_stripe_history(
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    try:
+        # Get stripe settings
+        payment_settings = db.query(Settings).filter(Settings.key == "payment_settings").first()
+        if not payment_settings or not payment_settings.value:
+            return {"success": True, "data": []}
+            
+        settings_val = payment_settings.value
+        if not settings_val.get("stripe", {}).get("enabled") or not settings_val.get("stripe", {}).get("secretKey"):
+            return {"success": True, "data": []}
+            
+        stripe.api_key = settings_val["stripe"]["secretKey"]
+        
+        # Fetch recent charges
+        charges = stripe.Charge.list(limit=limit)
+        
+        result = []
+        for charge in charges.data:
+            result.append({
+                "id": charge.id,
+                "amount": charge.amount / 100.0, # Stripe amounts are in cents
+                "currency": charge.currency.upper(),
+                "payment_date": datetime.fromtimestamp(charge.created, tz=timezone.utc).isoformat(),
+                "payment_method": "stripe",
+                "status": charge.status,
+                "description": charge.description or "Stripe Charge",
+                "receipt_url": charge.receipt_url,
+                "client_name": charge.billing_details.name if charge.billing_details else None
+            })
+            
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        logger.error(f"Error fetching stripe history: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to fetch Stripe history")
 
 @router.get("/{payment_id}", response_model=PaymentWithInvoice)
 async def read_payment(

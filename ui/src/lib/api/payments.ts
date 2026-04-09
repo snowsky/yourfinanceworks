@@ -57,4 +57,8 @@ export const paymentApi = {
     apiRequest(`/payments/${id}`, {
       method: 'DELETE',
     }),
+  getStripeHistory: async (limit: number = 20) => {
+    const response = await apiRequest<{ success: boolean; data: any[] }>(`/payments/stripe/history?limit=${limit}`);
+    return response;
+  },
 };

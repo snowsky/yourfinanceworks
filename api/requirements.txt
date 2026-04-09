@@ -92,3 +92,6 @@ google-cloud-storage==3.5.0
 
 # Market data service
 aiohttp==3.13.4  # Async HTTP client for market data APIs
+
+# Payment gateway
+stripe>=10.0.0
