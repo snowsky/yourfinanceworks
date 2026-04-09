@@ -17,23 +17,33 @@ export function PluginPaywall({ pluginId, tenantId, onPaymentSuccess }: PluginPa
   const [loading, setLoading] = useState(false);
 
   const handleCheckout = async () => {
-    if (!tenantId) {
-      toast.error('Tenant ID required');
+    const tokenKey = `plugin_token_${pluginId}`;
+    const tokenStr = localStorage.getItem(tokenKey);
+    let resolvedTenantId = tenantId;
+    let tokenData: any = null;
+
+    if (tokenStr) {
+      try {
+        tokenData = JSON.parse(tokenStr);
+        if (!resolvedTenantId) resolvedTenantId = tokenData.tenant_id?.toString();
+      } catch {}
+    }
+
+    if (!resolvedTenantId) {
+      toast.error('Tenant ID required. Please use a link with ?t=ID.');
       return;
     }
+
+    if (!tokenData) {
+       toast.error("Not authenticated");
+       return;
+    }
+
     setLoading(true);
     try {
-      const tokenKey = `plugin_token_${pluginId}`;
-      const tokenStr = localStorage.getItem(tokenKey);
-      if (!tokenStr) {
-         toast.error("Not authenticated");
-         return;
-      }
-      const tokenData = JSON.parse(tokenStr);
-      
       const session = await apiRequest<{checkout_url: string}>(`/plugins/${pluginId}/public-paywall/checkout`, {
         method: 'POST',
-        body: JSON.stringify({ tenant_id: parseInt(tenantId, 10), plugin_user_id: tokenData.user.id })
+        body: JSON.stringify({ tenant_id: parseInt(resolvedTenantId, 10), plugin_user_id: tokenData.user.id })
       });
       window.location.href = session.checkout_url;
     } catch (err: any) {

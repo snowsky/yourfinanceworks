@@ -5,7 +5,9 @@ import stripe
 import logging
 
 from core.models.database import get_db, get_master_db
-from core.models.models import Tenant, PluginUser, TenantPluginSettings, Settings
+from core.models.models import Tenant, PluginUser, TenantPluginSettings
+from core.models.models_per_tenant import Settings as TenantSettings
+from core.services.tenant_database_manager import tenant_db_manager
 from core.routers.auth import get_current_user
 from config import config
 
@@ -13,17 +15,26 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["plugin_payment"])
 
-def get_tenant_payment_settings(db: Session, tenant_id: int):
-    setting = db.query(Settings).filter(Settings.tenant_id == tenant_id, Settings.key == "payment_settings").first()
-    if not setting or not setting.value:
+def get_tenant_payment_settings(tenant_id: int):
+    try:
+        session_factory = tenant_db_manager.get_tenant_session(tenant_id)
+        db = session_factory()
+        try:
+            setting = db.query(TenantSettings).filter(TenantSettings.key == "payment_settings").first()
+            if not setting or not setting.value:
+                return None
+            
+            settings_val = setting.value
+            stripe_cfg = settings_val.get("stripe", {})
+            if not stripe_cfg.get("enabled"):
+                return None
+                
+            return stripe_cfg
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Error fetching tenant payment settings for {tenant_id}: {e}")
         return None
-    
-    settings_val = setting.value
-    stripe_cfg = settings_val.get("stripe", {})
-    if not stripe_cfg.get("enabled"):
-        return None
-        
-    return stripe_cfg
 
 class CheckoutRequest(BaseModel):
     tenant_id: int
@@ -35,6 +46,9 @@ async def plugin_paywall_checkout(
     payload: CheckoutRequest,
     db: Session = Depends(get_master_db)
 ):
+    # Normalize plugin ID to match config keys (e.g. "statement_tools" -> "statement-tools")
+    plugin_id = plugin_id.strip().lower().replace("_", "-")
+    
     plugin_user = db.query(PluginUser).filter(
         PluginUser.id == payload.plugin_user_id,
         PluginUser.tenant_id == payload.tenant_id,
@@ -42,16 +56,19 @@ async def plugin_paywall_checkout(
     ).first()
     
     if not plugin_user:
+        logger.error(f"Plugin user not found: id={payload.plugin_user_id}, tenant={payload.tenant_id}, plugin={plugin_id}")
         raise HTTPException(status_code=404, detail="Plugin user not found")
 
-    # Get Stripe credentials for the tenant
-    stripe_cfg = get_tenant_payment_settings(db, payload.tenant_id)
+    # Get Stripe credentials for the tenant from their own DB
+    stripe_cfg = get_tenant_payment_settings(payload.tenant_id)
     if not stripe_cfg or not stripe_cfg.get("secretKey"):
+        logger.error(f"Payments not configured for tenant {payload.tenant_id}")
         raise HTTPException(status_code=400, detail="Payments are not configured by the organization")
 
     # Get the price_id from the plugin config
     plugin_settings = db.query(TenantPluginSettings).filter(TenantPluginSettings.tenant_id == payload.tenant_id).first()
     if not plugin_settings or plugin_id not in plugin_settings.enabled_plugins:
+        logger.error(f"Plugin {plugin_id} not enabled for tenant {payload.tenant_id}")
         raise HTTPException(status_code=403, detail="Plugin not available")
         
     cfg = plugin_settings.plugin_config or {}
@@ -59,10 +76,12 @@ async def plugin_paywall_checkout(
     pa = p_cfg.get("public_access", {})
     
     if not pa.get("enabled"):
+        logger.error(f"Public access not enabled for plugin {plugin_id} (tenant {payload.tenant_id})")
         raise HTTPException(status_code=403, detail="Plugin not public")
         
     stripe_price_id = pa.get("stripe_price_id")
     if not stripe_price_id:
+        logger.error(f"Stripe price ID missing for plugin {plugin_id} (tenant {payload.tenant_id})")
         raise HTTPException(status_code=400, detail="A price has not been set for this plugin")
 
     stripe.api_key = stripe_cfg.get("secretKey")
@@ -109,6 +128,9 @@ async def plugin_paywall_status(
     payload: CheckoutRequest,
     db: Session = Depends(get_master_db)
 ):
+    # Normalize plugin ID
+    plugin_id = plugin_id.strip().lower().replace("_", "-")
+    
     plugin_user = db.query(PluginUser).filter(
         PluginUser.id == payload.plugin_user_id,
         PluginUser.tenant_id == payload.tenant_id,
@@ -121,7 +143,7 @@ async def plugin_paywall_status(
     is_paid = False
 
     # Get Stripe credentials for the tenant
-    stripe_cfg = get_tenant_payment_settings(db, payload.tenant_id)
+    stripe_cfg = get_tenant_payment_settings(payload.tenant_id)
     if stripe_cfg and stripe_cfg.get("secretKey") and plugin_user.stripe_customer_id:
         stripe.api_key = stripe_cfg["secretKey"]
         try:

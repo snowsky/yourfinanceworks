@@ -27,16 +27,27 @@ export function PluginAuth({ pluginId, tenantId, onAuthenticated }: PluginAuthPr
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tenantId) {
-       toast.error("Tenant ID is required for authentication");
+    
+    let resolvedTenantId = tenantId;
+    if (!resolvedTenantId) {
+      // Fallback: try to get from token if we might have an old one (less likely for signup but possible for login)
+      const tokenStr = localStorage.getItem(`plugin_token_${pluginId}`);
+      if (tokenStr) {
+        try { resolvedTenantId = JSON.parse(tokenStr).tenant_id?.toString(); } catch {}
+      }
+    }
+
+    if (!resolvedTenantId) {
+       toast.error("Tenant ID is required. Please use a link that includes organization context (?t=ID).");
        return;
     }
+
     setLoading(true);
     try {
       const endpoint = isLogin ? 'login' : 'signup';
       const data = await apiRequest<{access_token: string, user: any}>(`/plugins/${pluginId}/public-auth/${endpoint}`, {
         method: 'POST',
-        body: JSON.stringify({ email, password, tenant_id: parseInt(tenantId, 10) })
+        body: JSON.stringify({ email, password, tenant_id: parseInt(resolvedTenantId, 10) })
       });
       
       const tokenKey = `plugin_token_${pluginId}`;
@@ -50,13 +61,21 @@ export function PluginAuth({ pluginId, tenantId, onAuthenticated }: PluginAuthPr
   };
   
   const handleSSO = (provider: 'google' | 'azure') => {
-    if (!tenantId) {
-      toast.error("Tenant ID is required for SSO");
+    let resolvedTenantId = tenantId;
+    if (!resolvedTenantId) {
+      const tokenStr = localStorage.getItem(`plugin_token_${pluginId}`);
+      if (tokenStr) {
+        try { resolvedTenantId = JSON.parse(tokenStr).tenant_id?.toString(); } catch {}
+      }
+    }
+
+    if (!resolvedTenantId) {
+      toast.error("Tenant ID is required for SSO. Please use a link with ?t=ID.");
       return;
     }
     // Record the current pathname so we can redirect back here after OAuth callback
     const returnUrl = encodeURIComponent(location.pathname + location.search);
-    window.location.href = `/api/v1/plugins/${pluginId}/public-auth/${provider}/login?tenant_id=${tenantId}&next=${returnUrl}`;
+    window.location.href = `/api/v1/plugins/${pluginId}/public-auth/${provider}/login?tenant_id=${resolvedTenantId}&next=${returnUrl}`;
   };
 
   return (
