@@ -1,7 +1,7 @@
 """add plugin_users table
 
 Revision ID: 015_add_plugin_users
-Revises: 014_add_file_hash_to_bank_statements
+Revises: 014_add_file_hash
 Create Date: 2026-04-09 16:53:00.000000
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '015_add_plugin_users'
-down_revision = '014_add_file_hash_to_bank_statements'
+down_revision = '014_add_file_hash'
 branch_labels = None
 depends_on = None
 
