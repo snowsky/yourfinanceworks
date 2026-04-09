@@ -1082,7 +1082,6 @@ async def plugin_paywall_status(
     pa_cfg = _get_public_access_config(settings_record.plugin_config if settings_record else None, plugin_id)
 
     free_clicks = pa_cfg.get("free_clicks", 0)
-    usage_count = plugin_user.usage_count or 0
 
     return {
         "plugin_id": plugin_id,
