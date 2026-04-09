@@ -4,36 +4,31 @@
  * Every plugin can expose a shareable public URL at `/p/{pluginId}/`.
  * Example: https://demo.yourfinanceworks.com/p/socialhub
  *
- * The URL namespace `/p/` stands for "public plugin portal". Tenants control
- * access per-plugin in Settings → Plugins → Configure → Public Access:
- *   - disabled (default) → shows "page not available"
- *   - enabled + require_login: true  → unauthenticated visitors are redirected
- *     to /login and returned here after signing in
- *   - enabled + require_login: false → accessible to anyone without login
- *
- * The public page path is declared by each plugin in its plugin.json manifest:
- *   "public_page": { "path": "/p/socialhub", "ui_entry": "/plugins/socialhub/public/" }
- *
- * Plugin types:
- *   - In-process plugins (e.g. yfw-surveys): export a React component as
- *     `publicPage` from plugin/ui/index.ts — rendered as children
- *   - Sidecar plugins (e.g. yfw-socialhub): declare a `ui_entry` URL in
- *     plugin.json — rendered as an iframe
- *
- * Tenant resolution (for unauthenticated visitors):
- *   The tenant is identified from the Host header subdomain on the backend
- *   (e.g. demo.yourfinanceworks.com → subdomain "demo"). No login is needed
- *   to check whether a public page is enabled.
+ * Refined Click Counting & Paywall:
+ * - Configurable free click limit.
+ * - Floating modal paywall (Dialog) instead of full-page redirect.
  */
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { pluginApi } from '@/lib/api/plugins';
+import { PluginAuth } from '@/pages/PluginAuth';
+import { PluginPaywall } from '@/pages/PluginPaywall';
+import { apiRequest } from '@/lib/api/_base';
+import { toast } from 'sonner';
 
 interface PublicAccessConfig {
   enabled: boolean;
   require_login: boolean;
   stripe_price_id?: string | null;
+  free_clicks: number;
   public_page: { path: string; label: string; ui_entry?: string } | null;
+}
+
+interface PaywallStatus {
+  is_paid: boolean;
+  usage_count: number;
+  free_clicks: number;
+  trial_limit_reached: boolean;
 }
 
 interface Props {
@@ -44,21 +39,19 @@ interface Props {
   iframeUrl?: string;
 }
 
-import { PluginAuth } from '@/pages/PluginAuth';
-import { PluginPaywall } from '@/pages/PluginPaywall';
-import { apiRequest } from '@/lib/api/_base';
-
 export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
-  const navigate = useNavigate();
   const location = useLocation();
   const [config, setConfig] = useState<PublicAccessConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [needsAuth, setNeedsAuth] = useState(false);
-  const [needsPayment, setNeedsPayment] = useState(false);
+  const [status, setStatus] = useState<PaywallStatus | null>(null);
+  const [incrementing, setIncrementing] = useState(false);
   
   const searchParams = new URLSearchParams(location.search);
   const explicitTenantId = searchParams.get('t') || undefined;
+  
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     pluginApi
@@ -80,7 +73,8 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
     }
 
     if (cfg.require_login) {
-      const tokenStr = localStorage.getItem(`plugin_token_${pluginId}`);
+      const tokenKey = `plugin_token_${pluginId}`;
+      const tokenStr = localStorage.getItem(tokenKey);
       if (!tokenStr) {
         setNeedsAuth(true);
         setLoading(false);
@@ -91,24 +85,69 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
 
       if (cfg.stripe_price_id) {
         try {
-          const res = await apiRequest<{is_paid: boolean}>(`/plugins/${pluginId}/public-paywall/status`, {
+          const res = await apiRequest<PaywallStatus>(`/plugins/${pluginId}/public-paywall/status`, {
             method: 'POST',
             body: JSON.stringify({
                tenant_id: parseInt(explicitTenantId || String(tokenData.tenant_id), 10),
                plugin_user_id: tokenData.user.id
             })
           });
-          if (!res.is_paid) {
-            setNeedsPayment(true);
-          }
+          setStatus(res);
         } catch (err) {
           console.error("Paywall check failed", err);
-          setNeedsPayment(true);
         }
       }
     }
     setLoading(false);
   };
+
+  const handleIncrementUsage = useCallback(async () => {
+    if (!status || status.is_paid || incrementing) return;
+    
+    const tokenKey = `plugin_token_${pluginId}`;
+    const tokenStr = localStorage.getItem(tokenKey);
+    if (!tokenStr) return;
+    const tokenData = JSON.parse(tokenStr);
+
+    setIncrementing(true);
+    try {
+      const res = await apiRequest<{ usage_count: number }>(`/plugins/${pluginId}/public-paywall/increment-usage`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: parseInt(explicitTenantId || String(tokenData.tenant_id), 10),
+          plugin_user_id: tokenData.user.id
+        })
+      });
+      
+      const newUsage = res.usage_count;
+      setStatus(prev => prev ? ({
+        ...prev, 
+        usage_count: newUsage,
+        trial_limit_reached: prev.free_clicks > 0 && newUsage >= prev.free_clicks
+      }) : null);
+    } catch (err) {
+      console.error("Failed to increment usage", err);
+    } finally {
+      // Small debounce
+      setTimeout(() => setIncrementing(false), 500);
+    }
+  }, [pluginId, explicitTenantId, status, incrementing]);
+
+  // Handle clicks on In-process plugins
+  const handleWrapperClick = () => {
+    handleIncrementUsage();
+  };
+
+  // Handle Focus (clicks) on Sidecar iframes
+  useEffect(() => {
+    const handleBlur = () => {
+      if (document.activeElement === iframeRef.current) {
+        handleIncrementUsage();
+      }
+    };
+    window.addEventListener('blur', handleBlur);
+    return () => window.removeEventListener('blur', handleBlur);
+  }, [handleIncrementUsage]);
 
   const handleAuthenticated = () => {
      setNeedsAuth(false);
@@ -118,18 +157,18 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
      }
   };
 
-  const handlePaymentSuccess = () => {
-     setNeedsPayment(false);
-     setLoading(true);
-     if (config) {
-       checkAccess(config);
-     }
+  const handleModalOpenChange = (open: boolean) => {
+    // Prevent closing if limit reached and not paid
+    if (!open && status?.trial_limit_reached && !status?.is_paid) {
+       toast.error("Please upgrade to continue using this plugin.");
+       return;
+    }
   };
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-        <div style={{ color: '#6b7280', fontSize: 14 }}>Loading…</div>
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="text-sm text-muted-foreground animate-pulse">Loading plugin...</div>
       </div>
     );
   }
@@ -146,42 +185,42 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
     return <PluginAuth pluginId={pluginId} tenantId={explicitTenantId} onAuthenticated={handleAuthenticated} />;
   }
 
-  if (needsPayment) {
-    return <PluginPaywall pluginId={pluginId} tenantId={explicitTenantId} onPaymentSuccess={handlePaymentSuccess} />;
-  }
-
-  // Sidecar: render via iframe (explicit prop takes priority; fall back to manifest ui_entry)
   const resolvedIframeUrl = iframeUrl ?? config.public_page?.ui_entry ?? undefined;
-  if (resolvedIframeUrl) {
-    return (
-      <iframe
-        src={resolvedIframeUrl}
-        style={{ width: '100%', height: '100vh', border: 'none' }}
-        title={pluginId}
-      />
-    );
-  }
+  
+  return (
+    <div 
+      className="relative w-full h-full min-h-screen" 
+      onClickCapture={handleWrapperClick}
+    >
+      {resolvedIframeUrl ? (
+        <iframe
+          ref={iframeRef}
+          src={resolvedIframeUrl}
+          className="w-full h-screen border-none"
+          title={pluginId}
+        />
+      ) : (
+        children
+      )}
 
-  // In-process: render children
-  return <>{children}</>;
+      {/* Paywall Modal */}
+      {status && config?.stripe_price_id && (
+        <PluginPaywall 
+          pluginId={pluginId} 
+          tenantId={explicitTenantId} 
+          open={status.trial_limit_reached && !status.is_paid}
+          onOpenChange={handleModalOpenChange}
+        />
+      )}
+    </div>
+  );
 }
 
 function UnavailableMessage({ message }: { message: string }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        gap: 12,
-        color: '#6b7280',
-        fontFamily: 'system-ui, sans-serif',
-      }}
-    >
-      <div style={{ fontSize: 32 }}>🔒</div>
-      <div style={{ fontSize: 16, fontWeight: 500 }}>{message}</div>
+    <div className="flex flex-col items-center justify-center h-screen gap-4 text-muted-foreground">
+      <div className="text-4xl">🔒</div>
+      <div className="text-lg font-medium">{message}</div>
     </div>
   );
 }

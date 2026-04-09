@@ -147,17 +147,52 @@ async def plugin_paywall_status(
     if stripe_cfg and stripe_cfg.get("secretKey") and plugin_user.stripe_customer_id:
         stripe.api_key = stripe_cfg["secretKey"]
         try:
-            # Check for active subscriptions
-            subs = stripe.Subscription.list(customer=plugin_user.stripe_customer_id, status='active')
-            if subs and len(subs.data) > 0:
+            subscriptions = stripe.Subscription.list(
+                customer=plugin_user.stripe_customer_id,
+                status="active"
+            )
+            if subscriptions.data:
                 is_paid = True
-            else:
-                # Also check for successful one-time payments if they use a one-time price
-                # just in case the price was a one-time charge instead of subscription
-                charges = stripe.Charge.list(customer=plugin_user.stripe_customer_id, limit=1)
-                if charges and len(charges.data) > 0 and charges.data[0].paid:
-                    is_paid = True
-        except stripe.StripeError as e:
-            logger.error(f"Stripe error checking customer status: {e}")
-            
-    return {"is_paid": is_paid}
+        except Exception as e:
+            logger.error(f"Error checking Stripe subscription: {e}")
+
+    # Also check free click limit
+    from commercial.plugin_management.router import _get_public_access_config
+    settings_record = db.query(TenantPluginSettings).filter(TenantPluginSettings.tenant_id == payload.tenant_id).first()
+    pa_cfg = _get_public_access_config(settings_record.plugin_config if settings_record else None, plugin_id)
+    
+    free_clicks = pa_cfg.get("free_clicks", 0)
+    usage_count = plugin_user.usage_count
+
+    return {
+        "plugin_id": plugin_id,
+        "is_paid": is_paid,
+        "usage_count": usage_count,
+        "free_clicks": free_clicks,
+        "trial_limit_reached": not is_paid and free_clicks > 0 and usage_count >= free_clicks
+    }
+
+@router.post("/{plugin_id}/public-paywall/increment-usage")
+async def increment_plugin_usage(
+    plugin_id: str,
+    payload: StatusRequest,
+    db: Session = Depends(get_master_db),
+):
+    """
+    Increment the usage count for a plugin user.
+    """
+    plugin_id = _normalize_plugin_id(plugin_id)
+    
+    plugin_user = db.query(PluginUser).filter(
+        PluginUser.id == payload.plugin_user_id,
+        PluginUser.tenant_id == payload.tenant_id,
+        PluginUser.plugin_id == plugin_id
+    ).first()
+
+    if not plugin_user:
+        raise HTTPException(status_code=404, detail="Plugin user not found")
+
+    plugin_user.usage_count += 1
+    db.commit()
+
+    return {"usage_count": plugin_user.usage_count}

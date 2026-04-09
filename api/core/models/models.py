@@ -615,6 +615,7 @@ class PluginUser(Base):
     
     # Payment Information
     stripe_customer_id = Column(String, nullable=True)
+    usage_count = Column(Integer, default=0, nullable=False)
     
     is_active = Column(Boolean, default=True, nullable=False)
     

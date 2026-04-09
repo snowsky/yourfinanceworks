@@ -589,7 +589,14 @@ async def update_plugin_config(
 # ---------------------------------------------------------------------------
 
 _PUBLIC_ACCESS_KEY = "public_access"
-_PUBLIC_ACCESS_DEFAULTS = {"enabled": False, "require_login": True, "stripe_price_id": None}
+_PUBLIC_ACCESS_DEFAULTS = {"enabled": False, "require_login": True, "stripe_price_id": None, "free_clicks": 0}
+
+
+class PublicAccessUpdate(BaseModel):
+    enabled: bool
+    require_login: bool
+    stripe_price_id: str | None = None
+    free_clicks: int = 0
 
 
 def _get_public_access_config(plugin_config: dict | None, plugin_id: str) -> dict:
@@ -600,6 +607,7 @@ def _get_public_access_config(plugin_config: dict | None, plugin_id: str) -> dic
         "enabled": bool(pa.get("enabled", False)),
         "require_login": bool(pa.get("require_login", True)),
         "stripe_price_id": pa.get("stripe_price_id", None),
+        "free_clicks": int(pa.get("free_clicks", 0)),
     }
 
 
@@ -631,6 +639,7 @@ async def get_plugin_public_access(
         "enabled": pa["enabled"],
         "require_login": pa["require_login"],
         "stripe_price_id": pa.get("stripe_price_id"),
+        "free_clicks": pa.get("free_clicks", 0),
         "public_page": manifest.get("public_page"),
     }
 
@@ -638,13 +647,12 @@ async def get_plugin_public_access(
 @router.put("/{plugin_id}/public-access")
 async def update_plugin_public_access(
     plugin_id: str,
-    payload: dict,
+    payload: PublicAccessUpdate,
     db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
     """
     Update the public-access configuration for a plugin.
-    Payload: {"enabled": bool, "require_login": bool}
     Admin-only.
     """
     if not _is_admin(current_user):
@@ -652,25 +660,28 @@ async def update_plugin_public_access(
 
     plugin_id = _normalize_plugin_id(plugin_id)
 
-    enabled = bool(payload.get("enabled", False))
-    require_login = bool(payload.get("require_login", True))
-    stripe_price_id = payload.get("stripe_price_id", None)
-
     settings = db.query(TenantPluginSettings).filter(
         TenantPluginSettings.tenant_id == current_user.tenant_id
     ).with_for_update().first()
+
+    new_pa_config = {
+        "enabled": payload.enabled,
+        "require_login": payload.require_login,
+        "stripe_price_id": payload.stripe_price_id,
+        "free_clicks": payload.free_clicks,
+    }
 
     if not settings:
         settings = TenantPluginSettings(
             tenant_id=current_user.tenant_id,
             enabled_plugins=[],
-            plugin_config={plugin_id: {_PUBLIC_ACCESS_KEY: {"enabled": enabled, "require_login": require_login, "stripe_price_id": stripe_price_id}}},
+            plugin_config={plugin_id: {_PUBLIC_ACCESS_KEY: new_pa_config}},
         )
         db.add(settings)
     else:
         cfg = settings.plugin_config or {}
         plugin_cfg = cfg.get(plugin_id, {})
-        plugin_cfg[_PUBLIC_ACCESS_KEY] = {"enabled": enabled, "require_login": require_login, "stripe_price_id": stripe_price_id}
+        plugin_cfg[_PUBLIC_ACCESS_KEY] = new_pa_config
         cfg[plugin_id] = plugin_cfg
         settings.plugin_config = cfg
         flag_modified(settings, "plugin_config")
@@ -679,9 +690,10 @@ async def update_plugin_public_access(
     db.commit()
     return {
         "plugin_id": plugin_id,
-        "enabled": enabled,
-        "require_login": require_login,
-        "stripe_price_id": stripe_price_id,
+        "enabled": payload.enabled,
+        "require_login": payload.require_login,
+        "stripe_price_id": payload.stripe_price_id,
+        "free_clicks": payload.free_clicks,
         "message": f"Public access for plugin '{plugin_id}' updated",
     }
 
@@ -735,6 +747,7 @@ async def get_plugin_public_config(
         "enabled": pa["enabled"],
         "require_login": pa["require_login"],
         "stripe_price_id": pa.get("stripe_price_id"),
+        "free_clicks": pa.get("free_clicks", 0),
         "public_page": manifest.get("public_page"),
     }
 
