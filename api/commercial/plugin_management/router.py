@@ -962,6 +962,7 @@ class CheckoutRequest(BaseModel):
 async def plugin_paywall_checkout(
     plugin_id: str,
     payload: CheckoutRequest,
+    request: Request,
     db: Session = Depends(get_master_db)
 ):
     # Normalize plugin ID to match config keys (e.g. "statement_tools" -> "statement-tools")
