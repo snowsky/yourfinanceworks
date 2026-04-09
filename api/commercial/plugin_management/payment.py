@@ -175,7 +175,7 @@ async def plugin_paywall_status(
 @router.post("/{plugin_id}/public-paywall/increment-usage")
 async def increment_plugin_usage(
     plugin_id: str,
-    payload: StatusRequest,
+    payload: CheckoutRequest,
     db: Session = Depends(get_master_db),
 ):
     """
