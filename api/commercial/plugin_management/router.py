@@ -1019,9 +1019,8 @@ async def plugin_paywall_checkout(
             logger.error(f"Stripe error creating customer: {e}")
             raise HTTPException(status_code=500, detail="Error communicating with Stripe")
 
-    ui_base = config.UI_BASE_URL
-    success_url = f"{ui_base}/p/{plugin_id}?payment=success"
-    cancel_url = f"{ui_base}/p/{plugin_id}/paywall"
+    success_url = f"{request.base_url}p/{plugin_id}?t={payload.tenant_id}&payment=success"
+    cancel_url = f"{request.base_url}p/{plugin_id}?t={payload.tenant_id}&payment=cancel"
 
     try:
         session = stripe.checkout.Session.create(
