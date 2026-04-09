@@ -28,7 +28,7 @@ def upgrade() -> None:
         sa.Column('google_id', sa.String(), nullable=True),
         sa.Column('azure_ad_id', sa.String(), nullable=True),
         sa.Column('stripe_customer_id', sa.String(), nullable=True),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('1')),
+        sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true')),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(['tenant_id'], ['tenants.id'], ondelete='CASCADE'),
