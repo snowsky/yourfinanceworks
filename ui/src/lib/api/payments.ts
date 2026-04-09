@@ -19,9 +19,20 @@ export interface Payment {
 
 // Payment API methods
 export const paymentApi = {
-  getPayments: async (params: { limit?: number; offset?: number } = {}) => {
-    const { limit = 10, offset = 0 } = params;
-    const response = await apiRequest<{ success: boolean; data: Payment[]; count: number; chart_data: any }>(`/payments/?limit=${limit}&offset=${offset}`);
+  getPayments: async (params: { limit?: number; offset?: number; paymentMethod?: string } = {}) => {
+    const { limit = 10, offset = 0, paymentMethod } = params;
+    const searchParams = new URLSearchParams({
+      limit: String(limit),
+      skip: String(offset),
+    });
+
+    if (paymentMethod) {
+      searchParams.set('payment_method', paymentMethod);
+    }
+
+    const response = await apiRequest<{ success: boolean; data: Payment[]; count: number; chart_data: any }>(
+      `/payments/?${searchParams.toString()}`
+    );
     return response;
   },
   getPayment: (id: number) => apiRequest<Payment>(`/payments/${id}`),
@@ -46,4 +57,8 @@ export const paymentApi = {
     apiRequest(`/payments/${id}`, {
       method: 'DELETE',
     }),
+  getStripeHistory: async (limit: number = 20) => {
+    const response = await apiRequest<{ success: boolean; data: any[] }>(`/payments/stripe/history?limit=${limit}`);
+    return response;
+  },
 };

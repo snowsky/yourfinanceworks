@@ -909,6 +909,17 @@
       "method": "Method",
       "status": "Status"
     },
+    "stripe_sidebar": {
+      "title": "Stripe",
+      "description": "A quick view of your Stripe setup and latest Stripe payment.",
+      "loading": "Loading Stripe details...",
+      "open_invoice": "Open invoice",
+      "no_recent_payment": "Stripe is configured. Your latest Stripe payment will appear here once one is recorded.",
+      "not_configured_title": "Stripe is not configured",
+      "not_configured_description": "Configure Stripe in Payment Settings to surface your latest Stripe activity here.",
+      "configure": "Configure Stripe",
+      "ask_admin": "Ask an administrator to configure Stripe in Settings."
+    },
     "errors": {
       "load_failed": "Failed to load payments"
     },
@@ -1050,6 +1061,7 @@
       "company": "Company Info",
       "invoices": "Invoice Settings",
       "currencies": "Currencies",
+      "payments": "Payment",
       "discount_rules": "Discount Rules",
       "ai_config": "AI Configuration",
       "prompts": "Prompts",
@@ -1062,6 +1074,20 @@
       "export": "Data Management",
       "email": "Email Settings",
       "plugins": "Plugins"
+    },
+    "payment_settings": {
+      "title": "Payment",
+      "description": "Configure Stripe so your team can track Stripe activity from the Payments page.",
+      "configured": "Configured",
+      "not_configured": "Not configured",
+      "enable_stripe": "Enable Stripe",
+      "enable_stripe_description": "Turn on Stripe for this organization. Recent Stripe payments will appear in Payments.",
+      "account_label": "Account Label",
+      "account_label_placeholder": "Main Stripe account",
+      "publishable_key": "Publishable Key",
+      "secret_key": "Secret Key",
+      "webhook_secret": "Webhook Secret",
+      "saved": "Payment settings saved successfully"
     },
     "discount_rules": {
       "title": "Discount Rules",

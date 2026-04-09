@@ -15,3 +15,4 @@ export * from './ExportDestinationsTab';
 export * from './GamificationTab';
 export * from './PluginsTab';
 export * from './AppearanceTab';
+export * from './PaymentSettingsTab';
