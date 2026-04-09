@@ -1,11 +1,10 @@
+"""LLM-based bank transaction extraction classes."""
 import contextlib
+import json
+import logging
 import os
 import re
-import json
 import time
-import logging
-from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -15,174 +14,32 @@ from commercial.ai.services.ocr_service import track_ai_usage, track_ocr_usage, 
 from commercial.prompt_management.services.prompt_service import get_prompt_service
 from core.utils.file_validation import validate_file_path
 
-logger = logging.getLogger(__name__)
-# Custom error to signal LLM unavailability to callers that want to retry
-class BankLLMUnavailableError(Exception):
-    pass
+from ._shared import (
+    BankLLMUnavailableError,
+    Document,
+    LANGCHAIN_AVAILABLE,
+    OllamaCallbackHandler,
+    PromptTemplate,
+    RecursiveCharacterTextSplitter,
+    TransactionModel,
+    _normalize_date,
+    pd,
+)
 
-# Optional imports with fallbacks
-try:
-    import pandas as pd
-except ImportError:
-    pd = None
-
-# LangChain imports - optional (updated to langchain_community to avoid deprecation warnings)
-try:
+# Conditional imports that require LANGCHAIN_AVAILABLE
+if LANGCHAIN_AVAILABLE:
     from langchain_community.document_loaders import (
-        PyPDFLoader, 
-        PyMuPDFLoader, 
+        PyPDFLoader,
+        PyMuPDFLoader,
         PDFMinerLoader,
         PyPDFium2Loader,
         PDFPlumberLoader,
         UnstructuredPDFLoader,
         CSVLoader,
     )
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-    from langchain_core.documents import Document
-    from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
-    from langchain_core.output_parsers import PydanticOutputParser
-    # LLMChain is deprecated in LangChain v1.0+, we'll use direct LLM calls instead
-    from langchain_core.callbacks import BaseCallbackHandler
-    from langchain_ollama import OllamaLLM
-    from langchain_ollama import ChatOllama
-    from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-    LANGCHAIN_AVAILABLE = True
-except ImportError:
-    logger.warning("LangChain not available - falling back to basic functionality")
-    # Create dummy classes for type hints
-    class Document:
-        def __init__(self, page_content="", metadata=None):
-            self.page_content = page_content
-            self.metadata = metadata or {}
+    from langchain_ollama import OllamaLLM, ChatOllama
 
-    class BaseCallbackHandler:
-        pass
-
-    class PromptTemplate:
-        def __init__(self, template="", input_variables=None):
-            self.template = template
-            self.input_variables = input_variables or []
-
-        def format(self, **kwargs):
-            # Safer formatting that doesn't trigger on other braces (like JSON)
-            result = self.template
-            for k, v in kwargs.items():
-                result = result.replace(f"{{{k}}}", str(v))
-                # Also handle double braces if they exist
-                result = result.replace(f"{{{{{k}}}}}", str(v))
-            return result
-
-    # LLMChain is deprecated in LangChain v1.0+, no fallback needed
-
-    class RecursiveCharacterTextSplitter:
-        def __init__(self, **kwargs):
-            self.chunk_size = kwargs.get('chunk_size', 6000)
-            self.chunk_overlap = kwargs.get('chunk_overlap', 150)
-
-        def split_text(self, text):
-            # Simple text splitting fallback
-            chunks = []
-            i = 0
-            while i < len(text):
-                chunk = text[i:i + self.chunk_size]
-                if not chunk.strip():
-                    break
-                chunks.append(chunk)
-                i += self.chunk_size - self.chunk_overlap
-            return chunks
-
-    LANGCHAIN_AVAILABLE = False
-
-from pydantic import BaseModel, Field, field_validator, model_validator
-from typing import List as TypingList
-
-
-@dataclass
-class Transaction:
-    date: str
-    description: str
-    amount: float
-    transaction_type: str  # 'debit' | 'credit'
-    balance: Optional[float] = None
-    category: Optional[str] = None
-
-
-class TransactionModel(BaseModel):
-    """Pydantic model for individual transactions"""
-    date: str = Field(description="Transaction date in YYYY-MM-DD format")
-    description: str = Field(description="Transaction description or merchant name")
-    amount: float = Field(description="Transaction amount (negative for debits, positive for credits)")
-    transaction_type: str = Field(description="Type of transaction: 'debit' or 'credit'")
-    balance: Optional[float] = Field(default=None, description="Account balance after transaction")
-    category: Optional[str] = Field(default=None, description="Transaction category")
-    card_type: str = Field(default="debit", description="debit|credit")
-
-    @model_validator(mode='before')
-    @classmethod
-    def fix_transaction_type_by_amount(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            amount = data.get('amount')
-            card_type = data.get('card_type', 'debit')
-            if amount is not None:
-                try:
-                    amt = float(amount)
-                    if card_type == 'credit':
-                        data['transaction_type'] = 'credit' if amt < 0 else 'debit'
-                    else:
-                        data['transaction_type'] = 'debit' if amt < 0 else 'credit'
-                except (ValueError, TypeError):
-                    pass
-        return data
-
-    @field_validator('transaction_type', mode='before')
-    @classmethod
-    def validate_transaction_type(cls, v):
-        try:
-            vv = (v or '').lower()
-            if vv not in ['debit', 'credit']:
-                return 'debit' if vv == '' else ('credit' if vv.startswith('c') or vv == '-' else 'debit')
-            return vv
-        except Exception:
-            return 'debit'
-
-    @field_validator('date', mode='before')
-    @classmethod
-    def validate_date(cls, v):
-        try:
-            from datetime import datetime
-            s = str(v)
-            for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m-%d-%Y', '%Y/%m/%d']:
-                try:
-                    dt = datetime.strptime(s, fmt)
-                    return dt.strftime('%Y-%m-%d')
-                except ValueError:
-                    continue
-            return s
-        except Exception:
-            return v
-
-
-class TransactionListModel(BaseModel):
-    """Pydantic model for list of transactions"""
-    transactions: TypingList[TransactionModel] = Field(description="List of extracted bank transactions")
-
-
-class OllamaCallbackHandler(BaseCallbackHandler):
-    """Custom callback handler to track Ollama usage"""
-
-    def __init__(self):
-        self.total_tokens = 0
-        self.total_time = 0
-        self.request_count = 0
-
-    def on_llm_start(self, serialized, prompts, **kwargs):
-        self.start_time = time.time()
-        self.request_count += 1
-
-    def on_llm_end(self, response, **kwargs):
-        self.total_time += time.time() - self.start_time
-        if hasattr(response, 'llm_output') and response.llm_output:
-            self.total_tokens += response.llm_output.get('token_usage', {}).get('total_tokens', 0)
+logger = logging.getLogger(__name__)
 
 
 class UniversalBankTransactionExtractor:
@@ -192,7 +49,7 @@ class UniversalBankTransactionExtractor:
     Enhanced with OCR fallback capability for scanned documents.
     """
 
-    def __init__(self, 
+    def __init__(self,
                  ai_config: Dict[str, Any],
                  db_session: Session,
                  temperature: float = 0.1,
@@ -230,8 +87,8 @@ class UniversalBankTransactionExtractor:
         self.prompt_name = prompt_name
         self.prompt_service = get_prompt_service(db_session)
         self.card_type = card_type
-        self.detected_card_type = card_type if card_type != "auto" else "debit" # Default fallback
-        self.statement_metadata = {} # Store year, period, etc.
+        self.detected_card_type = card_type if card_type != "auto" else "debit"  # Default fallback
+        self.statement_metadata = {}  # Store year, period, etc.
 
         logger.info(f"🚀 Initializing UniversalBankTransactionExtractor: {self.provider_name} / {self.model_name}, prompt_name={self.prompt_name}")
 
@@ -264,7 +121,8 @@ class UniversalBankTransactionExtractor:
                     'description': 'Fast, basic PDF text extraction',
                     'best_for': 'Simple text-based PDFs'
                 }
-            except: pass
+            except Exception:
+                pass
 
             try:
                 self.pdf_loaders['pymupdf'] = {
@@ -272,7 +130,8 @@ class UniversalBankTransactionExtractor:
                     'description': 'High-quality text extraction with metadata',
                     'best_for': 'Most PDF types, good balance of speed and quality'
                 }
-            except: pass
+            except Exception:
+                pass
 
             try:
                 self.pdf_loaders['pdfplumber'] = {
@@ -280,7 +139,8 @@ class UniversalBankTransactionExtractor:
                     'description': 'Excellent for tables and structured data',
                     'best_for': 'Bank statements with tables'
                 }
-            except: pass
+            except Exception:
+                pass
 
         # Setup prompts
         self.extraction_prompt = self._create_extraction_prompt()
@@ -380,11 +240,12 @@ class UniversalBankTransactionExtractor:
         except Exception as e:
             logger.warning(f"Failed to get bank transaction extraction prompt from service: {e}")
             from core.constants.default_prompts import BANK_TRANSACTION_EXTRACTION_PROMPT
-            
+
             return PromptTemplate(
                 template=BANK_TRANSACTION_EXTRACTION_PROMPT,
                 input_variables=["text"]
             )
+
     def _detect_card_type_from_text(self, text: str) -> str:
         """Detect card type using keyword analysis on the raw statement text.
         Returns 'credit', 'debit', or '' if inconclusive."""
@@ -443,10 +304,12 @@ class UniversalBankTransactionExtractor:
                     return "debit"
 
                 # Fallback to keyword search in result
-                if "credit" in result_text.lower(): return "credit"
-                if "debit" in result_text.lower(): return "debit"
+                if "credit" in result_text.lower():
+                    return "credit"
+                if "debit" in result_text.lower():
+                    return "debit"
 
-            return "debit" # Fallback
+            return "debit"  # Fallback
         except Exception as e:
             logger.warning(f"Detection failed: {e}")
             return "debit"
@@ -469,7 +332,7 @@ class UniversalBankTransactionExtractor:
                 if template_str:
                     placeholder = "{{statement_context}}"
                     has_placeholder = placeholder in template_str or "{statement_context}" in template_str
-                    
+
                     # Inject metadata context if available
                     context_str = ""
                     if self.statement_metadata:
@@ -477,21 +340,23 @@ class UniversalBankTransactionExtractor:
                         period = self.statement_metadata.get('period')
                         if year or period:
                             context_str = f"STATEMENT CONTEXT:\n"
-                            if year: context_str += f"- Year: {year}\n"
-                            if period: context_str += f"- Statement Period: {period}\n"
+                            if year:
+                                context_str += f"- Year: {year}\n"
+                            if period:
+                                context_str += f"- Statement Period: {period}\n"
 
                     logger.info(f"📄 Using {prompt_info} (Placeholder: {'FOUND' if has_placeholder else 'MISSING'})")
-                    
+
                     if context_str:
                         if has_placeholder:
-                            logger.info(f"💉 Injecting context: {context_str.strip().replace('\n', ', ')}")
+                            logger.info(f"💉 Injecting context: {context_str.strip().replace(chr(10), ', ')}")
                         else:
                             logger.warning(f"⚠️ Placeholder {placeholder} missing in {prompt_info}! Prepending context as safety.")
                             # Safety measure: prepend context to ensure AI sees it even if placeholder is missing
                             template_str = f"{context_str}\n\n{template_str}"
                     else:
                         logger.warning("⚠️ No metadata context available for injection!")
-                    
+
                     rendered = template_str.replace("{{text}}", text).replace("{text}", text) \
                                        .replace("{{card_type}}", self.card_type).replace("{card_type}", self.card_type) \
                                        .replace("{{statement_context}}", context_str).replace("{statement_context}", context_str)
@@ -507,20 +372,20 @@ class UniversalBankTransactionExtractor:
         try:
             logger.info("🧠 [AI SMARTS] Running first-pass metadata extraction...")
             from litellm import completion
-            
+
             # Use only the first 4000 characters for metadata extraction to be efficient
             header_text = text[:4000]
-            
+
             model_name = self._format_model_name()
             kwargs = self._prepare_litellm_kwargs()
-            
+
             from core.constants.default_prompts import BANK_STATEMENT_METADATA_EXTRACTION_PROMPT
-            
+
             # Try to get metadata prompt from service
             try:
                 prompt_template = self.prompt_service.get_prompt(
                     name="bank_statement_metadata_extraction",
-                    variables={"header_text": "{{header_text}}"}, 
+                    variables={"header_text": "{{header_text}}"},
                     provider_name=self.provider_name,
                     fallback_prompt=BANK_STATEMENT_METADATA_EXTRACTION_PROMPT
                 )
@@ -541,7 +406,6 @@ class UniversalBankTransactionExtractor:
 
             if response and response.choices:
                 result_text = response.choices[0].message.content
-                import json
                 # Basic JSON extraction from response
                 # More robust JSON extraction - find the outermost { }
                 match = re.search(r'(\{[\s\S]*\})', result_text)
@@ -553,7 +417,7 @@ class UniversalBankTransactionExtractor:
                         logger.info(f"   - Year: {self.statement_metadata.get('year')}")
                         logger.info(f"   - Period: {self.statement_metadata.get('period')}")
                         logger.info(f"   - Type: {self.statement_metadata.get('card_type')}")
-                        
+
                         # Update card_type if it was auto and we detected it here
                         if self.card_type == "auto" and self.statement_metadata.get('card_type'):
                             self.detected_card_type = self.statement_metadata['card_type']
@@ -596,19 +460,18 @@ class UniversalBankTransactionExtractor:
             })
 
             logger.info(f"🔄 Processing text chunk with {self.provider_name} ({len(text)} chars)")
-
             response = completion(**kwargs)
 
             if response and response.choices:
                 result_text = response.choices[0].message.content
                 # Log raw response for debugging signs
                 logger.debug(f"📄 RAW LLM RESPONSE: {result_text[:1000]}...")
-                
+
                 # If auto-detect, try to determine from first chunk or use result insight
                 if self.card_type == "auto":
                     # For simplicity, we detect on first successful extraction call text
                     self.detected_card_type = self._detect_card_type(text)
-                    self.card_type = self.detected_card_type # Set it so downstream uses it
+                    self.card_type = self.detected_card_type  # Set it so downstream uses it
                     logger.info(f"🔍 AI detected card_type: {self.detected_card_type}")
 
                 txns = self._parse_response(result_text)
@@ -703,12 +566,11 @@ class UniversalBankTransactionExtractor:
                         'amount': amount_float,
                         'transaction_type': 'debit' if amount_float < 0 else 'credit'
                     })
-                except:
+                except Exception:
                     continue
 
         return transactions
 
-    # Include the same PDF loading and processing methods as the original class
     def load_pdf_with_langchain(self, pdf_path: str, loader_names: List[str] = None) -> List[Document]:
         """Load PDF using LangChain loaders with automatic fallback"""
         # Validate pdf_path to prevent path traversal
@@ -761,8 +623,6 @@ class UniversalBankTransactionExtractor:
 
             # Clean PDF artifacts
             content = re.sub(r'Page \d+ of \d+', '', content)
-            # content = re.sub(r'Statement Period:.*?\n', '', content)
-            # content = re.sub(r'Account Summary.*?\n', '', content)
             content = re.sub(r'\s+', ' ', content)
 
             full_text += content + "\n\n"
@@ -867,11 +727,11 @@ class UniversalBankTransactionExtractor:
                 logger.info(f"   Date range: {min(dates)} to {max(dates)}")
         return all_transactions
 
-    def process_pdf(self, 
-                   pdf_path: str,
-                   loader_names: List[str] = None,
-                   categorize: bool = False,  # Simplified for now
-                   save_debug: bool = False) -> Union[pd.DataFrame, List[Dict]]:
+    def process_pdf(self,
+                    pdf_path: str,
+                    loader_names: List[str] = None,
+                    categorize: bool = False,  # Simplified for now
+                    save_debug: bool = False) -> Union["pd.DataFrame", List[Dict]]:
         """Main method to process PDF using LiteLLM with OCR fallback support"""
 
         logger.info(f"Processing bank statement with {self.provider_name}: {pdf_path}")
@@ -916,7 +776,7 @@ class UniversalBankTransactionExtractor:
 
             if save_debug:
                 debug_text = "\n\n--- CHUNK SEPARATOR ---\n\n".join([
-                    f"CHUNK {i+1} (method: {extraction_method}):\n{doc.page_content}" 
+                    f"CHUNK {i+1} (method: {extraction_method}):\n{doc.page_content}"
                     for i, doc in enumerate(processed_docs)
                 ])
                 with open("universal_debug_chunks.txt", "w", encoding="utf-8") as f:
@@ -990,7 +850,7 @@ class UniversalBankTransactionExtractor:
 
             return pd.DataFrame() if pd else []
 
-    def validate_and_clean_data(self, transactions: List[Dict]) -> Union[pd.DataFrame, List[Dict]]:
+    def validate_and_clean_data(self, transactions: List[Dict]) -> Union["pd.DataFrame", List[Dict]]:
         """Basic validation and cleaning of extracted transaction data"""
 
         if not transactions:
@@ -1031,27 +891,30 @@ class UniversalBankTransactionExtractor:
         if 'amount' in df.columns:
             # For each amount, check if it's already a float or needs parsing
             def parse_amt(x):
-                if pd.isna(x): return x
-                if isinstance(x, (int, float)): return float(x)
-                
+                if pd.isna(x):
+                    return x
+                if isinstance(x, (int, float)):
+                    return float(x)
+
                 orig_val = str(x)
                 amt = parse_number(orig_val)
-                
+
                 # Detailed logging for potential negative numbers (contains -, (, or ))
                 if any(char in orig_val for char in ('-', '(', ')')):
                     logger.info(f"🔢 Parsed signed amount: '{orig_val}' → {amt}")
-                
+
                 return amt
 
             df['amount'] = df['amount'].apply(parse_amt)
-            
+
             # Synchronize signs with transaction_type
             if 'transaction_type' in df.columns:
                 def sync_sign(row):
                     amt = row['amount']
                     ttype = str(row['transaction_type']).lower()
-                    if pd.isna(amt): return amt
-                    
+                    if pd.isna(amt):
+                        return amt
+
                     if self.card_type == 'credit':
                         if ttype == 'debit' and amt < 0:
                             return abs(amt)
@@ -1064,7 +927,7 @@ class UniversalBankTransactionExtractor:
                         elif ttype == 'credit' and amt < 0:
                             return abs(amt)
                     return amt
-                
+
                 df['amount'] = df.apply(sync_sign, axis=1)
 
         if 'balance' in df.columns:
@@ -1073,27 +936,16 @@ class UniversalBankTransactionExtractor:
         # Remove invalid rows
         before_dropna = len(df)
         df = df.dropna(subset=['date', 'amount'])
-        
+
         # Filter out opening/closing balances
         if 'description' in df.columns:
             balance_keywords = ['opening balance', 'closing balance', 'previous balance', 'new balance', 'ending balance', 'beginning balance', 'statement balance']
             pattern = '|'.join(balance_keywords)
             df = df[~df['description'].str.lower().str.contains(pattern, na=False, regex=True)]
-            
+
         after_dropna = len(df)
         if before_dropna != after_dropna:
             logger.info(f"Removed {before_dropna - after_dropna} transactions with missing date/amount")
-
-        # deduplication removed per user request
-        # before_dedup = len(df)
-        # df = df.drop_duplicates(subset=['date', 'description', 'amount']).reset_index(drop=True)
-        # after_dedup = len(df)
-        # if before_dedup != after_dedup:
-        #     removed_count = before_dedup - after_dedup
-        #     logger.warning(f"⚠️ DEDUPLICATION: Removed {removed_count} duplicate transactions ({before_dedup} → {after_dedup})")
-        #     logger.warning(f"   Deduplication key: (date, description, amount)")
-        #     if removed_count > 5:
-        #         logger.warning(f"   ⚠️ High deduplication rate ({removed_count}/{before_dedup} = {removed_count*100/before_dedup:.1f}%) - possible chunking issue")
 
         # Sort by date
         if not df.empty:
@@ -1108,7 +960,6 @@ class UniversalBankTransactionExtractor:
     def _basic_validate_and_clean(self, transactions: List[Dict]) -> List[Dict]:
         """Basic validation without pandas"""
         cleaned = []
-        seen = set()
 
         balance_keywords = ['opening balance', 'closing balance', 'previous balance', 'new balance', 'ending balance', 'beginning balance', 'statement balance']
 
@@ -1132,20 +983,20 @@ class UniversalBankTransactionExtractor:
             # Normalize date
             try:
                 txn['date'] = _normalize_date(str(txn['date']))
-            except:
+            except Exception:
                 continue
 
             # Validate amount and synchronize sign
             try:
                 orig_amt = str(txn['amount'])
                 val = parse_number(orig_amt)
-                
+
                 # Detailed logging for signed amounts
                 if any(char in orig_amt for char in ('-', '(', ')')):
                     logger.info(f"🔢 Parsed signed amount (basic): '{orig_amt}' → {val}")
-                
+
                 ttype = str(txn.get('transaction_type', '')).lower()
-                
+
                 if ttype == 'debit' and val > 0:
                     txn['amount'] = -val
                 elif ttype == 'credit' and val < 0:
@@ -1156,32 +1007,18 @@ class UniversalBankTransactionExtractor:
                 logger.warning(f"Failed to parse amount '{txn.get('amount')}': {e}")
                 continue
 
-            # Deduplicate removed per user request
-            # key = (txn['date'], txn['description'], round(txn['amount'], 2))
-            # if key not in seen:
-            #     seen.add(key)
-            #     cleaned.append(txn)
             cleaned.append(txn)
 
         # Sort by date
         try:
             cleaned.sort(key=lambda x: x['date'])
-        except:
+        except Exception:
             pass
 
         return cleaned
 
     def _track_extraction_method(self, method: str, pdf_path: str, processing_time: float) -> None:
-        """
-        Track extraction method usage for analytics.
-
-        Args:
-            method: Extraction method used ("pdf_loader" or "ocr")
-            pdf_path: Path to the processed file
-            processing_time: Time taken for extraction
-        """
-        from pathlib import Path
-
+        """Track extraction method usage for analytics."""
         logger.info(
             f"📊 Extraction method tracking: method={method} "
             f"file={Path(pdf_path).name} time={processing_time:.2f}s"
@@ -1196,7 +1033,6 @@ class UniversalBankTransactionExtractor:
             text_length = getattr(self, 'last_text_length', 0)
             word_count = text_length // 5 if text_length > 0 else 0  # Rough estimate
 
-            # Track the extraction attempt
             with contextlib.closing(next(get_db())) as db:
                 track_bank_statement_extraction(
                     db=db,
@@ -1224,23 +1060,8 @@ class UniversalBankTransactionExtractor:
         success: bool = True,
         errors: Optional[List[str]] = None,
         statement_id: Optional[int] = None
-    ) -> 'BankStatementProcessingResult':
-        """
-        Create a comprehensive processing result with all metadata.
-
-        Args:
-            transactions: List of extracted transactions
-            extraction_method: Method used for extraction
-            processing_time: Time taken for processing
-            pdf_path: Path to the processed file
-            text_length: Length of extracted text
-            word_count: Number of words in extracted text
-            success: Whether processing was successful
-            errors: List of error messages if any
-
-        Returns:
-            BankStatementProcessingResult with comprehensive metadata
-        """
+    ) -> Any:
+        """Create a comprehensive processing result with all metadata."""
         try:
             from core.models.bank_statement_processing import (
                 create_processing_result,
@@ -1310,7 +1131,7 @@ class BankTransactionExtractor:
     # Support needed for: OpenAI, Anthropic, Google PaLM, Azure OpenAI, AWS Bedrock, etc.
     # Consider implementing LLM provider abstraction layer for vendor-agnostic interface
 
-    def __init__(self, 
+    def __init__(self,
                  model_name: str = "gpt-oss:latest",
                  ollama_base_url: Optional[str] = None,
                  temperature: float = 0.1,
@@ -1396,13 +1217,14 @@ class BankTransactionExtractor:
                     'description': 'Fast, basic PDF text extraction',
                     'best_for': 'Simple text-based PDFs'
                 }
-            except: pass
+            except Exception:
+                pass
 
             # CSV loader
             try:
                 # Note: CSVLoader loads rows as Documents with page_content as a string
                 self.csv_loader_available = True
-            except:  # pragma: no cover - defensive
+            except Exception:  # pragma: no cover - defensive
                 self.csv_loader_available = False
         else:
             self.csv_loader_available = False
@@ -1413,7 +1235,8 @@ class BankTransactionExtractor:
                     'description': 'High-quality text extraction with metadata',
                     'best_for': 'Most PDF types, good balance of speed and quality'
                 }
-            except: pass
+            except Exception:
+                pass
 
             try:
                 self.pdf_loaders['pdfminer'] = {
@@ -1421,7 +1244,8 @@ class BankTransactionExtractor:
                     'description': 'Detailed text extraction with layout info',
                     'best_for': 'Complex layouts, precise text positioning'
                 }
-            except: pass
+            except Exception:
+                pass
 
             try:
                 self.pdf_loaders['pdfium2'] = {
@@ -1429,7 +1253,8 @@ class BankTransactionExtractor:
                     'description': 'Google\'s PDF library, fast and reliable',
                     'best_for': 'Modern PDFs, good performance'
                 }
-            except: pass
+            except Exception:
+                pass
 
             try:
                 self.pdf_loaders['pdfplumber'] = {
@@ -1437,7 +1262,8 @@ class BankTransactionExtractor:
                     'description': 'Excellent for tables and structured data',
                     'best_for': 'Bank statements with tables'
                 }
-            except: pass
+            except Exception:
+                pass
 
             try:
                 self.pdf_loaders['unstructured'] = {
@@ -1445,7 +1271,8 @@ class BankTransactionExtractor:
                     'description': 'Advanced preprocessing and cleaning',
                     'best_for': 'Messy or poorly formatted PDFs'
                 }
-            except: pass
+            except Exception:
+                pass
 
         # Setup prompts (optimized for local models)
         self.extraction_prompt = self._create_extraction_prompt()
@@ -1456,7 +1283,6 @@ class BankTransactionExtractor:
         self.categorization_prompt_template = self.categorization_prompt
 
     def _test_ollama_connection(self):
-        """Test connection to Ollama server"""
         try:
             response = requests.get(f"{self.ollama_base_url}/api/tags", timeout=10)
             if response.status_code == 200:
@@ -1545,7 +1371,7 @@ JSON:"""
             if response.status_code == 200:
                 return [model['name'] for model in response.json()['models']]
             return []
-        except:
+        except Exception:
             return []
 
     def pull_model(self, model_name: str) -> bool:
@@ -1562,9 +1388,9 @@ JSON:"""
             logger.error(f"Failed to pull model: {e}")
             return False
 
-    def load_pdf_with_langchain(self, 
-                               pdf_path: str, 
-                               loader_names: List[str] = None) -> List[Document]:
+    def load_pdf_with_langchain(self,
+                                pdf_path: str,
+                                loader_names: List[str] = None) -> List[Document]:
         """Load PDF using LangChain loaders with automatic fallback"""
         # Validate pdf_path to prevent path traversal
         try:
@@ -1631,7 +1457,6 @@ JSON:"""
                 # If CSVLoader returns many row-docs, concatenate into chunk-friendly documents
                 if docs:
                     # Join all rows into a single CSV text block to leverage the existing prompt
-                    header = None
                     lines = []
                     for d in docs:
                         content = (d.page_content or "").strip()
@@ -1683,8 +1508,6 @@ JSON:"""
 
             # Clean PDF artifacts
             content = re.sub(r'Page \d+ of \d+', '', content)
-            # content = re.sub(r'Statement Period:.*?\n', '', content)
-            # content = re.sub(r'Account Summary.*?\n', '', content)
             content = re.sub(r'\s+', ' ', content)
 
             full_text += content + "\n\n"
@@ -1783,7 +1606,6 @@ JSON:"""
                     except json.JSONDecodeError:
                         continue
 
-            # If no JSON found, try to extract transaction-like patterns
             # If no JSON found, log and return empty. Do NOT fall back to regex silently.
             logger.warning("No JSON content found in LLM response")
             return []
@@ -1815,7 +1637,7 @@ JSON:"""
                         'amount': amount_float,
                         'transaction_type': 'debit' if amount_float < 0 else 'credit'
                     })
-                except:
+                except Exception:
                     continue
 
         return transactions
@@ -1881,7 +1703,7 @@ JSON:"""
             logger.error(f"Error parsing categories: {e}")
             return []
 
-    def validate_and_clean_data(self, transactions: List[Dict]) -> Union[pd.DataFrame, List[Dict]]:
+    def validate_and_clean_data(self, transactions: List[Dict]) -> Union["pd.DataFrame", List[Dict]]:
         """Validate and clean extracted transaction data"""
 
         if not transactions:
@@ -1969,7 +1791,6 @@ JSON:"""
     def _basic_validate_and_clean(self, transactions: List[Dict]) -> List[Dict]:
         """Basic validation without pandas"""
         cleaned = []
-        seen = set()
 
         for txn in transactions:
             # Ensure required fields
@@ -1983,7 +1804,7 @@ JSON:"""
             # Normalize date
             try:
                 txn['date'] = _normalize_date(str(txn['date']))
-            except:
+            except Exception:
                 continue
 
             # Validate amount
@@ -1994,26 +1815,21 @@ JSON:"""
                 logger.warning(f"Failed to parse amount in basic clean: {e}")
                 continue
 
-            # Deduplicate removed per user request
-            # key = (txn['date'], txn['description'], round(txn['amount'], 2))
-            # if key not in seen:
-            #     seen.add(key)
-            #     cleaned.append(txn)
             cleaned.append(txn)
 
         # Sort by date
         try:
             cleaned.sort(key=lambda x: x['date'])
-        except:
+        except Exception:
             pass
 
         return cleaned
 
-    def process_pdf(self, 
-                   pdf_path: str,
-                   loader_names: List[str] = None,
-                   categorize: bool = True,
-                   save_debug: bool = False) -> Union[pd.DataFrame, List[Dict]]:
+    def process_pdf(self,
+                    pdf_path: str,
+                    loader_names: List[str] = None,
+                    categorize: bool = True,
+                    save_debug: bool = False) -> Union["pd.DataFrame", List[Dict]]:
         """Main method to process PDF using Ollama"""
 
         logger.info(f"Processing bank statement with Ollama: {pdf_path}")
@@ -2028,7 +1844,7 @@ JSON:"""
 
             if save_debug:
                 debug_text = "\n\n--- CHUNK SEPARATOR ---\n\n".join([
-                    f"CHUNK {i+1}:\n{doc.page_content}" 
+                    f"CHUNK {i+1}:\n{doc.page_content}"
                     for i, doc in enumerate(processed_docs)
                 ])
                 with open("ollama_debug_chunks.txt", "w", encoding="utf-8") as f:
@@ -2070,7 +1886,7 @@ JSON:"""
     def process_csv(self,
                     csv_path: str,
                     categorize: bool = True,
-                    save_debug: bool = False) -> Union[pd.DataFrame, List[Dict]]:
+                    save_debug: bool = False) -> Union["pd.DataFrame", List[Dict]]:
         """Process a CSV bank export using the same extraction prompt flow."""
         logger.info(f"Processing bank CSV with Ollama: {csv_path}")
         logger.info(f"Using model: {self.model_name}")
@@ -2125,681 +1941,3 @@ JSON:"""
         if self.callback_handler.request_count > 0:
             avg_time = self.callback_handler.total_time / self.callback_handler.request_count
             logger.info(f"   Average time per request: {avg_time:.2f}s")
-
-
-def _normalize_date(value: str) -> str:
-    """Normalize date using exact patterns from test-main.py"""
-    value = value.strip()
-
-    # Standard date formats from test-main.py validator
-    fmts = ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%m-%d-%Y', '%Y/%m/%d', '%Y%m%d']
-    for fmt in fmts:
-        try:
-            dt = datetime.strptime(value, fmt)
-            return dt.strftime('%Y-%m-%d')
-        except ValueError:
-            continue
-
-    # If all else fails, return the original value
-    logger.warning(f"Could not normalize date: {value}")
-    return value
-
-
-# Legacy functions for backward compatibility - these now use the new BankTransactionExtractor
-
-def build_bank_transactions_prompt(text: str) -> str:
-    """Legacy function - use BankTransactionExtractor._create_extraction_prompt instead"""
-    # Use the same prompt template as the new class
-    return f"""You are a financial data extraction expert. Extract bank transactions from the text below.
-
-RULES:
-1. Look for dates, descriptions, and amounts
-2. Amounts with "-" or in parentheses are debits (money out)
-3. Positive amounts are credits (money in)
-4. Convert dates to YYYY-MM-DD format
-5. Extract merchant names clearly
-6. Only extract actual transactions, not headers or summaries
-
-TEXT:
-{{text}}
-
-Return ONLY a JSON array like this example:
-[
-  {"date": "2024-01-15", "description": "GROCERY STORE", "amount": -45.67, "transaction_type": "debit", "balance": 1234.56},
-  {"date": "2024-01-16", "description": "SALARY DEPOSIT", "amount": 2500.00, "transaction_type": "credit", "balance": 3689.89}
-]
-
-JSON:"""
-
-
-def _enhanced_regex_extraction(text: str) -> List[Dict[str, Any]]:
-    """Legacy function - use BankTransactionExtractor._extract_with_regex instead"""
-    transactions = []
-
-    # Look for transaction-like patterns - exact from test-main.py
-    patterns = [
-        r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+([^$\d-]+?)\s+([-$]?\d+\.?\d*)',
-        r'(\d{4}-\d{2}-\d{2})\s+([^$\d-]+?)\s+([-$]?\d+\.?\d*)',
-    ]
-
-    for pattern in patterns:
-        matches = re.findall(pattern, text, re.MULTILINE)
-        for match in matches:
-            try:
-                date, desc, amount = match
-                amount_float = float(amount.replace('$', '').replace(',', ''))
-
-                transactions.append({
-                    'date': date,
-                    'description': desc.strip(),
-                    'amount': amount_float,
-                    'transaction_type': 'debit' if amount_float < 0 else 'credit'
-                })
-            except:
-                continue
-
-    return transactions
-
-
-def _preprocess_bank_text(raw_text: str) -> str:
-    """Legacy function - use BankTransactionExtractor.preprocess_documents instead"""
-    text = raw_text
-
-    # Clean PDF artifacts - exact from test-main.py
-    text = re.sub(r'Page \d+ of \d+', '', text)
-    text = re.sub(r'Statement Period:.*?\n', '', text)
-    text = re.sub(r'Account Summary.*?\n', '', text)
-    text = re.sub(r'\s+', ' ', text)
-
-    return text.strip()
-
-
-def _normalize_column_name(name: str) -> str:
-    """Normalize CSV column names by removing spaces, punctuation, and lowercasing.
-    Example: 'Date Posted' -> 'dateposted', 'Transaction Amount' -> 'transactionamount'
-    """
-    try:
-        import re as _re
-        return _re.sub(r"[^a-z0-9]", "", (name or "").strip().lower())
-    except Exception:
-        return (name or "").strip().lower()
-
-
-def _parse_csv_file_basic(csv_path: str) -> List[Dict[str, Any]]:
-    """Robust CSV fallback parser for bank exports with possible preambles.
-
-    - Skips preamble lines before the real header
-    - Handles common header variants: Date Posted, Transaction Amount, Transaction Type, Description
-    - Converts YYYYMMDD to YYYY-MM-DD
-    - Parses amounts, handling '$' and comma separators
-    - Infers transaction_type from amount sign if missing
-    - Skips obviously invalid/empty rows
-    """
-    import csv as _csv
-    rows: List[Dict[str, Any]] = []
-    try:
-        # Validate csv_path to prevent path traversal
-        try:
-            safe_path = validate_file_path(csv_path)
-        except ValueError as e:
-            logger.error(str(e))
-            return []
-        # Read all lines first to locate the header row
-        with open(safe_path, "r", encoding="utf-8", newline="") as f:
-            lines = [ln.rstrip("\n\r") for ln in f]
-
-        # Find header index: line with at least 3 commas and includes expected keywords
-        header_idx = -1
-        for i, ln in enumerate(lines):
-            if not ln or ln.strip() == "":
-                continue
-            comma_count = ln.count(",")
-            if comma_count < 2:
-                continue
-            probe = [c.strip().lower() for c in ln.split(",")]
-            joined = ",".join(probe)
-            if ("date" in joined or "posted" in joined) and ("amount" in joined or "description" in joined):
-                header_idx = i
-                break
-
-        if header_idx == -1:
-            return []
-
-        header = lines[header_idx]
-        data_lines = lines[header_idx:]
-        reader = _csv.DictReader(data_lines)
-
-        # Build a map from normalized header to actual keys
-        norm_to_key: Dict[str, str] = {}
-        for key in reader.fieldnames or []:
-            norm_to_key[_normalize_column_name(key)] = key
-
-        # Helper to get column by synonyms
-        def key_for(*candidates: str) -> Optional[str]:
-            for cand in candidates:
-                if cand in norm_to_key:
-                    return norm_to_key[cand]
-            return None
-
-        date_key = key_for("date", "dateposted", "transactiondate", "transdate")
-        desc_key = key_for("description", "details", "memo", "payee", "narration")
-        amt_key = key_for("amount", "transactionamount", "value", "amt")
-        type_key = key_for("transactiontype", "type", "creditdebit", "debitcredit")
-        bal_key = key_for("balance", "runningbalance")
-
-        import re as _re
-        for r in reader:
-            try:
-                raw_date = (r.get(date_key) if date_key else "") or ""
-                raw_desc = (r.get(desc_key) if desc_key else "") or ""
-                raw_amt = (r.get(amt_key) if amt_key else "")
-                raw_type = (r.get(type_key) if type_key else "")
-                raw_bal = (r.get(bal_key) if bal_key else "")
-
-                # Skip empty lines
-                if not raw_date and not raw_desc and not raw_amt and not raw_type:
-                    continue
-
-                # Normalize date (support YYYYMMDD too)
-                dt = _normalize_date(str(raw_date).strip())
-                # Require strict YYYY-MM-DD to avoid counting stray lines
-                if not dt or not _re.match(r"^\d{4}-\d{2}-\d{2}$", dt):
-                    # If date cannot be normalized, skip
-                    continue
-
-                # Parse amount (required)
-                if raw_amt in (None, ""):
-                    # Require an amount field to avoid counting stray lines
-                    continue
-                try:
-                    amt_val = float(str(raw_amt).replace(",", "").replace("$", "").strip())
-                except Exception:
-                    # If amount cannot be parsed, skip this row
-                    logger.warning(f"Could not parse amount: {raw_amt}")
-                    continue
-
-                # If amount is zero but type suggests direction, keep but still validate description
-                desc_text = str(raw_desc).strip()
-                if not desc_text:
-                    # Require a description to reduce false positives
-                    logger.warning(f"No description found for amount: {raw_amt}")
-                    continue
-
-                # Balance (optional)
-                bal_val = None
-                if raw_bal not in (None, ""):
-                    try:
-                        bal_val = float(str(raw_bal).replace(",", "").replace("$", "").strip())
-                    except Exception:
-                        logger.warning(f"Could not parse balance: {raw_bal}")
-                        bal_val = None
-
-                # Transaction type
-                tx_type = str(raw_type or "").strip().lower()
-                if tx_type not in ("debit", "credit"):
-                    tx_type = "debit" if amt_val < 0 else "credit"
-
-                rows.append({
-                    "date": dt,
-                    "description": desc_text,
-                    "amount": amt_val,
-                    "transaction_type": tx_type,
-                    "balance": bal_val,
-                })
-            except Exception:
-                continue
-
-        # Deduplicate and sort
-        if rows:
-            rows = _clean_and_deduplicate_transactions(rows)
-        return rows
-    except Exception as e:
-        logger.error(f"CSV basic parse failed: {e}")
-        return []
-
-def _clean_and_deduplicate_transactions(transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Legacy function - use BankTransactionExtractor.validate_and_clean_data instead"""
-    if not transactions:
-        return []
-
-    # Remove duplicates
-    seen = set()
-    unique_transactions = []
-
-    for txn in transactions:
-        # Create a key for deduplication
-        key = (txn.get("date", ""), txn.get("description", ""), round(float(txn.get("amount", 0)), 2))
-
-        if key not in seen:
-            seen.add(key)
-            unique_transactions.append(txn)
-
-    # Sort by date
-    try:
-        unique_transactions.sort(key=lambda x: x.get("date", ""))
-    except:
-        pass
-
-    return unique_transactions
-
-
-def process_bank_pdf_with_llm(pdf_path: str, ai_config: Optional[Dict[str, Any]] = None, db: Optional[Any] = None, card_type: str = "auto") -> List[Dict[str, Any]]:
-    """Enhanced LLM-based extraction using BankTransactionExtractor from test-main.py
-
-    Raises BankLLMUnavailableError if LLM is unavailable and fallback extraction yields no transactions,
-    so callers can implement retries/backoff.
-    """
-    logger.info(f"Processing bank PDF: {pdf_path}")
-
-    try:
-        # Configure model based on ai_config or environment
-        model_name = "gpt-oss:latest"
-        base_url = "http://localhost:11434"
-
-        if ai_config:
-            provider_name = ai_config.get("provider_name", "ollama")
-            model_name = ai_config.get("model_name", "gpt-oss:latest")
-            logger.info(f"🔧 Using AI config from database: {provider_name} model={model_name}")
-
-            # Use the new UniversalBankTransactionExtractor for all providers
-            try:
-                extractor = UniversalBankTransactionExtractor(
-                    ai_config=ai_config,
-                    db_session=db,
-                    temperature=0.1,
-                    chunk_size=6000,
-                    chunk_overlap=150,
-                    request_timeout=120,
-                    card_type=card_type
-                )
-            except Exception as e:
-                logger.warning(f"Failed to initialize UniversalBankTransactionExtractor: {e}")
-                logger.info("Falling back to regex extraction")
-                # Fallback to regex extraction
-                try:
-                    from pathlib import Path as _P
-                    try:
-                        safe_path = validate_file_path(pdf_path)
-                    except ValueError as e:
-                        logger.error(str(e))
-                        return []
-                    ext = _P(safe_path).suffix.lower()
-                    if ext == ".csv":
-                        return _parse_csv_file_basic(safe_path)
-                    else:
-                        raise BankLLMUnavailableError(f"LLM extraction failed for non-CSV file: {pdf_path}")
-                except Exception as fallback_e:
-                    logger.error(f"Fallback extraction failed: {fallback_e}")
-                    raise BankLLMUnavailableError(f"LLM extraction failed and no transactions found: {fallback_e}")
-        else:
-            # Fallback to environment variables - create ai_config from env vars
-            model_name = os.getenv("LLM_MODEL_BANK_STATEMENTS") or os.getenv("LLM_MODEL_EXPENSES") or os.getenv("OLLAMA_MODEL", "gpt-oss:latest")
-            base_url = os.getenv("LLM_API_BASE", "http://localhost:11434")
-            logger.info(f"⚠️ Using environment variables: model={model_name} base_url={base_url}")
-
-            # Create ai_config from environment variables
-            ai_config = {
-                "provider_name": "ollama",
-                "model_name": model_name,
-                "provider_url": base_url,
-                "api_key": None
-            }
-
-            try:
-                extractor = UniversalBankTransactionExtractor(
-                    ai_config=ai_config,
-                    db_session=db,
-                    temperature=0.1,
-                    chunk_size=6000,
-                    chunk_overlap=150,
-                    request_timeout=120,
-                    card_type=card_type
-                )
-            except Exception as e:
-                logger.warning(f"Failed to initialize UniversalBankTransactionExtractor: {e}")
-                # Fallback to simple PDF loading or CSV parsing
-                try:
-                    from pathlib import Path as _P
-                    try:
-                        safe_path = validate_file_path(pdf_path)
-                    except ValueError as e:
-                        logger.error(str(e))
-                        raise BankLLMUnavailableError(f"Invalid file path: {e}")
-                    ext = _P(safe_path).suffix.lower()
-                    if ext == ".csv":
-                        # Robust CSV fallback parser that skips preamble lines
-                        return _parse_csv_file_basic(safe_path)
-                    else:
-                        # For PDF files, we no longer fall back to regex.
-                        # Signal to caller to retry later or mark as failed.
-                        logger.warning(f"LLM initialization failed for {pdf_path}; regex fallback disabled.")
-                        raise BankLLMUnavailableError(f"LLM initialization failed for non-CSV file: {e}")
-                except BankLLMUnavailableError:
-                    raise
-                except Exception as fallback_e:
-                    logger.error(f"Fallback check failed: {fallback_e}")
-                    raise BankLLMUnavailableError(f"LLM initialization failed and fallback check failed: {fallback_e}")
-
-        # Dispatch based on file extension (supports PDF and CSV)
-        from pathlib import Path as _P
-        # Validate pdf_path to prevent path traversal
-        try:
-            safe_path = validate_file_path(pdf_path)
-        except ValueError as e:
-            logger.error(str(e))
-            return []
-        _ext = _P(safe_path).suffix.lower()
-        if _ext == ".csv":
-            df = extractor.process_csv(safe_path, categorize=True, save_debug=False)
-        else:
-            df = extractor.process_pdf(
-                safe_path,
-                loader_names=['pymupdf', 'pdfplumber', 'pdfium2', 'pypdf'],
-                categorize=True,
-                save_debug=False
-            )
-
-        # Convert pandas DataFrame back to list of dicts for compatibility
-        if not df.empty:
-            transactions = df.to_dict('records')
-            # Convert datetime objects to strings for JSON serialization
-            for txn in transactions:
-                if 'date' in txn and hasattr(txn['date'], 'strftime'):
-                    txn['date'] = txn['date'].strftime('%Y-%m-%d')
-
-            # Track AI usage if ai_config was used and we have a db session
-            if ai_config and db:
-                # Get extraction method information from extractor if available
-                extraction_method = getattr(extractor, 'last_extraction_method', 'unknown')
-                processing_time = getattr(extractor, 'last_processing_time', 0.0)
-                text_length = getattr(extractor, 'last_text_length', 0)
-
-                # Use enhanced OCR tracking with extraction method metadata
-                if extraction_method == 'ocr':
-                    track_ocr_usage(
-                        db=db,
-                        ai_config=ai_config,
-                        extraction_method=extraction_method,
-                        processing_time=processing_time,
-                        text_length=text_length
-                    )
-                else:
-                    # Track regular AI usage for PDF extraction
-                    track_ai_usage(
-                        db=db,
-                        ai_config=ai_config,
-                        operation_type="pdf_extraction",
-                        metadata={
-                            "extraction_method": extraction_method,
-                            "processing_time": processing_time,
-                            "text_length": text_length,
-                            "transaction_count": len(transactions)
-                        }
-                    )
-
-            return transactions
-        else:
-            return []
-
-    except Exception as e:
-        # Handle OCR-specific exceptions with proper error messages
-        try:
-            if isinstance(e, BankLLMUnavailableError):
-                raise
-
-            from commercial.ai.exceptions.bank_ocr_exceptions import (
-                OCRUnavailableError,
-                OCRTimeoutError, 
-                OCRProcessingError,
-                OCRInvalidFileError,
-                is_retryable_ocr_error,
-                get_retry_delay
-            )
-
-            if isinstance(e, OCRUnavailableError):
-                logger.warning(f"OCR unavailable for {pdf_path}: {e}")
-                # Continue to fallback extraction
-            elif isinstance(e, OCRTimeoutError):
-                logger.error(f"OCR timeout for {pdf_path}: {e}")
-                # For timeout errors, we might want to raise BankLLMUnavailableError to signal retry
-                if is_retryable_ocr_error(e):
-                    retry_delay = get_retry_delay(e)
-                    logger.info(f"OCR timeout is retryable, suggested retry delay: {retry_delay}s")
-                    raise BankLLMUnavailableError(f"OCR processing timed out, retry recommended: {e}")
-            elif isinstance(e, OCRProcessingError):
-                logger.error(f"OCR processing failed for {pdf_path}: {e}")
-                if is_retryable_ocr_error(e):
-                    retry_delay = get_retry_delay(e)
-                    logger.info(f"OCR error is retryable, suggested retry delay: {retry_delay}s")
-                    raise BankLLMUnavailableError(f"OCR processing failed temporarily, retry recommended: {e}")
-            elif isinstance(e, OCRInvalidFileError):
-                logger.error(f"Invalid file for OCR processing {pdf_path}: {e}")
-                return []  # Don't retry for invalid files
-            else:
-                logger.error(f"Processing failed: {e}")
-
-        except ImportError:
-            logger.error(f"Processing failed: {e}")
-
-        # Final fallback check
-        try:
-            from pathlib import Path as _P
-            # Validate pdf_path to prevent path traversal
-            try:
-                safe_path = validate_file_path(pdf_path)
-            except ValueError as e:
-                logger.error(str(e))
-                return []
-            _ext = _P(safe_path).suffix.lower()
-            if _ext == ".csv":
-                # Robust CSV fallback
-                return _parse_csv_file_basic(safe_path)
-            else:
-                # For PDF files, strictly require LLM or fail.
-                # Signal to caller that PDF extraction failed.
-                logger.warning(f"PDF extraction failed for {pdf_path}; LLM and OCR both failed/unavailable.")
-                raise BankLLMUnavailableError("PDF extraction failed (LLM and OCR failed/unavailable). Silent regex fallback disabled.")
-        except BankLLMUnavailableError:
-            raise
-        except Exception as final_e:
-            logger.error(f"Final fallback check failed: {final_e}")
-            return []
-
-
-def extract_transactions_from_pdf_paths(pdf_paths: List[str]) -> List[Dict[str, Any]]:
-    """Extract transactions from PDF paths using BankTransactionExtractor"""
-    all_transactions = []
-
-    # Try to use the new BankTransactionExtractor first
-    try:
-        model_name = os.getenv("OLLAMA_MODEL", "gpt-oss:latest")
-        base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-
-        extractor = BankTransactionExtractor(
-            model_name=model_name,
-            ollama_base_url=base_url,
-            temperature=0.1,
-            chunk_size=6000,
-            chunk_overlap=150,
-            request_timeout=120
-        )
-
-        for pdf_path in pdf_paths:
-            try:
-                logger.info(f"Processing {pdf_path} with BankTransactionExtractor")
-                df = extractor.process_pdf(pdf_path, categorize=False, save_debug=False)
-
-                if not df.empty:
-                    transactions = df.to_dict('records')
-                    # Convert datetime objects to strings
-                    for txn in transactions:
-                        if 'date' in txn and hasattr(txn['date'], 'strftime'):
-                            txn['date'] = txn['date'].strftime('%Y-%m-%d')
-                    all_transactions.extend(transactions)
-
-            except Exception as e:
-                logger.error(f"Failed to process {pdf_path} with BankTransactionExtractor: {e}")
-                # Fallback to regex extraction for this file
-                try:
-                    try:
-                        from pypdf import PdfReader
-                    except ImportError:
-                        logger.error(f"pypdf not available for {pdf_path}")
-                        continue
-
-                    texts = []
-                    with open(pdf_path, "rb") as f:
-                        reader = PdfReader(f)
-                        for page in reader.pages:
-                            texts.append(page.extract_text() or "")
-                    raw_text = "\n\n".join(texts)
-                    text = _preprocess_bank_text(raw_text)
-                    # Removed automatic regex fallback for PDFs.
-                    logger.warning(f"Failed to process {pdf_path} with LLM; regex fallback disabled.")
-                    continue
-                except Exception as regex_e:
-                    logger.error(f"Regex fallback also failed for {pdf_path}: {regex_e}")
-                    continue
-
-    except Exception as e:
-        logger.error(f"Failed to initialize BankTransactionExtractor: {e}")
-        # Fallback to simple regex extraction for all files
-        for pdf_path in pdf_paths:
-            try:
-                try:
-                    from pypdf import PdfReader
-                except ImportError:
-                    logger.error(f"pypdf not available for {pdf_path}")
-                    continue
-
-                # Validate pdf_path to prevent path traversal
-                try:
-                    safe_path = validate_file_path(pdf_path)
-                except ValueError as e:
-                    logger.error(str(e))
-                    continue
-
-                texts = []
-                with open(safe_path, "rb") as f:
-                    reader = PdfReader(f)
-                    for page in reader.pages:
-                        texts.append(page.extract_text() or "")
-                raw_text = "\n\n".join(texts)
-                text = _preprocess_bank_text(raw_text)
-                # Removed automatic regex fallback for PDFs.
-                logger.warning(f"Failed to process {pdf_path}; regex fallback disabled.")
-                continue
-            except Exception as file_e:
-                logger.error(f"Failed to process {pdf_path}: {file_e}")
-                continue
-
-    return _clean_and_deduplicate_transactions(all_transactions)
-
-
-class BankStatementExtractor:
-    """Legacy extractor wrapper - uses new BankTransactionExtractor internally"""
-
-    def __init__(self, model_name: Optional[str] = None, base_url: Optional[str] = None) -> None:
-        self.model_name = model_name or os.getenv("OLLAMA_MODEL", "gpt-oss:latest")
-        self.base_url = base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        self._ollama_available = self._check_ollama()
-
-        # Initialize the new extractor if possible
-        try:
-            self._extractor = BankTransactionExtractor(
-                model_name=self.model_name,
-                ollama_base_url=self.base_url,
-                temperature=0.1,
-                chunk_size=6000,
-                chunk_overlap=150,
-                request_timeout=120
-            )
-        except Exception as e:
-            logger.warning(f"Could not initialize BankTransactionExtractor: {e}")
-            self._extractor = None
-
-    def _check_ollama(self) -> bool:
-        try:
-            resp = requests.get(f"{self.base_url}/api/tags", timeout=3)
-            if resp.status_code != 200:
-                return False
-            models = [m.get("name") for m in (resp.json().get("models") or [])]
-            return self.model_name in models
-        except Exception:
-            return False
-
-    def extract_from_pdf(self, pdf_path: str) -> List[Dict[str, Any]]:
-        return process_bank_pdf_with_llm(pdf_path)
-
-    def extract_from_files(self, files: List[str]) -> List[Dict[str, Any]]:
-        return extract_transactions_from_pdf_paths(files)
-
-
-def is_bank_llm_reachable(ai_config: Optional[Dict[str, Any]] = None) -> bool:
-    """Lightweight reachability check for the bank LLM endpoint/model.
-
-    Returns True if the configured provider is reachable. Supports all LiteLLM-compatible providers.
-    """
-    try:
-        if not ai_config:
-            # Fallback to environment variables (assume Ollama)
-            ai_config = {
-                "provider_name": "ollama",
-                "model_name": os.getenv("OLLAMA_MODEL", "gpt-oss:latest"),
-                "provider_url": os.getenv("LLM_API_BASE", "http://localhost:11434"),
-                "api_key": None
-            }
-
-        provider_name = ai_config.get("provider_name", "ollama")
-        logger.info(f"🔍 Testing reachability for provider: {provider_name}")
-
-        # For Ollama, test the /api/tags endpoint
-        if provider_name == "ollama":
-            model_name = ai_config.get("model_name", "gpt-oss:latest")
-            provider_url = ai_config.get("provider_url", "http://localhost:11434")
-
-            if provider_url:
-                # Clean up the URL and extract base URL
-                url = provider_url.strip().rstrip('/')
-                m = re.match(r"^(https?://[^/]+)(/api.*)?$", url)
-                base_url = m.group(1) if m else url
-            else:
-                base_url = "http://localhost:11434"
-
-            resp = requests.get(f"{base_url}/api/tags", timeout=3)
-            if resp.status_code != 200:
-                return False
-            data = resp.json() or {}
-            models = [m.get("name") for m in (data.get("models") or [])]
-            return model_name in models
-
-        else:
-            # For other providers, use LiteLLM to test connection
-            try:
-                from litellm import completion
-                from core.models.database import get_db
-
-                # Create a temporary extractor to test connection
-                # Use a temporary database session for the connection test
-                temp_db = next(get_db())
-                try:
-                    temp_extractor = UniversalBankTransactionExtractor(
-                        ai_config=ai_config,
-                        db_session=temp_db,
-                        temperature=0.1
-                    )
-                    # If initialization succeeds, the connection test passed
-                    return True
-                finally:
-                    temp_db.close()
-
-            except Exception as e:
-                logger.warning(f"LiteLLM connection test failed for {provider_name}: {e}")
-                return False
-
-    except Exception as e:
-        logger.warning(f"Reachability check failed: {e}")
-        return False
-
-# Alias for compatibility with ReviewProcessorWorker
-StatementService = UniversalBankTransactionExtractor
