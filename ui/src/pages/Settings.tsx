@@ -4,7 +4,7 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
   Building2, FileText, Percent, Cpu, Bell, Activity, Search,
-  Database, User, Lock, Mail, Shield, ExternalLink, ShieldCheck, Terminal, Trophy, Puzzle, Settings2, Palette
+  Database, User, Lock, Mail, Shield, ExternalLink, ShieldCheck, Terminal, Trophy, Puzzle, Settings2, Palette, CreditCard
 } from "lucide-react";
 import { getCurrentUser } from "@/utils/auth";
 import {
@@ -12,7 +12,7 @@ import {
   NotificationsTab, DataManagementTab, CurrenciesTab, SearchSettingsTab,
   CookieSettingsTab, ExportDestinationsTab, EmailIntegrationSettingsTab,
   APIClientManagementTab, LicenseManagementTab, GamificationTab, PluginsTab,
-  AppearanceTab
+  AppearanceTab, PaymentSettingsTab
 } from "@/components/settings";
 import PromptManagement from "./PromptManagement";
 
@@ -125,6 +125,7 @@ const Settings = () => {
                   </p>
                   <NavItem value="notifications" icon={Bell} label={t('settings.tabs.email_notifications', 'Notifications')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="currencies" icon={Activity} label={t('settings.tabs.currencies', 'Currencies')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="payments" icon={CreditCard} label={t('settings.tabs.payments', 'Payments')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="api-integrations" icon={Mail} label={t('settings.tabs.email', 'Email')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="api-clients" icon={ShieldCheck} label={t('settings.tabs.api_keys', 'API Keys')} activeTab={activeTab} onClick={setActiveTab} />
 
@@ -187,6 +188,10 @@ const Settings = () => {
 
                 <TabsContent value="currencies" className="m-0 focus-visible:outline-none">
                   <CurrenciesTab isAdmin={isAdmin} />
+                </TabsContent>
+
+                <TabsContent value="payments" className="m-0 focus-visible:outline-none">
+                  <PaymentSettingsTab />
                 </TabsContent>
 
                 <TabsContent value="search" className="m-0 focus-visible:outline-none">

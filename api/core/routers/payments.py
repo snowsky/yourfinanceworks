@@ -138,16 +138,21 @@ router = APIRouter(prefix="/payments", tags=["payments"])
 async def read_payments(
     skip: int = 0,
     limit: int = 100,
+    payment_method: str | None = None,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
     # Manually set tenant context and get tenant database
     try:
+        payments_query = db.query(Payment)
+        if payment_method:
+            payments_query = payments_query.filter(Payment.payment_method == payment_method)
+
         # Get total count for pagination
-        total_count = db.query(Payment).count()
+        total_count = payments_query.count()
 
         # Get payments with invoice and client information using ORM
-        payments = db.query(
+        payments_with_context_query = db.query(
             Payment,
             Invoice.number.label('invoice_number'),
             Client.name.label('client_name')
@@ -155,6 +160,16 @@ async def read_payments(
             Invoice, Payment.invoice_id == Invoice.id
         ).join(
             Client, Invoice.client_id == Client.id
+        )
+
+        if payment_method:
+            payments_with_context_query = payments_with_context_query.filter(
+                Payment.payment_method == payment_method
+            )
+
+        payments = payments_with_context_query.order_by(
+            Payment.payment_date.desc(),
+            Payment.id.desc()
         ).offset(skip).limit(limit).all()
 
         # Convert to response format

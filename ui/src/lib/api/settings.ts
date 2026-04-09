@@ -29,6 +29,19 @@ export interface Settings {
   join_lookup_exact_match?: boolean;
 }
 
+export interface StripePaymentSettings {
+  enabled: boolean;
+  accountLabel?: string;
+  publishableKey: string;
+  secretKey: string;
+  webhookSecret?: string;
+}
+
+export interface PaymentSettings {
+  provider: 'stripe';
+  stripe: StripePaymentSettings;
+}
+
 // AI Configuration types
 export interface AIConfig {
   id: number;
