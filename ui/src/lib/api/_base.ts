@@ -85,7 +85,10 @@ export async function apiRequest<T>(
       // Handle authentication errors
       if (!config.isLogin && response.status === 401) {
         // Don't log out for super-admin or plugin endpoints - they might fail for other reasons
-        if (!requestUrl.includes('/super-admin/') && !requestUrl.includes('/plugins/')) {
+        // ALSO: Never redirect if we are currently on a public plugin portal page (/p/*)
+        const isPublicPortal = window.location.pathname.startsWith('/p/');
+        
+        if (!requestUrl.includes('/super-admin/') && !requestUrl.includes('/plugins/') && !isPublicPortal) {
           // Session expired — clear local user data and redirect to login
           localStorage.removeItem('user');
           localStorage.removeItem('selected_tenant_id');
@@ -96,7 +99,7 @@ export async function apiRequest<T>(
           }
           throw new Error('Authentication failed. Please log in again.');
         } else {
-          // For super-admin endpoints, just throw the error without logging out
+          // For super-admin, plugin endpoints, or public portal: just throw the error without redirecting
           throw new Error(errorData.detail || 'Authentication failed');
         }
       }
@@ -104,7 +107,10 @@ export async function apiRequest<T>(
       // Handle 403 (forbidden) errors - could be permission or tenant context issues
       if (response.status === 403) {
         // Check if it's a tenant context error (but not for super-admin or plugin endpoints)
-        if (!requestUrl.includes('/super-admin/') && !requestUrl.includes('/plugins/') && errorData.detail && errorData.detail.includes('Tenant context required')) {
+        // ALSO: Never redirect if we are currently on a public plugin portal page (/p/*)
+        const isPublicPortal = window.location.pathname.startsWith('/p/');
+
+        if (!requestUrl.includes('/super-admin/') && !requestUrl.includes('/plugins/') && !isPublicPortal && errorData.detail && errorData.detail.includes('Tenant context required')) {
           // This is a session/tenant context issue - log out the user
           localStorage.removeItem('user');
           localStorage.removeItem('selected_tenant_id');
@@ -120,14 +126,17 @@ export async function apiRequest<T>(
       // Handle 400 errors that might be tenant context issues
       if (response.status === 400 && errorData.detail && typeof errorData.detail === 'string' && errorData.detail.includes('Tenant context required')) {
         // This is a session/tenant context issue - log out the user (but not for super-admin or plugin endpoints)
-        if (!requestUrl.includes('/super-admin/') && !requestUrl.includes('/plugins/')) {
+        // ALSO: Never redirect if we are currently on a public plugin portal page (/p/*)
+        const isPublicPortal = window.location.pathname.startsWith('/p/');
+
+        if (!requestUrl.includes('/super-admin/') && !requestUrl.includes('/plugins/') && !isPublicPortal) {
           localStorage.removeItem('user');
           localStorage.removeItem('selected_tenant_id');
           toast.error('Session expired. Please log in again.');
           window.location.replace('/login');
           throw new Error('Session expired. Please log in again.');
         } else {
-          // For super-admin or plugin endpoints, just throw the error
+          // For super-admin, plugin endpoints, or public portal: just throw the error
           throw new Error(errorData.detail || 'Request failed');
         }
       }
