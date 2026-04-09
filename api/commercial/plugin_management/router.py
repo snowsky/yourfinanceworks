@@ -3,6 +3,7 @@ Plugin management router for handling plugin settings and configuration.
 Commercial feature - requires plugin_management license.
 """
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from typing import Optional
