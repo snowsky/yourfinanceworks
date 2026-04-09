@@ -58,12 +58,12 @@ export const pluginApi = {
   },
 
   getPublicAccessConfig: (pluginId: string) =>
-    apiRequest<{ plugin_id: string; enabled: boolean; require_login: boolean; public_page: any }>(
+    apiRequest<{ plugin_id: string; enabled: boolean; require_login: boolean; stripe_price_id?: string | null; public_page: any }>(
       `/plugins/${pluginId}/public-access`,
     ),
 
-  updatePublicAccessConfig: (pluginId: string, config: { enabled: boolean; require_login: boolean }) =>
-    apiRequest<{ plugin_id: string; enabled: boolean; require_login: boolean; message: string }>(
+  updatePublicAccessConfig: (pluginId: string, config: { enabled: boolean; require_login: boolean; stripe_price_id?: string | null }) =>
+    apiRequest<{ plugin_id: string; enabled: boolean; require_login: boolean; stripe_price_id?: string | null; message: string }>(
       `/plugins/${pluginId}/public-access`,
       { method: 'PUT', body: JSON.stringify(config) },
     ),

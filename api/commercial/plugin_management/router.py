@@ -25,6 +25,12 @@ from commercial.plugin_management.services.git_installer import (
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
 
+from commercial.plugin_management.auth import router as auth_router
+from commercial.plugin_management.payment import router as payment_router
+
+router.include_router(auth_router)
+router.include_router(payment_router)
+
 
 def _valid_plugins() -> set[str]:
     """Return the set of valid plugin IDs discovered on disk."""
@@ -583,7 +589,7 @@ async def update_plugin_config(
 # ---------------------------------------------------------------------------
 
 _PUBLIC_ACCESS_KEY = "public_access"
-_PUBLIC_ACCESS_DEFAULTS = {"enabled": False, "require_login": True}
+_PUBLIC_ACCESS_DEFAULTS = {"enabled": False, "require_login": True, "stripe_price_id": None}
 
 
 def _get_public_access_config(plugin_config: dict | None, plugin_id: str) -> dict:
@@ -593,6 +599,7 @@ def _get_public_access_config(plugin_config: dict | None, plugin_id: str) -> dic
     return {
         "enabled": bool(pa.get("enabled", False)),
         "require_login": bool(pa.get("require_login", True)),
+        "stripe_price_id": pa.get("stripe_price_id", None),
     }
 
 
@@ -623,6 +630,7 @@ async def get_plugin_public_access(
         "plugin_id": plugin_id,
         "enabled": pa["enabled"],
         "require_login": pa["require_login"],
+        "stripe_price_id": pa.get("stripe_price_id"),
         "public_page": manifest.get("public_page"),
     }
 
@@ -646,6 +654,7 @@ async def update_plugin_public_access(
 
     enabled = bool(payload.get("enabled", False))
     require_login = bool(payload.get("require_login", True))
+    stripe_price_id = payload.get("stripe_price_id", None)
 
     settings = db.query(TenantPluginSettings).filter(
         TenantPluginSettings.tenant_id == current_user.tenant_id
@@ -655,13 +664,13 @@ async def update_plugin_public_access(
         settings = TenantPluginSettings(
             tenant_id=current_user.tenant_id,
             enabled_plugins=[],
-            plugin_config={plugin_id: {_PUBLIC_ACCESS_KEY: {"enabled": enabled, "require_login": require_login}}},
+            plugin_config={plugin_id: {_PUBLIC_ACCESS_KEY: {"enabled": enabled, "require_login": require_login, "stripe_price_id": stripe_price_id}}},
         )
         db.add(settings)
     else:
         cfg = settings.plugin_config or {}
         plugin_cfg = cfg.get(plugin_id, {})
-        plugin_cfg[_PUBLIC_ACCESS_KEY] = {"enabled": enabled, "require_login": require_login}
+        plugin_cfg[_PUBLIC_ACCESS_KEY] = {"enabled": enabled, "require_login": require_login, "stripe_price_id": stripe_price_id}
         cfg[plugin_id] = plugin_cfg
         settings.plugin_config = cfg
         flag_modified(settings, "plugin_config")
@@ -672,6 +681,7 @@ async def update_plugin_public_access(
         "plugin_id": plugin_id,
         "enabled": enabled,
         "require_login": require_login,
+        "stripe_price_id": stripe_price_id,
         "message": f"Public access for plugin '{plugin_id}' updated",
     }
 
@@ -724,6 +734,7 @@ async def get_plugin_public_config(
         "plugin_id": plugin_id,
         "enabled": pa["enabled"],
         "require_login": pa["require_login"],
+        "stripe_price_id": pa.get("stripe_price_id"),
         "public_page": manifest.get("public_page"),
     }
 

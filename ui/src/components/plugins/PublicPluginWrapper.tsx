@@ -32,6 +32,7 @@ import { pluginApi } from '@/lib/api/plugins';
 interface PublicAccessConfig {
   enabled: boolean;
   require_login: boolean;
+  stripe_price_id?: string | null;
   public_page: { path: string; label: string; ui_entry?: string } | null;
 }
 
@@ -43,29 +44,87 @@ interface Props {
   iframeUrl?: string;
 }
 
+import { PluginAuth } from '@/pages/PluginAuth';
+import { PluginPaywall } from '@/pages/PluginPaywall';
+import { apiRequest } from '@/lib/api/_base';
+
 export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const [config, setConfig] = useState<PublicAccessConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [needsAuth, setNeedsAuth] = useState(false);
+  const [needsPayment, setNeedsPayment] = useState(false);
+  
+  const searchParams = new URLSearchParams(location.search);
+  const explicitTenantId = searchParams.get('t') || undefined;
 
   useEffect(() => {
-    // Extract the explicit tenant ID from the URL (used for sharing single-domain installations across multiple orgs)
-    const searchParams = new URLSearchParams(location.search);
-    const explicitTenantId = searchParams.get('t') || undefined;
-
     pluginApi
       .getPluginPublicConfig(pluginId, explicitTenantId)
       .then((data) => {
         setConfig(data);
-        setLoading(false);
+        checkAccess(data);
       })
       .catch(() => {
         setError('Could not load page configuration.');
         setLoading(false);
       });
-  }, [pluginId]);
+  }, [pluginId, explicitTenantId]);
+
+  const checkAccess = async (cfg: PublicAccessConfig) => {
+    if (!cfg.enabled) {
+      setLoading(false);
+      return;
+    }
+
+    if (cfg.require_login) {
+      const tokenStr = localStorage.getItem(`plugin_token_${pluginId}`);
+      if (!tokenStr) {
+        setNeedsAuth(true);
+        setLoading(false);
+        return;
+      }
+      
+      const tokenData = JSON.parse(tokenStr);
+
+      if (cfg.stripe_price_id) {
+        try {
+          const res = await apiRequest<{is_paid: boolean}>(`/plugins/${pluginId}/public-paywall/status`, {
+            method: 'POST',
+            body: JSON.stringify({
+               tenant_id: parseInt(explicitTenantId || String(tokenData.tenant_id), 10),
+               plugin_user_id: tokenData.user.id
+            })
+          });
+          if (!res.is_paid) {
+            setNeedsPayment(true);
+          }
+        } catch (err) {
+          console.error("Paywall check failed", err);
+          setNeedsPayment(true);
+        }
+      }
+    }
+    setLoading(false);
+  };
+
+  const handleAuthenticated = () => {
+     setNeedsAuth(false);
+     setLoading(true);
+     if (config) {
+       checkAccess(config);
+     }
+  };
+
+  const handlePaymentSuccess = () => {
+     setNeedsPayment(false);
+     setLoading(true);
+     if (config) {
+       checkAccess(config);
+     }
+  };
 
   if (loading) {
     return (
@@ -83,15 +142,12 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
     return <UnavailableMessage message="This page is not publicly available." />;
   }
 
-  if (config.require_login) {
-    const user = localStorage.getItem('user');
-    if (!user) {
-      // Redirect to login with a return URL
-      navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`, {
-        replace: true,
-      });
-      return null;
-    }
+  if (needsAuth) {
+    return <PluginAuth pluginId={pluginId} tenantId={explicitTenantId} onAuthenticated={handleAuthenticated} />;
+  }
+
+  if (needsPayment) {
+    return <PluginPaywall pluginId={pluginId} tenantId={explicitTenantId} onPaymentSuccess={handlePaymentSuccess} />;
   }
 
   // Sidecar: render via iframe (explicit prop takes priority; fall back to manifest ui_entry)
@@ -100,7 +156,7 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
     return (
       <iframe
         src={resolvedIframeUrl}
-        style={{ width: '100%', height: 'calc(100vh - 4rem)', border: 'none' }}
+        style={{ width: '100%', height: '100vh', border: 'none' }}
         title={pluginId}
       />
     );

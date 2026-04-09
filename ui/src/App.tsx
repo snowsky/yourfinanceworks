@@ -118,6 +118,27 @@ const queryClient = new QueryClient({
 // from the no-auth config API (public_page.ui_entry in plugin.json).
 const PublicPluginCatchAll = () => {
   const { pluginId } = useParams<{ pluginId: string }>();
+  
+  if (window.location.pathname.endsWith('/auth-callback')) {
+    const searchParams = new URLSearchParams(window.location.search);
+    const tokenData = searchParams.get('token_data');
+    const nextUrl = searchParams.get('next') || `/p/${pluginId}`;
+    
+    if (tokenData && pluginId) {
+      try {
+        const decoded = JSON.parse(atob(tokenData));
+        localStorage.setItem(`plugin_token_${pluginId}`, JSON.stringify(decoded));
+        window.location.href = nextUrl;
+      } catch (err) {
+        console.error("Failed to parse SSO token", err);
+        window.location.href = `/p/${pluginId}`;
+      }
+    } else {
+      window.location.href = `/p/${pluginId}`;
+    }
+    return null;
+  }
+
   if (!pluginId) return null;
   return <PublicPluginWrapper pluginId={pluginId} />;
 };

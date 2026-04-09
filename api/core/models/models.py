@@ -592,3 +592,37 @@ class TenantPluginSettings(Base):
 
     def __repr__(self):
         return f"<TenantPluginSettings(tenant_id={self.tenant_id}, enabled_plugins={self.enabled_plugins})>"
+
+class PluginUser(Base):
+    """
+    User model for public-facing plugin interactions.
+    Separated from MasterUser to prevent dashboard access crossing over.
+    """
+    __tablename__ = "plugin_users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    plugin_id = Column(String, nullable=False, index=True)
+    
+    email = Column(String, index=True, nullable=False)
+    hashed_password = Column(String, nullable=True)  # Null for SSO
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
+    
+    # SSO Information
+    google_id = Column(String, nullable=True)
+    azure_ad_id = Column(String, nullable=True)
+    
+    # Payment Information
+    stripe_customer_id = Column(String, nullable=True)
+    
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    tenant = relationship("Tenant")
+
+    def __repr__(self):
+        return f"<PluginUser(id={self.id}, email='{self.email}', plugin_id='{self.plugin_id}', tenant_id={self.tenant_id})>"

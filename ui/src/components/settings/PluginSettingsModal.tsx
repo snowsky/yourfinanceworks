@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Settings, Globe, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
@@ -18,6 +19,7 @@ import { getTenantId } from '@/lib/api/_base';
 interface PublicAccessState {
   enabled: boolean;
   require_login: boolean;
+  stripe_price_id: string | null;
   publicPagePath: string | null;
 }
 
@@ -74,6 +76,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
         setPublicAccess({
           enabled: response.enabled,
           require_login: response.require_login,
+          stripe_price_id: response.stripe_price_id || null,
           publicPagePath: response.public_page?.path ?? null,
         });
       } else {
@@ -106,6 +109,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
           ? pluginApi.updatePublicAccessConfig(pluginId, {
               enabled: publicAccess.enabled,
               require_login: publicAccess.require_login,
+              stripe_price_id: publicAccess.stripe_price_id,
             })
           : Promise.resolve(),
       ]);
@@ -228,6 +232,29 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                       onCheckedChange={(checked) =>
                         setPublicAccess({ ...publicAccess, require_login: checked })
                       }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="stripe-price-id">
+                        {t('plugins.public_access.stripe_price_id', 'Stripe Price ID')}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {t(
+                          'plugins.public_access.stripe_price_id_desc',
+                          'Optional paywall. Leave empty for free access.',
+                        )}
+                      </p>
+                    </div>
+                    <Input
+                      id="stripe-price-id"
+                      className="w-[200px]"
+                      value={publicAccess.stripe_price_id || ''}
+                      onChange={(e) =>
+                        setPublicAccess({ ...publicAccess, stripe_price_id: e.target.value })
+                      }
+                      placeholder="price_1..."
                     />
                   </div>
 
