@@ -1055,24 +1055,27 @@ async def plugin_paywall_status(
         PluginUser.plugin_id == plugin_id
     ).first()
 
-    if not plugin_user:
-        raise HTTPException(status_code=404, detail="Plugin user not found")
-
     is_paid = False
+    usage_count = 0
+    free_clicks = 0
 
-    # Get Stripe credentials for the tenant
-    stripe_cfg = get_tenant_payment_settings(payload.tenant_id)
-    if stripe_cfg and stripe_cfg.get("secretKey") and plugin_user.stripe_customer_id:
-        stripe.api_key = stripe_cfg["secretKey"]
-        try:
-            subscriptions = stripe.Subscription.list(
-                customer=plugin_user.stripe_customer_id,
-                status="active"
-            )
-            if subscriptions.data:
-                is_paid = True
-        except Exception as e:
-            logger.error(f"Error checking Stripe subscription: {e}")
+    if not plugin_user:
+        logger.warning(f"Paywall status check: Plugin user not found for id={payload.plugin_user_id}, tenant={payload.tenant_id}, plugin={plugin_id}. Returning default trial state.")
+    else:
+        usage_count = plugin_user.usage_count or 0
+        # Get Stripe credentials for the tenant
+        stripe_cfg = get_tenant_payment_settings(payload.tenant_id)
+        if stripe_cfg and stripe_cfg.get("secretKey") and plugin_user.stripe_customer_id:
+            stripe.api_key = stripe_cfg["secretKey"]
+            try:
+                subscriptions = stripe.Subscription.list(
+                    customer=plugin_user.stripe_customer_id,
+                    status="active"
+                )
+                if subscriptions.data:
+                    is_paid = True
+            except Exception as e:
+                logger.error(f"Error checking Stripe subscription: {e}")
 
     # Also check free click limit
     settings_record = db.query(TenantPluginSettings).filter(TenantPluginSettings.tenant_id == payload.tenant_id).first()
