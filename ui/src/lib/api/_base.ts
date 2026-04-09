@@ -103,8 +103,8 @@ export async function apiRequest<T>(
 
       // Handle 403 (forbidden) errors - could be permission or tenant context issues
       if (response.status === 403) {
-        // Check if it's a tenant context error (but not for super-admin endpoints)
-        if (!requestUrl.includes('/super-admin/') && errorData.detail && errorData.detail.includes('Tenant context required')) {
+        // Check if it's a tenant context error (but not for super-admin or plugin endpoints)
+        if (!requestUrl.includes('/super-admin/') && !requestUrl.includes('/plugins/') && errorData.detail && errorData.detail.includes('Tenant context required')) {
           // This is a session/tenant context issue - log out the user
           localStorage.removeItem('user');
           localStorage.removeItem('selected_tenant_id');
@@ -119,15 +119,15 @@ export async function apiRequest<T>(
 
       // Handle 400 errors that might be tenant context issues
       if (response.status === 400 && errorData.detail && typeof errorData.detail === 'string' && errorData.detail.includes('Tenant context required')) {
-        // This is a session/tenant context issue - log out the user (but not for super-admin endpoints)
-        if (!requestUrl.includes('/super-admin/')) {
+        // This is a session/tenant context issue - log out the user (but not for super-admin or plugin endpoints)
+        if (!requestUrl.includes('/super-admin/') && !requestUrl.includes('/plugins/')) {
           localStorage.removeItem('user');
           localStorage.removeItem('selected_tenant_id');
           toast.error('Session expired. Please log in again.');
           window.location.replace('/login');
           throw new Error('Session expired. Please log in again.');
         } else {
-          // For super-admin endpoints, just throw the error
+          // For super-admin or plugin endpoints, just throw the error
           throw new Error(errorData.detail || 'Request failed');
         }
       }
