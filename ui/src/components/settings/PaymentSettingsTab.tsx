@@ -99,7 +99,7 @@ export const PaymentSettingsTab: React.FC = () => {
           <div className="space-y-2">
             <ProfessionalCardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-primary" />
-              {t("settings.payment_settings.title", "Payment Settings")}
+              {t("settings.payment_settings.title", "Payment")}
             </ProfessionalCardTitle>
             <ProfessionalCardDescription>
               {t(
@@ -109,10 +109,6 @@ export const PaymentSettingsTab: React.FC = () => {
             </ProfessionalCardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary" className="gap-1">
-              <Sparkles className="h-3.5 w-3.5" />
-              {t("settings.payment_settings.free_feature", "Free feature")}
-            </Badge>
             <Badge variant={isConfigured ? "default" : "outline"} className="gap-1">
               <Shield className="h-3.5 w-3.5" />
               {isConfigured

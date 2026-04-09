@@ -71,7 +71,7 @@ const Payments = () => {
   const [stripeSettings, setStripeSettings] = useState<PaymentSettings>(defaultPaymentSettings);
   const [stripeConfigured, setStripeConfigured] = useState(false);
   const [stripeSettingsLoading, setStripeSettingsLoading] = useState(isAdmin);
-  const [recentStripePayment, setRecentStripePayment] = useState<Payment | null>(null);
+  const [recentStripePayments, setRecentStripePayments] = useState<Payment[]>([]);
   const [recentStripePaymentLoading, setRecentStripePaymentLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [methodFilter, setMethodFilter] = useState("all");
@@ -154,11 +154,11 @@ const Payments = () => {
 
       try {
         const [recentStripeResponse, stripeSettingResponse] = await Promise.all([
-          paymentApi.getPayments({ limit: 1, paymentMethod: "stripe" }),
+          paymentApi.getPayments({ limit: 10, paymentMethod: "stripe" }),
           isAdmin ? settingsApi.getSetting(PAYMENT_SETTINGS_KEY) : Promise.resolve(null),
         ]);
 
-        setRecentStripePayment(recentStripeResponse.data?.[0] ?? null);
+        setRecentStripePayments(recentStripeResponse.data || []);
 
         if (stripeSettingResponse) {
           const nextSettings = normalizePaymentSettings(stripeSettingResponse.value);
@@ -194,7 +194,7 @@ const Payments = () => {
   });
 
   const totalPages = Math.ceil(totalCount / pageSize);
-  const canShowStripePaymentCard = isAdmin ? stripeConfigured && !!recentStripePayment : !!recentStripePayment;
+  const canShowStripePaymentCard = isAdmin ? stripeConfigured && recentStripePayments.length > 0 : recentStripePayments.length > 0;
 
   return (
     <div className="h-full space-y-8 fade-in">
@@ -414,11 +414,10 @@ const Payments = () => {
                   <ProfessionalCardDescription>
                     {t(
                       "payments.stripe_sidebar.description",
-                      "A quick view of your Stripe setup and latest Stripe payment."
+                      "A quick view of your Stripe setup and latest Stripe payments."
                     )}
                   </ProfessionalCardDescription>
                 </div>
-                <Badge variant="secondary">{t("payments.stripe_sidebar.free_feature", "Free feature")}</Badge>
               </div>
             </ProfessionalCardHeader>
 
@@ -428,8 +427,10 @@ const Payments = () => {
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>{t("payments.stripe_sidebar.loading", "Loading Stripe details...")}</span>
                 </div>
-              ) : (canShowStripePaymentCard && recentStripePayment) ? (
-                  <div className="space-y-4 rounded-xl border border-border/50 bg-muted/20 p-4">
+              ) : (canShowStripePaymentCard && recentStripePayments.length > 0) ? (
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                  {recentStripePayments.map(payment => (
+                  <div key={payment.id} className="space-y-4 rounded-xl border border-border/50 bg-muted/20 p-4">
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-medium text-foreground">
                         {stripeSettings.stripe.accountLabel || t("payments.payment_methods.stripe")}
@@ -446,43 +447,45 @@ const Payments = () => {
                         <span className="text-muted-foreground">{t("payments.table.amount")}</span>
                         <span className="font-semibold text-foreground">
                           <CurrencyDisplay
-                            amount={recentStripePayment.amount || 0}
-                            currency={recentStripePayment.currency || "USD"}
+                            amount={payment.amount || 0}
+                            currency={payment.currency || "USD"}
                           />
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-muted-foreground">{t("payments.table.client")}</span>
-                        <span className="font-medium text-foreground">{recentStripePayment.client_name || "N/A"}</span>
+                        <span className="font-medium text-foreground">{payment.client_name || "N/A"}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-muted-foreground">{t("payments.table.invoice")}</span>
-                        <span className="font-medium text-foreground">{recentStripePayment.invoice_number || "N/A"}</span>
+                        <span className="font-medium text-foreground">{payment.invoice_number || "N/A"}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-muted-foreground">{t("payments.table.date")}</span>
                         <span className="font-medium text-foreground">
-                          {recentStripePayment.payment_date
-                            ? new Date(recentStripePayment.payment_date).toLocaleDateString()
+                          {payment.payment_date
+                            ? new Date(payment.payment_date).toLocaleDateString()
                             : "N/A"}
                         </span>
                       </div>
                     </div>
 
                     <Button asChild variant="outline" className="w-full">
-                      <Link to={`/invoices/view/${recentStripePayment.invoice_id}`}>
+                      <Link to={`/invoices/view/${payment.invoice_id}`}>
                         <ExternalLink className="mr-2 h-4 w-4" />
                         {t("payments.stripe_sidebar.open_invoice", "Open invoice")}
                       </Link>
                     </Button>
                   </div>
+                  ))}
+                </div>
               ) : stripeConfigured ? (
                 <div className="space-y-3 rounded-xl border border-dashed border-border/60 bg-muted/10 p-4">
                   <Badge>{t("settings.payment_settings.configured", "Configured")}</Badge>
                   <p className="text-sm text-muted-foreground">
                     {t(
                       "payments.stripe_sidebar.no_recent_payment",
-                      "Stripe is configured. Your latest Stripe payment will appear here once one is recorded."
+                      "Stripe is configured. Your latest Stripe payments will appear here once recorded."
                     )}
                   </p>
                 </div>

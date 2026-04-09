@@ -912,7 +912,6 @@
     "stripe_sidebar": {
       "title": "Stripe",
       "description": "A quick view of your Stripe setup and latest Stripe payment.",
-      "free_feature": "Free feature",
       "loading": "Loading Stripe details...",
       "open_invoice": "Open invoice",
       "no_recent_payment": "Stripe is configured. Your latest Stripe payment will appear here once one is recorded.",
@@ -1062,7 +1061,7 @@
       "company": "Company Info",
       "invoices": "Invoice Settings",
       "currencies": "Currencies",
-      "payments": "Payment Settings",
+      "payments": "Payment",
       "discount_rules": "Discount Rules",
       "ai_config": "AI Configuration",
       "prompts": "Prompts",
@@ -1077,9 +1076,8 @@
       "plugins": "Plugins"
     },
     "payment_settings": {
-      "title": "Payment Settings",
+      "title": "Payment",
       "description": "Configure Stripe so your team can track Stripe activity from the Payments page.",
-      "free_feature": "Free feature",
       "configured": "Configured",
       "not_configured": "Not configured",
       "enable_stripe": "Enable Stripe",
