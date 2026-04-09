@@ -198,9 +198,10 @@ async def tenant_context_middleware(request: Request, call_next):
     if request.url.path.startswith("/api/v1/shared/"):
         return await call_next(request)
 
-    # Skip tenant context for public plugin config endpoints (no auth required)
+    # Skip tenant context for public plugin config/auth/paywall endpoints (no auth required)
     if request.url.path.startswith("/api/v1/plugins/public-config/") or \
-       "/public-paywall/" in request.url.path:
+       "/public-paywall/" in request.url.path or \
+       "/public-auth/" in request.url.path:
         return await call_next(request)
 
     # Skip tenant context for specific endpoints that don't need it or handle it manually
