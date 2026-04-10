@@ -7,8 +7,8 @@ Supports uploading multiple files for OCR processing and exporting results.
 
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Header, UploadFile, File, Form
+from typing import List, Optional, Any
+from fastapi import APIRouter, Depends, HTTPException, status, Header, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session
 
 from core.models.database import get_db, get_master_db
