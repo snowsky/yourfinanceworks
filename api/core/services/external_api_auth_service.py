@@ -4,7 +4,7 @@ External API authentication service for managing API keys and OAuth tokens.
 
 import hashlib
 import secrets
-import time
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List, Tuple
 from sqlalchemy.orm import Session
@@ -15,6 +15,8 @@ import httpx
 from core.models.models import MasterUser, Tenant
 from core.models.api_models import APIClient
 from core.routers.auth import SECRET_KEY, ALGORITHM
+
+logger = logging.getLogger(__name__)
 
 
 class AuthContext:
