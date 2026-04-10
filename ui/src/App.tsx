@@ -298,7 +298,7 @@ const AppContent = () => {
                         path={`${item.path}/*`}
                         element={
                           <SidecarPluginUI 
-                            pluginId={m.id} 
+                            pluginId={m.pluginId!} 
                             uiEntry={m.uiEntry!} 
                             title={item.label} 
                           />
