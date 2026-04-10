@@ -149,6 +149,40 @@ class ExternalAPIAuthService:
             is_sandbox=api_client.is_sandbox,
         )
 
+    async def authenticate_internal_secret(
+        self, db: Session, secret_key: str, tenant_id: Optional[int], user_email: Optional[str]
+    ) -> Optional[AuthContext]:
+        """Authenticate using an internal shared secret (sidecar trust)."""
+        if not secret_key or secret_key != self.secret_key:
+            return None
+
+        # Find user if email is provided
+        user = None
+        if user_email:
+            user = db.query(MasterUser).filter(MasterUser.email == user_email).first()
+        
+        # Fallback to a tenant admin if no specific user but tenant_id is provided
+        if not user and tenant_id:
+            user = db.query(MasterUser).filter(
+                MasterUser.tenant_id == tenant_id, 
+                MasterUser.role == "admin"
+            ).first()
+
+        # Create trusted auth context
+        return AuthContext(
+            user_id=str(user.id) if user else "system",
+            username=f"trusted_plugin:{user_email or 'system'}",
+            email=user_email or (user.email if user else ""),
+            roles=["trusted_plugin"],
+            permissions={Permission.READ, Permission.WRITE, Permission.DOCUMENT_PROCESSING, Permission.TRANSACTION_PROCESSING},
+            api_key_id="internal_trust",
+            authentication_method=AuthenticationMethod.JWT, # Reuse JWT as a 'trusted' marker
+            is_authenticated=True,
+            is_admin=user.role == "admin" if user else True,
+            tenant_id=tenant_id or (user.tenant_id if user else None),
+            is_sandbox=False,
+        )
+
     def _get_api_client_permissions(self, api_client: APIClient) -> set:
         """Get permissions for an API client based on its configuration."""
         permissions = {Permission.READ, Permission.WRITE}

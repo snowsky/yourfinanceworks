@@ -27,31 +27,55 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/external-transactions/batch-processing", tags=["batch-processing"])
 
 
-def get_api_key_auth(
+async def get_api_key_auth(
+    request: Request,
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    x_internal_secret: Optional[str] = Header(None, alias="X-Internal-Secret"),
     db: Session = Depends(get_master_db)
-) -> tuple[int, int, str, APIClient]:
+) -> tuple[int, int, str, Any]:
     """
-    Authenticate using API key and return tenant_id, user_id, api_client_id, and APIClient.
-
-    This validates the API key, checks rate limits, and returns the authenticated context.
-
-    Args:
-        x_api_key: API key from X-API-Key header
-        db: Master database session
-
+    Authenticate using API key or Internal Secret and return context.
+    
     Returns:
-        Tuple of (tenant_id, user_id, api_client_id, api_client)
-
-    Raises:
-        HTTPException: If API key is missing, invalid, or rate limit exceeded
+        Tuple of (tenant_id, user_id, auth_id, auth_context_or_client)
     """
+    # 1. Check for Internal Secret (Sidecar Trust)
+    if x_internal_secret:
+        from core.services.external_api_auth_service import ExternalAPIAuthService
+        auth_service = ExternalAPIAuthService()
+        
+        tenant_id_str = request.headers.get("X-Plugin-Tenant-Id") or request.headers.get("X-Public-Tenant-Id")
+        user_email = request.headers.get("X-Plugin-User-Email")
+        
+        try:
+            tenant_id = int(tenant_id_str) if tenant_id_str else None
+        except (ValueError, TypeError):
+            tenant_id = None
+            
+        auth_context = await auth_service.authenticate_internal_secret(db, x_internal_secret, tenant_id, user_email)
+        
+        if auth_context and auth_context.is_authenticated:
+            # Set tenant context
+            if auth_context.tenant_id:
+                from core.models.database import set_tenant_context
+                set_tenant_context(auth_context.tenant_id)
+            
+            # Return context mimicking the APIClient structure where possible
+            # We return (tenant_id, user_id, "internal_trust", auth_context)
+            return (
+                auth_context.tenant_id, 
+                int(auth_context.user_id) if auth_context.user_id.isdigit() else 0, 
+                "internal_trust", 
+                auth_context
+            )
+
+    # 2. Fallback to standard API Key
     import hashlib
 
     if not x_api_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key required. Provide X-API-Key header."
+            detail="Authentication required. Provide X-API-Key or X-Internal-Secret header."
         )
 
     # Hash the provided API key
@@ -238,19 +262,26 @@ async def upload_batch(
                     detail=f"Invalid document types: {', '.join(invalid_types)}. Valid types: {', '.join(valid_types)}",
                 )
 
-            # Validate document types against API key's allowed document types
-            # Normalize allowed document types for comparison
-            normalized_allowed = [
-                dt.lower().strip() if isinstance(dt, str) else dt
-                for dt in api_client.allowed_document_types
-            ]
+            # Validate document types against allowed types
+            # Note: For internal trusted plugins, we skip the strict api_client check
+            if api_client_id == "internal_trust":
+                normalized_allowed = ["invoice", "expense", "statement"] # Trusted internal plugins allowed all
+            else:
+                # Standard API Key validation
+                normalized_allowed = [
+                    dt.lower().strip() if isinstance(dt, str) else dt
+                    for dt in api_client.allowed_document_types
+                ]
 
             # Check each document type against allowed document types
             for doc_type in doc_types_list:
                 if doc_type not in normalized_allowed:
+                    detail = f"Document type '{doc_type}' is not allowed."
+                    if api_client_id != "internal_trust":
+                         detail += f" Allowed types: {', '.join(api_client.allowed_document_types)}"
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"Document type '{doc_type}' is not allowed for this API key. Allowed types: {', '.join(api_client.allowed_document_types)}",
+                        detail=detail,
                     )
 
         # If no export destination specified, use default or create one

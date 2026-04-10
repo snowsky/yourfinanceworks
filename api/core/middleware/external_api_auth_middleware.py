@@ -48,6 +48,26 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
         try:
             # For API client endpoints, require API key authentication
             if any(request.url.path.startswith(api_path) for api_path in ["/api/v1/external-transactions/", "/api/v1/external/", "/api/v1/tools/"]):
+                # Try internal secret for sidecar trust
+                internal_secret = request.headers.get("X-Internal-Secret")
+                if internal_secret:
+                    # Extract identifying headers forwarded by sidecar
+                    tenant_id_str = request.headers.get("X-Plugin-Tenant-Id") or request.headers.get("X-Public-Tenant-Id")
+                    user_email = request.headers.get("X-Plugin-User-Email")
+                    
+                    try:
+                        tenant_id = int(tenant_id_str) if tenant_id_str else None
+                    except ValueError:
+                        tenant_id = None
+                        
+                    auth_context = await self.auth_service.authenticate_internal_secret(db, internal_secret, tenant_id, user_email)
+                    
+                    if auth_context and auth_context.is_authenticated:
+                        request.state.auth = auth_context
+                        if auth_context.tenant_id:
+                            set_tenant_context(auth_context.tenant_id)
+                        return await call_next(request)
+
                 # Try API key from X-API-Key header or Authorization: Bearer <key>
                 api_key = request.headers.get("X-API-Key")
                 if not api_key:
@@ -73,10 +93,10 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
                             content={"detail": "Invalid API key"}
                         )
 
-                # If no API key provided for API client endpoints, return unauthorized
+                # If no API key or secret provided for API client endpoints, return unauthorized
                 return JSONResponse(
                     status_code=401,
-                    content={"detail": "API key required"}
+                    content={"detail": "API key or Internal Secret required"}
                 )
 
             # For UI endpoints, let them pass through (they use JWT auth from other middleware)
