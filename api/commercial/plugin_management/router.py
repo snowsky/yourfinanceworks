@@ -59,6 +59,44 @@ def _validate_plugin_id(plugin_id: str, field_name: str = "plugin_id") -> str:
     return normalized
 
 
+@router.post("/token/{plugin_id}", tags=["plugin_auth"])
+async def generate_plugin_sidecar_token(
+    plugin_id: str,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Generate a short-lived authentication token for a sidecar plugin.
+    This token is signed with the YFW_SECRET_KEY shared with trusted sidecars.
+    Dashboard-only, requires valid user session.
+    """
+    from jose import jwt
+    from api.core.utils.auth import ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+    
+    plugin_id = _validate_plugin_id(plugin_id)
+    
+    # Payload for the sidecar JWT
+    # We use 'sub' for email and include tenant_id/user_id for context
+    to_encode = {
+        "sub": current_user.email,
+        "tenant_id": current_user.tenant_id,
+        "user_id": current_user.id,
+        "type": "plugin",
+        "plugin_id": plugin_id,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    }
+    
+    if not config.YFW_SECRET_KEY:
+        logger.error("YFW_SECRET_KEY is not set in Config. Cannot generate sidecar tokens.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Plugin authentication is misconfigured on the server."
+        )
+
+    token = jwt.encode(to_encode, config.YFW_SECRET_KEY, algorithm=ALGORITHM)
+    return {"token": token}
+
+
 @router.get("/registry")
 async def get_plugin_registry():
     """
