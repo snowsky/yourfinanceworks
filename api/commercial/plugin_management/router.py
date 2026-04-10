@@ -93,9 +93,6 @@ async def generate_plugin_sidecar_token(
             detail="Plugin authentication is misconfigured on the server."
         )
 
-    print(f"DEBUG: Generating token for {current_user.email} (tenant {current_user.tenant_id}) for plugin {plugin_id}")
-    print(f"DEBUG: Using YFW_SECRET_KEY. Length: {len(config.YFW_SECRET_KEY)}. Starts with: {config.YFW_SECRET_KEY[:3]}...{config.YFW_SECRET_KEY[-3:]}")
-
     token = jwt.encode(to_encode, config.YFW_SECRET_KEY, algorithm=ALGORITHM)
     return {"token": token}
 
