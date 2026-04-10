@@ -165,11 +165,14 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
         const tokenKey = `plugin_token_${pluginId}`;
         const tokenStr = localStorage.getItem(tokenKey);
         if (tokenStr) {
-          const { token } = JSON.parse(tokenStr);
-          iframeRef.current.contentWindow?.postMessage({
-            type: 'AUTH_TOKEN',
-            token: token
-          }, '*'); // In production, replace '*' with the actual plugin origin for maximum security
+          const tokenData = JSON.parse(tokenStr);
+          const token = tokenData.access_token || tokenData.token; // Handle both common variants
+          if (token) {
+            iframeRef.current.contentWindow?.postMessage({
+              type: 'AUTH_TOKEN',
+              token: token
+            }, '*');
+          }
         }
       }
     };
