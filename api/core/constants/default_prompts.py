@@ -6,7 +6,9 @@ BANK_TRANSACTION_EXTRACTION_PROMPT = """You are a financial data extraction expe
 CONTEXT:
 This is a statement for a **{{card_type}}** card/account.
 {{statement_context}} 
-- If the bank name is NOT provided in the CONTEXT above, you MUST try to identify it from the text header, branch address, or other clues (e.g., "Scotiabank", "TD", "RBC", "BMO", "CIBC").
+- If the bank name is NOT provided in the CONTEXT above, you MUST try to identify it from the text header, branch address, or other clues.
+- Common banks: "Scotiabank", "TD Bank", "RBC", "BMO", "CIBC", "Chase Bank", "Wells Fargo", "Bank of America", "Citi", "HSBC", "Lloyds", "Barclays", "Santander", "NatWest".
+- LOOK EVERYWHERE: If it's not in the main header, check the tiny print at the bottom of the page (copyright notices, for example "© 2024 The Bank of Nova Scotia"), look for URLs (e.g., "td.com"), or check the branch address information.
 - If 'auto', you must first determine if this is a Credit Card or a Debit/Checking account statement based on the text.
 - If it is a Credit Card, follow 'credit' rules below.
 - Otherwise, follow 'debit' rules.
@@ -76,8 +78,13 @@ Look for:
 1. The Statement Year (4-digit format, e.g., 2024).
 2. The Statement Period (e.g., "Jan 01, 2024 to Jan 31, 2024").
 3. The Account Type (detect if 'credit' or 'debit').
-4. The Bank Name (e.g., "Scotiabank", "RBC", "TD Bank", "BMO", "CIBC", "Chase Bank", "HSBC"). 
-   - NOTE: If the bank name is not explicitly stated in big letters, try to infer it from the branch address or footnotes or image in the file.
+4. The Bank Name (e.g., "Scotiabank", "RBC", "TD Bank", "BMO", "CIBC", "Chase Bank", "Wells Fargo", "Bank of America", "Citi", "HSBC", "Lloyds", "Barclays", "Santander", "NatWest", "Standard Chartered", "Standard Bank"). 
+   - NOTE: If the bank name is not explicitly stated in large header text, YOU MUST act as a detective:
+     - Check the copyright notice at the bottom (e.g. "Member of ABC Group").
+     - Search for a support URL (e.g. "www.rbc.com").
+     - Look for the legal entity name in the footer or branch address headers.
+     - Infer from Logos described in the text if applicable.
+     - DO NOT return "Unknown" if there is ANY clue available.
 
 TEXT:
 {{header_text}}
