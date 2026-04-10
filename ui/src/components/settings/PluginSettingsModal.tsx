@@ -21,6 +21,8 @@ interface PublicAccessState {
   require_login: boolean;
   stripe_price_id: string | null;
   free_clicks: number;
+  show_sidebar: boolean;
+  show_header: boolean;
   publicPagePath: string | null;
 }
 
@@ -79,6 +81,8 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
           require_login: response.require_login,
           stripe_price_id: response.stripe_price_id || null,
           free_clicks: response.free_clicks || 0,
+          show_sidebar: response.show_sidebar || false,
+          show_header: response.show_header || false,
           publicPagePath: response.public_page?.path ?? null,
         });
       } else {
@@ -113,6 +117,8 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
               require_login: publicAccess.require_login,
               stripe_price_id: publicAccess.stripe_price_id,
               free_clicks: publicAccess.free_clicks,
+              show_sidebar: publicAccess.show_sidebar,
+              show_header: publicAccess.show_header,
             })
           : Promise.resolve(),
       ]);
@@ -262,28 +268,78 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="stripe-price-id">
-                        {t('plugins.public_access.stripe_price_id', 'Stripe Price ID')}
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        {t(
-                          'plugins.public_access.stripe_price_id_desc',
-                          'Optional paywall. Leave empty for free access.',
-                        )}
-                      </p>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="show-sidebar">
+                          {t('plugins.public_access.show_sidebar', 'Show Sidebar')}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          {t(
+                            'plugins.public_access.show_sidebar_desc',
+                            'Enable sidebar for Logout and Settings'
+                          )}
+                        </p>
+                      </div>
+                      <Switch
+                        id="show-sidebar"
+                        checked={publicAccess.show_sidebar}
+                        onCheckedChange={(checked) =>
+                          setPublicAccess({ 
+                            ...publicAccess, 
+                            show_sidebar: checked,
+                            show_header: checked ? false : publicAccess.show_header 
+                          })
+                        }
+                      />
                     </div>
-                    <Input
-                      id="stripe-price-id"
-                      className="w-[200px]"
-                      value={publicAccess.stripe_price_id || ''}
-                      onChange={(e) =>
-                        setPublicAccess({ ...publicAccess, stripe_price_id: e.target.value })
-                      }
-                      placeholder="price_1..."
-                    />
-                  </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="show-header">
+                          {t('plugins.public_access.show_header', 'Show Header')}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          {t(
+                            'plugins.public_access.show_header_desc',
+                            'Enable header for Logout and Settings'
+                          )}
+                        </p>
+                      </div>
+                      <Switch
+                        id="show-header"
+                        checked={publicAccess.show_header}
+                        onCheckedChange={(checked) =>
+                          setPublicAccess({ 
+                            ...publicAccess, 
+                            show_header: checked,
+                            show_sidebar: checked ? false : publicAccess.show_sidebar
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="stripe-price-id">
+                          {t('plugins.public_access.stripe_price_id', 'Stripe Price ID')}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          {t(
+                            'plugins.public_access.stripe_price_id_desc',
+                            'Optional paywall. Leave empty for free access.',
+                          )}
+                        </p>
+                      </div>
+                      <Input
+                        id="stripe-price-id"
+                        className="w-[200px]"
+                        value={publicAccess.stripe_price_id || ''}
+                        onChange={(e) =>
+                          setPublicAccess({ ...publicAccess, stripe_price_id: e.target.value })
+                        }
+                        placeholder="price_1..."
+                      />
+                    </div>
 
                   {publicUrl && (
                     <div className="flex items-center gap-2 p-2 bg-muted rounded text-xs font-mono break-all">

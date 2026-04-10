@@ -593,7 +593,7 @@ async def update_plugin_config(
 # ---------------------------------------------------------------------------
 
 _PUBLIC_ACCESS_KEY = "public_access"
-_PUBLIC_ACCESS_DEFAULTS = {"enabled": False, "require_login": True, "stripe_price_id": None, "free_clicks": 0}
+_PUBLIC_ACCESS_DEFAULTS = {"enabled": False, "require_login": True, "stripe_price_id": None, "free_clicks": 0, "show_sidebar": False, "show_header": False}
 
 
 class PublicAccessUpdate(BaseModel):
@@ -601,6 +601,8 @@ class PublicAccessUpdate(BaseModel):
     require_login: bool
     stripe_price_id: str | None = None
     free_clicks: int = 0
+    show_sidebar: bool = False
+    show_header: bool = False
 
 
 def _get_public_access_config(plugin_config: dict | None, plugin_id: str) -> dict:
@@ -612,6 +614,8 @@ def _get_public_access_config(plugin_config: dict | None, plugin_id: str) -> dic
         "require_login": bool(pa.get("require_login", True)),
         "stripe_price_id": pa.get("stripe_price_id", None),
         "free_clicks": int(pa.get("free_clicks", 0)),
+        "show_sidebar": bool(pa.get("show_sidebar", False)),
+        "show_header": bool(pa.get("show_header", False)),
     }
 
 
@@ -644,6 +648,8 @@ async def get_plugin_public_access(
         "require_login": pa["require_login"],
         "stripe_price_id": pa.get("stripe_price_id"),
         "free_clicks": pa.get("free_clicks", 0),
+        "show_sidebar": pa.get("show_sidebar", False),
+        "show_header": pa.get("show_header", False),
         "public_page": manifest.get("public_page"),
     }
 
@@ -673,6 +679,8 @@ async def update_plugin_public_access(
         "require_login": payload.require_login,
         "stripe_price_id": payload.stripe_price_id,
         "free_clicks": payload.free_clicks,
+        "show_sidebar": payload.show_sidebar,
+        "show_header": payload.show_header,
     }
 
     if not settings:
@@ -698,6 +706,8 @@ async def update_plugin_public_access(
         "require_login": payload.require_login,
         "stripe_price_id": payload.stripe_price_id,
         "free_clicks": payload.free_clicks,
+        "show_sidebar": payload.show_sidebar,
+        "show_header": payload.show_header,
         "message": f"Public access for plugin '{plugin_id}' updated",
     }
 
@@ -752,6 +762,8 @@ async def get_plugin_public_config(
         "require_login": pa["require_login"],
         "stripe_price_id": pa.get("stripe_price_id"),
         "free_clicks": pa.get("free_clicks", 0),
+        "show_sidebar": pa.get("show_sidebar", False),
+        "show_header": pa.get("show_header", False),
         "public_page": manifest.get("public_page"),
     }
 
