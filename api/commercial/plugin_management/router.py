@@ -652,6 +652,7 @@ async def get_plugin_public_access(
         "free_clicks": pa.get("free_clicks", 0),
         "show_sidebar": pa.get("show_sidebar", False),
         "show_header": pa.get("show_header", False),
+        "manual_usage_tracking": pa.get("manual_usage_tracking", False),
         "public_page": manifest.get("public_page"),
     }
 
@@ -767,6 +768,7 @@ async def get_plugin_public_config(
         "free_clicks": pa.get("free_clicks", 0),
         "show_sidebar": pa.get("show_sidebar", False),
         "show_header": pa.get("show_header", False),
+        "manual_usage_tracking": pa.get("manual_usage_tracking", False),
         "public_page": manifest.get("public_page"),
     }
 
