@@ -37,6 +37,9 @@ class AuthContext:
         is_sandbox: bool = False,
         allowed_document_types: Optional[List[str]] = None,
         custom_quotas: Optional[Dict[str, Any]] = None,
+        user: Optional[MasterUser] = None,
+        client_id: Optional[str] = None,
+        api_key_prefix: Optional[str] = None,
     ):
         self.user_id = user_id
         self.username = username
@@ -51,6 +54,9 @@ class AuthContext:
         self.is_sandbox = is_sandbox
         self.allowed_document_types = allowed_document_types or []
         self.custom_quotas = custom_quotas or {}
+        self.user = user
+        self.client_id = client_id
+        self.api_key_prefix = api_key_prefix or "api"
 
 
 class Permission:
@@ -155,6 +161,9 @@ class ExternalAPIAuthService:
             is_sandbox=api_client.is_sandbox,
             allowed_document_types=api_client.allowed_document_types,
             custom_quotas=api_client.custom_quotas,
+            user=user,
+            client_id=api_client.client_id,
+            api_key_prefix=api_client.api_key_prefix,
         )
 
     async def authenticate_internal_secret(
@@ -236,6 +245,9 @@ class ExternalAPIAuthService:
             is_sandbox=False,
             allowed_document_types=["invoice", "expense", "statement"],
             custom_quotas={},
+            user=user,
+            client_id="internal_trust",
+            api_key_prefix="internal",
         )
 
     def _get_api_client_permissions(self, api_client: APIClient) -> set:
@@ -423,6 +435,9 @@ class ExternalAPIAuthService:
             tenant_id=api_client.tenant_id,
             allowed_document_types=api_client.allowed_document_types,
             custom_quotas=api_client.custom_quotas,
+            user=user,
+            client_id=api_client.client_id,
+            api_key_prefix=api_client.api_key_prefix,
         )
 
     def _get_oauth_permissions(self, scopes: List[str]) -> set:
