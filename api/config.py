@@ -51,7 +51,7 @@ class Config:
     # Security settings
     SECRET_KEY: str = _require_env("SECRET_KEY")
     JWT_SECRET_KEY: str = _require_env("JWT_SECRET_KEY")
-    YFW_SECRET_KEY: str = os.getenv("YFW_SECRET_KEY", "")
+    YFW_SECRET_KEY: str = os.getenv("YFW_SECRET_KEY") or os.getenv("JWT_SECRET_KEY", "")
 
     # Tenant settings
     MULTI_TENANT: bool = os.getenv("MULTI_TENANT", "true").lower() == "true"
