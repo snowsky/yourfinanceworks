@@ -74,7 +74,8 @@ Look for:
 1. The Statement Year (4-digit format, e.g., 2024).
 2. The Statement Period (e.g., "Jan 01, 2024 to Jan 31, 2024").
 3. The Account Type (detect if 'credit' or 'debit').
-4. The Bank Name (e.g., "Chase Bank", "TD Bank", "HSBC").
+4. The Bank Name (e.g., "Scotiabank", "RBC", "TD Bank", "BMO", "CIBC", "Chase Bank", "HSBC"). 
+   - NOTE: If the bank name is not explicitly stated in big letters, try to infer it from the branch address or footnotes.
 
 TEXT:
 {{header_text}}

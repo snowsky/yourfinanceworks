@@ -406,13 +406,17 @@ class UniversalBankTransactionExtractor:
 
             if response and response.choices:
                 result_text = response.choices[0].message.content
-                # Basic JSON extraction from response
-                # More robust JSON extraction - find the outermost { }
+                logger.debug(f"📄 RAW METADATA RESPONSE from {self.provider_name}: {result_text}")
+                
+                # Basic JSON extraction from response - handles conversational filler
                 match = re.search(r'(\{[\s\S]*\})', result_text)
                 if match:
                     try:
                         json_str = match.group(0)
+                        # Clean up common OCR/LLM hallucinations in JSON
+                        json_str = json_str.replace('```json', '').replace('```', '')
                         self.statement_metadata = json.loads(json_str)
+                        
                         logger.info(f"✨ [AI SMARTS] Successfully detected statement metadata:")
                         logger.info(f"   - Year: {self.statement_metadata.get('year')}")
                         logger.info(f"   - Period: {self.statement_metadata.get('period')}")
@@ -426,10 +430,12 @@ class UniversalBankTransactionExtractor:
                             logger.info(f"   - Card type set to: {self.card_type}")
                     except json.JSONDecodeError as e:
                         logger.warning(f"🔍 [AI SMARTS] Found JSON-like block but it was invalid: {e}")
-                        logger.info(f"📄 RAW METADATA RESPONSE: {result_text}")
+                        logger.info(f"📄 RAW RESPONSE THAT FAILED PARSING: {result_text}")
                 else:
                     logger.warning("🔍 [AI SMARTS] Metadata extraction LLM responded, but no JSON was found.")
                     logger.info(f"📄 RAW METADATA RESPONSE: {result_text}")
+            else:
+                logger.warning("🔍 [AI SMARTS] No response received from metadata extraction LLM.")
         except Exception as e:
             logger.warning(f"Metadata extraction failed: {e}")
             # Non-critical failure, we continue with empty metadata
@@ -752,13 +758,13 @@ class UniversalBankTransactionExtractor:
                 extraction_method = extraction_result.method
                 processing_time = extraction_result.processing_time
 
-                # Track extraction method for analytics
-                self._track_extraction_method(extraction_method, pdf_path, processing_time)
-
                 # Store extraction metadata for later AI usage tracking
                 self.last_extraction_method = extraction_method
                 self.last_processing_time = processing_time
                 self.last_text_length = len(text)
+
+                # Track extraction method for analytics
+                self._track_extraction_method(extraction_method, pdf_path, processing_time)
 
                 # Notify user about processing completion
                 try:
