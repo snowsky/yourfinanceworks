@@ -93,6 +93,7 @@ export function StatementsListView({
   selectedIds, setSelectedIds,
   bulkLabel, setBulkLabel,
   newLabelValueById, setNewLabelValueById,
+  bankNameValueById, setBankNameValueById,
   handleReviewClick, handleRunReview, handleCancelReview, handleBulkRunReview,
   exportSelectedAsZip, setBulkDeleteModalOpen, setBulkMergeModalOpen,
   openStatement, handlePreview, handleDownload,

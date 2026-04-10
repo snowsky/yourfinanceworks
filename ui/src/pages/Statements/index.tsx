@@ -59,6 +59,7 @@ export default function Statements() {
   const [invoiceInitialData, setInvoiceInitialData] = useState<any>(null);
   const [statementNotes, setStatementNotes] = useState<string>('');
   const [statementLabels, setStatementLabels] = useState<string[]>([]);
+  const [statementBankName, setStatementBankName] = useState<string>('');
   const [newStatementLabel, setNewStatementLabel] = useState<string>('');
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -341,6 +342,7 @@ export default function Statements() {
       setDetail(s);
       setStatementLabels(Array.isArray((s as any).labels) ? ((s as any).labels as string[]).slice(0, 10) : []);
       setStatementNotes(s.notes || '');
+      setStatementBankName(s.bank_name || '');
       const transactionsWithIds = (s.transactions || []).map((t: BankTransactionEntry, index: number) => ({
         id: index + 1,
         date: t.date,
@@ -446,9 +448,13 @@ export default function Statements() {
     if (!selected) return;
     try {
       setDetailLoading(true);
-      const updates = { labels: (statementLabels || []).filter((x) => (x || '').trim()).slice(0, 10), notes: statementNotes || null };
+      const updates = { 
+        labels: (statementLabels || []).filter((x) => (x || '').trim()).slice(0, 10), 
+        notes: statementNotes || null,
+        bank_name: statementBankName || null
+      };
       const resp = await bankStatementApi.updateMeta(selected, updates);
-      setDetail(prev => prev ? { ...prev, notes: resp.statement.notes || null, labels: (resp.statement as any).labels || [] } : prev);
+      setDetail(prev => prev ? { ...prev, notes: resp.statement.notes || null, labels: (resp.statement as any).labels || [], bank_name: resp.statement.bank_name || null } : prev);
       await loadList();
       toast.success(t('statements.update_success', { defaultValue: 'Statement updated' }));
     } catch (e: any) {
@@ -887,6 +893,7 @@ export default function Statements() {
             detailLoading={detailLoading}
             statementLabels={statementLabels} setStatementLabels={setStatementLabels}
             statementNotes={statementNotes} setStatementNotes={setStatementNotes}
+            statementBankName={statementBankName} setStatementBankName={setStatementBankName}
             newStatementLabel={newStatementLabel} setNewStatementLabel={setNewStatementLabel}
             isSplitView={isSplitView} splitViewPdfUrl={splitViewPdfUrl}
             highlightedBackendId={highlightedBackendId}

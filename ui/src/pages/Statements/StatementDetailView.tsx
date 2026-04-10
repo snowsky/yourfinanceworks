@@ -39,6 +39,8 @@ interface StatementDetailViewProps {
   setStatementLabels: (labels: string[]) => void;
   statementNotes: string;
   setStatementNotes: (v: string) => void;
+  statementBankName: string;
+  setStatementBankName: (v: string) => void;
   newStatementLabel: string;
   setNewStatementLabel: (v: string) => void;
   isSplitView: boolean;
@@ -80,6 +82,7 @@ export function StatementDetailView({
   readOnly, detailLoading,
   statementLabels, setStatementLabels,
   statementNotes, setStatementNotes,
+  statementBankName, setStatementBankName,
   newStatementLabel, setNewStatementLabel,
   isSplitView, splitViewPdfUrl,
   highlightedBackendId,
@@ -416,6 +419,15 @@ export function StatementDetailView({
               <div>
                 <label className="text-sm">{t('statements.extracted_count', { defaultValue: 'Extracted Transactions' })}</label>
                 <Input value={detail?.extracted_count || 0} disabled={true} />
+              </div>
+              <div>
+                <label className="text-sm">{t('statements.bank_name', { defaultValue: 'Bank Name' })}</label>
+                <Input
+                  placeholder={t('statements.bank_name_placeholder', { defaultValue: 'Bank Name...' })}
+                  value={statementBankName}
+                  onChange={(e) => setStatementBankName(e.target.value)}
+                  disabled={readOnly}
+                />
               </div>
             </CardContent>
           </ProfessionalCard>
