@@ -428,13 +428,17 @@ export function StatementsListView({
                         value={bankNameValueById[s.id] !== undefined ? bankNameValueById[s.id] : (s.bank_name || '')}
                         onChange={(ev) => setBankNameValueById((prev) => ({ ...prev, [s.id]: ev.target.value }))}
                         onBlur={() => {
-                          if (bankNameValueById[s.id] !== undefined && bankNameValueById[s.id] !== s.bank_name) {
+                          if (bankNameValueById[s.id] !== undefined) {
                             const next = bankNameValueById[s.id].trim() || null;
-                            bankStatementApi.updateMeta(s.id, { bank_name: next }).then(() => {
-                              setStatements((prev) => prev.map((x) => (x.id === s.id ? { ...x, bank_name: next } : x)));
-                            }).catch((err: any) => {
-                              toast.error(err?.message || t('statements.bank_name.update_failed', { defaultValue: 'Failed to update bank name' }));
-                            });
+                            const current = (s.bank_name || '').trim() || null;
+                            
+                            if (next !== current) {
+                              bankStatementApi.updateMeta(s.id, { bank_name: next }).then(() => {
+                                setStatements((prev) => prev.map((x) => (x.id === s.id ? { ...x, bank_name: next } : x)));
+                              }).catch((err: any) => {
+                                toast.error(err?.message || t('statements.bank_name.update_failed', { defaultValue: 'Failed to update bank name' }));
+                              });
+                            }
                           }
                         }}
                         onKeyDown={(ev) => {

@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 
@@ -678,6 +678,7 @@ async def get_statement(
 async def update_statement_meta(
     statement_id: int,
     payload: Dict[str, Any],
+    request: Request,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
@@ -702,7 +703,10 @@ async def update_statement_meta(
         if "notes" in payload:
             s.notes = payload.get("notes")
         if "bank_name" in payload:
-            s.bank_name = payload.get("bank_name")
+            new_bank_name = payload.get("bank_name")
+            if new_bank_name is None:
+                logger.info(f"Setting bank_name to None for statement {statement_id}. User-Agent: {request.headers.get('user-agent')}, Payload: {payload}")
+            s.bank_name = new_bank_name
         if "labels" in payload:
             v = payload.get("labels")
             if v in (None, ""):
