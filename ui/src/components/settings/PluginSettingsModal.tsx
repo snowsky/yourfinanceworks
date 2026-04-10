@@ -9,8 +9,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Input } from '../ui/input';
+import { Label as UILabel } from '../ui/label';
 import {
   Select,
   SelectContent,
@@ -162,9 +162,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label htmlFor="enable-ai-import">
+            <UILabel htmlFor="enable-ai-import">
               {t('plugins.investments.enable_ai_import', 'Enable Holdings/Transactions Import with AI')}
-            </Label>
+            </UILabel>
             <p className="text-sm text-muted-foreground">
               {t(
                 'plugins.investments.ai_import_description',
@@ -230,9 +230,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="public-access-enabled">
+                  <UILabel htmlFor="public-access-enabled">
                     {t('plugins.public_access.enable', 'Enable public link')}
-                  </Label>
+                  </UILabel>
                   <p className="text-xs text-muted-foreground">
                     {t('plugins.public_access.enable_desc', 'Allow access via a shareable URL')}
                   </p>
@@ -250,9 +250,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                 <>
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="require-login">
+                      <UILabel htmlFor="require-login">
                         {t('plugins.public_access.require_login', 'Require login')}
-                      </Label>
+                      </UILabel>
                       <p className="text-xs text-muted-foreground">
                         {t(
                           'plugins.public_access.require_login_desc',
@@ -271,9 +271,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
 
                     <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="free-clicks">
+                      <UILabel htmlFor="free-clicks">
                         {t('plugins.public_access.free_clicks', 'Free Clicks Allowed')}
-                      </Label>
+                      </UILabel>
                       <p className="text-xs text-muted-foreground">
                         {t(
                           'plugins.public_access.free_clicks_desc',
@@ -295,9 +295,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
 
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="show-sidebar">
+                        <UILabel htmlFor="show-sidebar">
                           {t('plugins.public_access.show_sidebar', 'Show Sidebar')}
-                        </Label>
+                        </UILabel>
                         <p className="text-xs text-muted-foreground">
                           {t(
                             'plugins.public_access.show_sidebar_desc',
@@ -320,9 +320,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
 
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="show-header">
+                        <UILabel htmlFor="show-header">
                           {t('plugins.public_access.show_header', 'Show Header')}
-                        </Label>
+                        </UILabel>
                         <p className="text-xs text-muted-foreground">
                           {t(
                             'plugins.public_access.show_header_desc',
@@ -345,9 +345,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
 
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="manual-usage-tracking">
+                        <UILabel htmlFor="manual-usage-tracking">
                           {t('plugins.public_access.manual_usage_tracking', 'Manual Usage Tracking')}
-                        </Label>
+                        </UILabel>
                         <p className="text-xs text-muted-foreground">
                           {t(
                             'plugins.public_access.manual_usage_tracking_desc',
@@ -366,9 +366,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
 
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="stripe-price-id">
+                        <UILabel htmlFor="stripe-price-id">
                           {t('plugins.public_access.stripe_price_id', 'Stripe Price ID')}
-                        </Label>
+                        </UILabel>
                         <p className="text-xs text-muted-foreground">
                           {t(
                             'plugins.public_access.stripe_price_id_desc',
@@ -389,9 +389,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
 
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="service-user-email">
+                        <UILabel htmlFor="service-user-email">
                           {t('plugins.public_access.service_user_email', 'Service User Email')}
-                        </Label>
+                        </UILabel>
                         <p className="text-xs text-muted-foreground">
                           {t(
                             'plugins.public_access.service_user_email_desc',
