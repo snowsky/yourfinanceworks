@@ -48,6 +48,7 @@ class BankStatementTransactionResponse(BankStatementTransactionBase):
 class BankStatementBase(BaseModel):
     """Base schema for bank statements"""
     original_filename: str = Field(..., description="Original filename of the uploaded statement")
+    bank_name: Optional[str] = Field(None, description="Name of the bank")
     stored_filename: Optional[str] = Field(None, description="Stored filename on the server")
     file_path: Optional[str] = Field(None, description="File path on the server")
     status: str = Field("pending", description="Processing status")

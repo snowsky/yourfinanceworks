@@ -1,3 +1,4 @@
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -51,7 +52,9 @@ interface StatementsListViewProps {
   bulkLabel: string;
   setBulkLabel: (v: string) => void;
   newLabelValueById: Record<number, string>;
-  setNewLabelValueById: (fn: (prev: Record<number, string>) => Record<number, string>) => void;
+  setNewLabelValueById: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  bankNameValueById: Record<number, string>;
+  setBankNameValueById: React.Dispatch<React.SetStateAction<Record<number, string>>>;
   // Review
   handleReviewClick: (s: BankStatementSummary) => void;
   handleRunReview: (id: number) => void;
@@ -339,6 +342,7 @@ export function StatementsListView({
                 {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>}
                 <TableHead className="font-bold text-foreground">{t('statements.filename')}</TableHead>
                 {isVisible('labels') && <TableHead className="font-bold text-foreground">{t('statements.labels')}</TableHead>}
+                {isVisible('bank_name') && <TableHead className="font-bold text-foreground">{t('statements.bank_name', 'Bank Name')}</TableHead>}
                 {isVisible('type') && <TableHead className="font-bold text-foreground">{t('statements.card_type.label', 'Type')}</TableHead>}
                 <TableHead className="font-bold text-foreground">{t('statements.status.label')}</TableHead>
                 {isVisible('review_status') && <TableHead className="font-bold text-foreground">{t('statements.review_status.label')}</TableHead>}
@@ -413,6 +417,31 @@ export function StatementsListView({
                           }}
                         />
                       </div>
+                    </TableCell>
+                  )}
+                  {isVisible('bank_name') && (
+                    <TableCell>
+                      <Input
+                        placeholder={t('statements.bank_name_placeholder', { defaultValue: 'Bank Name...' })}
+                        className="w-[120px] h-7 text-[10px] px-2 bg-muted/20 border-border/40 focus:bg-background transition-all"
+                        value={bankNameValueById[s.id] !== undefined ? bankNameValueById[s.id] : (s.bank_name || '')}
+                        onChange={(ev) => setBankNameValueById((prev) => ({ ...prev, [s.id]: ev.target.value }))}
+                        onBlur={() => {
+                          if (bankNameValueById[s.id] !== undefined && bankNameValueById[s.id] !== s.bank_name) {
+                            const next = bankNameValueById[s.id].trim() || null;
+                            bankStatementApi.updateMeta(s.id, { bank_name: next }).then(() => {
+                              setStatements((prev) => prev.map((x) => (x.id === s.id ? { ...x, bank_name: next } : x)));
+                            }).catch((err: any) => {
+                              toast.error(err?.message || t('statements.bank_name.update_failed', { defaultValue: 'Failed to update bank name' }));
+                            });
+                          }
+                        }}
+                        onKeyDown={(ev) => {
+                          if (ev.key === 'Enter') {
+                            ev.currentTarget.blur();
+                          }
+                        }}
+                      />
                     </TableCell>
                   )}
                   {isVisible('type') && (

@@ -417,6 +417,7 @@ class UniversalBankTransactionExtractor:
                         logger.info(f"   - Year: {self.statement_metadata.get('year')}")
                         logger.info(f"   - Period: {self.statement_metadata.get('period')}")
                         logger.info(f"   - Type: {self.statement_metadata.get('card_type')}")
+                        logger.info(f"   - Bank: {self.statement_metadata.get('bank_name')}")
 
                         # Update card_type if it was auto and we detected it here
                         if self.card_type == "auto" and self.statement_metadata.get('card_type'):
@@ -475,9 +476,12 @@ class UniversalBankTransactionExtractor:
                     logger.info(f"🔍 AI detected card_type: {self.detected_card_type}")
 
                 txns = self._parse_response(result_text)
-                # Inject card_type for TransactionModel validation
+                # Inject card_type and bank_name for TransactionModel validation
+                bank_name = self.statement_metadata.get('bank_name')
                 for t in txns:
                     t['card_type'] = self.card_type
+                    if bank_name:
+                        t['bank_name'] = bank_name
                 return txns
             else:
                 logger.warning("No response received from LLM")

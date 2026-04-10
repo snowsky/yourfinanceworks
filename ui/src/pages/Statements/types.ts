@@ -16,6 +16,7 @@ export const STATEMENT_COLUMNS: ColumnDef[] = [
   { key: 'id', label: 'ID' },
   { key: 'filename', label: 'Filename', essential: true },
   { key: 'labels', label: 'Labels' },
+  { key: 'bank_name', label: 'Bank Name' },
   { key: 'type', label: 'Type' },
   { key: 'status', label: 'Status', essential: true },
   { key: 'review_status', label: 'Review Status' },

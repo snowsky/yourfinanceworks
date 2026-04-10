@@ -17,6 +17,7 @@ from core.utils.rbac import require_non_viewer
 from core.utils.file_validation import validate_file_path
 from core.utils.file_deletion import delete_file_from_storage
 from core.models.models_per_tenant import BankStatement, BankStatementTransaction
+from core.services.search_service import search_service
 from core.schemas.bank_statement import (
     PaginatedBankStatements,
     PaginatedDeletedBankStatements,
@@ -73,11 +74,12 @@ async def list_statements(
     if search:
         import sqlalchemy as sa
 
-        # Search in original_filename and stored_filename
+        # Search in original_filename, stored_filename, and bank_name
         query = query.filter(
             sa.or_(
                 BankStatement.original_filename.ilike(f"%{search}%"),
-                BankStatement.stored_filename.ilike(f"%{search}%")
+                BankStatement.stored_filename.ilike(f"%{search}%"),
+                BankStatement.bank_name.ilike(f"%{search}%")
             )
         )
 
@@ -142,6 +144,7 @@ async def list_statements(
                 "created_by_username": created_by_username,
                 "created_by_email": created_by_email,
                 "card_type": getattr(s, "card_type", "debit"),
+                "bank_name": getattr(s, "bank_name", None),
                 "review_status": getattr(s, "review_status", "not_started"),
                 "review_result": getattr(s, "review_result", None),
                 "reviewed_at": (
@@ -642,6 +645,7 @@ async def get_statement(
             "created_by_username": s.created_by.email if s.created_by else None,
             "created_by_email": s.created_by.email if s.created_by else None,
             "card_type": getattr(s, "card_type", "debit"),
+            "bank_name": getattr(s, "bank_name", None),
             "is_possible_receipt": getattr(s, "is_possible_receipt", False),
             "review_status": getattr(s, "review_status", "not_started"),
             "review_result": getattr(s, "review_result", None),
@@ -693,9 +697,12 @@ async def update_statement_meta(
     try:
         # Capture previous state for audit
         prev_notes = getattr(s, "notes", None)
+        prev_bank_name = getattr(s, "bank_name", None)
         prev_labels = list(getattr(s, "labels", []) or [])
         if "notes" in payload:
             s.notes = payload.get("notes")
+        if "bank_name" in payload:
+            s.bank_name = payload.get("bank_name")
         if "labels" in payload:
             v = payload.get("labels")
             if v in (None, ""):
@@ -719,11 +726,20 @@ async def update_statement_meta(
                 s.labels = cleaned
         db.commit()
         db.refresh(s)
+
+        # Index for search
+        try:
+            search_service.index_bank_statement(s)
+        except Exception as index_error:
+            logger.warning(f"Failed to index bank statement {s.id} for search: {index_error}")
+
         # Audit log the meta update (best-effort; ignore failures)
         try:
             changed: Dict[str, Any] = {}
             if "notes" in payload and prev_notes != s.notes:
                 changed["notes"] = {"before": prev_notes, "after": s.notes}
+            if "bank_name" in payload and prev_bank_name != s.bank_name:
+                changed["bank_name"] = {"before": prev_bank_name, "after": s.bank_name}
             if "labels" in payload and (prev_labels or []) != (
                 getattr(s, "labels", []) or []
             ):
@@ -759,6 +775,7 @@ async def update_statement_meta(
                 "created_by_user_id": s.created_by_user_id,
                 "created_by_username": s.created_by.email if s.created_by else None,
                 "created_by_email": s.created_by.email if s.created_by else None,
+                "bank_name": getattr(s, "bank_name", None),
             },
         }
     except Exception as e:

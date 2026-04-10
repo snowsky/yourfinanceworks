@@ -496,6 +496,7 @@ class BankStatement(Base):
     analysis_updated_at = Column(DateTime(timezone=True), nullable=True)
     local_cache_path = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
+    bank_name = Column(String, nullable=True)
     labels = Column(JSON, nullable=True)
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # User attribution
     is_possible_receipt = Column(Boolean, default=False, nullable=False)  # AI detected this may be a receipt

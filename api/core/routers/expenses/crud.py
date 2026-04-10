@@ -1138,7 +1138,7 @@ async def update_expense(
         raise HTTPException(status_code=500, detail="Failed to update expense")
 
 
-@router.delete("/{expense_id:int}", response_model=ExpenseSchema.__class__)
+@router.delete("/{expense_id:int}", response_model=RecycleBinExpenseResponse)
 async def delete_expense(
     expense_id: int,
     db: Session = Depends(get_db),

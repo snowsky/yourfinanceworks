@@ -187,6 +187,12 @@ def main():
     # Setup
     subparsers.add_parser('setup', help='Set up database schema')
     
+    # Stamp
+    stamp_parser = subparsers.add_parser('stamp', help='Stamp database to a specific revision')
+    stamp_parser.add_argument('revision', help='Revision to stamp to')
+    stamp_parser.add_argument('--type', choices=['master', 'tenant', 'all'], default='master', help='Database type')
+    stamp_parser.add_argument('--tenant-id', type=int, help='Tenant ID (required for tenant type)')
+    
     args = parser.parse_args()
     
     if not args.command:
@@ -231,6 +237,25 @@ def main():
         
         elif args.command == 'setup':
             setup_database_schema()
+        
+        elif args.command == 'stamp':
+            if args.type == 'all':
+                # Stamp all tenants
+                db = SessionLocal()
+                try:
+                    tenants = db.query(Tenant).filter(Tenant.is_active == True).all()
+                    for tenant in tenants:
+                        print(f"Stamping tenant {tenant.id} to {args.revision}")
+                        run_alembic_command(['stamp', args.revision], 'tenant', tenant.id)
+                finally:
+                    db.close()
+            elif args.type == 'tenant':
+                if not args.tenant_id:
+                    print("Error: --tenant-id is required for tenant stamp")
+                    return
+                run_alembic_command(['stamp', args.revision], 'tenant', args.tenant_id)
+            else:
+                run_alembic_command(['stamp', args.revision], 'master')
     
     except KeyboardInterrupt:
         print("\nOperation cancelled by user")

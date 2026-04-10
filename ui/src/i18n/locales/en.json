@@ -3219,6 +3219,8 @@
     "supported_formats": "Supports PDF, CSV, and image files (JPG, PNG, WebP) (max 12 files)",
     "filename": "Filename",
     "labels": "Labels",
+    "bank_name": "Bank Name",
+    "bank_name_placeholder": "Enter bank name...",
     "status": {
       "label": "Status",
       "uploaded": "Uploaded",

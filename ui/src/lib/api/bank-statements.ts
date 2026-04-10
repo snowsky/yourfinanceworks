@@ -35,6 +35,7 @@ export interface BankStatementSummary {
   analysis_error?: string | null;
   analysis_updated_at?: string | null;
   card_type?: string;
+  bank_name?: string | null;
   labels?: string[] | null;
   notes?: string | null;
   created_at?: string;
@@ -108,11 +109,11 @@ export const bankStatementApi = {
   },
 
   updateMeta: async (
-    statementId: number,
-    updates: { labels?: string[] | null; notes?: string | null }
+    statement_id: number,
+    updates: { labels?: string[] | null; notes?: string | null; bank_name?: string | null }
   ): Promise<{ success: boolean; statement: BankStatementSummary }> => {
     return apiRequest<{ success: boolean; statement: BankStatementSummary }>(
-      `/statements/${statementId}`,
+      `/statements/${statement_id}`,
       { method: 'PUT', body: JSON.stringify(updates) }
     );
   },

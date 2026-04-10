@@ -9,7 +9,18 @@ from pathlib import Path
 # Add the parent directory to the path so we can import from the API
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.services.statement_service import process_bank_pdf_with_llm, _regex_extract_transactions, SimplePDFLoader
+from core.services.statement_service import process_bank_pdf_with_llm, _enhanced_regex_extraction
+# Simple fallback for SimplePDFLoader if missing
+try:
+    from langchain_community.document_loaders import PyPDFLoader
+    class SimplePDFLoader:
+        def load(self, path):
+            loader = PyPDFLoader(path)
+            return [d.page_content for d in loader.load()]
+except ImportError:
+    class SimplePDFLoader:
+        def load(self, path):
+            return ["PDF loading failed: langchain_community not available"]
 
 def test_bank_extraction(pdf_path: str):
     """Test bank statement extraction."""
@@ -33,7 +44,7 @@ def test_bank_extraction(pdf_path: str):
         
         # Test regex extraction directly
         print("Testing regex extraction...")
-        regex_results = _regex_extract_transactions(combined_text)
+        regex_results = _enhanced_regex_extraction(combined_text)
         print(f"Regex extracted {len(regex_results)} transactions:")
         for i, txn in enumerate(regex_results):
             print(f"  {i+1}. {txn}")

@@ -16,6 +16,7 @@ from ._shared import (
     get_tenant_timezone_aware_datetime,
 )
 from .base_handler import BaseMessageHandler
+from core.services.search_service import search_service
 
 
 # ============================================================================
@@ -182,6 +183,12 @@ class BankStatementMessageHandler(BaseMessageHandler):
 
                         db.commit()
 
+                        # Index for search
+                        try:
+                            search_service.index_bank_statement(statement)
+                        except Exception as index_error:
+                            self.logger.warning(f"Failed to index bank statement {statement.id} for search: {index_error}")
+
                         created_statement_id = statement.id
                         self.logger.info(f"✅ STEP: Updated bank statement record {created_statement_id}")
                     except Exception as e:
@@ -279,19 +286,34 @@ class BankStatementMessageHandler(BaseMessageHandler):
 
                         self.logger.info(f"Extracted {len(txns)} transactions for statement_id={statement_id}")
 
-                        # If auto-detected, save the result back to the statement
-                        if getattr(stmt, 'card_type', 'debit') == 'auto' and txns:
-                            detected = txns[0].get('card_type')
-                            if detected in ['credit', 'debit']:
-                                self.logger.info(f"Saving detected card_type '{detected}' for statement {statement_id}")
-                                stmt.card_type = detected
+                        # If auto-detected or bank_name found, save the result back to the statement
+                        if txns:
+                            detected_card = txns[0].get('card_type')
+                            detected_bank = txns[0].get('bank_name')
+                            updated = False
+                            
+                            if getattr(stmt, 'card_type', 'debit') == 'auto' and detected_card in ['credit', 'debit']:
+                                self.logger.info(f"Saving detected card_type '{detected_card}' for statement {statement_id}")
+                                stmt.card_type = detected_card
+                                updated = True
+                            
+                            if detected_bank and not getattr(stmt, 'bank_name', None):
+                                self.logger.info(f"Saving detected bank_name '{detected_bank}' for statement {statement_id}")
+                                stmt.bank_name = detected_bank
+                                updated = True
+                                
+                            if updated:
                                 try:
                                     db.add(stmt)
                                     db.commit()
                                     db.refresh(stmt)
-                                except Exception as e:
-                                    self.logger.warning(f"Failed to update detected card_type for statement {statement_id}: {e}")
                                     db.rollback()
+
+                            # Index for search (after updates and transactions are saved)
+                            try:
+                                search_service.index_bank_statement(stmt)
+                            except Exception as index_error:
+                                self.logger.warning(f"Failed to index bank statement {statement_id} for search: {index_error}")
 
                         # Handle processing results
                         if not txns:

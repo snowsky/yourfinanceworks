@@ -12,7 +12,12 @@ from sqlalchemy.exc import SQLAlchemyError
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import config
-from core.models.database import get_master_db_url
+from config import config
+from core.models.database import SQLALCHEMY_DATABASE_URL
+from core.services.tenant_database_manager import tenant_db_manager
+
+def get_master_db_url():
+    return SQLALCHEMY_DATABASE_URL
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

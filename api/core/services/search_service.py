@@ -465,14 +465,14 @@ class SearchService:
                 'id': str(statement.id),
                 'tenant_id': get_tenant_context(),
                 'original_filename': statement.original_filename,
-                'bank_name': '',  # Can be extracted from filename or enhanced with parsing
+                'bank_name': statement.bank_name or '',
                 'account_number': '',  # Can be extracted from filename or enhanced with parsing
                 'statement_content': statement.notes or '',
                 'status': statement.status,
                 'extracted_count': statement.extracted_count or 0,
                 'created_at': statement.created_at.isoformat() if statement.created_at else None,
                 'updated_at': statement.updated_at.isoformat() if statement.updated_at else None,
-                'searchable_text': f"{statement.original_filename} {statement.stored_filename or ''} {statement.notes or ''}"
+                'searchable_text': f"{statement.original_filename} {statement.stored_filename or ''} {statement.bank_name or ''} {statement.notes or ''}"
             }
 
             index_name = self._get_tenant_index('statements')
@@ -560,7 +560,7 @@ class SearchService:
                     {
                         'multi_match': {
                             'query': query,
-                            'fields': ['searchable_text^2', 'name', 'number', 'description', 'filename', 'client_name', 'vendor', 'title', 'email', 'phone', 'company', 'sku', 'category', 'payment_method', 'invoice_number', 'original_filename'],
+                            'fields': ['searchable_text^2', 'name', 'number', 'description', 'filename', 'client_name', 'vendor', 'title', 'email', 'phone', 'company', 'sku', 'category', 'payment_method', 'invoice_number', 'original_filename', 'bank_name'],
                             'type': 'best_fields',
                             'fuzziness': 'AUTO'
                         }
@@ -759,6 +759,7 @@ class SearchService:
                         or_(
                             BankStatement.original_filename.ilike(f"%{query}%"),
                             BankStatement.stored_filename.ilike(f"%{query}%"),
+                            BankStatement.bank_name.ilike(f"%{query}%"),
                             BankStatement.notes.ilike(f"%{query}%")
                         )
                     ).limit(per_type_limit).all()

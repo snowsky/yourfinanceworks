@@ -12,7 +12,12 @@ from sqlalchemy.orm import sessionmaker
 # Add the parent directory to the path so we can import our modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.models.database import get_tenant_db_url
+from core.models.database import SQLALCHEMY_DATABASE_URL
+from core.services.tenant_database_manager import tenant_db_manager
+
+def get_tenant_db_url(tenant_id):
+    return tenant_db_manager.get_tenant_database_url(tenant_id)
+
 from core.models import EmailNotificationSettings, User
 from core.services.notification_service import NotificationService
 from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider

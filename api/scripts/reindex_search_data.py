@@ -13,9 +13,16 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from core.models.database import get_master_db_url, get_tenant_db_url, set_tenant_context
+from core.models.database import SQLALCHEMY_DATABASE_URL, set_tenant_context
 from core.models.models import Tenant
 from core.services.search_service import search_service
+from core.services.tenant_database_manager import tenant_db_manager
+
+def get_master_db_url():
+    return SQLALCHEMY_DATABASE_URL
+
+def get_tenant_db_url(tenant_id):
+    return tenant_db_manager.get_tenant_database_url(tenant_id)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

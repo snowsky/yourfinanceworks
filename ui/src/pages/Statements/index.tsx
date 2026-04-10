@@ -104,6 +104,7 @@ export default function Statements() {
   const [pageSize, setPageSize] = useState(50);
   const [totalStatements, setTotalStatements] = useState(0);
   const [newLabelValueById, setNewLabelValueById] = useState<Record<number, string>>({});
+  const [bankNameValueById, setBankNameValueById] = useState<Record<number, string>>({});
 
   // Recycle bin state
   const [showRecycleBin, setShowRecycleBin] = useState(false);
@@ -808,6 +809,7 @@ export default function Statements() {
             selectedIds={selectedIds} setSelectedIds={setSelectedIds}
             bulkLabel={bulkLabel} setBulkLabel={setBulkLabel}
             newLabelValueById={newLabelValueById} setNewLabelValueById={setNewLabelValueById}
+            bankNameValueById={bankNameValueById} setBankNameValueById={setBankNameValueById}
             handleReviewClick={handleReviewClick} handleRunReview={handleRunReview} handleCancelReview={handleCancelReview}
             handleBulkRunReview={handleBulkRunReview}
             exportSelectedAsZip={exportSelectedAsZip}

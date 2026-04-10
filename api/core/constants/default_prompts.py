@@ -74,6 +74,7 @@ Look for:
 1. The Statement Year (4-digit format, e.g., 2024).
 2. The Statement Period (e.g., "Jan 01, 2024 to Jan 31, 2024").
 3. The Account Type (detect if 'credit' or 'debit').
+4. The Bank Name (e.g., "Chase Bank", "TD Bank", "HSBC").
 
 TEXT:
 {{header_text}}
@@ -83,7 +84,8 @@ Example output:
 {
   "year": 2024,
   "period": "January 2024",
-  "card_type": "credit"
+  "card_type": "credit",
+  "bank_name": "Chase Bank"
 }
 
 JSON:"""

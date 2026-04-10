@@ -7,10 +7,9 @@ import os
 from pathlib import Path
 
 from core.models.database import get_db
-from core.models.models_per_tenant import Invoice, Client, BankStatement
+from core.models.models_per_tenant import Invoice, Client, BankStatement, Expense
 from core.models.models import MasterUser
 from core.routers.auth import get_current_user
-from core.routers.expenses import Expense
 
 logger = logging.getLogger(__name__)
 
