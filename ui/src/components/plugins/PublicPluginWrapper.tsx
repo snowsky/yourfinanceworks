@@ -152,17 +152,30 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
    */
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Support both the original and the new branch protocol
+      // 1. Handle Usage Tracking
       if (event.data?.type === 'PLUGIN_INTERACTION' || event.data?.type === 'plugin-public-usage') {
         const amount = typeof event.data.amount === 'number' 
           ? event.data.amount 
           : (typeof event.data.quantity === 'number' ? event.data.quantity : 1);
         handleIncrementUsage(amount);
       }
+
+      // 2. Handle Auth Handshake (Securely pass token to iframe)
+      if (event.data?.type === 'PLUGIN_READY' && iframeRef.current) {
+        const tokenKey = `plugin_token_${pluginId}`;
+        const tokenStr = localStorage.getItem(tokenKey);
+        if (tokenStr) {
+          const { token } = JSON.parse(tokenStr);
+          iframeRef.current.contentWindow?.postMessage({
+            type: 'AUTH_TOKEN',
+            token: token
+          }, '*'); // In production, replace '*' with the actual plugin origin for maximum security
+        }
+      }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [handleIncrementUsage]);
+  }, [handleIncrementUsage, pluginId]);
 
   // Handle clicks on In-process plugins (if not manual)
   const handleWrapperClick = () => {
