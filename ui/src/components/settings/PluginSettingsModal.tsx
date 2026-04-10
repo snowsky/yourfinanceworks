@@ -9,12 +9,18 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Loader2, Settings, Globe, Copy, Check } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Loader2, Settings, Globe, Copy, Check, User as UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { pluginApi } from '@/lib/api';
+import { pluginApi, userApi } from '@/lib/api';
 import { getTenantId } from '@/lib/api/_base';
+import { User } from '@/types';
 
 interface PublicAccessState {
   enabled: boolean;
@@ -46,12 +52,14 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<Record<string, any>>({});
   const [publicAccess, setPublicAccess] = useState<PublicAccessState | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (open) {
       loadConfig();
       loadPublicAccessConfig();
+      loadUsers();
     }
   }, [open, pluginId]);
 
@@ -95,6 +103,15 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
     } catch {
       // Plugin doesn't support public access — silently ignore
       setPublicAccess(null);
+    }
+  };
+
+  const loadUsers = async () => {
+    try {
+      const response = await userApi.getUsers();
+      setUsers(response || []);
+    } catch (error) {
+      console.error('Failed to load users:', error);
     }
   };
 
@@ -380,15 +397,26 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                           )}
                         </p>
                       </div>
-                      <Input
-                        id="service-user-email"
-                        className="w-[200px]"
+                      <Select
                         value={publicAccess.service_user_email || ''}
-                        onChange={(e) =>
-                          setPublicAccess({ ...publicAccess, service_user_email: e.target.value })
+                        onValueChange={(value) =>
+                          setPublicAccess({ ...publicAccess, service_user_email: value })
                         }
-                        placeholder="admin@example.com"
-                      />
+                      >
+                        <SelectTrigger id="service-user-email" className="w-[200px]">
+                          <SelectValue placeholder="Select user..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users.map((user) => (
+                            <SelectItem key={user.id} value={user.email}>
+                              <div className="flex flex-col text-left">
+                                <span className="font-medium">{user.name || user.email.split('@')[0]}</span>
+                                <span className="text-[10px] text-muted-foreground">{user.email}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                   {publicUrl && (
