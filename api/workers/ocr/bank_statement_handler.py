@@ -307,6 +307,8 @@ class BankStatementMessageHandler(BaseMessageHandler):
                                     db.add(stmt)
                                     db.commit()
                                     db.refresh(stmt)
+                                except Exception as e:
+                                    self.logger.warning(f"Failed to update statement metadata: {e}")
                                     db.rollback()
 
                             # Index for search (after updates and transactions are saved)
