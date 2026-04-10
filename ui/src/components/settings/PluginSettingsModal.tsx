@@ -24,6 +24,7 @@ interface PublicAccessState {
   show_sidebar: boolean;
   show_header: boolean;
   manual_usage_tracking: boolean;
+  service_user_email: string | null;
   publicPagePath: string | null;
 }
 
@@ -85,6 +86,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
           show_sidebar: response.show_sidebar || false,
           show_header: response.show_header || false,
           manual_usage_tracking: response.manual_usage_tracking || false,
+          service_user_email: response.service_user_email || null,
           publicPagePath: response.public_page?.path ?? null,
         });
       } else {
@@ -122,6 +124,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
               show_sidebar: publicAccess.show_sidebar,
               show_header: publicAccess.show_header,
               manual_usage_tracking: publicAccess.manual_usage_tracking,
+              service_user_email: publicAccess.service_user_email,
             })
           : Promise.resolve(),
       ]);
@@ -362,6 +365,29 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                           setPublicAccess({ ...publicAccess, stripe_price_id: e.target.value })
                         }
                         placeholder="price_1..."
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="service-user-email">
+                          {t('plugins.public_access.service_user_email', 'Service User Email')}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          {t(
+                            'plugins.public_access.service_user_email_desc',
+                            'Email used for background tasks and sidecar auth',
+                          )}
+                        </p>
+                      </div>
+                      <Input
+                        id="service-user-email"
+                        className="w-[200px]"
+                        value={publicAccess.service_user_email || ''}
+                        onChange={(e) =>
+                          setPublicAccess({ ...publicAccess, service_user_email: e.target.value })
+                        }
+                        placeholder="admin@example.com"
                       />
                     </div>
 

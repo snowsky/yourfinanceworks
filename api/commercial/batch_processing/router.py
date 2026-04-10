@@ -46,13 +46,14 @@ async def get_api_key_auth(
         
         tenant_id_str = request.headers.get("X-Plugin-Tenant-Id") or request.headers.get("X-Public-Tenant-Id")
         user_email = request.headers.get("X-Plugin-User-Email")
+        plugin_id = request.headers.get("X-Plugin-Id")
         
         try:
             tenant_id = int(tenant_id_str) if tenant_id_str else None
         except (ValueError, TypeError):
             tenant_id = None
             
-        auth_context = await auth_service.authenticate_internal_secret(db, x_internal_secret, tenant_id, user_email)
+        auth_context = await auth_service.authenticate_internal_secret(db, x_internal_secret, tenant_id, user_email, plugin_id)
         
         if auth_context and auth_context.is_authenticated:
             # Set tenant context

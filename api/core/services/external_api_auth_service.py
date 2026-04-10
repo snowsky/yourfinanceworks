@@ -150,18 +150,29 @@ class ExternalAPIAuthService:
         )
 
     async def authenticate_internal_secret(
-        self, db: Session, secret_key: str, tenant_id: Optional[int], user_email: Optional[str]
+        self, db: Session, secret_key: str, tenant_id: Optional[int], user_email: Optional[str], plugin_id: Optional[str] = None
     ) -> Optional[AuthContext]:
         """Authenticate using an internal shared secret (sidecar trust)."""
         if not secret_key or secret_key != self.secret_key:
             return None
 
-        # Find user if email is provided
+        # Fallback to Service User Email if no user_email is provided
+        if not user_email and tenant_id and plugin_id:
+            from core.models.models import TenantPluginSettings
+            settings = db.query(TenantPluginSettings).filter(TenantPluginSettings.tenant_id == tenant_id).first()
+            if settings and settings.plugin_config:
+                plugin_cfg = settings.plugin_config.get(plugin_id, {})
+                fallback_email = plugin_cfg.get("public_access", {}).get("service_user_email")
+                if fallback_email:
+                    user_email = fallback_email
+                    logger.info(f"Using fallback service user email '{user_email}' for plugin '{plugin_id}'")
+
+        # Find user if email is provided (explicitly or via fallback)
         user = None
         if user_email:
             user = db.query(MasterUser).filter(MasterUser.email == user_email).first()
         
-        # Fallback to a tenant admin if no specific user but tenant_id is provided
+        # Fallback to a tenant admin if still no user but tenant_id is provided
         if not user and tenant_id:
             user = db.query(MasterUser).filter(
                 MasterUser.tenant_id == tenant_id, 
