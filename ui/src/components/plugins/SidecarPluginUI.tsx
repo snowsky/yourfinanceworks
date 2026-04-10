@@ -29,6 +29,7 @@ export function SidecarPluginUI({ pluginId, uiEntry, title }: SidecarPluginUIPro
           });
 
           if (response && response.token) {
+            console.log(`[SidecarPluginUI] Handshake token received for ${pluginId}: ${response.token.substring(0, 15)}...`);
             // Securely post the token back to the plugin iframe
             iframeRef.current.contentWindow?.postMessage({
               type: 'AUTH_TOKEN',
