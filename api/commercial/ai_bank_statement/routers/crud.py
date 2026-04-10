@@ -700,12 +700,15 @@ async def update_statement_meta(
         prev_notes = getattr(s, "notes", None)
         prev_bank_name = getattr(s, "bank_name", None)
         prev_labels = list(getattr(s, "labels", []) or [])
+        
+        logger.info(f"Updating metadata for statement {statement_id} (Tenant: {tenant_id}, User: {current_user.email}) with payload: {payload}")
+        
         if "notes" in payload:
             s.notes = payload.get("notes")
         if "bank_name" in payload:
             new_bank_name = payload.get("bank_name")
             if new_bank_name is None:
-                logger.info(f"Setting bank_name to None for statement {statement_id}. User-Agent: {request.headers.get('user-agent')}, Payload: {payload}")
+                logger.info(f"Setting bank_name to None for statement {statement_id}. User: {current_user.email}")
             s.bank_name = new_bank_name
         if "labels" in payload:
             v = payload.get("labels")

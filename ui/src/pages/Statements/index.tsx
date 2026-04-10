@@ -444,6 +444,46 @@ export default function Statements() {
     } finally { setDetailLoading(false); }
   };
 
+  const saveAll = async () => {
+    if (!selected) return;
+    try {
+      setDetailLoading(true);
+      
+      // Part 1: Save transactions
+      const cleaned = rows.map(r => ({
+        ...r,
+        id: (r as any).backend_id || undefined,
+        balance: r.balance === undefined ? null : r.balance,
+        category: r.category || null,
+        notes: (r as any).notes || null,
+        invoice_id: r.invoice_id ?? null,
+        expense_id: r.expense_id ?? null,
+      }));
+      await bankStatementApi.replaceTransactions(selected, cleaned);
+
+      // Part 2: Save metadata
+      const updates = { 
+        labels: (statementLabels || []).filter((x) => (x || '').trim()).slice(0, 10), 
+        notes: statementNotes || null,
+        bank_name: statementBankName || null
+      };
+      const resp = await bankStatementApi.updateMeta(selected, updates);
+      
+      // Synchronize states
+      const newBankName = resp.statement.bank_name || '';
+      setBankNameValueById((prev: Record<number, string>) => ({ ...prev, [selected]: newBankName }));
+      setDetail((prev: BankStatementDetail | null) => prev ? { ...prev, notes: resp.statement.notes || null, labels: (resp.statement as any).labels || [], bank_name: newBankName || null } : prev);
+      
+      toast.success(t('statements.save_success', { defaultValue: 'Changes saved successfully' }));
+      await openStatement(selected);
+      await loadList();
+    } catch (e: any) {
+      toast.error(e?.message || t('statements.save_failed', { defaultValue: 'Failed to save changes' }));
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   const saveMeta = async () => {
     if (!selected) return;
     try {
@@ -906,7 +946,7 @@ export default function Statements() {
             previewLoading={previewLoading}
             loading={loading}
             getLocale={getLocale} timezone={timezone}
-            saveRows={saveRows} saveMeta={saveMeta} addEmptyRow={addEmptyRow} exportToCSV={exportToCSV}
+            saveRows={saveAll} saveMeta={saveMeta} addEmptyRow={addEmptyRow} exportToCSV={exportToCSV}
             createExpenseFromTransaction={createExpenseFromTransaction}
             createInvoiceFromTransaction={createInvoiceFromTransaction}
             openStatement={openStatement} handlePreview={handlePreview} handleDownload={handleDownload}

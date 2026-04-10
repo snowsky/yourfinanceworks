@@ -426,6 +426,7 @@ export function StatementDetailView({
                   placeholder={t('statements.bank_name_placeholder', { defaultValue: 'Bank Name...' })}
                   value={statementBankName}
                   onChange={(e) => setStatementBankName(e.target.value)}
+                  onBlur={saveMeta}
                   disabled={readOnly}
                 />
               </div>
@@ -526,6 +527,7 @@ export function StatementDetailView({
                 <Textarea
                   value={statementNotes}
                   onChange={(e) => setStatementNotes(e.target.value)}
+                  onBlur={saveMeta}
                   placeholder={t('statements.notes_placeholder', { defaultValue: 'Add any notes about this statement...' })}
                   className="min-h-[100px] border-border/50 bg-muted/20 focus:bg-background rounded-lg transition-all resize-none p-4"
                   disabled={readOnly}
