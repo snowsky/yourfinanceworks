@@ -158,13 +158,32 @@ class ExternalAPIAuthService:
         if not secret_key or secret_key != self.secret_key:
             return None
 
+        # 1. Start with provided context
         logger.debug(
             f"authenticate_internal_secret: plugin_id={plugin_id}, "
             f"tenant_id={tenant_id}, user_email={user_email}"
         )
 
-        # Fallback to Service User Email if no user_email is provided
-        if not user_email and tenant_id and plugin_id:
+        user = None
+        
+        # 2. Try to resolve User immediately if email is provided
+        if user_email:
+            if user_email == "admin@standalone":
+                logger.warning(
+                    f"Trusted plugin '{plugin_id}' is identifying as 'admin@standalone'. "
+                    "This usually indicates the plugin is in fallback/dev mode."
+                )
+            
+            user = db.query(MasterUser).filter(MasterUser.email == user_email).first()
+            if user:
+                logger.debug(f"Resolved user {user.id} from email {user_email}")
+                # Supplement missing tenant_id from the resolved user
+                if not tenant_id:
+                    tenant_id = user.tenant_id
+                    logger.debug(f"Supplemented missing tenant_id {tenant_id} from user {user.id}")
+
+        # 3. Fallback to Service User Email if still no user/email but we have a tenant_id
+        if not user and not user_email and tenant_id and plugin_id:
             from core.models.models import TenantPluginSettings
             settings = db.query(TenantPluginSettings).filter(TenantPluginSettings.tenant_id == tenant_id).first()
             if settings and settings.plugin_config:
@@ -173,15 +192,12 @@ class ExternalAPIAuthService:
                 if fallback_email:
                     user_email = fallback_email
                     logger.info(f"Using fallback service user email '{user_email}' for plugin '{plugin_id}'")
+                    # Try to resolve user again with the fallback email
+                    user = db.query(MasterUser).filter(MasterUser.email == user_email).first()
+                    if user:
+                        logger.debug(f"Resolved service user {user.id} from fallback email {user_email}")
 
-        # Find user if email is provided (explicitly or via fallback)
-        user = None
-        if user_email:
-            user = db.query(MasterUser).filter(MasterUser.email == user_email).first()
-            if user:
-                logger.debug(f"Resolved user {user.id} from email {user_email}")
-        
-        # Fallback to a tenant admin if still no user but tenant_id is provided
+        # 4. Final fallback to a tenant admin if we HAVE a tenant_id but still no specific user
         if not user and tenant_id:
             user = db.query(MasterUser).filter(
                 MasterUser.tenant_id == tenant_id, 
@@ -190,7 +206,7 @@ class ExternalAPIAuthService:
             if user:
                 logger.debug(f"Resolved fallback admin {user.id} for tenant {tenant_id}")
 
-        # Final tenant resolution: headers, then user, then None
+        # 5. Determine final tenant context
         resolved_tenant_id = tenant_id or (user.tenant_id if user else None)
         
         if not resolved_tenant_id:

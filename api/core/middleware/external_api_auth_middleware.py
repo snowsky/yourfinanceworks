@@ -57,7 +57,7 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
                         request.headers.get("X-Public-Tenant-Id") or
                         request.headers.get("X-Tenant-Id")
                     )
-                    user_email = request.headers.get("X-Plugin-User-Email")
+                    user_email = request.headers.get("X-Plugin-User-Email") or request.headers.get("X-User-Email")
                     plugin_id = request.headers.get("X-Plugin-Id")
                     
                     try:
