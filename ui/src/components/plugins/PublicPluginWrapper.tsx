@@ -197,6 +197,29 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
 
   const resolvedIframeUrl = iframeUrl ?? config.public_page?.ui_entry ?? undefined;
   
+  const handleOpenSettings = async () => {
+    const tokenKey = `plugin_token_${pluginId}`;
+    const tokenStr = localStorage.getItem(tokenKey);
+    if (!tokenStr) return;
+    const tokenData = JSON.parse(tokenStr);
+
+    const loadingToast = toast.loading("Opening payment settings...");
+    try {
+      const res = await apiRequest<{ portal_url: string }>(`/plugins/${pluginId}/public-paywall/portal`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: parseInt(explicitTenantId || String(tokenData.tenant_id), 10),
+          plugin_user_id: tokenData.user.id
+        })
+      });
+      toast.dismiss(loadingToast);
+      window.location.href = res.portal_url;
+    } catch (err: any) {
+      toast.dismiss(loadingToast);
+      toast.error(err.message || "Failed to open payment settings. Make sure you have an active subscription.");
+    }
+  };
+
   const UserMenu = () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -214,9 +237,9 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => toast.info("Settings feature coming soon.")}>
+        <DropdownMenuItem onClick={handleOpenSettings}>
           <SettingsIcon className="mr-2 h-4 w-4" />
-          <span>Settings</span>
+          <span>Payment Settings</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
@@ -260,9 +283,13 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
                 </div>
              </div>
              
-             <Button variant="ghost" className="w-full justify-start gap-3 h-9 px-2 text-muted-foreground hover:text-foreground" onClick={() => toast.info("Settings feature coming soon.")}>
+             <Button 
+                variant="ghost" 
+                className="w-full justify-start gap-3 h-9 px-2 text-muted-foreground hover:text-foreground" 
+                onClick={handleOpenSettings}
+              >
                 <SettingsIcon className="h-4 w-4" />
-                <span className="text-xs">Settings</span>
+                <span className="text-xs">Payment Settings</span>
              </Button>
              
              <Button variant="ghost" className="w-full justify-start gap-3 h-9 px-2 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>

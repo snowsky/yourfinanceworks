@@ -1052,6 +1052,53 @@ async def plugin_paywall_checkout(
         logger.error(f"Stripe error creating checkout session: {e}")
         raise HTTPException(status_code=500, detail="Error communicating with Stripe")
 
+@router.post("/{plugin_id}/public-paywall/portal")
+async def create_plugin_payment_portal(
+    plugin_id: str,
+    payload: CheckoutRequest,
+    request: Request,
+    db: Session = Depends(get_master_db)
+):
+    """
+    Create a Stripe Customer Portal session for a plugin user to manage their payment methods.
+    Only allows users who already have a Stripe customer ID (i.e., have attempted checkout before).
+    """
+    plugin_id = _normalize_plugin_id(plugin_id)
+
+    plugin_user = db.query(PluginUser).filter(
+        PluginUser.id == payload.plugin_user_id,
+        PluginUser.tenant_id == payload.tenant_id,
+        PluginUser.plugin_id == plugin_id
+    ).first()
+
+    if not plugin_user:
+        raise HTTPException(status_code=404, detail="Plugin user not found")
+
+    if not plugin_user.stripe_customer_id:
+        raise HTTPException(
+            status_code=400, 
+            detail="No active payment record found. Please subscribe to the plugin first."
+        )
+
+    stripe_cfg = get_tenant_payment_settings(payload.tenant_id)
+    if not stripe_cfg or not stripe_cfg.get("secretKey"):
+        raise HTTPException(status_code=400, detail="Payments are not configured by the organization")
+
+    stripe.api_key = stripe_cfg["secretKey"]
+    
+    # Use the Referer or specific p/ url as return_url
+    return_url = f"{request.base_url}p/{plugin_id}?t={payload.tenant_id}"
+
+    try:
+        session = stripe.billing_portal.Session.create(
+            customer=plugin_user.stripe_customer_id,
+            return_url=return_url,
+        )
+        return {"portal_url": session.url}
+    except stripe.StripeError as e:
+        logger.error(f"Stripe error creating portal session: {e}")
+        raise HTTPException(status_code=500, detail="Error communicating with Stripe")
+
 @router.post("/{plugin_id}/public-paywall/status")
 async def plugin_paywall_status(
     plugin_id: str,
