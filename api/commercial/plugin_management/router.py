@@ -71,7 +71,7 @@ async def generate_plugin_sidecar_token(
     Dashboard-only, requires valid user session.
     """
     from jose import jwt
-    from api.core.utils.auth import ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+    from core.utils.auth import ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
     
     plugin_id = _validate_plugin_id(plugin_id)
     
