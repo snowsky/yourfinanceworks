@@ -52,7 +52,11 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
                 internal_secret = request.headers.get("X-Internal-Secret")
                 if internal_secret:
                     # Extract identifying headers forwarded by sidecar
-                    tenant_id_str = request.headers.get("X-Plugin-Tenant-Id") or request.headers.get("X-Public-Tenant-Id")
+                    tenant_id_str = (
+                        request.headers.get("X-Plugin-Tenant-Id") or 
+                        request.headers.get("X-Public-Tenant-Id") or
+                        request.headers.get("X-Tenant-Id")
+                    )
                     user_email = request.headers.get("X-Plugin-User-Email")
                     plugin_id = request.headers.get("X-Plugin-Id")
                     

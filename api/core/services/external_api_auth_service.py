@@ -158,6 +158,11 @@ class ExternalAPIAuthService:
         if not secret_key or secret_key != self.secret_key:
             return None
 
+        logger.debug(
+            f"authenticate_internal_secret: plugin_id={plugin_id}, "
+            f"tenant_id={tenant_id}, user_email={user_email}"
+        )
+
         # Fallback to Service User Email if no user_email is provided
         if not user_email and tenant_id and plugin_id:
             from core.models.models import TenantPluginSettings
@@ -173,6 +178,8 @@ class ExternalAPIAuthService:
         user = None
         if user_email:
             user = db.query(MasterUser).filter(MasterUser.email == user_email).first()
+            if user:
+                logger.debug(f"Resolved user {user.id} from email {user_email}")
         
         # Fallback to a tenant admin if still no user but tenant_id is provided
         if not user and tenant_id:
@@ -180,6 +187,17 @@ class ExternalAPIAuthService:
                 MasterUser.tenant_id == tenant_id, 
                 MasterUser.role == "admin"
             ).first()
+            if user:
+                logger.debug(f"Resolved fallback admin {user.id} for tenant {tenant_id}")
+
+        # Final tenant resolution: headers, then user, then None
+        resolved_tenant_id = tenant_id or (user.tenant_id if user else None)
+        
+        if not resolved_tenant_id:
+             logger.warning(
+                 f"No tenant context found for trusted plugin '{plugin_id}'. "
+                 f"User: {user_email or 'None'}, Header Tenant: {tenant_id or 'None'}"
+             )
 
         # Create trusted auth context
         return AuthContext(
@@ -192,7 +210,7 @@ class ExternalAPIAuthService:
             authentication_method=AuthenticationMethod.JWT, # Reuse JWT as a 'trusted' marker
             is_authenticated=True,
             is_admin=user.role == "admin" if user else True,
-            tenant_id=tenant_id or (user.tenant_id if user else None),
+            tenant_id=resolved_tenant_id,
             is_sandbox=False,
         )
 

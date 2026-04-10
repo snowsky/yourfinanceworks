@@ -44,7 +44,12 @@ async def get_api_key_auth(
         from core.services.external_api_auth_service import ExternalAPIAuthService
         auth_service = ExternalAPIAuthService()
         
-        tenant_id_str = request.headers.get("X-Plugin-Tenant-Id") or request.headers.get("X-Public-Tenant-Id")
+        # Extract headers with robust fallback chain
+        tenant_id_str = (
+            request.headers.get("X-Plugin-Tenant-Id") or 
+            request.headers.get("X-Public-Tenant-Id") or
+            request.headers.get("X-Tenant-Id")
+        )
         user_email = request.headers.get("X-Plugin-User-Email")
         plugin_id = request.headers.get("X-Plugin-Id")
         
@@ -56,16 +61,15 @@ async def get_api_key_auth(
         auth_context = await auth_service.authenticate_internal_secret(db, x_internal_secret, tenant_id, user_email, plugin_id)
         
         if auth_context and auth_context.is_authenticated:
-            # Set tenant context
+            # Set tenant context globally for this request
             if auth_context.tenant_id:
                 from core.models.database import set_tenant_context
                 set_tenant_context(auth_context.tenant_id)
             
             # Return context mimicking the APIClient structure where possible
-            # We return (tenant_id, user_id, "internal_trust", auth_context)
             return (
                 auth_context.tenant_id, 
-                int(auth_context.user_id) if auth_context.user_id.isdigit() else 0, 
+                int(auth_context.user_id) if (auth_context.user_id and auth_context.user_id.isdigit()) else 0, 
                 "internal_trust", 
                 auth_context
             )
