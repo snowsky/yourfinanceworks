@@ -29,6 +29,7 @@ export function SidecarPluginUI({ pluginId, uiEntry, title }: SidecarPluginUIPro
           });
 
           if (response && response.token) {
+            console.log(`[SidecarPluginUI] Token received for ${pluginId}, posting to iframe. Length: ${response.token.length}`);
             // Securely post the token back to the plugin iframe
             iframeRef.current.contentWindow?.postMessage({
               type: 'AUTH_TOKEN',
