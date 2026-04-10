@@ -603,6 +603,7 @@ class PublicAccessUpdate(BaseModel):
     free_clicks: int = 0
     show_sidebar: bool = False
     show_header: bool = False
+    manual_usage_tracking: bool = False
 
 
 def _get_public_access_config(plugin_config: dict | None, plugin_id: str) -> dict:
@@ -616,6 +617,7 @@ def _get_public_access_config(plugin_config: dict | None, plugin_id: str) -> dic
         "free_clicks": int(pa.get("free_clicks", 0)),
         "show_sidebar": bool(pa.get("show_sidebar", False)),
         "show_header": bool(pa.get("show_header", False)),
+        "manual_usage_tracking": bool(pa.get("manual_usage_tracking", False)),
     }
 
 
@@ -681,6 +683,7 @@ async def update_plugin_public_access(
         "free_clicks": payload.free_clicks,
         "show_sidebar": payload.show_sidebar,
         "show_header": payload.show_header,
+        "manual_usage_tracking": payload.manual_usage_tracking,
     }
 
     if not settings:
@@ -968,6 +971,11 @@ class CheckoutRequest(BaseModel):
     tenant_id: int
     plugin_user_id: int
 
+class IncrementUsageRequest(BaseModel):
+    tenant_id: int
+    plugin_user_id: int
+    amount: int = 1
+
 # --- Plugin Payment & Paywall Endpoints ---
 
 @router.post("/{plugin_id}/public-paywall/checkout")
@@ -1153,7 +1161,7 @@ async def plugin_paywall_status(
 @router.post("/{plugin_id}/public-paywall/increment-usage")
 async def increment_plugin_usage(
     plugin_id: str,
-    payload: CheckoutRequest,
+    payload: IncrementUsageRequest,
     db: Session = Depends(get_master_db),
 ):
     """
@@ -1174,7 +1182,7 @@ async def increment_plugin_usage(
     if plugin_user.usage_count is None:
         plugin_user.usage_count = 0
 
-    plugin_user.usage_count += 1
+    plugin_user.usage_count += payload.amount
     db.commit()
 
     return {"usage_count": plugin_user.usage_count}

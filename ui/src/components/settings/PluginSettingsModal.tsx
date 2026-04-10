@@ -23,6 +23,7 @@ interface PublicAccessState {
   free_clicks: number;
   show_sidebar: boolean;
   show_header: boolean;
+  manual_usage_tracking: boolean;
   publicPagePath: string | null;
 }
 
@@ -83,6 +84,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
           free_clicks: response.free_clicks || 0,
           show_sidebar: response.show_sidebar || false,
           show_header: response.show_header || false,
+          manual_usage_tracking: response.manual_usage_tracking || false,
           publicPagePath: response.public_page?.path ?? null,
         });
       } else {
@@ -119,6 +121,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
               free_clicks: publicAccess.free_clicks,
               show_sidebar: publicAccess.show_sidebar,
               show_header: publicAccess.show_header,
+              manual_usage_tracking: publicAccess.manual_usage_tracking,
             })
           : Promise.resolve(),
       ]);
@@ -314,6 +317,27 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                             show_header: checked,
                             show_sidebar: checked ? false : publicAccess.show_sidebar
                           })
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="manual-usage-tracking">
+                          {t('plugins.public_access.manual_usage_tracking', 'Manual Usage Tracking')}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          {t(
+                            'plugins.public_access.manual_usage_tracking_desc',
+                            'Count usage explicitly via plugin events (e.g. per file uploaded)'
+                          )}
+                        </p>
+                      </div>
+                      <Switch
+                        id="manual-usage-tracking"
+                        checked={publicAccess.manual_usage_tracking}
+                        onCheckedChange={(checked) =>
+                          setPublicAccess({ ...publicAccess, manual_usage_tracking: checked })
                         }
                       />
                     </div>

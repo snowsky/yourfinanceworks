@@ -66,6 +66,7 @@ export const pluginApi = {
       free_clicks: number;
       show_sidebar: boolean;
       show_header: boolean;
+      manual_usage_tracking: boolean;
       public_page: any 
     }>(
       `/plugins/${pluginId}/public-access`,
@@ -78,6 +79,7 @@ export const pluginApi = {
     free_clicks: number;
     show_sidebar: boolean;
     show_header: boolean;
+    manual_usage_tracking: boolean;
   }) =>
     apiRequest<{ 
       plugin_id: string; 
@@ -104,6 +106,7 @@ export const pluginApi = {
       require_login: boolean;
       show_sidebar: boolean;
       show_header: boolean;
+      manual_usage_tracking: boolean;
       public_page: { path: string; label: string; description?: string; ui_entry?: string } | null;
     }>;
   },

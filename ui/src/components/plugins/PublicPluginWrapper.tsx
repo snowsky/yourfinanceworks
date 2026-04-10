@@ -23,6 +23,7 @@ interface PublicAccessConfig {
   free_clicks: number;
   show_sidebar: boolean;
   show_header: boolean;
+  manual_usage_tracking: boolean;
   public_page: { path: string; label: string; ui_entry?: string } | null;
 }
 
@@ -63,7 +64,8 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
         setConfig(data);
         checkAccess(data);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Failed to load plugin config", err);
         setError('Could not load page configuration.');
         setLoading(false);
       });
@@ -111,7 +113,7 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
     window.location.reload();
   };
 
-  const handleIncrementUsage = useCallback(async () => {
+  const handleIncrementUsage = useCallback(async (amount: number = 1) => {
     if (!status || status.is_paid || incrementing) return;
     
     const tokenKey = `plugin_token_${pluginId}`;
@@ -125,7 +127,8 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
         method: 'POST',
         body: JSON.stringify({
           tenant_id: parseInt(explicitTenantId || String(tokenData.tenant_id), 10),
-          plugin_user_id: tokenData.user.id
+          plugin_user_id: tokenData.user.id,
+          amount
         })
       });
       
@@ -143,13 +146,35 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
     }
   }, [pluginId, explicitTenantId, status, incrementing]);
 
-  // Handle clicks on In-process plugins
+  /** 
+   * Listen for custom interaction signals from the plugin.
+   * Example: window.parent.postMessage({ type: 'plugin-public-usage', quantity: 5 }, '*')
+   */
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Support both the original and the new branch protocol
+      if (event.data?.type === 'PLUGIN_INTERACTION' || event.data?.type === 'plugin-public-usage') {
+        const amount = typeof event.data.amount === 'number' 
+          ? event.data.amount 
+          : (typeof event.data.quantity === 'number' ? event.data.quantity : 1);
+        handleIncrementUsage(amount);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [handleIncrementUsage]);
+
+  // Handle clicks on In-process plugins (if not manual)
   const handleWrapperClick = () => {
-    handleIncrementUsage();
+    if (!config?.manual_usage_tracking) {
+      handleIncrementUsage();
+    }
   };
 
-  // Handle Focus (clicks) on Sidecar iframes
+  // Handle Focus (clicks) on Sidecar iframes (if not manual)
   useEffect(() => {
+    if (config?.manual_usage_tracking) return;
+
     const handleBlur = () => {
       if (document.activeElement === iframeRef.current) {
         handleIncrementUsage();
@@ -157,7 +182,7 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
     };
     window.addEventListener('blur', handleBlur);
     return () => window.removeEventListener('blur', handleBlur);
-  }, [handleIncrementUsage]);
+  }, [handleIncrementUsage, config?.manual_usage_tracking]);
 
   const handleAuthenticated = () => {
      setNeedsAuth(false);
@@ -273,8 +298,23 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
           </nav>
           
           <div className="mt-auto border-t pt-4 space-y-2">
+             {status && (
+                <div className="px-2 py-2 mb-2 bg-primary/5 rounded-lg border border-primary/10">
+                   <div className="flex justify-between text-[10px] font-medium text-muted-foreground mb-1.5 px-0.5">
+                      <span>Usage</span>
+                      <span>{status.usage_count} / {status.free_clicks || '∞'}</span>
+                   </div>
+                   <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div 
+                         className="h-full bg-primary/60 transition-all duration-500 ease-out" 
+                         style={{ width: `${status.free_clicks > 0 ? Math.min(100, (status.usage_count / status.free_clicks) * 100) : 0}%` }}
+                      />
+                   </div>
+                </div>
+             )}
+
              <div className="flex items-center gap-3 px-2 py-1">
-                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center border">
                    <User className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
