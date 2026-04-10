@@ -482,12 +482,24 @@ class UniversalBankTransactionExtractor:
                     logger.info(f"🔍 AI detected card_type: {self.detected_card_type}")
 
                 txns = self._parse_response(result_text)
+                
+                # BUBBLE UP BANK NAME: If metadata missed it, the main pass might have found it
+                meta_bank = self.statement_metadata.get('bank_name')
+                if not meta_bank and txns:
+                    # Look for bank_name in any of the extracted transactions
+                    for t in txns:
+                        found_bank = t.get('bank_name')
+                        if found_bank and found_bank.lower() != 'unknown':
+                            logger.info(f"✨ [AI SMARTS] Bank name '{found_bank}' discovered during transaction extraction pass")
+                            self.statement_metadata['bank_name'] = found_bank
+                            meta_bank = found_bank
+                            break
+
                 # Inject card_type and bank_name for TransactionModel validation
-                bank_name = self.statement_metadata.get('bank_name')
                 for t in txns:
                     t['card_type'] = self.card_type
-                    if bank_name:
-                        t['bank_name'] = bank_name
+                    if meta_bank:
+                        t['bank_name'] = meta_bank
                 return txns
             else:
                 logger.warning("No response received from LLM")

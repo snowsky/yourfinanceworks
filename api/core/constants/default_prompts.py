@@ -6,6 +6,7 @@ BANK_TRANSACTION_EXTRACTION_PROMPT = """You are a financial data extraction expe
 CONTEXT:
 This is a statement for a **{{card_type}}** card/account.
 {{statement_context}} 
+- If the bank name is NOT provided in the CONTEXT above, you MUST try to identify it from the text header, branch address, or other clues (e.g., "Scotiabank", "TD", "RBC", "BMO", "CIBC").
 - If 'auto', you must first determine if this is a Credit Card or a Debit/Checking account statement based on the text.
 - If it is a Credit Card, follow 'credit' rules below.
 - Otherwise, follow 'debit' rules.
@@ -45,11 +46,12 @@ STEP-BY-STEP PROCESS:
 TEXT:
 {{text}}
 
-Return ONLY a valid JSON array. Each transaction must have these fields:
+Return ONLY a valid JSON array. Each transaction MUST have these fields:
 - date (string, YYYY-MM-DD format, REQUIRED)
 - description (string, merchant/vendor name, REQUIRED)
 - amount (number, according to sign rules above, REQUIRED)
 - transaction_type (string, "debit" or "credit", REQUIRED)
+- bank_name (string, the name of the bank found in headers, REQUIRED if not in context)
 - balance (number, account balance after transaction, OPTIONAL)
 
 JSON:"""
@@ -75,7 +77,7 @@ Look for:
 2. The Statement Period (e.g., "Jan 01, 2024 to Jan 31, 2024").
 3. The Account Type (detect if 'credit' or 'debit').
 4. The Bank Name (e.g., "Scotiabank", "RBC", "TD Bank", "BMO", "CIBC", "Chase Bank", "HSBC"). 
-   - NOTE: If the bank name is not explicitly stated in big letters, try to infer it from the branch address or footnotes.
+   - NOTE: If the bank name is not explicitly stated in big letters, try to infer it from the branch address or footnotes or image in the file.
 
 TEXT:
 {{header_text}}
