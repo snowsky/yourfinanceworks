@@ -206,18 +206,23 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
         const tokenKey = `plugin_token_${pluginId}`;
         const tokenStr = localStorage.getItem(tokenKey);
         if (tokenStr) {
-          const tokenData = JSON.parse(tokenStr);
-          const token = tokenData.access_token || tokenData.token;
-          if (token) {
-            // Derive the iframe's actual origin so the token is not broadcast to all origins
-            const iframeSrc = iframeRef.current.src;
-            const targetOrigin = iframeSrc.startsWith('http')
-              ? new URL(iframeSrc).origin
-              : window.location.origin;
-            iframeRef.current.contentWindow?.postMessage(
-              { type: 'AUTH_TOKEN', token },
-              targetOrigin
-            );
+          try {
+            const tokenData = JSON.parse(tokenStr);
+            const token = tokenData.access_token || tokenData.token;
+            if (token) {
+              // Derive the iframe's actual origin so the token is not broadcast to all origins
+              const iframeSrc = iframeRef.current.src;
+              const targetOrigin = iframeSrc.startsWith('http')
+                ? new URL(iframeSrc).origin
+                : window.location.origin;
+              iframeRef.current.contentWindow?.postMessage(
+                { type: 'AUTH_TOKEN', token },
+                targetOrigin
+              );
+            }
+          } catch (parseErr) {
+            console.error('[PublicPluginWrapper] Failed to parse plugin token from localStorage:', parseErr);
+            localStorage.removeItem(tokenKey);
           }
         }
       }
@@ -288,7 +293,13 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
     const tokenKey = `plugin_token_${pluginId}`;
     const tokenStr = localStorage.getItem(tokenKey);
     if (!tokenStr) return;
-    const tokenData = JSON.parse(tokenStr);
+    let tokenData: any;
+    try {
+      tokenData = JSON.parse(tokenStr);
+    } catch {
+      localStorage.removeItem(tokenKey);
+      return;
+    }
 
     const loadingToast = toast.loading("Opening payment settings...");
     try {
@@ -296,7 +307,9 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
         method: 'POST',
         body: JSON.stringify({
           tenant_id: parseInt(explicitTenantId || String(tokenData.tenant_id), 10),
-          plugin_user_id: tokenData.user.id
+          plugin_user_id: tokenData.user.id,
+          access_token: tokenData.access_token,
+          return_url: window.location.href,
         })
       });
       toast.dismiss(loadingToast);

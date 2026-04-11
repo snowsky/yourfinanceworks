@@ -45,6 +45,7 @@ def _resolve_per_tenant_user_id(
 
     Returns 0 if the tenant context is not set or no user is found at all.
     """
+    import contextlib
     from core.models.database import get_tenant_context, get_db
     from core.models.models_per_tenant import User as TenantUser
 
@@ -52,9 +53,7 @@ def _resolve_per_tenant_user_id(
         logger.warning("_resolve_per_tenant_user_id: no tenant context set")
         return 0
 
-    tenant_db_gen = get_db()
-    tenant_db = next(tenant_db_gen)
-    try:
+    with contextlib.closing(next(get_db())) as tenant_db:
         # Strategy 1: fast ID match
         if master_user_id is not None:
             u = tenant_db.query(TenantUser).filter(TenantUser.id == master_user_id).first()
@@ -84,8 +83,6 @@ def _resolve_per_tenant_user_id(
 
         logger.error("No per-tenant user found; batch job user_id will be 0 (FK will fail).")
         return 0
-    finally:
-        next(tenant_db_gen, None)
 
 
 async def get_api_key_auth(

@@ -81,12 +81,11 @@ async def generate_plugin_sidecar_token(
     # auto-increment sequence.
     per_tenant_user_id: int = current_user.id  # fallback
     try:
+        import contextlib
         from core.models.database import set_tenant_context, get_db as get_tenant_db
         from core.models.models_per_tenant import User as TenantUser
         set_tenant_context(current_user.tenant_id)
-        t_db_gen = get_tenant_db()
-        t_db = next(t_db_gen)
-        try:
+        with contextlib.closing(next(get_tenant_db())) as t_db:
             # Fast path: same ID (works when admin user was seeded with matching ID)
             t_user = t_db.query(TenantUser).filter(TenantUser.id == current_user.id).first()
             if not t_user:
@@ -100,8 +99,6 @@ async def generate_plugin_sidecar_token(
                         continue
             if t_user:
                 per_tenant_user_id = t_user.id
-        finally:
-            next(t_db_gen, None)
     except Exception as e:
         logger.warning(f"Could not resolve per-tenant user ID for {current_user.email}: {e}")
 
@@ -1053,6 +1050,12 @@ class CheckoutRequest(BaseModel):
     tenant_id: int
     plugin_user_id: int
 
+class PortalRequest(BaseModel):
+    tenant_id: int
+    plugin_user_id: int
+    access_token: str
+    return_url: Optional[str] = None
+
 class IncrementUsageRequest(BaseModel):
     tenant_id: int
     plugin_user_id: int
@@ -1145,14 +1148,29 @@ async def plugin_paywall_checkout(
 @router.post("/{plugin_id}/public-paywall/portal")
 async def create_plugin_payment_portal(
     plugin_id: str,
-    payload: CheckoutRequest,
+    payload: PortalRequest,
     request: Request,
     db: Session = Depends(get_master_db)
 ):
     """
     Create a Stripe Customer Portal session for a plugin user to manage their payment methods.
     Only allows users who already have a Stripe customer ID (i.e., have attempted checkout before).
+    Requires a valid plugin access token to verify the caller owns the plugin_user_id.
     """
+    from jose import jwt, JWTError
+    from core.routers.auth import SECRET_KEY, ALGORITHM
+
+    # Verify the plugin access token belongs to the claimed plugin_user_id
+    try:
+        token_data = jwt.decode(payload.access_token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired plugin token")
+
+    token_plugin_user_id = token_data.get("plugin_user_id")
+    token_tenant_id = token_data.get("tenant_id")
+    if token_plugin_user_id != payload.plugin_user_id or token_tenant_id != payload.tenant_id:
+        raise HTTPException(status_code=403, detail="Token does not match the requested plugin user")
+
     plugin_id = _normalize_plugin_id(plugin_id)
 
     plugin_user = db.query(PluginUser).filter(
@@ -1166,7 +1184,7 @@ async def create_plugin_payment_portal(
 
     if not plugin_user.stripe_customer_id:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="No active payment record found. Please subscribe to the plugin first."
         )
 
@@ -1175,9 +1193,22 @@ async def create_plugin_payment_portal(
         raise HTTPException(status_code=400, detail="Payments are not configured by the organization")
 
     stripe.api_key = stripe_cfg["secretKey"]
-    
-    # Use the Referer or specific p/ url as return_url
-    return_url = f"{request.base_url}p/{plugin_id}?t={payload.tenant_id}"
+
+    # Prefer an explicit return_url from the caller (the plugin page itself knows its own URL).
+    # Fall back to the plugin's public_page ui_entry from the manifest; avoid the /p/ iframe
+    # route because it does not reliably forward query parameters.
+    if payload.return_url:
+        return_url = payload.return_url
+    else:
+        manifest = next(
+            (m for m in plugin_loader.get_registry() if m.get("name") == plugin_id or m.get("id") == plugin_id),
+            {}
+        )
+        ui_entry = (manifest.get("public_page") or {}).get("ui_entry")
+        if ui_entry:
+            return_url = f"{ui_entry}?t={payload.tenant_id}"
+        else:
+            return_url = f"{request.base_url}plugins/{plugin_id}/public/?t={payload.tenant_id}"
 
     try:
         session = stripe.billing_portal.Session.create(

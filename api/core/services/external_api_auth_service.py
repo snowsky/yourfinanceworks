@@ -82,6 +82,7 @@ class AuthenticationMethod:
     API_KEY = "api_key"
     OAUTH2 = "oauth2"
     JWT = "jwt"
+    INTERNAL_SECRET = "internal_secret"
 
 
 class ExternalAPIAuthService:
@@ -171,6 +172,12 @@ class ExternalAPIAuthService:
         self, db: Session, secret_key: str, tenant_id: Optional[int], user_email: Optional[str], plugin_id: Optional[str] = None
     ) -> Optional[AuthContext]:
         """Authenticate using an internal shared secret (sidecar trust)."""
+        if not self.secret_key:
+            logger.warning(
+                "YFW_SECRET_KEY is not configured — internal-secret authentication is disabled. "
+                "Set YFW_SECRET_KEY to enable sidecar plugin trust."
+            )
+            return None
         if not secret_key or not hmac.compare_digest(secret_key, self.secret_key):
             return None
 
@@ -261,7 +268,7 @@ class ExternalAPIAuthService:
             roles=["trusted_plugin"],
             permissions={Permission.READ, Permission.WRITE, Permission.DOCUMENT_PROCESSING, Permission.TRANSACTION_PROCESSING},
             api_key_id="internal_trust",
-            authentication_method=AuthenticationMethod.JWT, # Reuse JWT as a 'trusted' marker
+            authentication_method=AuthenticationMethod.INTERNAL_SECRET,
             is_authenticated=True,
             is_admin=user.role == "admin" if user else True,
             tenant_id=resolved_tenant_id,

@@ -61,7 +61,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
     if (open) {
       loadConfig();
       loadPublicAccessConfig();
-      loadUsers();
+      if (users.length === 0) {
+        loadUsers();
+      }
     }
   }, [open, pluginId]);
 
