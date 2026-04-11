@@ -213,14 +213,36 @@ class ExternalAPIAuthService:
                     if user:
                         logger.debug(f"Resolved service user {user.id} from fallback email {user_email}")
 
-        # 4. No silent admin promotion — if we still have no user, refuse the request.
-        # Callers must supply a resolvable user email or configure service_user_email.
+        # 4. If we still have no user:
+        #    - If an email *was* supplied but not found, refuse (avoid silent misrouting).
+        #    - If no email was supplied (public visitor, no JWT), fall back to the
+        #      tenant's first active admin as a service account.  This lets public
+        #      visitors upload files without requiring service_user_email config.
         if not user and tenant_id:
-            logger.warning(
-                f"Trusted plugin '{plugin_id}' supplied no resolvable user for tenant {tenant_id}. "
-                "Set service_user_email in the plugin's public-access config."
+            if user_email:
+                logger.warning(
+                    f"Trusted plugin '{plugin_id}' supplied unresolvable email "
+                    f"'{user_email}' for tenant {tenant_id}."
+                )
+                return None
+            # Public visitor fallback — use tenant admin as service account
+            admin = db.query(MasterUser).filter(
+                MasterUser.tenant_id == tenant_id,
+                MasterUser.role.in_(["admin", "superuser"]),
+                MasterUser.is_active == True,
+            ).first()
+            if not admin:
+                logger.warning(
+                    f"Trusted plugin '{plugin_id}': no active admin found for "
+                    f"tenant {tenant_id}, cannot service public visitor request."
+                )
+                return None
+            user = admin
+            user_email = admin.email
+            logger.info(
+                f"Public visitor for plugin '{plugin_id}': using tenant admin "
+                f"'{admin.email}' (id={admin.id}) as service account."
             )
-            return None
 
         # 5. Determine final tenant context
         resolved_tenant_id = tenant_id or (user.tenant_id if user else None)

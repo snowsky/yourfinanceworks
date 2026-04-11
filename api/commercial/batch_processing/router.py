@@ -121,36 +121,6 @@ async def get_api_key_auth(
             
         auth_context = await auth_service.authenticate_internal_secret(db, x_internal_secret, tenant_id, user_email, plugin_id)
 
-        # Public-visitor fallback: the secret is valid but no user email was provided
-        # (sidecar omits X-Plugin-User-Email for unauthenticated visitors).  Use the
-        # tenant's first active admin as a service account so the request can proceed.
-        if auth_context is None and tenant_id and not user_email:
-            import hmac as _hmac
-            if _hmac.compare_digest(x_internal_secret or "", auth_service.secret_key or ""):
-                from core.models.models import MasterUser as _MasterUser
-                admin = db.query(_MasterUser).filter(
-                    _MasterUser.tenant_id == tenant_id,
-                    _MasterUser.role.in_(["admin", "superuser"]),
-                    _MasterUser.is_active == True,
-                ).first()
-                if admin:
-                    from core.services.external_api_auth_service import AuthContext as _AC, Permission as _P
-                    auth_context = _AC(
-                        user_id=str(admin.id),
-                        email=admin.email,
-                        roles=["trusted_plugin"],
-                        permissions={_P.READ, _P.WRITE, _P.DOCUMENT_PROCESSING, _P.TRANSACTION_PROCESSING},
-                        api_key_id="internal_trust",
-                        is_authenticated=True,
-                        tenant_id=tenant_id,
-                        user=admin,
-                        client_id="internal_trust",
-                    )
-                    logger.info(
-                        f"Public visitor: using tenant admin '{admin.email}' "
-                        f"(id={admin.id}) as service account for tenant {tenant_id}"
-                    )
-
         if auth_context and auth_context.is_authenticated:
             # Set tenant context globally for this request
             if auth_context.tenant_id:
