@@ -15,7 +15,7 @@ from core.models.database import get_db, get_master_db
 from core.models.models import MasterUser
 from core.models.api_models import APIClient
 from core.services.external_api_auth_service import AuthContext
-from core.models.models_per_tenant import BatchProcessingJob
+from core.models.models_per_tenant import BatchProcessingJob, BatchFileProcessing
 from core.routers.auth import get_current_user
 from core.utils.feature_gate import require_feature
 from commercial.batch_processing.service import BatchProcessingService
@@ -805,12 +805,15 @@ async def list_jobs(
         # Get total count
         total = query.count()
 
-        # Apply pagination and ordering
-        jobs = query.order_by(
+        # Apply pagination and ordering; eagerly load file names
+        from sqlalchemy.orm import joinedload
+        jobs = query.options(
+            joinedload(BatchProcessingJob.files)
+        ).order_by(
             BatchProcessingJob.created_at.desc()
         ).limit(limit).offset(offset).all()
 
-        # Build job summaries (without file details)
+        # Build job summaries
         job_summaries = []
         for job in jobs:
             summary = {
@@ -827,7 +830,8 @@ async def list_jobs(
                 "export_completed_at": job.export_completed_at.isoformat() if job.export_completed_at else None,
                 "created_at": job.created_at.isoformat() if job.created_at else None,
                 "updated_at": job.updated_at.isoformat() if job.updated_at else None,
-                "completed_at": job.completed_at.isoformat() if job.completed_at else None
+                "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+                "file_names": [f.original_filename for f in (job.files or [])],
             }
             job_summaries.append(summary)
 
