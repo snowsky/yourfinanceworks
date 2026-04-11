@@ -28,6 +28,66 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/external-transactions/batch-processing", tags=["batch-processing"])
 
 
+def _resolve_per_tenant_user_id(
+    master_user_id: Optional[int],
+    email: Optional[str],
+) -> int:
+    """
+    Resolve the per-tenant users.id for an internal-trust request.
+
+    In the multi-DB architecture MasterUser.id != per-tenant User.id because each
+    tenant DB has its own auto-increment sequence.  We try three strategies:
+
+    1. ID match  — cheap; works when the admin user was seeded with a matching ID.
+    2. Email scan — fetch all active users and compare decrypted emails (O(n)); handles
+                    mismatched IDs. Works even when EncryptedColumn is non-deterministic.
+    3. First admin — last resort: pick any admin user so the FK is satisfied.
+
+    Returns 0 if the tenant context is not set or no user is found at all.
+    """
+    from core.models.database import get_tenant_context, get_db
+    from core.models.models_per_tenant import User as TenantUser
+
+    if not get_tenant_context():
+        logger.warning("_resolve_per_tenant_user_id: no tenant context set")
+        return 0
+
+    tenant_db_gen = get_db()
+    tenant_db = next(tenant_db_gen)
+    try:
+        # Strategy 1: fast ID match
+        if master_user_id is not None:
+            u = tenant_db.query(TenantUser).filter(TenantUser.id == master_user_id).first()
+            if u:
+                logger.debug(f"Per-tenant user resolved by ID match: {u.id}")
+                return u.id
+
+        # Strategy 2: email scan (handles mismatched IDs, encrypted columns)
+        if email:
+            for u in tenant_db.query(TenantUser).filter(TenantUser.is_active == True).all():
+                try:
+                    if u.email == email:
+                        logger.debug(f"Per-tenant user resolved by email scan: {u.id}")
+                        return u.id
+                except Exception:
+                    continue  # decryption error for this row — skip
+
+        # Strategy 3: first admin user in the tenant
+        admin = tenant_db.query(TenantUser).filter(TenantUser.role == "admin").first()
+        if admin:
+            logger.warning(
+                f"Per-tenant user not found by ID ({master_user_id}) or email scan — "
+                f"falling back to admin user {admin.id}. "
+                "Consider adding the service_user_email to the per-tenant users table."
+            )
+            return admin.id
+
+        logger.error("No per-tenant user found; batch job user_id will be 0 (FK will fail).")
+        return 0
+    finally:
+        next(tenant_db_gen, None)
+
+
 async def get_api_key_auth(
     request: Request,
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
@@ -66,12 +126,20 @@ async def get_api_key_auth(
             if auth_context.tenant_id:
                 from core.models.database import set_tenant_context
                 set_tenant_context(auth_context.tenant_id)
-            
-            # Return context mimicking the APIClient structure where possible
+
+            # Resolve per-tenant user ID.
+            # auth_context.user_id is the MasterUser.id, which does NOT necessarily
+            # equal the per-tenant users.id (they live in separate DBs with independent
+            # auto-increment sequences). We must look up the correct per-tenant user.
+            per_tenant_user_id = _resolve_per_tenant_user_id(
+                master_user_id=int(auth_context.user_id) if (auth_context.user_id and auth_context.user_id.isdigit()) else None,
+                email=auth_context.email,
+            )
+
             return (
-                auth_context.tenant_id, 
-                int(auth_context.user_id) if (auth_context.user_id and auth_context.user_id.isdigit()) else 0, 
-                "internal_trust", 
+                auth_context.tenant_id,
+                per_tenant_user_id,
+                "internal_trust",
                 auth_context
             )
 
