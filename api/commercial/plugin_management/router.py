@@ -74,18 +74,50 @@ async def generate_plugin_sidecar_token(
     from core.utils.auth import ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
     
     plugin_id = _validate_plugin_id(plugin_id)
-    
+
+    # Resolve the per-tenant user ID so sidecars can use it directly without
+    # having to do a fragile cross-DB email lookup on every API call.
+    # MasterUser.id != per-tenant User.id because each tenant DB has its own
+    # auto-increment sequence.
+    per_tenant_user_id: int = current_user.id  # fallback
+    try:
+        from core.models.database import set_tenant_context, get_db as get_tenant_db
+        from core.models.models_per_tenant import User as TenantUser
+        set_tenant_context(current_user.tenant_id)
+        t_db_gen = get_tenant_db()
+        t_db = next(t_db_gen)
+        try:
+            # Fast path: same ID (works when admin user was seeded with matching ID)
+            t_user = t_db.query(TenantUser).filter(TenantUser.id == current_user.id).first()
+            if not t_user:
+                # Slow path: decrypted email scan
+                for u in t_db.query(TenantUser).filter(TenantUser.is_active == True).all():
+                    try:
+                        if u.email == current_user.email:
+                            t_user = u
+                            break
+                    except Exception:
+                        continue
+            if t_user:
+                per_tenant_user_id = t_user.id
+        finally:
+            next(t_db_gen, None)
+    except Exception as e:
+        logger.warning(f"Could not resolve per-tenant user ID for {current_user.email}: {e}")
+
     # Payload for the sidecar JWT
-    # We use 'sub' for email and include tenant_id/user_id for context
+    # We use 'sub' for email and include tenant_id/user_id for context.
+    # per_tenant_user_id is the users.id in the tenant DB (not the master DB id).
     to_encode = {
         "sub": current_user.email,
         "tenant_id": current_user.tenant_id,
         "user_id": current_user.id,
+        "per_tenant_user_id": per_tenant_user_id,
         "type": "plugin",
         "plugin_id": plugin_id,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     }
-    
+
     if not config.YFW_SECRET_KEY:
         logger.error("YFW_SECRET_KEY is not set in Config. Cannot generate sidecar tokens.")
         raise HTTPException(

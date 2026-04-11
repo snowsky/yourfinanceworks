@@ -128,13 +128,19 @@ async def get_api_key_auth(
                 set_tenant_context(auth_context.tenant_id)
 
             # Resolve per-tenant user ID.
-            # auth_context.user_id is the MasterUser.id, which does NOT necessarily
-            # equal the per-tenant users.id (they live in separate DBs with independent
-            # auto-increment sequences). We must look up the correct per-tenant user.
-            per_tenant_user_id = _resolve_per_tenant_user_id(
-                master_user_id=int(auth_context.user_id) if (auth_context.user_id and auth_context.user_id.isdigit()) else None,
-                email=auth_context.email,
-            )
+            # Prefer the explicit X-Plugin-User-Id header (set by the sidecar from the
+            # JWT's per_tenant_user_id claim) — it's exact and requires no DB lookup.
+            # Fall back to the cross-DB resolution chain only for older sidecars that
+            # don't yet send this header.
+            x_plugin_user_id = request.headers.get("X-Plugin-User-Id")
+            if x_plugin_user_id and x_plugin_user_id.isdigit():
+                per_tenant_user_id = int(x_plugin_user_id)
+                logger.debug(f"Per-tenant user_id={per_tenant_user_id} from X-Plugin-User-Id header")
+            else:
+                per_tenant_user_id = _resolve_per_tenant_user_id(
+                    master_user_id=int(auth_context.user_id) if (auth_context.user_id and auth_context.user_id.isdigit()) else None,
+                    email=auth_context.email,
+                )
 
             return (
                 auth_context.tenant_id,
