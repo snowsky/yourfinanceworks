@@ -712,6 +712,12 @@ async def update_plugin_public_access(
     if not _is_admin(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
 
+    if payload.show_sidebar and payload.show_header:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="show_sidebar and show_header are mutually exclusive. Enable only one.",
+        )
+
     plugin_id = _normalize_plugin_id(plugin_id)
 
     settings = db.query(TenantPluginSettings).filter(

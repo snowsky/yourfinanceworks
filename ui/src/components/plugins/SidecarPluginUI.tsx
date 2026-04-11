@@ -18,22 +18,26 @@ interface SidecarPluginUIProps {
 export function SidecarPluginUI({ pluginId, uiEntry, title }: SidecarPluginUIProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  const iframeOrigin = uiEntry.startsWith('http')
+    ? new URL(uiEntry).origin
+    : window.location.origin;
+
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
-      // Security: For sidecar plugins, we expect PLUGIN_READY to start the handshake
+      // Only respond to messages from our own iframe, not arbitrary origins
+      if (event.source !== iframeRef.current?.contentWindow) return;
+
       if (event.data?.type === 'PLUGIN_READY' && iframeRef.current) {
         try {
-          // Fetch a fresh plugin-specific token for the current dashboard user
           const response = await apiRequest<{ token: string }>(`/plugins/token/${pluginId}`, {
             method: 'POST'
           });
 
           if (response && response.token) {
-            // Securely post the token back to the plugin iframe
-            iframeRef.current.contentWindow?.postMessage({
-              type: 'AUTH_TOKEN',
-              token: response.token
-            }, '*'); // In production, replace '*' with the actual plugin origin if known
+            iframeRef.current.contentWindow?.postMessage(
+              { type: 'AUTH_TOKEN', token: response.token },
+              iframeOrigin
+            );
           }
         } catch (err) {
           console.error(`[SidecarPluginUI] Failed to generate auth token for ${pluginId}:`, err);
@@ -43,7 +47,7 @@ export function SidecarPluginUI({ pluginId, uiEntry, title }: SidecarPluginUIPro
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [pluginId]);
+  }, [pluginId, iframeOrigin]);
 
   return (
     <div style={{ width: '100%', height: 'calc(100vh - 4rem)', overflow: 'hidden' }}>

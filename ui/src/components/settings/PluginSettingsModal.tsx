@@ -9,8 +9,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Input } from '../ui/input';
-import { Label as UILabel } from '../ui/label';
+import { Input } from '@/components/ui/input';
+import { Label as UILabel } from '@/components/ui/label';
 import {
   Select,
   SelectContent,

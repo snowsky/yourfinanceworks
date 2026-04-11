@@ -16,6 +16,45 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+interface UserMenuProps {
+  email: string | undefined;
+  pluginId: string;
+  onSettings: () => void;
+  onLogout: () => void;
+}
+
+function UserMenu({ email, pluginId, onSettings, onLogout }: UserMenuProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="rounded-full">
+          <User className="h-5 w-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">{email || 'Plugin User'}</p>
+            <p className="text-xs leading-none text-muted-foreground">
+              {pluginId} access
+            </p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onSettings}>
+          <SettingsIcon className="mr-2 h-4 w-4" />
+          <span>Payment Settings</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onLogout} className="text-destructive focus:text-destructive">
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Log out</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 interface PublicAccessConfig {
   enabled: boolean;
   require_login: boolean;
@@ -161,17 +200,24 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
       }
 
       // 2. Handle Auth Handshake (Securely pass token to iframe)
+      // Only accept PLUGIN_READY from our own iframe, not arbitrary origins
       if (event.data?.type === 'PLUGIN_READY' && iframeRef.current) {
+        if (event.source !== iframeRef.current.contentWindow) return;
         const tokenKey = `plugin_token_${pluginId}`;
         const tokenStr = localStorage.getItem(tokenKey);
         if (tokenStr) {
           const tokenData = JSON.parse(tokenStr);
-          const token = tokenData.access_token || tokenData.token; // Handle both common variants
+          const token = tokenData.access_token || tokenData.token;
           if (token) {
-            iframeRef.current.contentWindow?.postMessage({
-              type: 'AUTH_TOKEN',
-              token: token
-            }, '*');
+            // Derive the iframe's actual origin so the token is not broadcast to all origins
+            const iframeSrc = iframeRef.current.src;
+            const targetOrigin = iframeSrc.startsWith('http')
+              ? new URL(iframeSrc).origin
+              : window.location.origin;
+            iframeRef.current.contentWindow?.postMessage(
+              { type: 'AUTH_TOKEN', token },
+              targetOrigin
+            );
           }
         }
       }
@@ -261,36 +307,6 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
     }
   };
 
-  const UserMenu = () => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-full">
-          <User className="h-5 w-5" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{pluginUserData?.email || 'Plugin User'}</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {pluginId} access
-            </p>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleOpenSettings}>
-          <SettingsIcon className="mr-2 h-4 w-4" />
-          <span>Payment Settings</span>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Log out</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar */}
@@ -375,7 +391,12 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
                     Usage: {status.usage_count} / {status.free_clicks || '∞'}
                  </div>
                )}
-               <UserMenu />
+               <UserMenu
+                 email={pluginUserData?.email}
+                 pluginId={pluginId}
+                 onSettings={handleOpenSettings}
+                 onLogout={handleLogout}
+               />
             </div>
           </header>
         )}

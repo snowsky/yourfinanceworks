@@ -3,6 +3,7 @@ External API authentication service for managing API keys and OAuth tokens.
 """
 
 import hashlib
+import hmac
 import secrets
 import logging
 from datetime import datetime, timedelta, timezone
@@ -170,7 +171,7 @@ class ExternalAPIAuthService:
         self, db: Session, secret_key: str, tenant_id: Optional[int], user_email: Optional[str], plugin_id: Optional[str] = None
     ) -> Optional[AuthContext]:
         """Authenticate using an internal shared secret (sidecar trust)."""
-        if not secret_key or secret_key != self.secret_key:
+        if not secret_key or not hmac.compare_digest(secret_key, self.secret_key):
             return None
 
         # 1. Start with provided context
@@ -212,14 +213,14 @@ class ExternalAPIAuthService:
                     if user:
                         logger.debug(f"Resolved service user {user.id} from fallback email {user_email}")
 
-        # 4. Final fallback to a tenant admin if we HAVE a tenant_id but still no specific user
+        # 4. No silent admin promotion — if we still have no user, refuse the request.
+        # Callers must supply a resolvable user email or configure service_user_email.
         if not user and tenant_id:
-            user = db.query(MasterUser).filter(
-                MasterUser.tenant_id == tenant_id, 
-                MasterUser.role == "admin"
-            ).first()
-            if user:
-                logger.debug(f"Resolved fallback admin {user.id} for tenant {tenant_id}")
+            logger.warning(
+                f"Trusted plugin '{plugin_id}' supplied no resolvable user for tenant {tenant_id}. "
+                "Set service_user_email in the plugin's public-access config."
+            )
+            return None
 
         # 5. Determine final tenant context
         resolved_tenant_id = tenant_id or (user.tenant_id if user else None)

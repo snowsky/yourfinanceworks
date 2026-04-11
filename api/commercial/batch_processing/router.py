@@ -7,13 +7,14 @@ Supports uploading multiple files for OCR processing and exporting results.
 
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional, Any
+from typing import List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, status, Header, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session
 
 from core.models.database import get_db, get_master_db
 from core.models.models import MasterUser
 from core.models.api_models import APIClient
+from core.services.external_api_auth_service import AuthContext
 from core.models.models_per_tenant import BatchProcessingJob
 from core.routers.auth import get_current_user
 from core.utils.feature_gate import require_feature
@@ -32,7 +33,7 @@ async def get_api_key_auth(
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
     x_internal_secret: Optional[str] = Header(None, alias="X-Internal-Secret"),
     db: Session = Depends(get_master_db)
-) -> tuple[int, int, str, Any]:
+) -> tuple[int, int, str, Union[APIClient, AuthContext]]:
     """
     Authenticate using API key or Internal Secret and return context.
     
