@@ -772,14 +772,25 @@ async def list_jobs(
                     detail=f"Invalid status filter. Valid values: {', '.join(valid_statuses)}"
                 )
 
-        # Build query with tenant isolation
+        # Build query with tenant isolation.
+        # For internal-trust (sidecar) calls, api_client_id is always "internal_trust"
+        # regardless of which end-user made the request.  Filter by user_id instead so
+        # each authenticated user only sees their own jobs.
         from sqlalchemy import and_
-        query = db.query(BatchProcessingJob).filter(
-            and_(
-                BatchProcessingJob.tenant_id == tenant_id,  # Tenant isolation
-                BatchProcessingJob.api_client_id == api_client_id
+        if api_client_id == "internal_trust":
+            query = db.query(BatchProcessingJob).filter(
+                and_(
+                    BatchProcessingJob.tenant_id == tenant_id,
+                    BatchProcessingJob.user_id == user_id,
+                )
             )
-        )
+        else:
+            query = db.query(BatchProcessingJob).filter(
+                and_(
+                    BatchProcessingJob.tenant_id == tenant_id,
+                    BatchProcessingJob.api_client_id == api_client_id,
+                )
+            )
 
         # Apply status filter if provided
         if status_filter:
