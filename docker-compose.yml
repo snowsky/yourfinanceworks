@@ -73,6 +73,8 @@ services:
       - UI_PLUGINS_DIR=/ui_plugins_dynamic
       # Sidecar plugins: comma-separated plugin names to discover via HTTP probe
       - SIDECAR_PLUGINS=${SIDECAR_PLUGINS:-}
+      # Shared secret for sidecar plugin JWT handshake (must match YFW_SECRET_KEY in each plugin)
+      - YFW_SECRET_KEY=${YFW_SECRET_KEY:-}
     depends_on:
       postgres-master:
         condition: service_healthy
