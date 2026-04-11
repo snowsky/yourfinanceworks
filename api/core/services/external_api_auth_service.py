@@ -3,8 +3,9 @@ External API authentication service for managing API keys and OAuth tokens.
 """
 
 import hashlib
+import hmac
 import secrets
-import time
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List, Tuple
 from sqlalchemy.orm import Session
@@ -15,6 +16,8 @@ import httpx
 from core.models.models import MasterUser, Tenant
 from core.models.api_models import APIClient
 from core.routers.auth import SECRET_KEY, ALGORITHM
+
+logger = logging.getLogger(__name__)
 
 
 class AuthContext:
@@ -33,6 +36,11 @@ class AuthContext:
         is_admin: bool = False,
         tenant_id: Optional[int] = None,
         is_sandbox: bool = False,
+        allowed_document_types: Optional[List[str]] = None,
+        custom_quotas: Optional[Dict[str, Any]] = None,
+        user: Optional[MasterUser] = None,
+        client_id: Optional[str] = None,
+        api_key_prefix: Optional[str] = None,
     ):
         self.user_id = user_id
         self.username = username
@@ -45,6 +53,11 @@ class AuthContext:
         self.is_admin = is_admin
         self.tenant_id = tenant_id
         self.is_sandbox = is_sandbox
+        self.allowed_document_types = allowed_document_types or []
+        self.custom_quotas = custom_quotas or {}
+        self.user = user
+        self.client_id = client_id
+        self.api_key_prefix = api_key_prefix or "api"
 
 
 class Permission:
@@ -69,6 +82,7 @@ class AuthenticationMethod:
     API_KEY = "api_key"
     OAUTH2 = "oauth2"
     JWT = "jwt"
+    INTERNAL_SECRET = "internal_secret"
 
 
 class ExternalAPIAuthService:
@@ -147,6 +161,123 @@ class ExternalAPIAuthService:
             is_admin=user.role == "admin" or user.is_superuser,
             tenant_id=user.tenant_id,
             is_sandbox=api_client.is_sandbox,
+            allowed_document_types=api_client.allowed_document_types,
+            custom_quotas=api_client.custom_quotas,
+            user=user,
+            client_id=api_client.client_id,
+            api_key_prefix=api_client.api_key_prefix,
+        )
+
+    async def authenticate_internal_secret(
+        self, db: Session, secret_key: str, tenant_id: Optional[int], user_email: Optional[str], plugin_id: Optional[str] = None
+    ) -> Optional[AuthContext]:
+        """Authenticate using an internal shared secret (sidecar trust)."""
+        if not self.secret_key:
+            logger.warning(
+                "YFW_SECRET_KEY is not configured — internal-secret authentication is disabled. "
+                "Set YFW_SECRET_KEY to enable sidecar plugin trust."
+            )
+            return None
+        if not secret_key or not hmac.compare_digest(secret_key, self.secret_key):
+            return None
+
+        # 1. Start with provided context
+        logger.debug(
+            f"authenticate_internal_secret: plugin_id={plugin_id}, "
+            f"tenant_id={tenant_id}, user_email={user_email}"
+        )
+
+        user = None
+        
+        # 2. Try to resolve User immediately if email is provided
+        if user_email:
+            if user_email == "admin@standalone":
+                logger.warning(
+                    f"Trusted plugin '{plugin_id}' is identifying as 'admin@standalone'. "
+                    "This usually indicates the plugin is in fallback/dev mode."
+                )
+            
+            user = db.query(MasterUser).filter(MasterUser.email == user_email).first()
+            if user:
+                logger.debug(f"Resolved user {user.id} from email {user_email}")
+                # Supplement missing tenant_id from the resolved user
+                if not tenant_id:
+                    tenant_id = user.tenant_id
+                    logger.debug(f"Supplemented missing tenant_id {tenant_id} from user {user.id}")
+
+        # 3. Fallback to Service User Email if still no user/email but we have a tenant_id
+        if not user and not user_email and tenant_id and plugin_id:
+            from core.models.models import TenantPluginSettings
+            settings = db.query(TenantPluginSettings).filter(TenantPluginSettings.tenant_id == tenant_id).first()
+            if settings and settings.plugin_config:
+                plugin_cfg = settings.plugin_config.get(plugin_id, {})
+                fallback_email = plugin_cfg.get("public_access", {}).get("service_user_email")
+                if fallback_email:
+                    user_email = fallback_email
+                    logger.info(f"Using fallback service user email '{user_email}' for plugin '{plugin_id}'")
+                    # Try to resolve user again with the fallback email
+                    user = db.query(MasterUser).filter(MasterUser.email == user_email).first()
+                    if user:
+                        logger.debug(f"Resolved service user {user.id} from fallback email {user_email}")
+
+        # 4. If we still have no user:
+        #    - If an email *was* supplied but not found, refuse (avoid silent misrouting).
+        #    - If no email was supplied (public visitor, no JWT), fall back to the
+        #      tenant's first active admin as a service account.  This lets public
+        #      visitors upload files without requiring service_user_email config.
+        if not user and tenant_id:
+            if user_email:
+                logger.warning(
+                    f"Trusted plugin '{plugin_id}' supplied unresolvable email "
+                    f"'{user_email}' for tenant {tenant_id}."
+                )
+                return None
+            # Public visitor fallback — use tenant admin as service account
+            admin = db.query(MasterUser).filter(
+                MasterUser.tenant_id == tenant_id,
+                MasterUser.role.in_(["admin", "superuser"]),
+                MasterUser.is_active == True,
+            ).first()
+            if not admin:
+                logger.warning(
+                    f"Trusted plugin '{plugin_id}': no active admin found for "
+                    f"tenant {tenant_id}, cannot service public visitor request."
+                )
+                return None
+            user = admin
+            user_email = admin.email
+            logger.info(
+                f"Public visitor for plugin '{plugin_id}': using tenant admin "
+                f"'{admin.email}' (id={admin.id}) as service account."
+            )
+
+        # 5. Determine final tenant context
+        resolved_tenant_id = tenant_id or (user.tenant_id if user else None)
+        
+        if not resolved_tenant_id:
+             logger.warning(
+                 f"No tenant context found for trusted plugin '{plugin_id}'. "
+                 f"User: {user_email or 'None'}, Header Tenant: {tenant_id or 'None'}"
+             )
+
+        # Create trusted auth context
+        return AuthContext(
+            user_id=str(user.id) if user else "system",
+            username=f"trusted_plugin:{user_email or 'system'}",
+            email=user_email or (user.email if user else ""),
+            roles=["trusted_plugin"],
+            permissions={Permission.READ, Permission.WRITE, Permission.DOCUMENT_PROCESSING, Permission.TRANSACTION_PROCESSING},
+            api_key_id="internal_trust",
+            authentication_method=AuthenticationMethod.INTERNAL_SECRET,
+            is_authenticated=True,
+            is_admin=user.role == "admin" if user else True,
+            tenant_id=resolved_tenant_id,
+            is_sandbox=False,
+            allowed_document_types=["invoice", "expense", "statement"],
+            custom_quotas={},
+            user=user,
+            client_id="internal_trust",
+            api_key_prefix="internal",
         )
 
     def _get_api_client_permissions(self, api_client: APIClient) -> set:
@@ -332,6 +463,11 @@ class ExternalAPIAuthService:
             is_authenticated=True,
             is_admin=False,
             tenant_id=api_client.tenant_id,
+            allowed_document_types=api_client.allowed_document_types,
+            custom_quotas=api_client.custom_quotas,
+            user=user,
+            client_id=api_client.client_id,
+            api_key_prefix=api_client.api_key_prefix,
         )
 
     def _get_oauth_permissions(self, scopes: List[str]) -> set:

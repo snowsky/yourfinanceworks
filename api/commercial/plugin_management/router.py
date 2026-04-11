@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from typing import Optional, Dict, Any
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import stripe
 import logging
 
@@ -57,6 +57,73 @@ def _validate_plugin_id(plugin_id: str, field_name: str = "plugin_id") -> str:
             detail=f"Invalid {field_name}: {plugin_id}",
         )
     return normalized
+
+
+@router.post("/token/{plugin_id}", tags=["plugin_auth"])
+async def generate_plugin_sidecar_token(
+    plugin_id: str,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Generate a short-lived authentication token for a sidecar plugin.
+    This token is signed with the YFW_SECRET_KEY shared with trusted sidecars.
+    Dashboard-only, requires valid user session.
+    """
+    from jose import jwt
+    from core.utils.auth import ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+    
+    plugin_id = _validate_plugin_id(plugin_id)
+
+    # Resolve the per-tenant user ID so sidecars can use it directly without
+    # having to do a fragile cross-DB email lookup on every API call.
+    # MasterUser.id != per-tenant User.id because each tenant DB has its own
+    # auto-increment sequence.
+    per_tenant_user_id: int = current_user.id  # fallback
+    try:
+        import contextlib
+        from core.models.database import set_tenant_context, get_db as get_tenant_db
+        from core.models.models_per_tenant import User as TenantUser
+        set_tenant_context(current_user.tenant_id)
+        with contextlib.closing(next(get_tenant_db())) as t_db:
+            # Fast path: same ID (works when admin user was seeded with matching ID)
+            t_user = t_db.query(TenantUser).filter(TenantUser.id == current_user.id).first()
+            if not t_user:
+                # Slow path: decrypted email scan
+                for u in t_db.query(TenantUser).filter(TenantUser.is_active == True).all():
+                    try:
+                        if u.email == current_user.email:
+                            t_user = u
+                            break
+                    except Exception:
+                        continue
+            if t_user:
+                per_tenant_user_id = t_user.id
+    except Exception as e:
+        logger.warning(f"Could not resolve per-tenant user ID for {current_user.email}: {e}")
+
+    # Payload for the sidecar JWT
+    # We use 'sub' for email and include tenant_id/user_id for context.
+    # per_tenant_user_id is the users.id in the tenant DB (not the master DB id).
+    to_encode = {
+        "sub": current_user.email,
+        "tenant_id": current_user.tenant_id,
+        "user_id": current_user.id,
+        "per_tenant_user_id": per_tenant_user_id,
+        "type": "plugin",
+        "plugin_id": plugin_id,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    }
+
+    if not config.YFW_SECRET_KEY:
+        logger.error("YFW_SECRET_KEY is not set in Config. Cannot generate sidecar tokens.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Plugin authentication is misconfigured on the server."
+        )
+
+    token = jwt.encode(to_encode, config.YFW_SECRET_KEY, algorithm=ALGORITHM)
+    return {"token": token}
 
 
 @router.get("/registry")
@@ -593,7 +660,7 @@ async def update_plugin_config(
 # ---------------------------------------------------------------------------
 
 _PUBLIC_ACCESS_KEY = "public_access"
-_PUBLIC_ACCESS_DEFAULTS = {"enabled": False, "require_login": True, "stripe_price_id": None, "free_clicks": 0}
+_PUBLIC_ACCESS_DEFAULTS = {"enabled": False, "require_login": True, "stripe_price_id": None, "free_clicks": 0, "show_sidebar": False, "show_header": False}
 
 
 class PublicAccessUpdate(BaseModel):
@@ -601,6 +668,10 @@ class PublicAccessUpdate(BaseModel):
     require_login: bool
     stripe_price_id: str | None = None
     free_clicks: int = 0
+    show_sidebar: bool = False
+    show_header: bool = False
+    manual_usage_tracking: bool = False
+    service_user_email: str | None = None
 
 
 def _get_public_access_config(plugin_config: dict | None, plugin_id: str) -> dict:
@@ -612,6 +683,10 @@ def _get_public_access_config(plugin_config: dict | None, plugin_id: str) -> dic
         "require_login": bool(pa.get("require_login", True)),
         "stripe_price_id": pa.get("stripe_price_id", None),
         "free_clicks": int(pa.get("free_clicks", 0)),
+        "show_sidebar": bool(pa.get("show_sidebar", False)),
+        "show_header": bool(pa.get("show_header", False)),
+        "manual_usage_tracking": bool(pa.get("manual_usage_tracking", False)),
+        "service_user_email": pa.get("service_user_email", None),
     }
 
 
@@ -644,6 +719,10 @@ async def get_plugin_public_access(
         "require_login": pa["require_login"],
         "stripe_price_id": pa.get("stripe_price_id"),
         "free_clicks": pa.get("free_clicks", 0),
+        "show_sidebar": pa.get("show_sidebar", False),
+        "show_header": pa.get("show_header", False),
+        "manual_usage_tracking": pa.get("manual_usage_tracking", False),
+        "service_user_email": pa.get("service_user_email"),
         "public_page": manifest.get("public_page"),
     }
 
@@ -662,6 +741,12 @@ async def update_plugin_public_access(
     if not _is_admin(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only")
 
+    if payload.show_sidebar and payload.show_header:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="show_sidebar and show_header are mutually exclusive. Enable only one.",
+        )
+
     plugin_id = _normalize_plugin_id(plugin_id)
 
     settings = db.query(TenantPluginSettings).filter(
@@ -673,6 +758,10 @@ async def update_plugin_public_access(
         "require_login": payload.require_login,
         "stripe_price_id": payload.stripe_price_id,
         "free_clicks": payload.free_clicks,
+        "show_sidebar": payload.show_sidebar,
+        "show_header": payload.show_header,
+        "manual_usage_tracking": payload.manual_usage_tracking,
+        "service_user_email": payload.service_user_email,
     }
 
     if not settings:
@@ -698,6 +787,8 @@ async def update_plugin_public_access(
         "require_login": payload.require_login,
         "stripe_price_id": payload.stripe_price_id,
         "free_clicks": payload.free_clicks,
+        "show_sidebar": payload.show_sidebar,
+        "show_header": payload.show_header,
         "message": f"Public access for plugin '{plugin_id}' updated",
     }
 
@@ -752,6 +843,9 @@ async def get_plugin_public_config(
         "require_login": pa["require_login"],
         "stripe_price_id": pa.get("stripe_price_id"),
         "free_clicks": pa.get("free_clicks", 0),
+        "show_sidebar": pa.get("show_sidebar", False),
+        "show_header": pa.get("show_header", False),
+        "manual_usage_tracking": pa.get("manual_usage_tracking", False),
         "public_page": manifest.get("public_page"),
     }
 
@@ -956,6 +1050,17 @@ class CheckoutRequest(BaseModel):
     tenant_id: int
     plugin_user_id: int
 
+class PortalRequest(BaseModel):
+    tenant_id: int
+    plugin_user_id: int
+    access_token: str
+    return_url: Optional[str] = None
+
+class IncrementUsageRequest(BaseModel):
+    tenant_id: int
+    plugin_user_id: int
+    amount: int = 1
+
 # --- Plugin Payment & Paywall Endpoints ---
 
 @router.post("/{plugin_id}/public-paywall/checkout")
@@ -1040,6 +1145,81 @@ async def plugin_paywall_checkout(
         logger.error(f"Stripe error creating checkout session: {e}")
         raise HTTPException(status_code=500, detail="Error communicating with Stripe")
 
+@router.post("/{plugin_id}/public-paywall/portal")
+async def create_plugin_payment_portal(
+    plugin_id: str,
+    payload: PortalRequest,
+    request: Request,
+    db: Session = Depends(get_master_db)
+):
+    """
+    Create a Stripe Customer Portal session for a plugin user to manage their payment methods.
+    Only allows users who already have a Stripe customer ID (i.e., have attempted checkout before).
+    Requires a valid plugin access token to verify the caller owns the plugin_user_id.
+    """
+    from jose import jwt, JWTError
+    from core.routers.auth import SECRET_KEY, ALGORITHM
+
+    # Verify the plugin access token belongs to the claimed plugin_user_id
+    try:
+        token_data = jwt.decode(payload.access_token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired plugin token")
+
+    token_plugin_user_id = token_data.get("plugin_user_id")
+    token_tenant_id = token_data.get("tenant_id")
+    if token_plugin_user_id != payload.plugin_user_id or token_tenant_id != payload.tenant_id:
+        raise HTTPException(status_code=403, detail="Token does not match the requested plugin user")
+
+    plugin_id = _normalize_plugin_id(plugin_id)
+
+    plugin_user = db.query(PluginUser).filter(
+        PluginUser.id == payload.plugin_user_id,
+        PluginUser.tenant_id == payload.tenant_id,
+        PluginUser.plugin_id == plugin_id
+    ).first()
+
+    if not plugin_user:
+        raise HTTPException(status_code=404, detail="Plugin user not found")
+
+    if not plugin_user.stripe_customer_id:
+        raise HTTPException(
+            status_code=400,
+            detail="No active payment record found. Please subscribe to the plugin first."
+        )
+
+    stripe_cfg = get_tenant_payment_settings(payload.tenant_id)
+    if not stripe_cfg or not stripe_cfg.get("secretKey"):
+        raise HTTPException(status_code=400, detail="Payments are not configured by the organization")
+
+    stripe.api_key = stripe_cfg["secretKey"]
+
+    # Prefer an explicit return_url from the caller (the plugin page itself knows its own URL).
+    # Fall back to the plugin's public_page ui_entry from the manifest; avoid the /p/ iframe
+    # route because it does not reliably forward query parameters.
+    if payload.return_url:
+        return_url = payload.return_url
+    else:
+        manifest = next(
+            (m for m in plugin_loader.get_registry() if m.get("name") == plugin_id or m.get("id") == plugin_id),
+            {}
+        )
+        ui_entry = (manifest.get("public_page") or {}).get("ui_entry")
+        if ui_entry:
+            return_url = f"{ui_entry}?t={payload.tenant_id}"
+        else:
+            return_url = f"{request.base_url}plugins/{plugin_id}/public/?t={payload.tenant_id}"
+
+    try:
+        session = stripe.billing_portal.Session.create(
+            customer=plugin_user.stripe_customer_id,
+            return_url=return_url,
+        )
+        return {"portal_url": session.url}
+    except stripe.StripeError as e:
+        logger.error(f"Stripe error creating portal session: {e}")
+        raise HTTPException(status_code=500, detail="Error communicating with Stripe")
+
 @router.post("/{plugin_id}/public-paywall/status")
 async def plugin_paywall_status(
     plugin_id: str,
@@ -1094,7 +1274,7 @@ async def plugin_paywall_status(
 @router.post("/{plugin_id}/public-paywall/increment-usage")
 async def increment_plugin_usage(
     plugin_id: str,
-    payload: CheckoutRequest,
+    payload: IncrementUsageRequest,
     db: Session = Depends(get_master_db),
 ):
     """
@@ -1115,7 +1295,7 @@ async def increment_plugin_usage(
     if plugin_user.usage_count is None:
         plugin_user.usage_count = 0
 
-    plugin_user.usage_count += 1
+    plugin_user.usage_count += payload.amount
     db.commit()
 
     return {"usage_count": plugin_user.usage_count}

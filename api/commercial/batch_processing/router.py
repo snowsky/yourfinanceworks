@@ -7,14 +7,15 @@ Supports uploading multiple files for OCR processing and exporting results.
 
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Header, UploadFile, File, Form
+from typing import List, Optional, Union
+from fastapi import APIRouter, Depends, HTTPException, status, Header, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session
 
 from core.models.database import get_db, get_master_db
 from core.models.models import MasterUser
 from core.models.api_models import APIClient
-from core.models.models_per_tenant import BatchProcessingJob
+from core.services.external_api_auth_service import AuthContext
+from core.models.models_per_tenant import BatchProcessingJob, BatchFileProcessing
 from core.routers.auth import get_current_user
 from core.utils.feature_gate import require_feature
 from commercial.batch_processing.service import BatchProcessingService
@@ -27,31 +28,131 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/external-transactions/batch-processing", tags=["batch-processing"])
 
 
-def get_api_key_auth(
+def _resolve_per_tenant_user_id(
+    master_user_id: Optional[int],
+    email: Optional[str],
+) -> int:
+    """
+    Resolve the per-tenant users.id for an internal-trust request.
+
+    In the multi-DB architecture MasterUser.id != per-tenant User.id because each
+    tenant DB has its own auto-increment sequence.  We try three strategies:
+
+    1. ID match  — cheap; works when the admin user was seeded with a matching ID.
+    2. Email scan — fetch all active users and compare decrypted emails (O(n)); handles
+                    mismatched IDs. Works even when EncryptedColumn is non-deterministic.
+    3. First admin — last resort: pick any admin user so the FK is satisfied.
+
+    Returns 0 if the tenant context is not set or no user is found at all.
+    """
+    import contextlib
+    from core.models.database import get_tenant_context, get_db
+    from core.models.models_per_tenant import User as TenantUser
+
+    if not get_tenant_context():
+        logger.warning("_resolve_per_tenant_user_id: no tenant context set")
+        return 0
+
+    with contextlib.closing(next(get_db())) as tenant_db:
+        # Strategy 1: fast ID match
+        if master_user_id is not None:
+            u = tenant_db.query(TenantUser).filter(TenantUser.id == master_user_id).first()
+            if u:
+                logger.debug(f"Per-tenant user resolved by ID match: {u.id}")
+                return u.id
+
+        # Strategy 2: email scan (handles mismatched IDs, encrypted columns)
+        if email:
+            for u in tenant_db.query(TenantUser).filter(TenantUser.is_active == True).all():
+                try:
+                    if u.email == email:
+                        logger.debug(f"Per-tenant user resolved by email scan: {u.id}")
+                        return u.id
+                except Exception:
+                    continue  # decryption error for this row — skip
+
+        # Strategy 3: first admin user in the tenant
+        admin = tenant_db.query(TenantUser).filter(TenantUser.role == "admin").first()
+        if admin:
+            logger.warning(
+                f"Per-tenant user not found by ID ({master_user_id}) or email scan — "
+                f"falling back to admin user {admin.id}. "
+                "Consider adding the service_user_email to the per-tenant users table."
+            )
+            return admin.id
+
+        logger.error("No per-tenant user found; batch job user_id will be 0 (FK will fail).")
+        return 0
+
+
+async def get_api_key_auth(
+    request: Request,
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    x_internal_secret: Optional[str] = Header(None, alias="X-Internal-Secret"),
     db: Session = Depends(get_master_db)
-) -> tuple[int, int, str, APIClient]:
+) -> tuple[int, int, str, Union[APIClient, AuthContext]]:
     """
-    Authenticate using API key and return tenant_id, user_id, api_client_id, and APIClient.
-
-    This validates the API key, checks rate limits, and returns the authenticated context.
-
-    Args:
-        x_api_key: API key from X-API-Key header
-        db: Master database session
-
+    Authenticate using API key or Internal Secret and return context.
+    
     Returns:
-        Tuple of (tenant_id, user_id, api_client_id, api_client)
-
-    Raises:
-        HTTPException: If API key is missing, invalid, or rate limit exceeded
+        Tuple of (tenant_id, user_id, auth_id, auth_context_or_client)
     """
+    # 1. Check for Internal Secret (Sidecar Trust)
+    if x_internal_secret:
+        from core.services.external_api_auth_service import ExternalAPIAuthService
+        auth_service = ExternalAPIAuthService()
+        
+        # Extract headers with robust fallback chain
+        tenant_id_str = (
+            request.headers.get("X-Plugin-Tenant-Id") or 
+            request.headers.get("X-Public-Tenant-Id") or
+            request.headers.get("X-Tenant-Id")
+        )
+        user_email = request.headers.get("X-Plugin-User-Email") or request.headers.get("X-User-Email")
+        plugin_id = request.headers.get("X-Plugin-Id")
+        
+        try:
+            tenant_id = int(tenant_id_str) if tenant_id_str else None
+        except (ValueError, TypeError):
+            tenant_id = None
+            
+        auth_context = await auth_service.authenticate_internal_secret(db, x_internal_secret, tenant_id, user_email, plugin_id)
+
+        if auth_context and auth_context.is_authenticated:
+            # Set tenant context globally for this request
+            if auth_context.tenant_id:
+                from core.models.database import set_tenant_context
+                set_tenant_context(auth_context.tenant_id)
+
+            # Resolve per-tenant user ID.
+            # Prefer the explicit X-Plugin-User-Id header (set by the sidecar from the
+            # JWT's per_tenant_user_id claim) — it's exact and requires no DB lookup.
+            # Fall back to the cross-DB resolution chain only for older sidecars that
+            # don't yet send this header.
+            x_plugin_user_id = request.headers.get("X-Plugin-User-Id")
+            if x_plugin_user_id and x_plugin_user_id.isdigit():
+                per_tenant_user_id = int(x_plugin_user_id)
+                logger.debug(f"Per-tenant user_id={per_tenant_user_id} from X-Plugin-User-Id header")
+            else:
+                per_tenant_user_id = _resolve_per_tenant_user_id(
+                    master_user_id=int(auth_context.user_id) if (auth_context.user_id and auth_context.user_id.isdigit()) else None,
+                    email=auth_context.email,
+                )
+
+            return (
+                auth_context.tenant_id,
+                per_tenant_user_id,
+                "internal_trust",
+                auth_context
+            )
+
+    # 2. Fallback to standard API Key
     import hashlib
 
     if not x_api_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key required. Provide X-API-Key header."
+            detail="Authentication required. Provide X-API-Key or X-Internal-Secret header."
         )
 
     # Hash the provided API key
@@ -238,19 +339,26 @@ async def upload_batch(
                     detail=f"Invalid document types: {', '.join(invalid_types)}. Valid types: {', '.join(valid_types)}",
                 )
 
-            # Validate document types against API key's allowed document types
-            # Normalize allowed document types for comparison
-            normalized_allowed = [
-                dt.lower().strip() if isinstance(dt, str) else dt
-                for dt in api_client.allowed_document_types
-            ]
+            # Validate document types against allowed types
+            # Note: For internal trusted plugins, we skip the strict api_client check
+            if api_client_id == "internal_trust":
+                normalized_allowed = ["invoice", "expense", "statement"] # Trusted internal plugins allowed all
+            else:
+                # Standard API Key validation
+                normalized_allowed = [
+                    dt.lower().strip() if isinstance(dt, str) else dt
+                    for dt in api_client.allowed_document_types
+                ]
 
             # Check each document type against allowed document types
             for doc_type in doc_types_list:
                 if doc_type not in normalized_allowed:
+                    detail = f"Document type '{doc_type}' is not allowed."
+                    if api_client_id != "internal_trust":
+                         detail += f" Allowed types: {', '.join(api_client.allowed_document_types)}"
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"Document type '{doc_type}' is not allowed for this API key. Allowed types: {', '.join(api_client.allowed_document_types)}",
+                        detail=detail,
                     )
 
         # If no export destination specified, use default or create one
@@ -667,14 +775,25 @@ async def list_jobs(
                     detail=f"Invalid status filter. Valid values: {', '.join(valid_statuses)}"
                 )
 
-        # Build query with tenant isolation
+        # Build query with tenant isolation.
+        # For internal-trust (sidecar) calls, api_client_id is always "internal_trust"
+        # regardless of which end-user made the request.  Filter by user_id instead so
+        # each authenticated user only sees their own jobs.
         from sqlalchemy import and_
-        query = db.query(BatchProcessingJob).filter(
-            and_(
-                BatchProcessingJob.tenant_id == tenant_id,  # Tenant isolation
-                BatchProcessingJob.api_client_id == api_client_id
+        if api_client_id == "internal_trust":
+            query = db.query(BatchProcessingJob).filter(
+                and_(
+                    BatchProcessingJob.tenant_id == tenant_id,
+                    BatchProcessingJob.user_id == user_id,
+                )
             )
-        )
+        else:
+            query = db.query(BatchProcessingJob).filter(
+                and_(
+                    BatchProcessingJob.tenant_id == tenant_id,
+                    BatchProcessingJob.api_client_id == api_client_id,
+                )
+            )
 
         # Apply status filter if provided
         if status_filter:
@@ -683,12 +802,15 @@ async def list_jobs(
         # Get total count
         total = query.count()
 
-        # Apply pagination and ordering
-        jobs = query.order_by(
+        # Apply pagination and ordering; eagerly load file names
+        from sqlalchemy.orm import joinedload
+        jobs = query.options(
+            joinedload(BatchProcessingJob.files)
+        ).order_by(
             BatchProcessingJob.created_at.desc()
         ).limit(limit).offset(offset).all()
 
-        # Build job summaries (without file details)
+        # Build job summaries
         job_summaries = []
         for job in jobs:
             summary = {
@@ -705,7 +827,8 @@ async def list_jobs(
                 "export_completed_at": job.export_completed_at.isoformat() if job.export_completed_at else None,
                 "created_at": job.created_at.isoformat() if job.created_at else None,
                 "updated_at": job.updated_at.isoformat() if job.updated_at else None,
-                "completed_at": job.completed_at.isoformat() if job.completed_at else None
+                "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+                "file_names": [f.original_filename for f in (job.files or [])],
             }
             job_summaries.append(summary)
 

@@ -10,17 +10,29 @@ import {
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Loader2, Settings, Globe, Copy, Check } from 'lucide-react';
+import { Label as UILabel } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Loader2, Settings, Globe, Copy, Check, User as UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { pluginApi } from '@/lib/api';
+import { pluginApi, userApi } from '@/lib/api';
 import { getTenantId } from '@/lib/api/_base';
+import { User } from '@/types';
 
 interface PublicAccessState {
   enabled: boolean;
   require_login: boolean;
   stripe_price_id: string | null;
   free_clicks: number;
+  show_sidebar: boolean;
+  show_header: boolean;
+  manual_usage_tracking: boolean;
+  service_user_email: string | null;
   publicPagePath: string | null;
 }
 
@@ -42,12 +54,16 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<Record<string, any>>({});
   const [publicAccess, setPublicAccess] = useState<PublicAccessState | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (open) {
       loadConfig();
       loadPublicAccessConfig();
+      if (users.length === 0) {
+        loadUsers();
+      }
     }
   }, [open, pluginId]);
 
@@ -79,6 +95,10 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
           require_login: response.require_login,
           stripe_price_id: response.stripe_price_id || null,
           free_clicks: response.free_clicks || 0,
+          show_sidebar: response.show_sidebar || false,
+          show_header: response.show_header || false,
+          manual_usage_tracking: response.manual_usage_tracking || false,
+          service_user_email: response.service_user_email || null,
           publicPagePath: response.public_page?.path ?? null,
         });
       } else {
@@ -87,6 +107,15 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
     } catch {
       // Plugin doesn't support public access — silently ignore
       setPublicAccess(null);
+    }
+  };
+
+  const loadUsers = async () => {
+    try {
+      const response = await userApi.getUsers();
+      setUsers(response || []);
+    } catch (error) {
+      console.error('Failed to load users:', error);
     }
   };
 
@@ -113,6 +142,10 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
               require_login: publicAccess.require_login,
               stripe_price_id: publicAccess.stripe_price_id,
               free_clicks: publicAccess.free_clicks,
+              show_sidebar: publicAccess.show_sidebar,
+              show_header: publicAccess.show_header,
+              manual_usage_tracking: publicAccess.manual_usage_tracking,
+              service_user_email: publicAccess.service_user_email,
             })
           : Promise.resolve(),
       ]);
@@ -131,9 +164,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label htmlFor="enable-ai-import">
+            <UILabel htmlFor="enable-ai-import">
               {t('plugins.investments.enable_ai_import', 'Enable Holdings/Transactions Import with AI')}
-            </Label>
+            </UILabel>
             <p className="text-sm text-muted-foreground">
               {t(
                 'plugins.investments.ai_import_description',
@@ -199,9 +232,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="public-access-enabled">
+                  <UILabel htmlFor="public-access-enabled">
                     {t('plugins.public_access.enable', 'Enable public link')}
-                  </Label>
+                  </UILabel>
                   <p className="text-xs text-muted-foreground">
                     {t('plugins.public_access.enable_desc', 'Allow access via a shareable URL')}
                   </p>
@@ -219,9 +252,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                 <>
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="require-login">
+                      <UILabel htmlFor="require-login">
                         {t('plugins.public_access.require_login', 'Require login')}
-                      </Label>
+                      </UILabel>
                       <p className="text-xs text-muted-foreground">
                         {t(
                           'plugins.public_access.require_login_desc',
@@ -240,9 +273,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
 
                     <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="free-clicks">
+                      <UILabel htmlFor="free-clicks">
                         {t('plugins.public_access.free_clicks', 'Free Clicks Allowed')}
-                      </Label>
+                      </UILabel>
                       <p className="text-xs text-muted-foreground">
                         {t(
                           'plugins.public_access.free_clicks_desc',
@@ -262,28 +295,133 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="stripe-price-id">
-                        {t('plugins.public_access.stripe_price_id', 'Stripe Price ID')}
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        {t(
-                          'plugins.public_access.stripe_price_id_desc',
-                          'Optional paywall. Leave empty for free access.',
-                        )}
-                      </p>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <UILabel htmlFor="show-sidebar">
+                          {t('plugins.public_access.show_sidebar', 'Show Sidebar')}
+                        </UILabel>
+                        <p className="text-xs text-muted-foreground">
+                          {t(
+                            'plugins.public_access.show_sidebar_desc',
+                            'Enable sidebar for Logout and Settings'
+                          )}
+                        </p>
+                      </div>
+                      <Switch
+                        id="show-sidebar"
+                        checked={publicAccess.show_sidebar}
+                        onCheckedChange={(checked) =>
+                          setPublicAccess({ 
+                            ...publicAccess, 
+                            show_sidebar: checked,
+                            show_header: checked ? false : publicAccess.show_header 
+                          })
+                        }
+                      />
                     </div>
-                    <Input
-                      id="stripe-price-id"
-                      className="w-[200px]"
-                      value={publicAccess.stripe_price_id || ''}
-                      onChange={(e) =>
-                        setPublicAccess({ ...publicAccess, stripe_price_id: e.target.value })
-                      }
-                      placeholder="price_1..."
-                    />
-                  </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <UILabel htmlFor="show-header">
+                          {t('plugins.public_access.show_header', 'Show Header')}
+                        </UILabel>
+                        <p className="text-xs text-muted-foreground">
+                          {t(
+                            'plugins.public_access.show_header_desc',
+                            'Enable header for Logout and Settings'
+                          )}
+                        </p>
+                      </div>
+                      <Switch
+                        id="show-header"
+                        checked={publicAccess.show_header}
+                        onCheckedChange={(checked) =>
+                          setPublicAccess({ 
+                            ...publicAccess, 
+                            show_header: checked,
+                            show_sidebar: checked ? false : publicAccess.show_sidebar
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <UILabel htmlFor="manual-usage-tracking">
+                          {t('plugins.public_access.manual_usage_tracking', 'Manual Usage Tracking')}
+                        </UILabel>
+                        <p className="text-xs text-muted-foreground">
+                          {t(
+                            'plugins.public_access.manual_usage_tracking_desc',
+                            'Count usage explicitly via plugin events (e.g. per file uploaded)'
+                          )}
+                        </p>
+                      </div>
+                      <Switch
+                        id="manual-usage-tracking"
+                        checked={publicAccess.manual_usage_tracking}
+                        onCheckedChange={(checked) =>
+                          setPublicAccess({ ...publicAccess, manual_usage_tracking: checked })
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <UILabel htmlFor="stripe-price-id">
+                          {t('plugins.public_access.stripe_price_id', 'Stripe Price ID')}
+                        </UILabel>
+                        <p className="text-xs text-muted-foreground">
+                          {t(
+                            'plugins.public_access.stripe_price_id_desc',
+                            'Optional paywall. Leave empty for free access.',
+                          )}
+                        </p>
+                      </div>
+                      <Input
+                        id="stripe-price-id"
+                        className="w-[200px]"
+                        value={publicAccess.stripe_price_id || ''}
+                        onChange={(e) =>
+                          setPublicAccess({ ...publicAccess, stripe_price_id: e.target.value })
+                        }
+                        placeholder="price_1..."
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <UILabel htmlFor="service-user-email">
+                          {t('plugins.public_access.service_user_email', 'Service User Email')}
+                        </UILabel>
+                        <p className="text-xs text-muted-foreground">
+                          {t(
+                            'plugins.public_access.service_user_email_desc',
+                            'Email used for background tasks and sidecar auth',
+                          )}
+                        </p>
+                      </div>
+                      <Select
+                        value={publicAccess.service_user_email || ''}
+                        onValueChange={(value) =>
+                          setPublicAccess({ ...publicAccess, service_user_email: value })
+                        }
+                      >
+                        <SelectTrigger id="service-user-email" className="w-[200px]">
+                          <SelectValue placeholder="Select user..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users.map((user) => (
+                            <SelectItem key={user.id} value={user.email}>
+                              <div className="flex flex-col text-left">
+                                <span className="font-medium">{user.name || user.email.split('@')[0]}</span>
+                                <span className="text-[10px] text-muted-foreground">{user.email}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
                   {publicUrl && (
                     <div className="flex items-center gap-2 p-2 bg-muted rounded text-xs font-mono break-all">

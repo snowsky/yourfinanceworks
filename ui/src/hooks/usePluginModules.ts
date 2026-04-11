@@ -11,6 +11,10 @@ export interface LoadedPluginModule {
   isSidecar?: boolean;
   /** Base URL for the sidecar plugin UI (e.g. /plugins/socialhub/). Only set when isSidecar=true. */
   uiEntry?: string;
+  /** Canonical name/slug of the plugin (e.g. statement-tools). */
+  pluginId: string;
+  /** Raw metadata from the plugin manifest. */
+  pluginMetadata?: any;
   /**
    * Public portal page for this plugin.
    * Exported by in-process plugins from plugin/ui/index.ts,
@@ -35,9 +39,6 @@ let _cache: LoadedPluginModule[] | null = null;
 const _listeners = new Set<() => void>();
 
 async function _fetchSidecarNavItems(): Promise<LoadedPluginModule[]> {
-  if (!localStorage.getItem('user')) {
-    return [];
-  }
   try {
     const data = await apiRequest<{ plugins: any[] }>('/plugins/registry');
     return (data.plugins ?? [])
@@ -55,6 +56,7 @@ async function _fetchSidecarNavItems(): Promise<LoadedPluginModule[]> {
           navItems: p.nav_items as PluginNavItem[],
           isSidecar: true,
           uiEntry: p.ui_entry as string,
+          pluginId: p.name as string,
           publicPage,
         };
       });
@@ -75,7 +77,14 @@ function _load() {
       results
         .filter((r): r is PromiseFulfilledResult<LoadedPluginModule | null> => r.status === 'fulfilled')
         .map((r) => r.value)
-        .filter((m): m is LoadedPluginModule => m !== null)
+        .map((m) => {
+          if (!m) return null;
+          // Extract pluginId from metadata if not explicitly set
+          const metadata = (m as any).pluginMetadata;
+          const pluginId = m.pluginId || (m as any).id || metadata?.id || metadata?.name;
+          return { ...m, pluginId };
+        })
+        .filter((m): m is LoadedPluginModule => m !== null && !!m.pluginId)
     ),
     // Sidecar plugins: nav items come from the API registry manifest at runtime
     _fetchSidecarNavItems(),

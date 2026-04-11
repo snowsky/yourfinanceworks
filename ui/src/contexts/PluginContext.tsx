@@ -156,6 +156,7 @@ class PluginValidator {
         repository: metadata.repository,
         required_access: metadata.required_access,
         is_external: metadata.is_external,
+        is_sidecar: metadata.is_sidecar,
         git_source: metadata.git_source,
       };
 

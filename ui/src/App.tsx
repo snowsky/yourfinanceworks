@@ -99,6 +99,7 @@ const PromptManagement = React.lazy(() => import("./pages/PromptManagement"));
 import { buildPluginElement } from "./components/plugins/PluginRoutes";
 import { usePluginModules } from "./hooks/usePluginModules";
 import { PublicPluginWrapper } from "./components/plugins/PublicPluginWrapper";
+import { SidecarPluginUI } from "./components/plugins/SidecarPluginUI";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -289,24 +290,22 @@ const AppContent = () => {
                       <Route key={r.path} path={r.path} element={buildPluginElement(r)} />
                     ))}
 
-                    {/* ---- Sidecar Plugin Routes — iframe into each plugin's UI ---- */}
-                    {sidecarPluginModules.flatMap(m =>
-                      (m.navItems ?? []).map(item => (
-                        <Route
-                          key={item.path}
-                          path={`${item.path}/*`}
-                          element={
-                            <div style={{ width: '100%', height: 'calc(100vh - 4rem)', overflow: 'hidden' }}>
-                              <iframe
-                                src={m.uiEntry}
-                                style={{ width: '100%', height: '100%', border: 'none' }}
-                                title={item.label}
-                              />
-                            </div>
-                          }
-                        />
-                      ))
-                    )}
+                  {/* ---- Sidecar Plugin Routes — iframe into each plugin's UI ---- */}
+                  {sidecarPluginModules.flatMap(m =>
+                    (m.navItems ?? []).map(item => (
+                      <Route
+                        key={item.path}
+                        path={`${item.path}/*`}
+                        element={
+                          <SidecarPluginUI 
+                            pluginId={m.pluginId!} 
+                            uiEntry={m.uiEntry!} 
+                            title={item.label} 
+                          />
+                        }
+                      />
+                    ))
+                  )}
 
                     <Route path="/statements" element={<Statements />} />
                     <Route path="/settings" element={<Settings />} />

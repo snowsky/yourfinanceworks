@@ -386,8 +386,12 @@ class PluginLoader:
 
     def _discover_sidecar_plugins(self) -> list[DiscoveredPlugin]:
         """
-        Probe HTTP endpoints for sidecar plugins declared in the ``SIDECAR_PLUGINS``
-        environment variable (comma-separated plugin names, e.g. ``socialhub,crm``).
+        Identify sidecar plugins.
+
+        This scan covers:
+        1. Explicitly declared names in SIDECAR_PLUGINS env var.
+        2. Automatic discovery of sibling directories starting with 'yfw-'
+           that contain a plugin.json file.
 
         Each plugin must expose ``GET /plugin.json`` on port 8000 at the Docker service
         hostname ``plugin_<name>`` within the shared ``invoice_app_network``.
@@ -398,7 +402,25 @@ class PluginLoader:
         without requiring an API restart.
         """
         declared = [n.strip() for n in os.getenv("SIDECAR_PLUGINS", "").split(",") if n.strip()]
-        if not declared:
+
+        # Filesystem discovery for siblings (e.g. yfw-statement-tools)
+        # We look in the parent directory of 'api' (the project root)
+        project_root = _PLUGINS_DIR.parent.parent
+        fs_discovered = []
+        try:
+            # We look for folders outside the 'api' directory that have a plugin.json
+            for item in project_root.glob("yfw-*/plugin.json"):
+                # Normalize ID: yfw-statement-tools -> statement-tools
+                p_dir_name = item.parent.name
+                plugin_id = p_dir_name.replace("yfw-", "").replace("_", "-")
+                if plugin_id not in declared:
+                    fs_discovered.append(plugin_id)
+                    logger.debug("Auto-discovered sibling sidecar plugin: %s", plugin_id)
+        except Exception as e:
+            logger.warning("Failed to scan for sibling sidecar plugins: %s", e)
+
+        all_names = sorted(list(set(declared + fs_discovered)))
+        if not all_names:
             return []
 
         try:
@@ -410,7 +432,7 @@ class PluginLoader:
         found: list[DiscoveredPlugin] = []
         pending: list[str] = []
 
-        for name in declared:
+        for name in all_names:
             plugin = self._probe_sidecar(name, httpx)
             if plugin:
                 found.append(plugin)
