@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "YFW Expenses",
+    "slug": "yfw-expenses",
+    "scheme": "yfw-expenses",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "https://demo.yourfuturewallet.com/api/v1"
+    },
+    "ios": {
+      "bundleIdentifier": "com.snowsky.yfw-expenses"
+    }
+  }
+}

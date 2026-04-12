@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "YFW Expenses",
+    "slug": "yfw-expenses",
+    "scheme": "yfw-expenses",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-image-picker",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow YFW Expenses to record your voice to capture expenses."
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.yourfinanceworks.expenses",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Use the camera to capture expense receipts.",
+        "NSMicrophoneUsageDescription": "Use the microphone to dictate expense notes."
+      }
+    },
+    "android": {
+      "package": "com.yourfinanceworks.expenses",
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO"
+      ]
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "https://demo.yourfuturewallet.com/api/v1"
+    }
+  }
+}
