@@ -41,11 +41,14 @@ export function UploadModal({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
-      <DialogContent className="sm:max-w-md flex flex-col max-h-[80vh]">
+      <DialogContent
+        className="sm:max-w-md flex flex-col max-h-[80vh]"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{t('statements.upload_statement', { defaultValue: 'Upload Statement' })}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 overflow-y-auto flex-1 pr-1">
+        <div className="space-y-4 overflow-y-auto flex-1 px-1">
           <div>
             <label className="text-sm font-medium mb-2 block">
               {t('statements.select_provider', { defaultValue: 'Statement Provider' })}
