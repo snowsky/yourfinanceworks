@@ -15,7 +15,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, linkApi } from '@/lib/api';
-import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
+import { EXPENSE_CATEGORY_OPTIONS, EXPENSE_STATUS_OPTIONS } from '@/constants/expenses';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -446,6 +446,30 @@ export default function ExpensesView() {
               <div>
                 <label className="text-sm">{t('expenses.labels.payment_method')}</label>
                 <Input value={form.payment_method || ''} disabled={true} />
+              </div>
+              <div>
+                <label className="text-sm">{t('expenses.status_filter_label')}</label>
+                <div className="mt-1">
+                  {(() => {
+                    const statusColors: Record<string, string> = {
+                      draft: 'bg-muted text-muted-foreground border-border',
+                      recorded: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700',
+                      pending_approval: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800',
+                      approved: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800',
+                      rejected: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800',
+                      resubmitted: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800',
+                      reimbursed: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800',
+                    };
+                    const status = form.status || 'recorded';
+                    const labelKey = EXPENSE_STATUS_OPTIONS.find(o => o.value === status)?.labelKey;
+                    const colorClass = statusColors[status] || statusColors.recorded;
+                    return (
+                      <Badge variant="outline" className={`h-7 px-3 text-sm font-medium border ${colorClass}`}>
+                        {labelKey ? t(labelKey) : status}
+                      </Badge>
+                    );
+                  })()}
+                </div>
               </div>
               <div>
                 <label className="text-sm">{t('expenses.labels.reference_number')}</label>
