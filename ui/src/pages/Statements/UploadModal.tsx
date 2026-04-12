@@ -41,7 +41,7 @@ export function UploadModal({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
-      <DialogContent className="sm:max-w-md flex flex-col max-h-[90vh]">
+      <DialogContent className="sm:max-w-md flex flex-col max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>{t('statements.upload_statement', { defaultValue: 'Upload Statement' })}</DialogTitle>
         </DialogHeader>
