@@ -517,22 +517,27 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
     // Listen for storage events (from other tabs)
     window.addEventListener('storage', handleStorageChange);
 
-    // Listen for logout events
-    const handleLogout = () => {
-      setIsAuthenticated(false);
-      setUser(null);
-      setIsAdminUser(false);
+    // Listen for auth-changed events (dispatched by logout())
+    const handleAuthChanged = () => {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        setIsAuthenticated(false);
+        setUser(null);
+        setIsAdminUser(false);
+      } else {
+        checkAuth();
+      }
     };
 
-    window.addEventListener('user-logout', handleLogout);
+    window.addEventListener('auth-changed', handleAuthChanged);
 
-    // Check auth every 1 second for immediate logout detection
+    // Check auth every 1 second as a fallback for immediate logout detection
     const authInterval = setInterval(() => {
       const userStr = localStorage.getItem('user');
 
       // If user data is missing, hide the assistant
       if (!userStr) {
-        if (isAuthenticated) { // Only log if state changes
+        if (isAuthenticated) { // Only update if state changes
           setIsAuthenticated(false);
           setUser(null);
           setIsAdminUser(false);
@@ -545,7 +550,7 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('user-logout', handleLogout);
+      window.removeEventListener('auth-changed', handleAuthChanged);
       clearInterval(authInterval);
     };
   }, []); // Keep empty dependency array but remove stale closure issue
