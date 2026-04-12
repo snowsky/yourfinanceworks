@@ -10,13 +10,16 @@ Report generation endpoints.
 import time
 import traceback
 import logging
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import selectinload
 
 from core.models.database import get_db
 from core.models.models import MasterUser
+from core.models.models_per_tenant import BankStatement, BankStatementTransaction, Expense, Invoice
 from core.utils.feature_gate import require_feature
 from core.services.report_history_service import ReportHistoryService
 from core.services.report_audit_service import ReportAuditService, extract_request_info
@@ -26,7 +29,9 @@ from core.routers.auth import get_current_user
 from core.exceptions.report_exceptions import BaseReportException
 from core.schemas.report import (
     ReportType, ExportFormat, ReportGenerateRequest, ReportPreviewRequest,
-    ReportResult, ReportData, ReportTypesResponse, ReportStatus
+    ReportResult, ReportData, ReportTypesResponse, ReportStatus,
+    RelationshipCloudRequest, RelationshipCloudResponse, RelationshipCloudNode,
+    RelationshipCloudEdge, RelationshipCloudStats
 )
 
 from ._shared import (
@@ -37,6 +42,37 @@ from ._shared import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _parse_filter_date(value) -> Optional[datetime]:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _in_date_range(value: Optional[datetime], date_from: Optional[datetime], date_to: Optional[datetime]) -> bool:
+    if value is None:
+        return True
+    if date_from and value < date_from:
+        return False
+    if date_to and value > date_to:
+        return False
+    return True
+
+
+def _currency_text(amount: Optional[float], currency: Optional[str]) -> str:
+    if amount is None:
+        return ""
+    code = currency or "USD"
+    try:
+        return f"{code} {amount:,.0f}"
+    except Exception:
+        return f"{code} {amount}"
 
 
 @router.get("/types", response_model=ReportTypesResponse)
@@ -423,6 +459,230 @@ async def preview_report(
         logger.error(f"Failed to preview report: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise handle_generic_exception(e, "report preview")
+
+
+@router.post("/relationship-cloud", response_model=RelationshipCloudResponse)
+@require_feature("reporting")
+async def relationship_cloud(
+    request: RelationshipCloudRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_non_viewer_user)
+):
+    """Return a compact relationship graph for invoice, expense, and statement reports."""
+    try:
+        if request.report_type not in {ReportType.INVOICE, ReportType.EXPENSE, ReportType.STATEMENT}:
+            return RelationshipCloudResponse(
+                report_type=request.report_type,
+                filters=request.filters,
+            )
+
+        date_from = _parse_filter_date(request.filters.get("date_from"))
+        date_to = _parse_filter_date(request.filters.get("date_to"))
+        limit = max(1, min(request.limit or 40, 100))
+
+        invoice_query = (
+            db.query(Invoice)
+            .options(selectinload(Invoice.client))
+            .filter(Invoice.is_deleted == False)
+            .order_by(Invoice.created_at.desc())
+        )
+        expense_query = (
+            db.query(Expense)
+            .filter(Expense.is_deleted == False)
+            .order_by(Expense.created_at.desc())
+        )
+        statement_query = (
+            db.query(BankStatement)
+            .filter(BankStatement.is_deleted == False)
+            .order_by(BankStatement.created_at.desc())
+        )
+
+        invoice_statement_pairs = db.query(
+            BankStatementTransaction.invoice_id,
+            BankStatementTransaction.statement_id
+        ).filter(BankStatementTransaction.invoice_id.isnot(None)).all()
+        expense_statement_pairs = db.query(
+            BankStatementTransaction.expense_id,
+            BankStatementTransaction.statement_id
+        ).filter(BankStatementTransaction.expense_id.isnot(None)).all()
+        invoice_to_statement = {invoice_id: statement_id for invoice_id, statement_id in invoice_statement_pairs if invoice_id}
+        expense_to_statement = {expense_id: statement_id for expense_id, statement_id in expense_statement_pairs if expense_id}
+
+        if request.report_type == ReportType.INVOICE:
+            invoices = invoice_query.limit(limit).all()
+            invoices = [
+                invoice for invoice in invoices
+                if _in_date_range(invoice.created_at, date_from, date_to)
+            ]
+            if request.filters.get("client_ids"):
+                allowed_client_ids = set(request.filters["client_ids"])
+                invoices = [invoice for invoice in invoices if invoice.client_id in allowed_client_ids]
+            if request.filters.get("currency"):
+                invoices = [invoice for invoice in invoices if invoice.currency == request.filters["currency"]]
+            if request.filters.get("status"):
+                allowed_status = set(request.filters["status"])
+                invoices = [invoice for invoice in invoices if invoice.status in allowed_status]
+            if request.filters.get("amount_min") is not None:
+                invoices = [invoice for invoice in invoices if invoice.amount >= float(request.filters["amount_min"])]
+            if request.filters.get("amount_max") is not None:
+                invoices = [invoice for invoice in invoices if invoice.amount <= float(request.filters["amount_max"])]
+
+            focal_invoice_ids = {invoice.id for invoice in invoices}
+            expenses = [
+                expense for expense in expense_query.limit(limit * 2).all()
+                if expense.invoice_id in focal_invoice_ids
+            ]
+            focal_statement_ids = {
+                invoice_to_statement[invoice.id] for invoice in invoices if invoice.id in invoice_to_statement
+            }
+            focal_statement_ids.update({
+                expense_to_statement[expense.id] for expense in expenses if expense.id in expense_to_statement
+            })
+            statements = [statement for statement in statement_query.limit(limit * 2).all() if statement.id in focal_statement_ids]
+
+        elif request.report_type == ReportType.EXPENSE:
+            expenses = expense_query.limit(limit).all()
+            expenses = [
+                expense for expense in expenses
+                if _in_date_range(expense.expense_date, date_from, date_to)
+            ]
+            if request.filters.get("client_ids"):
+                allowed_client_ids = set(request.filters["client_ids"])
+                expenses = [expense for expense in expenses if expense.client_id in allowed_client_ids]
+            if request.filters.get("currency"):
+                expenses = [expense for expense in expenses if expense.currency == request.filters["currency"]]
+            if request.filters.get("status"):
+                allowed_status = set(request.filters["status"])
+                expenses = [expense for expense in expenses if expense.status in allowed_status]
+            if request.filters.get("categories"):
+                allowed_categories = set(request.filters["categories"])
+                expenses = [expense for expense in expenses if expense.category in allowed_categories]
+            if request.filters.get("vendor"):
+                vendor_query = str(request.filters["vendor"]).lower()
+                expenses = [expense for expense in expenses if expense.vendor and vendor_query in expense.vendor.lower()]
+            if request.filters.get("labels"):
+                wanted_labels = set(request.filters["labels"])
+                expenses = [expense for expense in expenses if wanted_labels.intersection(set(expense.labels or []))]
+            if request.filters.get("amount_min") is not None:
+                expenses = [expense for expense in expenses if (expense.amount or 0) >= float(request.filters["amount_min"])]
+            if request.filters.get("amount_max") is not None:
+                expenses = [expense for expense in expenses if (expense.amount or 0) <= float(request.filters["amount_max"])]
+
+            focal_invoice_ids = {expense.invoice_id for expense in expenses if expense.invoice_id}
+            focal_statement_ids = {expense_to_statement[expense.id] for expense in expenses if expense.id in expense_to_statement}
+            invoices = [invoice for invoice in invoice_query.limit(limit * 2).all() if invoice.id in focal_invoice_ids]
+            focal_statement_ids.update({
+                invoice_to_statement[invoice.id] for invoice in invoices if invoice.id in invoice_to_statement
+            })
+            statements = [statement for statement in statement_query.limit(limit * 2).all() if statement.id in focal_statement_ids]
+
+        else:
+            statements = statement_query.limit(limit).all()
+            statements = [
+                statement for statement in statements
+                if _in_date_range(statement.created_at, date_from, date_to)
+            ]
+            focal_statement_ids = {statement.id for statement in statements}
+            invoices = [
+                invoice for invoice in invoice_query.limit(limit * 3).all()
+                if invoice_to_statement.get(invoice.id) in focal_statement_ids
+            ]
+            expenses = [
+                expense for expense in expense_query.limit(limit * 3).all()
+                if expense_to_statement.get(expense.id) in focal_statement_ids
+            ]
+            focal_invoice_ids = {invoice.id for invoice in invoices}
+            linked_invoice_ids = {expense.invoice_id for expense in expenses if expense.invoice_id}
+            if linked_invoice_ids - focal_invoice_ids:
+                extra_invoices = [
+                    invoice for invoice in invoice_query.limit(limit * 4).all()
+                    if invoice.id in linked_invoice_ids
+                ]
+                merged = {invoice.id: invoice for invoice in invoices}
+                for invoice in extra_invoices:
+                    merged[invoice.id] = invoice
+                invoices = list(merged.values())
+
+        nodes = []
+        edges = []
+
+        for statement in statements:
+            nodes.append(RelationshipCloudNode(
+                id=f"statement-{statement.id}",
+                entity_id=statement.id,
+                type="statement",
+                title=statement.original_filename,
+                subtitle=f"{statement.extracted_count or 0} txns",
+                status=statement.status,
+            ))
+
+        for invoice in invoices:
+            client_name = invoice.client.name if invoice.client else "Client"
+            nodes.append(RelationshipCloudNode(
+                id=f"invoice-{invoice.id}",
+                entity_id=invoice.id,
+                type="invoice",
+                title=invoice.number,
+                subtitle=f"{client_name} • {_currency_text(invoice.amount, invoice.currency)}",
+                status=invoice.status,
+            ))
+            if invoice.id in invoice_to_statement:
+                edges.append(RelationshipCloudEdge(
+                    id=f"statement-invoice-{invoice.id}",
+                    source=f"statement-{invoice_to_statement[invoice.id]}",
+                    target=f"invoice-{invoice.id}",
+                    label="statement link",
+                ))
+
+        for expense in expenses:
+            nodes.append(RelationshipCloudNode(
+                id=f"expense-{expense.id}",
+                entity_id=expense.id,
+                type="expense",
+                title=expense.vendor or expense.category or f"Expense #{expense.id}",
+                subtitle=f"{expense.category} • {_currency_text(expense.amount, expense.currency)}",
+                status=expense.status,
+            ))
+            if expense.invoice_id:
+                edges.append(RelationshipCloudEdge(
+                    id=f"invoice-expense-{expense.id}",
+                    source=f"invoice-{expense.invoice_id}",
+                    target=f"expense-{expense.id}",
+                    label="invoice link",
+                ))
+            if expense.id in expense_to_statement:
+                edges.append(RelationshipCloudEdge(
+                    id=f"statement-expense-{expense.id}",
+                    source=f"statement-{expense_to_statement[expense.id]}",
+                    target=f"expense-{expense.id}",
+                    label="transaction match",
+                ))
+
+        node_ids = {node.id for node in nodes}
+        edges = [edge for edge in edges if edge.source in node_ids and edge.target in node_ids]
+
+        return RelationshipCloudResponse(
+            report_type=request.report_type,
+            nodes=nodes,
+            edges=edges,
+            stats=RelationshipCloudStats(
+                statements=len([node for node in nodes if node.type == "statement"]),
+                invoices=len([node for node in nodes if node.type == "invoice"]),
+                expenses=len([node for node in nodes if node.type == "expense"]),
+                orphan_expenses=len([
+                    expense for expense in expenses
+                    if not expense.invoice_id and expense.id not in expense_to_statement
+                ]),
+            ),
+            filters=request.filters,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to build relationship cloud: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise handle_generic_exception(e, "relationship cloud generation")
 
 
 @router.post("/regenerate/{report_id}", response_model=ReportResult)

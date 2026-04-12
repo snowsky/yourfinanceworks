@@ -107,6 +107,43 @@ class ReportPreviewRequest(BaseModel):
     filters: Dict[str, Any] = Field(default_factory=dict, description="Report filters")
     limit: Optional[int] = Field(10, description="Number of records to preview")
 
+
+class RelationshipCloudRequest(BaseModel):
+    report_type: ReportType = Field(..., description="Type of report driving the relationship view")
+    filters: Dict[str, Any] = Field(default_factory=dict, description="Optional filters applied to the relationship view")
+    limit: Optional[int] = Field(40, description="Maximum number of focal records to inspect")
+
+
+class RelationshipCloudNode(BaseModel):
+    id: str = Field(..., description="Stable graph node id")
+    entity_id: int = Field(..., description="Underlying entity primary key")
+    type: str = Field(..., description="Entity type: statement, invoice, expense")
+    title: str = Field(..., description="Primary node label")
+    subtitle: Optional[str] = Field(None, description="Secondary node label")
+    status: Optional[str] = Field(None, description="Entity status")
+
+
+class RelationshipCloudEdge(BaseModel):
+    id: str = Field(..., description="Stable graph edge id")
+    source: str = Field(..., description="Source node id")
+    target: str = Field(..., description="Target node id")
+    label: str = Field(..., description="Relationship label")
+
+
+class RelationshipCloudStats(BaseModel):
+    statements: int = 0
+    invoices: int = 0
+    expenses: int = 0
+    orphan_expenses: int = 0
+
+
+class RelationshipCloudResponse(BaseModel):
+    report_type: ReportType = Field(..., description="Type of report that produced the graph")
+    nodes: List[RelationshipCloudNode] = Field(default_factory=list, description="Graph nodes")
+    edges: List[RelationshipCloudEdge] = Field(default_factory=list, description="Graph edges")
+    stats: RelationshipCloudStats = Field(default_factory=RelationshipCloudStats, description="Graph summary stats")
+    filters: Dict[str, Any] = Field(default_factory=dict, description="Filters applied to the graph")
+
 # Report template models
 class ReportTemplateBase(BaseModel):
     name: str = Field(..., description="Template name")

@@ -65,6 +65,41 @@ export interface ReportPreviewRequest {
   limit?: number;
 }
 
+export interface RelationshipCloudRequest {
+  report_type: 'client' | 'invoice' | 'payment' | 'expense' | 'statement' | 'inventory';
+  filters: ReportFilters;
+  limit?: number;
+}
+
+export interface RelationshipCloudNode {
+  id: string;
+  entity_id: number;
+  type: 'statement' | 'invoice' | 'expense';
+  title: string;
+  subtitle?: string | null;
+  status?: string | null;
+}
+
+export interface RelationshipCloudEdge {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+}
+
+export interface RelationshipCloudResponse {
+  report_type: string;
+  nodes: RelationshipCloudNode[];
+  edges: RelationshipCloudEdge[];
+  stats: {
+    statements: number;
+    invoices: number;
+    expenses: number;
+    orphan_expenses: number;
+  };
+  filters: ReportFilters;
+}
+
 export interface ReportTemplate {
   id: number;
   name: string;
@@ -286,6 +321,19 @@ export const reportApi = {
   previewReport: async (request: ReportPreviewRequest) => {
     try {
       return await apiRequest<ReportData>("/reports/preview", {
+        method: 'POST',
+        body: JSON.stringify(request),
+      });
+    } catch (error) {
+      const reportError = handleReportError(error);
+      showReportError(reportError);
+      throw reportError;
+    }
+  },
+
+  getRelationshipCloud: async (request: RelationshipCloudRequest) => {
+    try {
+      return await apiRequest<RelationshipCloudResponse>("/reports/relationship-cloud", {
         method: 'POST',
         body: JSON.stringify(request),
       });

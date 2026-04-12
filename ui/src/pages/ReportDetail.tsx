@@ -8,6 +8,7 @@ import { ReportFilters } from '@/components/reports/ReportFilters';
 import { ReportPreview } from '@/components/reports/ReportPreview';
 import { ExportFormatSelector } from '@/components/reports/ExportFormatSelector';
 import { ReportRelationshipCloud } from '@/components/reports/ReportRelationshipCloud';
+import { ReportRelationshipSummary } from '@/components/reports/ReportRelationshipSummary';
 import {
     reportApi,
     ReportFilters as ReportFiltersType,
@@ -300,6 +301,11 @@ const ReportDetail: React.FC = () => {
                             reportTypeConfig={selectedTypeConfig}
                             filters={filters}
                             onFiltersChange={setFilters}
+                        />
+
+                        <ReportRelationshipSummary
+                            reportType={reportType!}
+                            filters={filters}
                         />
 
                         {/* Preview Button */}
