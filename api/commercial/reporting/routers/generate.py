@@ -10,7 +10,7 @@ Report generation endpoints.
 import time
 import traceback
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request, status
@@ -48,14 +48,25 @@ def _parse_filter_date(value) -> Optional[datetime]:
     if not value:
         return None
     if isinstance(value, datetime):
-        return value
+        return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
     try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
     except ValueError:
         return None
 
 
+def _normalize_datetime(value: Optional[datetime]) -> Optional[datetime]:
+    if value is None:
+        return None
+    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+
+
 def _in_date_range(value: Optional[datetime], date_from: Optional[datetime], date_to: Optional[datetime]) -> bool:
+    value = _normalize_datetime(value)
+    date_from = _normalize_datetime(date_from)
+    date_to = _normalize_datetime(date_to)
+
     if value is None:
         return True
     if date_from and value < date_from:
