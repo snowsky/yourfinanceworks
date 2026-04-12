@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIndicator,
   Image,
@@ -20,6 +21,7 @@ type ReceiptPhase = "idle" | "previewing" | "uploading" | "done";
 
 export default function CaptureScreen() {
   const { user, logout } = useAuth();
+  const queryClient = useQueryClient();
 
   // ── Voice state ──────────────────────────────────────────────────────────
   const [voicePhase, setVoicePhase] = useState<VoicePhase>("idle");
@@ -141,6 +143,7 @@ export default function CaptureScreen() {
         notes: voiceDraft.notes ?? (voiceDraft.transcript ? `Voice: "${voiceDraft.transcript}"` : null),
       };
       await expensesApi.createExpense(draft);
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
       setVoicePhase("saved");
     } catch (e) {
       setVoiceError(e instanceof Error ? e.message : "Failed to save expense.");
@@ -200,6 +203,7 @@ export default function CaptureScreen() {
       });
 
       await expensesApi.uploadReceipt(expense.id, receiptUri, receiptFileName, receiptMime);
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
       setReceiptExpenseId(expense.id);
       setReceiptPhase("done");
     } catch (e) {
@@ -371,7 +375,7 @@ export default function CaptureScreen() {
         {voicePhase === "saved" && (
           <View style={styles.successBanner}>
             <Feather name="check-circle" size={18} color="#059669" />
-            <Text style={styles.successText}>Expense saved — visible in Inbox</Text>
+            <Text style={styles.successText}>Expense saved — visible in Timeline</Text>
           </View>
         )}
       </View>
