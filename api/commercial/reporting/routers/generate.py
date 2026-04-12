@@ -10,6 +10,7 @@ Report generation endpoints.
 import time
 import traceback
 import logging
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -491,128 +492,198 @@ async def relationship_cloud(
         date_to = _parse_filter_date(request.filters.get("date_to"))
         limit = max(1, min(request.limit or 40, 100))
 
-        invoice_query = (
+        base_invoice_query = (
             db.query(Invoice)
             .options(selectinload(Invoice.client))
             .filter(Invoice.is_deleted == False)
             .order_by(Invoice.created_at.desc())
         )
-        expense_query = (
+        base_expense_query = (
             db.query(Expense)
             .filter(Expense.is_deleted == False)
             .order_by(Expense.created_at.desc())
         )
-        statement_query = (
+        base_statement_query = (
             db.query(BankStatement)
             .filter(BankStatement.is_deleted == False)
             .order_by(BankStatement.created_at.desc())
         )
 
-        invoice_statement_pairs = db.query(
-            BankStatementTransaction.invoice_id,
-            BankStatementTransaction.statement_id
-        ).filter(BankStatementTransaction.invoice_id.isnot(None)).all()
-        expense_statement_pairs = db.query(
-            BankStatementTransaction.expense_id,
-            BankStatementTransaction.statement_id
-        ).filter(BankStatementTransaction.expense_id.isnot(None)).all()
-        invoice_to_statement = {invoice_id: statement_id for invoice_id, statement_id in invoice_statement_pairs if invoice_id}
-        expense_to_statement = {expense_id: statement_id for expense_id, statement_id in expense_statement_pairs if expense_id}
+        # invoice_to_statements and expense_to_statements are built lazily per branch,
+        # scoped to the focal IDs that are already loaded, to avoid full-table scans.
+        invoice_to_statements: dict[int, set[int]] = defaultdict(set)
+        expense_to_statements: dict[int, set[int]] = defaultdict(set)
+
+        def _load_invoice_statement_pairs(invoice_ids: set[int]) -> None:
+            if not invoice_ids:
+                return
+            pairs = (
+                db.query(BankStatementTransaction.invoice_id, BankStatementTransaction.statement_id)
+                .filter(BankStatementTransaction.invoice_id.in_(invoice_ids))
+                .all()
+            )
+            for inv_id, stmt_id in pairs:
+                if inv_id:
+                    invoice_to_statements[inv_id].add(stmt_id)
+
+        def _load_expense_statement_pairs(expense_ids: set[int]) -> None:
+            if not expense_ids:
+                return
+            pairs = (
+                db.query(BankStatementTransaction.expense_id, BankStatementTransaction.statement_id)
+                .filter(BankStatementTransaction.expense_id.in_(expense_ids))
+                .all()
+            )
+            for exp_id, stmt_id in pairs:
+                if exp_id:
+                    expense_to_statements[exp_id].add(stmt_id)
 
         if request.report_type == ReportType.INVOICE:
-            invoices = invoice_query.limit(limit).all()
-            invoices = [
-                invoice for invoice in invoices
-                if _in_date_range(invoice.created_at, date_from, date_to)
-            ]
+            invoice_query = base_invoice_query
+            if date_from:
+                invoice_query = invoice_query.filter(Invoice.created_at >= date_from)
+            if date_to:
+                invoice_query = invoice_query.filter(Invoice.created_at <= date_to)
             if request.filters.get("client_ids"):
-                allowed_client_ids = set(request.filters["client_ids"])
-                invoices = [invoice for invoice in invoices if invoice.client_id in allowed_client_ids]
+                invoice_query = invoice_query.filter(Invoice.client_id.in_(request.filters["client_ids"]))
             if request.filters.get("currency"):
-                invoices = [invoice for invoice in invoices if invoice.currency == request.filters["currency"]]
+                invoice_query = invoice_query.filter(Invoice.currency == request.filters["currency"])
             if request.filters.get("status"):
-                allowed_status = set(request.filters["status"])
-                invoices = [invoice for invoice in invoices if invoice.status in allowed_status]
+                invoice_query = invoice_query.filter(Invoice.status.in_(request.filters["status"]))
             if request.filters.get("amount_min") is not None:
-                invoices = [invoice for invoice in invoices if invoice.amount >= float(request.filters["amount_min"])]
+                invoice_query = invoice_query.filter(Invoice.amount >= float(request.filters["amount_min"]))
             if request.filters.get("amount_max") is not None:
-                invoices = [invoice for invoice in invoices if invoice.amount <= float(request.filters["amount_max"])]
+                invoice_query = invoice_query.filter(Invoice.amount <= float(request.filters["amount_max"]))
 
+            invoices = invoice_query.limit(limit).all()
             focal_invoice_ids = {invoice.id for invoice in invoices}
+
+            _load_invoice_statement_pairs(focal_invoice_ids)
+
             expenses = [
-                expense for expense in expense_query.limit(limit * 2).all()
-                if expense.invoice_id in focal_invoice_ids
-            ]
-            focal_statement_ids = {
-                invoice_to_statement[invoice.id] for invoice in invoices if invoice.id in invoice_to_statement
-            }
-            focal_statement_ids.update({
-                expense_to_statement[expense.id] for expense in expenses if expense.id in expense_to_statement
-            })
-            statements = [statement for statement in statement_query.limit(limit * 2).all() if statement.id in focal_statement_ids]
+                expense for expense in base_expense_query.filter(Expense.invoice_id.in_(focal_invoice_ids)).all()
+            ] if focal_invoice_ids else []
+
+            focal_expense_ids = {expense.id for expense in expenses}
+            _load_expense_statement_pairs(focal_expense_ids)
+
+            focal_statement_ids: set[int] = set()
+            for inv in invoices:
+                focal_statement_ids.update(invoice_to_statements.get(inv.id, set()))
+            for exp in expenses:
+                focal_statement_ids.update(expense_to_statements.get(exp.id, set()))
+
+            statements = (
+                base_statement_query.filter(BankStatement.id.in_(focal_statement_ids)).all()
+                if focal_statement_ids else []
+            )
 
         elif request.report_type == ReportType.EXPENSE:
-            expenses = expense_query.limit(limit).all()
-            expenses = [
-                expense for expense in expenses
-                if _in_date_range(expense.expense_date, date_from, date_to)
-            ]
+            expense_query = base_expense_query
+            if date_from:
+                expense_query = expense_query.filter(Expense.expense_date >= date_from)
+            if date_to:
+                expense_query = expense_query.filter(Expense.expense_date <= date_to)
             if request.filters.get("client_ids"):
-                allowed_client_ids = set(request.filters["client_ids"])
-                expenses = [expense for expense in expenses if expense.client_id in allowed_client_ids]
+                expense_query = expense_query.filter(Expense.client_id.in_(request.filters["client_ids"]))
             if request.filters.get("currency"):
-                expenses = [expense for expense in expenses if expense.currency == request.filters["currency"]]
+                expense_query = expense_query.filter(Expense.currency == request.filters["currency"])
             if request.filters.get("status"):
-                allowed_status = set(request.filters["status"])
-                expenses = [expense for expense in expenses if expense.status in allowed_status]
+                expense_query = expense_query.filter(Expense.status.in_(request.filters["status"]))
             if request.filters.get("categories"):
-                allowed_categories = set(request.filters["categories"])
-                expenses = [expense for expense in expenses if expense.category in allowed_categories]
+                expense_query = expense_query.filter(Expense.category.in_(request.filters["categories"]))
+            if request.filters.get("amount_min") is not None:
+                expense_query = expense_query.filter(Expense.amount >= float(request.filters["amount_min"]))
+            if request.filters.get("amount_max") is not None:
+                expense_query = expense_query.filter(Expense.amount <= float(request.filters["amount_max"]))
+
+            expenses = expense_query.limit(limit).all()
+
+            # labels and vendor filters are applied in Python — no SQL array-overlap support assumed
             if request.filters.get("vendor"):
-                vendor_query = str(request.filters["vendor"]).lower()
-                expenses = [expense for expense in expenses if expense.vendor and vendor_query in expense.vendor.lower()]
+                vendor_str = str(request.filters["vendor"]).lower()
+                expenses = [e for e in expenses if e.vendor and vendor_str in e.vendor.lower()]
             if request.filters.get("labels"):
                 wanted_labels = set(request.filters["labels"])
-                expenses = [expense for expense in expenses if wanted_labels.intersection(set(expense.labels or []))]
-            if request.filters.get("amount_min") is not None:
-                expenses = [expense for expense in expenses if (expense.amount or 0) >= float(request.filters["amount_min"])]
-            if request.filters.get("amount_max") is not None:
-                expenses = [expense for expense in expenses if (expense.amount or 0) <= float(request.filters["amount_max"])]
+                expenses = [e for e in expenses if wanted_labels.intersection(set(e.labels or []))]
+
+            focal_expense_ids = {expense.id for expense in expenses}
+            _load_expense_statement_pairs(focal_expense_ids)
 
             focal_invoice_ids = {expense.invoice_id for expense in expenses if expense.invoice_id}
-            focal_statement_ids = {expense_to_statement[expense.id] for expense in expenses if expense.id in expense_to_statement}
-            invoices = [invoice for invoice in invoice_query.limit(limit * 2).all() if invoice.id in focal_invoice_ids]
-            focal_statement_ids.update({
-                invoice_to_statement[invoice.id] for invoice in invoices if invoice.id in invoice_to_statement
-            })
-            statements = [statement for statement in statement_query.limit(limit * 2).all() if statement.id in focal_statement_ids]
+            invoices = (
+                base_invoice_query.filter(Invoice.id.in_(focal_invoice_ids)).all()
+                if focal_invoice_ids else []
+            )
+            _load_invoice_statement_pairs({inv.id for inv in invoices})
 
-        else:
+            focal_statement_ids = set()
+            for exp in expenses:
+                focal_statement_ids.update(expense_to_statements.get(exp.id, set()))
+            for inv in invoices:
+                focal_statement_ids.update(invoice_to_statements.get(inv.id, set()))
+
+            statements = (
+                base_statement_query.filter(BankStatement.id.in_(focal_statement_ids)).all()
+                if focal_statement_ids else []
+            )
+
+        else:  # STATEMENT
+            statement_query = base_statement_query
+            if date_from:
+                statement_query = statement_query.filter(BankStatement.created_at >= date_from)
+            if date_to:
+                statement_query = statement_query.filter(BankStatement.created_at <= date_to)
+
             statements = statement_query.limit(limit).all()
-            statements = [
-                statement for statement in statements
-                if _in_date_range(statement.created_at, date_from, date_to)
-            ]
             focal_statement_ids = {statement.id for statement in statements}
-            invoices = [
-                invoice for invoice in invoice_query.limit(limit * 3).all()
-                if invoice_to_statement.get(invoice.id) in focal_statement_ids
-            ]
-            expenses = [
-                expense for expense in expense_query.limit(limit * 3).all()
-                if expense_to_statement.get(expense.id) in focal_statement_ids
-            ]
-            focal_invoice_ids = {invoice.id for invoice in invoices}
-            linked_invoice_ids = {expense.invoice_id for expense in expenses if expense.invoice_id}
-            if linked_invoice_ids - focal_invoice_ids:
-                extra_invoices = [
-                    invoice for invoice in invoice_query.limit(limit * 4).all()
-                    if invoice.id in linked_invoice_ids
-                ]
-                merged = {invoice.id: invoice for invoice in invoices}
-                for invoice in extra_invoices:
-                    merged[invoice.id] = invoice
+
+            if focal_statement_ids:
+                inv_pairs = (
+                    db.query(BankStatementTransaction.invoice_id, BankStatementTransaction.statement_id)
+                    .filter(
+                        BankStatementTransaction.statement_id.in_(focal_statement_ids),
+                        BankStatementTransaction.invoice_id.isnot(None),
+                    )
+                    .all()
+                )
+                for inv_id, stmt_id in inv_pairs:
+                    if inv_id:
+                        invoice_to_statements[inv_id].add(stmt_id)
+
+                exp_pairs = (
+                    db.query(BankStatementTransaction.expense_id, BankStatementTransaction.statement_id)
+                    .filter(
+                        BankStatementTransaction.statement_id.in_(focal_statement_ids),
+                        BankStatementTransaction.expense_id.isnot(None),
+                    )
+                    .all()
+                )
+                for exp_id, stmt_id in exp_pairs:
+                    if exp_id:
+                        expense_to_statements[exp_id].add(stmt_id)
+
+            focal_invoice_ids = set(invoice_to_statements.keys())
+            focal_expense_ids = set(expense_to_statements.keys())
+
+            invoices = (
+                base_invoice_query.filter(Invoice.id.in_(focal_invoice_ids)).all()
+                if focal_invoice_ids else []
+            )
+            expenses = (
+                base_expense_query.filter(Expense.id.in_(focal_expense_ids)).all()
+                if focal_expense_ids else []
+            )
+
+            # Pull in any invoices referenced by expenses but not yet loaded
+            extra_invoice_ids = {e.invoice_id for e in expenses if e.invoice_id} - focal_invoice_ids
+            if extra_invoice_ids:
+                extra_invoices = base_invoice_query.filter(Invoice.id.in_(extra_invoice_ids)).all()
+                merged = {inv.id: inv for inv in invoices}
+                for inv in extra_invoices:
+                    merged[inv.id] = inv
                 invoices = list(merged.values())
+                _load_invoice_statement_pairs(extra_invoice_ids)
 
         nodes = []
         edges = []
@@ -622,7 +693,7 @@ async def relationship_cloud(
                 id=f"statement-{statement.id}",
                 entity_id=statement.id,
                 type="statement",
-                title=statement.original_filename,
+                title=statement.original_filename or f"Statement #{statement.id}",
                 subtitle=f"{statement.extracted_count or 0} txns",
                 status=statement.status,
             ))
@@ -637,21 +708,22 @@ async def relationship_cloud(
                 subtitle=f"{client_name} • {_currency_text(invoice.amount, invoice.currency)}",
                 status=invoice.status,
             ))
-            if invoice.id in invoice_to_statement:
+            for stmt_id in invoice_to_statements.get(invoice.id, set()):
                 edges.append(RelationshipCloudEdge(
-                    id=f"statement-invoice-{invoice.id}",
-                    source=f"statement-{invoice_to_statement[invoice.id]}",
+                    id=f"statement-invoice-{invoice.id}-{stmt_id}",
+                    source=f"statement-{stmt_id}",
                     target=f"invoice-{invoice.id}",
                     label="statement link",
                 ))
 
         for expense in expenses:
+            category = expense.category or ""
             nodes.append(RelationshipCloudNode(
                 id=f"expense-{expense.id}",
                 entity_id=expense.id,
                 type="expense",
                 title=expense.vendor or expense.category or f"Expense #{expense.id}",
-                subtitle=f"{expense.category} • {_currency_text(expense.amount, expense.currency)}",
+                subtitle=f"{category} • {_currency_text(expense.amount, expense.currency)}".lstrip(" • "),
                 status=expense.status,
             ))
             if expense.invoice_id:
@@ -661,10 +733,10 @@ async def relationship_cloud(
                     target=f"expense-{expense.id}",
                     label="invoice link",
                 ))
-            if expense.id in expense_to_statement:
+            for stmt_id in expense_to_statements.get(expense.id, set()):
                 edges.append(RelationshipCloudEdge(
-                    id=f"statement-expense-{expense.id}",
-                    source=f"statement-{expense_to_statement[expense.id]}",
+                    id=f"statement-expense-{expense.id}-{stmt_id}",
+                    source=f"statement-{stmt_id}",
                     target=f"expense-{expense.id}",
                     label="transaction match",
                 ))
@@ -682,7 +754,7 @@ async def relationship_cloud(
                 expenses=len([node for node in nodes if node.type == "expense"]),
                 orphan_expenses=len([
                     expense for expense in expenses
-                    if not expense.invoice_id and expense.id not in expense_to_statement
+                    if not expense.invoice_id and expense.id not in expense_to_statements
                 ]),
             ),
             filters=request.filters,

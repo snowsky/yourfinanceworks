@@ -319,7 +319,7 @@ export const ReportRelationshipCloud: FC<ReportRelationshipCloudProps> = ({
   const enabled = isSupportedReportType(reportType);
 
   const cloudQuery = useQuery({
-    queryKey: ['report-cloud', reportType, filters],
+    queryKey: ['report-cloud', reportType, JSON.stringify(filters)],
     queryFn: () => reportApi.getRelationshipCloud({
       report_type: reportType as SupportedReportType,
       filters,

@@ -24,7 +24,7 @@ export const ReportRelationshipSummary: FC<ReportRelationshipSummaryProps> = ({
   const enabled = isSupportedReportType(reportType);
 
   const cloudQuery = useQuery({
-    queryKey: ['report-cloud', reportType, filters],
+    queryKey: ['report-cloud', reportType, JSON.stringify(filters)],
     queryFn: () => reportApi.getRelationshipCloud({
       report_type: reportType as SupportedReportType,
       filters,
@@ -42,7 +42,8 @@ export const ReportRelationshipSummary: FC<ReportRelationshipSummaryProps> = ({
     const statementEdges = data.edges.filter((edge) => edge.label !== 'invoice link').length;
     const totalLinked = data.edges.length;
     const totalNodes = data.nodes.length;
-    const linkageCoverage = totalNodes > 0 ? Math.round((Math.min(totalLinked * 2, totalNodes) / totalNodes) * 100) : 0;
+    const linkedNodeIds = new Set(data.edges.flatMap((e) => [e.source, e.target]));
+    const linkageCoverage = totalNodes > 0 ? Math.round((linkedNodeIds.size / totalNodes) * 100) : 0;
 
     return {
       statements: data.stats.statements,
