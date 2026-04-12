@@ -2326,7 +2326,7 @@
       "receipt": "Recibo",
       "actions": "Acciones",
       "labels": "Etiquetas",
-      "approval_status": "Estado de Aprobación",
+      "approval_status": "Estado",
       "id": "ID",
       "created_at_by": "Creado el / por"
     },

@@ -2504,7 +2504,7 @@
       "receipt": "Receipt",
       "actions": "Actions",
       "labels": "Labels",
-      "approval_status": "Approval Status",
+      "approval_status": "Status",
       "id": "ID",
       "created_at_by": "Created at / by"
     },

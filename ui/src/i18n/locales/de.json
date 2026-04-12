@@ -2285,7 +2285,7 @@
       "receipt": "Beleg",
       "actions": "Aktionen",
       "labels": "Beschriftungen",
-      "approval_status": "Genehmigungsstatus",
+      "approval_status": "Status",
       "id": "ID",
       "created_at_by": "Erstellt am / von"
     },

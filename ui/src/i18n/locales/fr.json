@@ -2242,7 +2242,7 @@
       "receipt": "Reçu",
       "actions": "Actions",
       "labels": "Étiquettes",
-      "approval_status": "Statut d'Approbation",
+      "approval_status": "Statut",
       "id": "ID",
       "created_at_by": "Créé le / par"
     },
