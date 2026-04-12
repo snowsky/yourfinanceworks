@@ -33,12 +33,25 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 AZURE_CLIENT_ID=your-client-id
 AZURE_CLIENT_SECRET=your-client-secret
 AZURE_TENANT_ID=common # Use 'common' for multi-tenant
+
+# Redis — required for reliable SSO state management across multiple workers
+REDIS_URL=redis://redis:6379
 ```
+
+## 🏗️ Infrastructure Requirements
+
+### Redis (Required)
+
+SSO uses a short-lived CSRF state token during every OAuth flow. This state is stored in **Redis** so it survives across API workers and container restarts. Without Redis the state is held in-memory and will be lost on any server restart, causing `400 Invalid or expired state` errors for users mid-flow.
+
+Redis is included in `docker-compose.yml` and starts automatically. No additional setup is required for Docker deployments. The `REDIS_URL` environment variable is set to `redis://redis:6379` by the compose file.
+
+For non-Docker deployments, ensure a Redis instance is reachable and set `REDIS_URL` accordingly. If `REDIS_URL` is unset the system falls back to in-memory state (safe for single-process development only).
 
 ## 🔒 License Gating & Security
 
-- **SSO License Required**: Single Sign-On is an enterprise feature. Organizations must have a valid SSO license enabled to use these providers.
-- **CSRF Protection**: All authentication flows use encrypted state management to prevent cross-site request forgery.
+- **SSO License Required**: Single Sign-On is an enterprise feature. Organizations must have a valid SSO license enabled to use these providers. The first user in a new installation (the super-admin) is always exempt and can sign up via SSO without a license.
+- **CSRF Protection**: All authentication flows use short-lived, single-use state tokens stored in Redis to prevent cross-site request forgery.
 - **Data Isolation**: Multi-tenant separation is maintained even when multiple users from the same identity provider join the platform.
 
 ---

@@ -75,8 +75,12 @@ services:
       - SIDECAR_PLUGINS=${SIDECAR_PLUGINS:-}
       # Shared secret for sidecar plugin JWT handshake (must match YFW_SECRET_KEY in each plugin)
       - YFW_SECRET_KEY=${YFW_SECRET_KEY:-}
+      # Redis — auth cache and SSO OAuth state store
+      - REDIS_URL=redis://redis:6379
     depends_on:
       postgres-master:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       kafka:
         condition: service_healthy
@@ -143,6 +147,19 @@ services:
     networks:
       - invoice_app_network
     restart: unless-stopped
+
+  # Redis — session cache and SSO state store (required for multi-worker deployments)
+  redis:
+    image: redis:7-alpine
+    container_name: invoice_app_redis
+    networks:
+      - invoice_app_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   # Kafka (single-node KRaft)
   kafka:

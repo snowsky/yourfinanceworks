@@ -12,6 +12,13 @@ import traceback
 import json
 import base64
 
+try:
+    import redis as _redis_lib
+    _REDIS_URL = os.getenv("REDIS_URL")
+    _redis_state_client = _redis_lib.from_url(_REDIS_URL, decode_responses=True) if _REDIS_URL else None
+except Exception:
+    _redis_state_client = None
+
 from core.models.database import get_db, get_master_db
 from core.models.models import Tenant, MasterUser, Invite
 from core.schemas.user import UserRead
@@ -66,11 +73,40 @@ if AZURE_CLIENT_ID and AZURE_CLIENT_SECRET:
     except ImportError:
         logger.warning("MSAL library not available. Azure AD SSO will be disabled.")
 
-# In-memory state store for CSRF protection and to carry 'next' parameter
+# State store for CSRF protection and to carry 'next' parameter.
+# Uses Redis when available (required for multi-worker deployments);
+# falls back to in-memory dict for single-process dev environments.
 OAUTH_STATE_STORE: Dict[str, Dict[str, Any]] = {}
 OAUTH_STATE_TTL_SECONDS = 600
+_OAUTH_STATE_REDIS_PREFIX = "sso_state:"
+
+
+def _oauth_state_set(state: str, data: Dict[str, Any]) -> None:
+    key = _OAUTH_STATE_REDIS_PREFIX + state
+    try:
+        if _redis_state_client:
+            _redis_state_client.setex(key, OAUTH_STATE_TTL_SECONDS, json.dumps(data))
+            return
+    except Exception:
+        pass
+    OAUTH_STATE_STORE[state] = data
+
+
+def _oauth_state_pop(state: str) -> Optional[Dict[str, Any]]:
+    key = _OAUTH_STATE_REDIS_PREFIX + state
+    try:
+        if _redis_state_client:
+            raw = _redis_state_client.getdel(key)
+            return json.loads(raw) if raw else None
+    except Exception:
+        pass
+    return OAUTH_STATE_STORE.pop(state, None)
+
 
 def _oauth_prune_states() -> None:
+    # Only needed for the in-memory fallback; Redis handles TTL automatically.
+    if _redis_state_client:
+        return
     cutoff = time.time() - OAUTH_STATE_TTL_SECONDS
     stale = [s for s, v in OAUTH_STATE_STORE.items() if v.get("ts", 0) < cutoff]
     for s in stale:
@@ -106,7 +142,7 @@ async def google_login(request: Request, next: Optional[str] = None, db: Session
 
     # Generate state for CSRF protection
     state = secrets.token_urlsafe(32)
-    OAUTH_STATE_STORE[state] = {"ts": time.time(), "next": next or "/dashboard"}
+    _oauth_state_set(state, {"ts": time.time(), "next": next or "/dashboard"})
     _oauth_prune_states()
 
     authorization_url = await google_oauth_client.get_authorization_url(
@@ -124,7 +160,7 @@ async def google_callback(request: Request, code: Optional[str] = None, state: O
         raise HTTPException(status_code=400, detail="Missing code or state")
 
     # Validate state
-    state_data = OAUTH_STATE_STORE.pop(state, None)
+    state_data = _oauth_state_pop(state)
     _oauth_prune_states()
     if not state_data:
         raise HTTPException(status_code=400, detail="Invalid or expired state")
@@ -136,6 +172,7 @@ async def google_callback(request: Request, code: Optional[str] = None, state: O
     try:
         token = await google_oauth_client.get_access_token(code, redirect_uri=callback_url)
     except Exception as e:
+        logger.error(f"Google token exchange failed: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to exchange code: {e}")
 
     # Fetch user info
@@ -258,6 +295,19 @@ async def google_callback(request: Request, code: Optional[str] = None, state: O
             valid_invite.accepted_at = datetime.now(timezone.utc)
             db.commit()
 
+        # License check for users joining an existing tenant via invitation.
+        # New self-registering users already passed the global license check above.
+        # Brand-new tenants have no SSO feature record yet, so checking them here
+        # would incorrectly block signup.
+        if valid_invite and not is_global_first_user:
+            set_tenant_context(db_tenant.id)
+            tenant_session = tenant_db_manager.get_tenant_session(db_tenant.id)
+            invite_check_db = tenant_session()
+            try:
+                check_feature("sso", invite_check_db)
+            finally:
+                invite_check_db.close()
+
         # Create tenant user mirror
         set_tenant_context(db_tenant.id)
         tenant_session = tenant_db_manager.get_tenant_session(db_tenant.id)
@@ -277,11 +327,6 @@ async def google_callback(request: Request, code: Optional[str] = None, state: O
             )
             tenant_db.add(tenant_user)
             tenant_db.commit()
-
-            # License check for NEW users who are not the global first user
-            # This covers users joining via invitation.
-            if not is_global_first_user:
-                check_feature("sso", tenant_db)
         finally:
             tenant_db.close()
     else:
@@ -340,7 +385,7 @@ async def azure_login(request: Request, next: Optional[str] = None, db: Session 
 
     # Generate state for CSRF protection
     state = secrets.token_urlsafe(32)
-    OAUTH_STATE_STORE[state] = {"ts": time.time(), "next": next or "/dashboard"}
+    _oauth_state_set(state, {"ts": time.time(), "next": next or "/dashboard"})
     _oauth_prune_states()
 
     # Build authorization URL using MSAL
@@ -359,7 +404,7 @@ async def azure_callback(request: Request, code: Optional[str] = None, state: Op
         raise HTTPException(status_code=400, detail="Missing code or state")
 
     # Validate state
-    state_data = OAUTH_STATE_STORE.pop(state, None)
+    state_data = _oauth_state_pop(state)
     _oauth_prune_states()
     if not state_data:
         raise HTTPException(status_code=400, detail="Invalid or expired state")
@@ -485,6 +530,19 @@ async def azure_callback(request: Request, code: Optional[str] = None, state: Op
             valid_invite.accepted_at = datetime.now(timezone.utc)
             db.commit()
 
+        # License check for users joining an existing tenant via invitation.
+        # New self-registering users already passed the global license check above.
+        # Brand-new tenants have no SSO feature record yet, so checking them here
+        # would incorrectly block signup.
+        if valid_invite and not is_global_first_user:
+            set_tenant_context(db_tenant.id)
+            tenant_session = tenant_db_manager.get_tenant_session(db_tenant.id)
+            invite_check_db = tenant_session()
+            try:
+                check_feature("sso", invite_check_db)
+            finally:
+                invite_check_db.close()
+
         # Create tenant user mirror
         set_tenant_context(db_tenant.id)
         tenant_session = tenant_db_manager.get_tenant_session(db_tenant.id)
@@ -503,11 +561,6 @@ async def azure_callback(request: Request, code: Optional[str] = None, state: Op
             )
             tenant_db.add(tenant_user)
             tenant_db.commit()
-
-            # License check for NEW users who are not the global first user
-            # This covers users joining via invitation.
-            if not is_global_first_user:
-                check_feature("sso", tenant_db)
         finally:
             tenant_db.close()
     else:
