@@ -10,16 +10,15 @@ logger = logging.getLogger(__name__)
 class PluginContextMiddleware(BaseHTTPMiddleware):
     """
     Automatic context enforcement for plugin routes.
-    
+
     This middleware detects if a request is targeting a specific plugin
     (based on the URL prefix) and automatically sets the plugin context
     with 'Lockdown Mode' enabled.
     """
-    
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
         plugin_id = None
-        
+
         # 1. Broad prefix detection
         # e.g. /api/v1/investments/... -> investments
         route_map = plugin_loader.get_plugin_route_map()
@@ -27,7 +26,7 @@ class PluginContextMiddleware(BaseHTTPMiddleware):
             if path.startswith(prefix):
                 plugin_id = p_id
                 break
-        
+
         # 2. X-Plugin-Caller Header detection
         # (This is for cross-plugin internal calls)
         caller_header = request.headers.get("X-Plugin-Caller")
