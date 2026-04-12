@@ -229,9 +229,6 @@ class TenantDatabaseManager:
             ])
             logger.info(f"Created prompt templates tables for tenant {tenant_id}")
             
-            # Stamp the database as 'head' in Alembic
-            self._stamp_alembic_head(tenant_id)
-
             # Initialize any default data if needed
             SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=tenant_engine)
             db = SessionLocal()
