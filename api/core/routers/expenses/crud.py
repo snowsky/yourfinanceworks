@@ -65,6 +65,7 @@ async def list_expenses(
     invoice_id: int = None,
     unlinked_only: bool = False,
     exclude_status: str = None,
+    status: str = None,
     search: str = None,
     created_by_user_id: int = None,
     include_total: bool = False,
@@ -97,6 +98,8 @@ async def list_expenses(
             query = query.filter(Expense.invoice_id.is_(None))
         if exclude_status:
             query = query.filter(Expense.status != exclude_status)
+        if status:
+            query = query.filter(Expense.status == status)
         if created_by_user_id is not None:
             query = query.filter(Expense.created_by_user_id == created_by_user_id)
 

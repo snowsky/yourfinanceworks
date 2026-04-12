@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Filter, Tag, Search, X } from 'lucide-react';
 import { ColumnPicker } from '@/components/ui/column-picker';
 import { EXPENSE_COLUMNS } from './types';
+import { EXPENSE_STATUS_OPTIONS } from '@/constants/expenses';
 
 interface ExpenseFiltersProps {
   searchQuery: string;
@@ -13,6 +14,8 @@ interface ExpenseFiltersProps {
   categoryOptions: string[];
   labelFilter: string;
   setLabelFilter: (v: string) => void;
+  statusFilter: string;
+  setStatusFilter: (v: string) => void;
   unlinkedOnly: boolean;
   setUnlinkedOnly: (v: boolean) => void;
   pageSize: number;
@@ -32,6 +35,8 @@ export function ExpenseFilters({
   categoryOptions,
   labelFilter,
   setLabelFilter,
+  statusFilter,
+  setStatusFilter,
   unlinkedOnly,
   setUnlinkedOnly,
   pageSize,
@@ -72,6 +77,19 @@ export function ExpenseFilters({
           </SelectContent>
         </Select>
       </div>
+
+      {/* Status Filter */}
+      <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+        <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
+          <SelectValue placeholder={t('expenses.status_filter_label')} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">{t('expenses.status_filter_label')}: {t('common.all', { defaultValue: 'All' })}</SelectItem>
+          {EXPENSE_STATUS_OPTIONS.map(opt => (
+            <SelectItem key={opt.value} value={opt.value}>{t(opt.labelKey)}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {/* Label Filter */}
       <div className="relative">

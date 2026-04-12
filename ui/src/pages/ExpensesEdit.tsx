@@ -12,7 +12,7 @@ import { CalendarIcon, Upload, X, Package, Eye, AlertCircle, ArrowLeft, CheckCir
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, linkApi, clientApi } from '@/lib/api';
-import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
+import { EXPENSE_CATEGORY_OPTIONS, EXPENSE_STATUS_OPTIONS } from '@/constants/expenses';
 import { canEditExpense } from '@/utils/auth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -528,6 +528,19 @@ export default function ExpensesEdit() {
             <div>
               <label className="text-sm">{t('expenses.labels.payment_method')}</label>
               <Input value={form.payment_method || ''} onChange={e => setForm({ ...form, payment_method: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-sm">{t('expenses.status_filter_label')}</label>
+              <Select value={form.status || 'recorded'} onValueChange={v => setForm({ ...form, status: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_STATUS_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{t(opt.labelKey)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="text-sm">{t('expenses.labels.reference_number')}</label>

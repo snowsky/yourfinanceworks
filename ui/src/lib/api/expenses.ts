@@ -100,7 +100,7 @@ export const expenseApi = {
     const response = await apiRequest<{ success: boolean; expenses: Expense[]; total: number }>(url);
     return response.expenses;
   },
-  getExpensesPaginated: async (opts: { category?: string; label?: string; invoiceId?: number; unlinkedOnly?: boolean; skip?: number; limit?: number; excludeStatus?: string; search?: string } = {}) => {
+  getExpensesPaginated: async (opts: { category?: string; label?: string; invoiceId?: number; unlinkedOnly?: boolean; skip?: number; limit?: number; excludeStatus?: string; status?: string; search?: string } = {}) => {
     const params = new URLSearchParams();
     if (opts.category && opts.category !== 'all') params.set('category', opts.category);
     if (opts.label) params.set('label', opts.label);
@@ -109,6 +109,7 @@ export const expenseApi = {
     if (typeof opts.skip === 'number') params.set('skip', String(opts.skip));
     if (typeof opts.limit === 'number') params.set('limit', String(opts.limit));
     if (opts.excludeStatus) params.set('exclude_status', opts.excludeStatus);
+    if (opts.status) params.set('status', opts.status);
     if (opts.search) params.set('search', opts.search);
     params.set('include_total', 'true'); // Add flag to get total count
     const qs = params.toString();

@@ -11,7 +11,7 @@ import { CalendarIcon, Upload, Package, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { expenseApi, approvalApi, Expense, linkApi, clientApi } from '@/lib/api';
-import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
+import { EXPENSE_CATEGORY_OPTIONS, EXPENSE_STATUS_OPTIONS } from '@/constants/expenses';
 import { FileUpload, FileData } from '@/components/ui/file-upload';
 import { InventoryPurchaseForm } from '@/components/inventory/InventoryPurchaseForm';
 import { InventoryConsumptionForm } from '@/components/inventory/InventoryConsumptionForm';
@@ -465,6 +465,19 @@ export default function ExpensesNew() {
                   onChange={e => setForm({ ...form, payment_method: e.target.value })}
                   className="h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
                 />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">{t('expenses.status_filter_label')}</label>
+                <Select value={form.status || 'recorded'} onValueChange={v => setForm({ ...form, status: v })}>
+                  <SelectTrigger className="h-10 rounded-lg border-border/50 bg-muted/30">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EXPENSE_STATUS_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{t(opt.labelKey)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">{t('expenses.labels.reference_number')}</label>

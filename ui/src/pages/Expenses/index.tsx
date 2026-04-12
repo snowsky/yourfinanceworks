@@ -67,6 +67,7 @@ const Expenses = () => {
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [labelFilter, setLabelFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   // Bulk label removed
   const [unlinkedOnly, setUnlinkedOnly] = useState(false);
@@ -293,11 +294,11 @@ const Expenses = () => {
       const result = await expenseApi.getExpensesPaginated({
         category: categoryFilter,
         label: labelFilter || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
         unlinkedOnly,
         skip,
         limit: pageSize,
         search: searchQuery || undefined,
-        // Don't exclude pending_approval - users should see their own submitted expenses
       });
 
       // Reset to page 1 if current page has no results but we're not on page 1
@@ -328,7 +329,7 @@ const Expenses = () => {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, labelFilter, unlinkedOnly, page, pageSize, searchQuery]);
+  }, [categoryFilter, labelFilter, statusFilter, unlinkedOnly, page, pageSize, searchQuery]);
 
   useEffect(() => {
     fetchExpenses();
@@ -762,6 +763,8 @@ const Expenses = () => {
                 categoryOptions={categoryOptions}
                 labelFilter={labelFilter}
                 setLabelFilter={setLabelFilter}
+                statusFilter={statusFilter}
+                setStatusFilter={setStatusFilter}
                 unlinkedOnly={unlinkedOnly}
                 setUnlinkedOnly={setUnlinkedOnly}
                 pageSize={pageSize}
