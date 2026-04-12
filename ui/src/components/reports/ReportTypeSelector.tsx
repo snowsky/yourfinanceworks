@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { FileText, Users, CreditCard, Receipt, Building, Package, FileSpreadsheet } from 'lucide-react';
+import { FileText, Users, CreditCard, Receipt, Building, Package, FileSpreadsheet, ArrowRight, Eye } from 'lucide-react';
 import { ReportType } from '@/lib/api';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -106,6 +106,17 @@ export const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
               {reportType.description}
             </div>
           </div>
+          <div className={`
+            mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium
+            ${selectedType === reportType.type
+              ? 'bg-primary-foreground/15 text-primary-foreground'
+              : 'bg-muted text-foreground'
+            }
+          `}>
+            <Eye className="h-3.5 w-3.5" />
+            Preview report
+            <ArrowRight className="h-3.5 w-3.5" />
+          </div>
         </Button>
       ))}
 
@@ -155,6 +166,17 @@ export const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
               'Dedicated accountant-facing exports, separate from processed-document exports.'
             )}
           </div>
+        </div>
+        <div className={`
+          mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium
+          ${selectedType === 'accounting-tax-export'
+            ? 'bg-primary-foreground/15 text-primary-foreground'
+            : 'bg-muted text-foreground'
+          }
+        `}>
+          <Eye className="h-3.5 w-3.5" />
+          Preview export
+          <ArrowRight className="h-3.5 w-3.5" />
         </div>
       </Button>
     </div>

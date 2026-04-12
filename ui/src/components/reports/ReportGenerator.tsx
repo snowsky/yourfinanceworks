@@ -32,6 +32,9 @@ export const ReportGenerator: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
+          <p className="mb-4 text-sm text-muted-foreground">
+            Select a report card below to open its preview page.
+          </p>
           <ReportTypeSelector
             reportTypes={reportTypes}
             selectedType={selectedType}
