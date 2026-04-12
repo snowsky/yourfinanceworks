@@ -228,7 +228,7 @@ class TenantDatabaseManager:
                 PromptImprovementJob.__table__,
             ])
             logger.info(f"Created prompt templates tables for tenant {tenant_id}")
-            
+
             # Initialize any default data if needed
             SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=tenant_engine)
             db = SessionLocal()
