@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { usePlugins, Plugin } from '@/contexts/PluginContext';
 import { useFeatures } from '@/contexts/FeatureContext';
+import { useAuth } from '@/hooks/useAuth';
+import { apiRequest } from '@/lib/api';
 import { FeatureGate } from '@/components/FeatureGate';
 import { ProfessionalCard, ProfessionalCardContent } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
@@ -747,6 +749,8 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ isAdmin }) => {
 
 const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const isSuperuser = user?.is_superuser ?? false;
   const { plugins, togglePlugin, loading, storageError, discoveryErrors, refreshPluginDiscovery } = usePlugins();
   const { isFeatureEnabled, isFeatureExpired, refetch: refetchFeatures, licenseStatus } = useFeatures();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -754,6 +758,13 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
   const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [availablePlugins, setAvailablePlugins] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    apiRequest<{ available_plugins?: string[] }>('/plugins/settings')
+      .then(data => setAvailablePlugins(data.available_plugins ?? null))
+      .catch(() => setAvailablePlugins(null));
+  }, []);
 
 
   // Listen for feature updates and force re-render
@@ -936,7 +947,7 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
               Manage Data Access
             </Button>
           )}
-          {isAdmin && (
+          {isSuperuser && (
             <Button
               variant="outline"
               size="sm"
@@ -1020,16 +1031,23 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
       <div className="grid gap-4">
         {filteredPlugins.map(plugin => {
           const licenseCheck = checkPluginLicense(plugin);
-          const { canToggle, licenseMessage, isExpired } = licenseCheck;
+          const { canToggle, isExpired } = licenseCheck;
+          let { licenseMessage } = licenseCheck;
+
+          // Check if super admin has granted this plugin to the tenant
+          const isGrantedToOrg = isSuperuser || availablePlugins === null || availablePlugins.includes(plugin.id);
+          if (!isGrantedToOrg) {
+            licenseMessage = t('plugins.not_granted_to_org', 'This plugin has not been granted to your organization. Contact your super administrator.');
+          }
 
           return (
             <div key={plugin.id} className={isExpired ? 'opacity-75' : ''}>
               <PluginCard
                 plugin={plugin}
                 onToggle={togglePlugin}
-                onUninstall={isAdmin ? handleUninstall : undefined}
-                onReinstall={isAdmin && plugin.is_external ? handleReinstall : undefined}
-                canToggle={canToggle && isAdmin}
+                onUninstall={isSuperuser ? handleUninstall : undefined}
+                onReinstall={isSuperuser && plugin.is_external ? handleReinstall : undefined}
+                canToggle={canToggle && isAdmin && isGrantedToOrg}
                 licenseMessage={licenseMessage}
                 isAdmin={isAdmin}
                 isExpired={isExpired}

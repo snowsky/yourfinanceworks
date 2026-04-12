@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Table, DateTime, Boolean, JSON, Text
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Table, DateTime, Boolean, JSON, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from sqlalchemy.orm import declarative_base
@@ -627,3 +627,28 @@ class PluginUser(Base):
 
     def __repr__(self):
         return f"<PluginUser(id={self.id}, email='{self.email}', plugin_id='{self.plugin_id}', tenant_id={self.tenant_id})>"
+
+
+class ServerPluginAccess(Base):
+    """
+    Tracks which plugins a super admin has granted to which tenants.
+    Tenant admins can only enable plugins that appear in this table for their tenant.
+    Super admins manage this table; tenant admins are consumers.
+    """
+    __tablename__ = "server_plugin_access"
+
+    id = Column(Integer, primary_key=True, index=True)
+    plugin_id = Column(String, nullable=False, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    granted_by_id = Column(Integer, ForeignKey("master_users.id"), nullable=False)
+    granted_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        UniqueConstraint("plugin_id", "tenant_id", name="uq_server_plugin_access"),
+    )
+
+    tenant = relationship("Tenant")
+    granted_by = relationship("MasterUser")
+
+    def __repr__(self) -> str:
+        return f"<ServerPluginAccess(plugin_id='{self.plugin_id}', tenant_id={self.tenant_id})>"

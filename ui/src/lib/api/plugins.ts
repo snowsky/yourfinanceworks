@@ -94,6 +94,42 @@ export const pluginApi = {
       { method: 'PUT', body: JSON.stringify(config) },
     ),
 
+  // ---------------------------------------------------------------------------
+  // Super-admin plugin access management
+  // ---------------------------------------------------------------------------
+
+  /** List all plugin grants across all tenants (super admin only). */
+  listAllPluginAccess: () =>
+    apiRequest<{ grants: Array<{ id: number; plugin_id: string; tenant_id: number; tenant_name: string | null; granted_by_id: number; granted_at: string }> }>(
+      '/plugins/admin/access',
+    ),
+
+  /** List plugins granted to a specific tenant (super admin only). */
+  getTenantPluginAccess: (tenantId: number) =>
+    apiRequest<{ tenant_id: number; allowed_plugins: string[] }>(
+      `/plugins/admin/tenants/${tenantId}/access`,
+    ),
+
+  /** Grant a plugin to a tenant (super admin only). */
+  grantPluginAccess: (tenantId: number, pluginId: string) =>
+    apiRequest<{ message: string; plugin_id: string; tenant_id: number; granted_at: string }>(
+      `/plugins/admin/tenants/${tenantId}/access`,
+      { method: 'POST', body: JSON.stringify({ plugin_id: pluginId }) },
+    ),
+
+  /** Revoke a plugin grant from a tenant (super admin only). */
+  revokePluginAccess: (tenantId: number, pluginId: string) =>
+    apiRequest<{ message: string }>(
+      `/plugins/admin/tenants/${tenantId}/access/${pluginId}`,
+      { method: 'DELETE' },
+    ),
+
+  /** List tenants that have access to a plugin (super admin only). */
+  getPluginTenantAccess: (pluginId: string) =>
+    apiRequest<{ plugin_id: string; tenants: Array<{ tenant_id: number; tenant_name: string | null }> }>(
+      `/plugins/admin/plugins/${pluginId}/tenants`,
+    ),
+
   /**
    * No-auth check — used by PublicPluginWrapper to determine access mode.
    * Calls directly without Bearer token so it works for unauthenticated visitors.

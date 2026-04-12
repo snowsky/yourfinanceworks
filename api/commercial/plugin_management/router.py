@@ -11,7 +11,7 @@ from datetime import datetime, timezone, timedelta
 import stripe
 import logging
 
-from core.models.models import Tenant, TenantPluginSettings, MasterUser, PluginUser
+from core.models.models import Tenant, TenantPluginSettings, MasterUser, PluginUser, ServerPluginAccess
 from core.models.models_per_tenant import Settings as TenantSettings
 from core.models.database import get_db, get_master_db
 from core.routers.auth import get_current_user
@@ -47,6 +47,19 @@ def _normalize_plugin_id(plugin_id: str) -> str:
 
 def _is_admin(user: MasterUser) -> bool:
     return user.role in {"admin", "superuser"}
+
+
+def _is_superuser(user: MasterUser) -> bool:
+    """Returns True only for platform-level super admins."""
+    return bool(user.is_superuser)
+
+
+def _get_allowed_plugin_ids_for_tenant(db: Session, tenant_id: int) -> set[str]:
+    """Return plugin IDs that a super admin has granted to the given tenant."""
+    grants = db.query(ServerPluginAccess).filter(
+        ServerPluginAccess.tenant_id == tenant_id
+    ).all()
+    return {g.plugin_id for g in grants}
 
 
 def _validate_plugin_id(plugin_id: str, field_name: str = "plugin_id") -> str:
@@ -321,8 +334,9 @@ async def get_plugin_settings(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """
-    Get enabled plugins for the current tenant.
-    Returns list of enabled plugin IDs.
+    Get enabled and available plugins for the current tenant.
+    Super admins see all discovered plugins as available.
+    Tenant admins see only plugins that a super admin has granted to their tenant.
     """
     tenant_id = current_user.tenant_id
 
@@ -331,7 +345,6 @@ async def get_plugin_settings(
     ).first()
 
     if not settings:
-        # Create default settings if they don't exist
         settings = TenantPluginSettings(
             tenant_id=tenant_id,
             enabled_plugins=[]
@@ -340,9 +353,15 @@ async def get_plugin_settings(
         db.commit()
         db.refresh(settings)
 
+    if _is_superuser(current_user):
+        available_plugins = list(_valid_plugins())
+    else:
+        available_plugins = list(_get_allowed_plugin_ids_for_tenant(db, tenant_id))
+
     return {
         "tenant_id": tenant_id,
         "enabled_plugins": settings.enabled_plugins or [],
+        "available_plugins": available_plugins,
         "updated_at": settings.updated_at
     }
 
@@ -389,6 +408,16 @@ async def update_plugin_settings(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid plugin IDs: {', '.join(invalid_plugins)}"
         )
+
+    # Enforce super-admin allowlist for non-superusers
+    if not _is_superuser(current_user):
+        allowed = _get_allowed_plugin_ids_for_tenant(db, tenant_id)
+        disallowed = [p for p in enabled_plugins if p not in allowed]
+        if disallowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Plugin(s) not granted to your organization: {', '.join(disallowed)}",
+            )
 
     # Get or create settings with row lock to prevent race conditions
     settings = db.query(TenantPluginSettings).filter(
@@ -449,6 +478,15 @@ async def enable_plugin(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid plugin ID: {plugin_id}"
         )
+
+    # Enforce super-admin allowlist for non-superusers
+    if not _is_superuser(current_user):
+        allowed = _get_allowed_plugin_ids_for_tenant(db, tenant_id)
+        if plugin_id not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Plugin '{plugin_id}' has not been granted to your organization by a super administrator",
+            )
 
     settings = db.query(TenantPluginSettings).filter(
         TenantPluginSettings.tenant_id == tenant_id
@@ -871,10 +909,10 @@ async def install_plugin_from_git(
         "ref": "main"          // branch, tag, or commit (default: "main")
     }
     """
-    if not _is_admin(current_user):
+    if not _is_superuser(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can install plugins",
+            detail="Only super administrators can install plugins",
         )
 
     git_url = str(payload.get("git_url", "")).strip()
@@ -910,10 +948,10 @@ async def get_install_status(
     Poll the status of a plugin installation job.
     Returns step-by-step progress and final result.
     """
-    if not _is_admin(current_user):
+    if not _is_superuser(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can view installation status",
+            detail="Only super administrators can view installation status",
         )
 
     job = get_job(job_id)
@@ -938,10 +976,10 @@ async def reinstall_plugin_endpoint(
     Requires admin role. Uses the URL and ref recorded at install time.
     A server restart is required after reinstallation.
     """
-    if not _is_admin(current_user):
+    if not _is_superuser(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can reinstall plugins",
+            detail="Only super administrators can reinstall plugins",
         )
 
     normalized = _normalize_plugin_id(plugin_id)
@@ -990,22 +1028,27 @@ async def uninstall_plugin_endpoint(
     Remove a plugin from disk and disable it for all tenants.
     Requires admin role. A server restart is required after uninstallation.
     """
-    if not _is_admin(current_user):
+    if not _is_superuser(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can uninstall plugins",
+            detail="Only super administrators can uninstall plugins",
         )
 
     normalized = _normalize_plugin_id(plugin_id)
 
-    # Disable the plugin for this tenant if it is enabled
-    settings = db.query(TenantPluginSettings).filter(
-        TenantPluginSettings.tenant_id == current_user.tenant_id
-    ).first()
-    if settings and normalized in (settings.enabled_plugins or []):
-        settings.enabled_plugins = [p for p in settings.enabled_plugins if p != normalized]
-        settings.updated_at = datetime.now(timezone.utc)
-        db.commit()
+    # Disable the plugin for all tenants that have it enabled
+    all_settings = db.query(TenantPluginSettings).all()
+    for ts in all_settings:
+        if ts.enabled_plugins and normalized in ts.enabled_plugins:
+            ts.enabled_plugins = [p for p in ts.enabled_plugins if p != normalized]
+            ts.updated_at = datetime.now(timezone.utc)
+
+    # Remove all super-admin grants for this plugin
+    db.query(ServerPluginAccess).filter(
+        ServerPluginAccess.plugin_id == normalized
+    ).delete(synchronize_session=False)
+
+    db.commit()
 
     try:
         uninstall_plugin(normalized)
@@ -1022,6 +1065,170 @@ async def uninstall_plugin_endpoint(
         "message": f"Plugin '{normalized}' uninstalled. A server restart is required.",
         "restart_required": True,
     }
+
+# ---------------------------------------------------------------------------
+# Super-admin plugin access management
+# ---------------------------------------------------------------------------
+
+@router.get("/admin/access")
+async def list_all_plugin_access(
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    List all plugin access grants across all tenants.
+    Super admin only.
+    """
+    if not _is_superuser(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Super admin only")
+
+    grants = db.query(ServerPluginAccess).all()
+    return {
+        "grants": [
+            {
+                "id": g.id,
+                "plugin_id": g.plugin_id,
+                "tenant_id": g.tenant_id,
+                "tenant_name": g.tenant.name if g.tenant else None,
+                "granted_by_id": g.granted_by_id,
+                "granted_at": g.granted_at,
+            }
+            for g in grants
+        ]
+    }
+
+
+@router.get("/admin/tenants/{tenant_id}/access")
+async def get_tenant_plugin_access(
+    tenant_id: int,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    List plugins granted to a specific tenant.
+    Super admin only.
+    """
+    if not _is_superuser(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Super admin only")
+
+    grants = db.query(ServerPluginAccess).filter(
+        ServerPluginAccess.tenant_id == tenant_id
+    ).all()
+    return {"tenant_id": tenant_id, "allowed_plugins": [g.plugin_id for g in grants]}
+
+
+@router.post("/admin/tenants/{tenant_id}/access", status_code=status.HTTP_201_CREATED)
+async def grant_plugin_access(
+    tenant_id: int,
+    payload: dict,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Grant a plugin to a tenant so tenant admins can enable it.
+    Super admin only.
+
+    Payload: {"plugin_id": "investments"}
+    """
+    if not _is_superuser(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Super admin only")
+
+    plugin_id = _validate_plugin_id(str(payload.get("plugin_id", "")))
+
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
+
+    existing = db.query(ServerPluginAccess).filter(
+        ServerPluginAccess.plugin_id == plugin_id,
+        ServerPluginAccess.tenant_id == tenant_id,
+    ).first()
+    if existing:
+        return {"message": "Already granted", "plugin_id": plugin_id, "tenant_id": tenant_id}
+
+    grant = ServerPluginAccess(
+        plugin_id=plugin_id,
+        tenant_id=tenant_id,
+        granted_by_id=current_user.id,
+    )
+    db.add(grant)
+    db.commit()
+    db.refresh(grant)
+
+    return {
+        "message": f"Plugin '{plugin_id}' granted to tenant {tenant_id}",
+        "plugin_id": plugin_id,
+        "tenant_id": tenant_id,
+        "granted_at": grant.granted_at,
+    }
+
+
+@router.delete("/admin/tenants/{tenant_id}/access/{plugin_id}", status_code=status.HTTP_200_OK)
+async def revoke_plugin_access(
+    tenant_id: int,
+    plugin_id: str,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Revoke a plugin grant from a tenant.
+    Also disables the plugin for that tenant if currently enabled.
+    Super admin only.
+    """
+    if not _is_superuser(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Super admin only")
+
+    normalized = _normalize_plugin_id(plugin_id)
+
+    grant = db.query(ServerPluginAccess).filter(
+        ServerPluginAccess.plugin_id == normalized,
+        ServerPluginAccess.tenant_id == tenant_id,
+    ).first()
+    if not grant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No grant found for plugin '{normalized}' and tenant {tenant_id}",
+        )
+
+    db.delete(grant)
+
+    # Also disable the plugin for the tenant if enabled
+    settings = db.query(TenantPluginSettings).filter(
+        TenantPluginSettings.tenant_id == tenant_id
+    ).first()
+    if settings and normalized in (settings.enabled_plugins or []):
+        settings.enabled_plugins = [p for p in settings.enabled_plugins if p != normalized]
+        settings.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    return {"message": f"Plugin '{normalized}' revoked from tenant {tenant_id}"}
+
+
+@router.get("/admin/plugins/{plugin_id}/tenants")
+async def get_plugin_tenant_access(
+    plugin_id: str,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    List tenants that have been granted access to a plugin.
+    Super admin only.
+    """
+    if not _is_superuser(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Super admin only")
+
+    normalized = _normalize_plugin_id(plugin_id)
+    grants = db.query(ServerPluginAccess).filter(
+        ServerPluginAccess.plugin_id == normalized
+    ).all()
+    return {
+        "plugin_id": normalized,
+        "tenants": [
+            {"tenant_id": g.tenant_id, "tenant_name": g.tenant.name if g.tenant else None}
+            for g in grants
+        ],
+    }
+
 
 # --- Plugin Payment & Paywall Helper Functions ---
 

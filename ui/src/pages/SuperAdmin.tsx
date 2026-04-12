@@ -14,6 +14,7 @@ import { TenantsTab } from './SuperAdmin/TenantsTab';
 import { UsersTab } from './SuperAdmin/UsersTab';
 import { DatabasesTab } from './SuperAdmin/DatabasesTab';
 import { AnomaliesTab } from './SuperAdmin/AnomaliesTab';
+import { PluginsTab } from './SuperAdmin/PluginsTab';
 import type { Tenant, User, DatabaseStatus } from './SuperAdmin/types';
 
 const SuperAdminDashboard: React.FC = () => {
@@ -177,7 +178,7 @@ const SuperAdminDashboardContent: React.FC = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full tabs-professional">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 h-auto p-1.5 bg-muted/50 rounded-xl border border-border/50">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 h-auto p-1.5 bg-muted/50 rounded-xl border border-border/50">
           <TabsTrigger value="tenants" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">{t('superAdmin.organizations_tab')}</TabsTrigger>
           <TabsTrigger value="users" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">{t('superAdmin.users_tab')}</TabsTrigger>
           <TabsTrigger value="databases" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">{t('superAdmin.databases_tab')}</TabsTrigger>
@@ -189,6 +190,7 @@ const SuperAdminDashboardContent: React.FC = () => {
               </Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="plugins" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">{t('superAdmin.plugins_tab')}</TabsTrigger>
           <TabsTrigger value="licensing" className="text-xs md:text-sm min-w-0 flex-shrink-0 gap-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md py-2.5 transition-all font-medium justify-center">{t('superAdmin.licensing_tab')}</TabsTrigger>
         </TabsList>
 
@@ -221,6 +223,10 @@ const SuperAdminDashboardContent: React.FC = () => {
 
         <TabsContent value="anomalies" className="space-y-4">
           <AnomaliesTab onTotalChange={setTotalAnomalies} />
+        </TabsContent>
+
+        <TabsContent value="plugins" className="space-y-4">
+          <PluginsTab tenants={tenants} />
         </TabsContent>
 
         <TabsContent value="licensing" className="space-y-4">
