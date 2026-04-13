@@ -4,12 +4,13 @@ import os
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Union
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from core.models.database import get_db, get_master_db, SessionLocal, set_tenant_context, clear_tenant_context
 from core.models.models import MasterUser, ShareToken
 from core.models.models_per_tenant import (
+    AuditLog,
     Invoice, InvoiceItem, Expense, Payment, Client,
     BankStatement, BankStatementTransaction,
 )
@@ -59,7 +60,9 @@ def _token_to_response(share: ShareToken) -> ShareTokenResponse:
 @router.post("/share-tokens/", response_model=ShareTokenResponse)
 def create_share_token(
     payload: ShareTokenCreate,
+    request: Request,
     current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
     master_db: Session = Depends(get_master_db),
 ):
     """Generate a shareable link token for a record. Idempotent — returns existing token if one is active."""
@@ -98,6 +101,33 @@ def create_share_token(
     master_db.add(share)
     master_db.commit()
     master_db.refresh(share)
+
+    try:
+        db.add(AuditLog(
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="SHARE_TOKEN_CREATED",
+            resource_type=payload.record_type.upper(),
+            resource_id=str(payload.record_id),
+            details={
+                "token": share.token,
+                "record_type": payload.record_type,
+                "record_id": payload.record_id,
+                "expires_at": expires_at.isoformat(),
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            status="success",
+            created_at=datetime.now(timezone.utc),
+        ))
+        db.commit()
+    except Exception:
+        logger.exception("Failed to write SHARE_TOKEN_CREATED audit log")
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
     return _token_to_response(share)
 
 
@@ -127,7 +157,9 @@ def get_share_token(
 @router.delete("/share-tokens/{token}", status_code=204)
 def revoke_share_token(
     token: str,
+    request: Request,
     current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
     master_db: Session = Depends(get_master_db),
 ):
     """Revoke a share token so the public link no longer works."""
@@ -143,6 +175,31 @@ def revoke_share_token(
         raise HTTPException(status_code=404, detail="Token not found")
     share.is_active = False
     master_db.commit()
+
+    try:
+        db.add(AuditLog(
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="SHARE_TOKEN_REVOKED",
+            resource_type=share.record_type.upper(),
+            resource_id=str(share.record_id),
+            details={
+                "token": token,
+                "record_type": share.record_type,
+                "record_id": share.record_id,
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            status="success",
+            created_at=datetime.now(timezone.utc),
+        ))
+        db.commit()
+    except Exception:
+        logger.exception("Failed to write SHARE_TOKEN_REVOKED audit log")
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -326,7 +383,7 @@ def _fetch_public_record(
 
 
 @router.get("/shared/{token}")
-def get_shared_record(token: str):
+def get_shared_record(token: str, request: Request):
     """Public endpoint — no authentication required. Returns a sanitized view of a shared record."""
     master_db = SessionLocal()
     try:
@@ -337,16 +394,80 @@ def get_shared_record(token: str):
         )
         if not share:
             raise HTTPException(status_code=404, detail="Link not found or has been revoked")
-        if share.expires_at and share.expires_at < datetime.now(timezone.utc):
-            raise HTTPException(status_code=410, detail="This link has expired")
+
+        ip_address = request.client.host if request.client else None
+        user_agent = request.headers.get("user-agent")
+
+        # Look up the token owner for audit context
+        owner = master_db.query(MasterUser).filter(MasterUser.id == share.created_by_user_id).first()
+        owner_id = owner.id if owner else share.created_by_user_id
+        owner_email = owner.email if owner else "unknown"
 
         from core.services.tenant_database_manager import tenant_db_manager
         TenantSession = tenant_db_manager.get_tenant_session(share.tenant_id)
         tenant_db = TenantSession()
         try:
-            # Set tenant context so EncryptedColumn can decrypt fields correctly
             set_tenant_context(share.tenant_id)
-            return _fetch_public_record(tenant_db, share.record_type, share.record_id)
+
+            if share.expires_at and share.expires_at < datetime.now(timezone.utc):
+                try:
+                    tenant_db.add(AuditLog(
+                        user_id=owner_id,
+                        user_email=owner_email,
+                        action="SHARE_TOKEN_EXPIRED",
+                        resource_type=share.record_type.upper(),
+                        resource_id=str(share.record_id),
+                        details={
+                            "token": token,
+                            "record_type": share.record_type,
+                            "record_id": share.record_id,
+                            "expired_at": share.expires_at.isoformat(),
+                            "accessed_from": ip_address,
+                        },
+                        ip_address=ip_address,
+                        user_agent=user_agent,
+                        status="failure",
+                        error_message="Share link expired",
+                        created_at=datetime.now(timezone.utc),
+                    ))
+                    tenant_db.commit()
+                except Exception:
+                    logger.exception("Failed to write SHARE_TOKEN_EXPIRED audit log")
+                    try:
+                        tenant_db.rollback()
+                    except Exception:
+                        pass
+                raise HTTPException(status_code=410, detail="This link has expired")
+
+            result = _fetch_public_record(tenant_db, share.record_type, share.record_id)
+
+            try:
+                tenant_db.add(AuditLog(
+                    user_id=owner_id,
+                    user_email=owner_email,
+                    action="SHARE_TOKEN_ACCESSED",
+                    resource_type=share.record_type.upper(),
+                    resource_id=str(share.record_id),
+                    details={
+                        "token": token,
+                        "record_type": share.record_type,
+                        "record_id": share.record_id,
+                        "accessed_from": ip_address,
+                    },
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    status="success",
+                    created_at=datetime.now(timezone.utc),
+                ))
+                tenant_db.commit()
+            except Exception:
+                logger.exception("Failed to write SHARE_TOKEN_ACCESSED audit log")
+                try:
+                    tenant_db.rollback()
+                except Exception:
+                    pass
+
+            return result
         finally:
             clear_tenant_context()
             tenant_db.close()

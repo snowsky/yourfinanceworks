@@ -46,16 +46,24 @@ export function ShareButton({ recordType, recordId, variant = 'outline', size = 
     }
   };
 
-  // In controlled mode, fetch token when opened externally
-  useEffect(() => {
-    if (isControlled && controlledOpen && !token) {
-      fetchToken();
-    }
-  }, [isControlled, controlledOpen]);
+  // Reset confirmation state when modal closes
+  const [confirmed, setConfirmed] = useState(false);
 
-  const handleOpen = async () => {
+  useEffect(() => {
+    if (!open) {
+      setConfirmed(false);
+      setToken(null);
+      setShareUrl(null);
+      setExpiresAt(null);
+    }
+  }, [open]);
+
+  const handleOpen = () => {
     setOpen(true);
-    if (token) return; // already loaded
+  };
+
+  const handleConfirm = async () => {
+    setConfirmed(true);
     await fetchToken();
   };
 
@@ -101,7 +109,21 @@ export function ShareButton({ recordType, recordId, variant = 'outline', size = 
             </DialogTitle>
           </DialogHeader>
 
-          {loading ? (
+          {!confirmed ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                This will generate a public link. Anyone with the link can view this record without logging in.
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleConfirm}>
+                  Generate link
+                </Button>
+              </div>
+            </div>
+          ) : loading ? (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               <span className="ml-2 text-sm text-muted-foreground">Generating link…</span>
@@ -122,7 +144,7 @@ export function ShareButton({ recordType, recordId, variant = 'outline', size = 
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="flex justify-end">
+              <div className="flex justify-between items-center">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -131,6 +153,9 @@ export function ShareButton({ recordType, recordId, variant = 'outline', size = 
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
                   Revoke link
+                </Button>
+                <Button size="sm" onClick={() => setOpen(false)}>
+                  Done
                 </Button>
               </div>
             </div>
