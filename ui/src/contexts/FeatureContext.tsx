@@ -167,12 +167,16 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (err) {
       console.error('Failed to fetch feature flags:', err);
 
-      // Detect network-level failures (API restarting, unreachable)
+      // Detect network-level failures (API restarting, unreachable).
+      // Note: when the 502/503/504 body is non-JSON (nginx HTML error page),
+      // _base.ts throws a plain Error("Error: 502 Bad Gateway") without a
+      // .status property, so we must also check the message string.
+      const errStatus = (err as any)?.status;
+      const errMsg = err instanceof Error ? err.message : '';
       const isNetworkError =
-        (err instanceof TypeError && err.message.toLowerCase().includes('fetch')) ||
-        ((err as any)?.status === 502) ||
-        ((err as any)?.status === 503) ||
-        ((err as any)?.status === 504);
+        (err instanceof TypeError && errMsg.toLowerCase().includes('fetch')) ||
+        errStatus === 502 || errStatus === 503 || errStatus === 504 ||
+        /Error:\s*(502|503|504)\b/.test(errMsg);
 
       if (isNetworkError) {
         // API is temporarily unavailable — keep existing features, just flag it
