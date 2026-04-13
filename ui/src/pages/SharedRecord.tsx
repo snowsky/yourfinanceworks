@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { shareTokenApi } from '@/lib/api/share-tokens';
-import { AlertCircle, FileText, Receipt, CreditCard, Users, Landmark, TrendingUp } from 'lucide-react';
+import { AlertCircle, FileText, Receipt, CreditCard, Users, Landmark, TrendingUp, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 const RECORD_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   invoice: FileText,
@@ -183,6 +184,62 @@ function PortfolioView({ data }: { data: any }) {
   );
 }
 
+function escapeCsvField(value: unknown): string {
+  const str = value == null ? '' : String(value);
+  return str.includes(',') || str.includes('"') || str.includes('\n')
+    ? `"${str.replace(/"/g, '""')}"`
+    : str;
+}
+
+function buildCsv(rows: unknown[][]): string {
+  return rows.map(row => row.map(escapeCsvField).join(',')).join('\n');
+}
+
+function downloadCsv(content: string, filename: string) {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildRecordCsv(recordType: string, data: any): { csv: string; filename: string } | null {
+  if (recordType === 'bank_statement' && data.transactions?.length > 0) {
+    const header = ['Date', 'Description', 'Type', 'Category', 'Amount', 'Balance'];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = data.transactions.map((tx: any) => [
+      tx.date,
+      tx.description,
+      tx.transaction_type,
+      tx.category ?? '',
+      (tx.transaction_type === 'credit' ? 1 : -1) * Math.abs(tx.amount),
+      tx.balance ?? '',
+    ]);
+    const base = (data.original_filename as string).replace(/\.[^.]+$/, '');
+    return { csv: buildCsv([header, ...rows]), filename: `${base}-transactions.csv` };
+  }
+  if (recordType === 'invoice' && data.items?.length > 0) {
+    const header = ['Description', 'Quantity', 'Price', 'Amount', 'Unit'];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = data.items.map((item: any) => [
+      item.description, item.quantity, item.price, item.amount, item.unit_of_measure ?? '',
+    ]);
+    return { csv: buildCsv([header, ...rows]), filename: `invoice-${data.number}-items.csv` };
+  }
+  if (recordType === 'portfolio' && data.holdings?.length > 0) {
+    const header = ['Symbol', 'Name', 'Type', 'Asset Class', 'Quantity', 'Currency'];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = data.holdings.map((h: any) => [
+      h.security_symbol, h.security_name ?? '', h.security_type, h.asset_class, h.quantity, h.currency,
+    ]);
+    return { csv: buildCsv([header, ...rows]), filename: `${data.name}-holdings.csv` };
+  }
+  return null;
+}
+
 const RECORD_LABELS: Record<string, string> = {
   invoice: 'Invoice',
   expense: 'Expense',
@@ -236,10 +293,26 @@ export default function SharedRecord() {
         {data && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Icon className="h-5 w-5" />
-                {label}
-              </CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <Icon className="h-5 w-5" />
+                  {label}
+                </CardTitle>
+                {(() => {
+                  const exportable = buildRecordCsv(recordType, data);
+                  if (!exportable) return null;
+                  return (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadCsv(exportable.csv, exportable.filename)}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Export CSV
+                    </Button>
+                  );
+                })()}
+              </div>
             </CardHeader>
             <CardContent>
               {recordType === 'invoice' && <InvoiceView data={data} />}
