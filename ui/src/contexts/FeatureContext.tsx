@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 
 interface FeatureFlags {
@@ -45,6 +45,7 @@ interface FeatureContextType {
   isFeatureReadOnly: (featureId: string) => boolean;  // Check if feature is available for read-only access
   loading: boolean;
   error: string | null;
+  apiAvailable: boolean;  // False when API is unreachable (restarting, network down)
   refetch: () => Promise<void>;
 }
 
@@ -56,6 +57,8 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
+  const [apiAvailable, setApiAvailable] = useState(true);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchFeatures = async () => {
     try {
@@ -149,6 +152,13 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       setLicenseStatus(licenseStatusData);
       setHasAttemptedFetch(true);
+      setApiAvailable(true);
+
+      // Clear any pending retry now that API is reachable
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
 
       // Emit event to notify other components that features have been updated
       window.dispatchEvent(new CustomEvent('feature-context-updated', {
@@ -157,40 +167,63 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (err) {
       console.error('Failed to fetch feature flags:', err);
 
-      // Don't set error state for auth errors - just use defaults
-      // This prevents the UI from showing error messages on initial load
-      if (!(err instanceof Error && err.message.includes('Authentication'))) {
-        setError(err instanceof Error ? err.message : 'Failed to load features');
-      }
+      // Detect network-level failures (API restarting, unreachable)
+      const isNetworkError =
+        (err instanceof TypeError && err.message.toLowerCase().includes('fetch')) ||
+        ((err as any)?.status === 502) ||
+        ((err as any)?.status === 503) ||
+        ((err as any)?.status === 504);
 
-      // Set all features to false on error (safe defaults)
-      setFeatures({
-        ai_invoice: false,
-        ai_expense: false,
-        ai_bank_statement: false,
-        ai_chat: false,
-        // tax_integration: false,
-        slack_integration: false,
-        cloud_storage: false,
-        sso: false,
-        external_api: false,
-        external_transactions: false,
-        advanced_export: false,
-        approval_analytics: false,
-        batch_processing: false,
-        reporting: false,
-        inventory: true,
-        approvals: false,
-        advanced_search: false,
-        email_integration: false,
-        workflow_automation: false,
-        prompt_management: false,
-        anomaly_detection: false,
-        plugin_management: false,
-        crm: true,
-      });
-      setLicenseStatus(null);
-      setHasAttemptedFetch(true);
+      if (isNetworkError) {
+        // API is temporarily unavailable — keep existing features, just flag it
+        setApiAvailable(false);
+        setHasAttemptedFetch(true);
+        // Schedule a retry every 5 seconds until the API comes back
+        if (!retryTimerRef.current) {
+          retryTimerRef.current = setTimeout(() => {
+            retryTimerRef.current = null;
+            fetchFeatures();
+          }, 5000);
+        }
+      } else {
+        // API responded but with an error (auth, license, etc.) — treat as normal
+        setApiAvailable(true);
+
+        // Don't set error state for auth errors - just use defaults
+        // This prevents the UI from showing error messages on initial load
+        if (!(err instanceof Error && err.message.includes('Authentication'))) {
+          setError(err instanceof Error ? err.message : 'Failed to load features');
+        }
+
+        // Set all features to false on error (safe defaults)
+        setFeatures({
+          ai_invoice: false,
+          ai_expense: false,
+          ai_bank_statement: false,
+          ai_chat: false,
+          // tax_integration: false,
+          slack_integration: false,
+          cloud_storage: false,
+          sso: false,
+          external_api: false,
+          external_transactions: false,
+          advanced_export: false,
+          approval_analytics: false,
+          batch_processing: false,
+          reporting: false,
+          inventory: true,
+          approvals: false,
+          advanced_search: false,
+          email_integration: false,
+          workflow_automation: false,
+          prompt_management: false,
+          anomaly_detection: false,
+          plugin_management: false,
+          crm: true,
+        });
+        setLicenseStatus(null);
+        setHasAttemptedFetch(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -221,6 +254,10 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('auth-changed', handleAuthChange);
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
     };
   }, [hasAttemptedFetch]);
 
@@ -245,7 +282,7 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   return (
-    <FeatureContext.Provider value={{ features, licenseStatus, isFeatureEnabled, isFeatureExpired, isFeatureReadOnly, loading, error, refetch }}>
+    <FeatureContext.Provider value={{ features, licenseStatus, isFeatureEnabled, isFeatureExpired, isFeatureReadOnly, loading, error, apiAvailable, refetch }}>
       {children}
     </FeatureContext.Provider>
   );

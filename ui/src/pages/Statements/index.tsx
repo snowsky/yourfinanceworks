@@ -35,7 +35,7 @@ import { DuplicateStatementPanel } from './DuplicateStatementPanel';
 
 export default function Statements() {
   const { t } = useTranslation();
-  const { isFeatureEnabled } = useFeatures();
+  const { isFeatureEnabled, apiAvailable } = useFeatures();
   const { isVisible, toggle, reset, hiddenCount } = useColumnVisibility('statements', STATEMENT_COLUMNS);
   const queryClient = useQueryClient();
   const [shareStatementId, setShareStatementId] = useState<number | null>(null);
@@ -796,8 +796,16 @@ export default function Statements() {
   return (
     <>
       <div className="space-y-8 overflow-visible">
-        {/* License Alert */}
-        {!isFeatureEnabled('ai_bank_statement') && (
+        {/* API unavailable banner (shown while API is restarting) */}
+        {!apiAvailable && (
+          <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            <span className="inline-block h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-amber-500" />
+            {t('common.api_connecting', { defaultValue: 'Connecting to server, please wait…' })}
+          </div>
+        )}
+
+        {/* License Alert — only show when API is reachable and feature is genuinely disabled */}
+        {apiAvailable && !isFeatureEnabled('ai_bank_statement') && (
           <LicenseAlert
             message={t('settings.bank_statement_license_required', { defaultValue: 'Bank statement processing requires the AI Bank Statement feature. Please upgrade your license to enable this functionality.' })}
             feature="ai_bank_statement"
