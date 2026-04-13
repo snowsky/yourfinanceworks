@@ -62,6 +62,16 @@ export interface DeletedBankStatement extends BankStatementSummary {
   deleted_by_username?: string | null;
 }
 
+export interface FileDuplicateEntry {
+  id: number;
+  original_filename: string;
+  file_hash: string;
+  status: string;
+  extracted_count: number;
+  created_at?: string | null;
+}
+
+
 export const bankStatementApi = {
   uploadAndExtract: async (
     files: File[],
@@ -148,6 +158,11 @@ export const bankStatementApi = {
       { method: 'DELETE' }
     );
   },
+
+  getFileDuplicateGroups: () =>
+    apiRequest<{ success: boolean; duplicate_groups: FileDuplicateEntry[][]; count: number }>(
+      `/statements/file-duplicates`
+    ),
 
   reprocess: async (statementId: number): Promise<{ success: boolean; message: string }> => {
     return apiRequest<{ success: boolean; message: string }>(

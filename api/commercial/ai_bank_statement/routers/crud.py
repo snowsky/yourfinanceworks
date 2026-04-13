@@ -330,6 +330,41 @@ async def merge_statements(
         )
 
 
+@router.get("/file-duplicates", response_model=Dict[str, Any])
+async def get_file_duplicate_groups(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Return groups of non-deleted statements that share the same file hash (identical files)."""
+    tenant_id = get_tenant_id()
+
+    statements = (
+        db.query(BankStatement)
+        .filter(
+            BankStatement.tenant_id == tenant_id,
+            BankStatement.is_deleted == False,
+            BankStatement.file_hash.isnot(None),
+        )
+        .order_by(BankStatement.created_at.asc())
+        .all()
+    )
+
+    from collections import defaultdict
+    buckets: dict = defaultdict(list)
+    for s in statements:
+        buckets[s.file_hash].append({
+            "id": s.id,
+            "original_filename": s.original_filename,
+            "file_hash": s.file_hash,
+            "status": s.status,
+            "extracted_count": s.extracted_count,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+        })
+
+    groups = [entries for entries in buckets.values() if len(entries) > 1]
+    return {"success": True, "duplicate_groups": groups, "count": len(groups)}
+
+
 @router.get("/recycle-bin", response_model=PaginatedDeletedBankStatements)
 async def get_deleted_statements(
     skip: int = 0,

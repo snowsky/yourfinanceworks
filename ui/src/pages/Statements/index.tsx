@@ -31,6 +31,7 @@ import { StatementsListView } from './StatementsListView';
 import { StatementDetailView } from './StatementDetailView';
 import { UploadModal } from './UploadModal';
 import { DuplicateTransactionPanel } from './DuplicateTransactionPanel';
+import { DuplicateStatementPanel } from './DuplicateStatementPanel';
 
 export default function Statements() {
   const { t } = useTranslation();
@@ -133,6 +134,14 @@ export default function Statements() {
     enabled: isFeatureEnabled('ai_bank_statement'),
   });
   const txnDuplicateCount = txnDuplicateData?.count ?? 0;
+
+  const { data: fileDuplicateData } = useQuery({
+    queryKey: ['file-duplicate-statements'],
+    queryFn: () => bankStatementApi.getFileDuplicateGroups(),
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  const fileDuplicateCount = fileDuplicateData?.count ?? 0;
 
   const getLocale = useMemo(() => {
     const language = t('language', { defaultValue: 'en' });
@@ -836,6 +845,14 @@ export default function Statements() {
             onRestore={handleRestoreStatement}
             onPermanentlyDelete={handlePermanentlyDeleteStatement}
             onEmptyRecycleBin={handleEmptyRecycleBin}
+          />
+        )}
+
+        {/* Duplicate file warning banner */}
+        {!selected && fileDuplicateCount > 0 && (
+          <DuplicateStatementPanel
+            groups={fileDuplicateData?.duplicate_groups ?? []}
+            onViewStatement={openStatement}
           />
         )}
 
