@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ChevronDown, ChevronUp, ExternalLink, Trash2, Archive, RotateCcw } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, ExternalLink, Trash2, Archive, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -33,7 +33,7 @@ function formatAmount(amount: number | string) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Math.abs(n));
 }
 
-// ── Single-group Review Modal ─────────────────────────────────────────────────
+// ── Single-group Review Modal (statement-level) ───────────────────────────────
 
 interface ReviewModalProps {
   group: DuplicateTxnEntry[];
@@ -43,42 +43,59 @@ interface ReviewModalProps {
 }
 
 function ReviewModal({ group, groupIndex, onClose, onDeleted }: ReviewModalProps) {
-  const [keepId, setKeepId] = useState<number>(group[0]?.id);
+  // Derive unique statements from the transaction group
+  const statements = Array.from(
+    new Map(group.map(t => [t.statement_id, t])).values()
+  );
+  const [keepStatementId, setKeepStatementId] = useState<number>(statements[0]?.statement_id);
   const [confirmed, setConfirmed] = useState(false);
-  const [deleteMode, setDeleteMode] = useState<'recycle' | 'permanent' | null>(null);
   const queryClient = useQueryClient();
 
-  const toDelete = group.filter(t => t.id !== keepId);
+  const toDeleteStatements = statements.filter(s => s.statement_id !== keepStatementId);
+  // Count transactions per statement for display
+  const txnCountByStatement = group.reduce<Record<number, number>>((acc, t) => {
+    acc[t.statement_id] = (acc[t.statement_id] ?? 0) + 1;
+    return acc;
+  }, {});
 
   const mutation = useMutation({
-    mutationFn: async (permanent: boolean) => {
-      for (const txn of toDelete) {
-        await bankStatementApi.deleteTransaction(txn.statement_id, txn.id, permanent);
+    mutationFn: async () => {
+      for (const s of toDeleteStatements) {
+        await bankStatementApi.delete(s.statement_id);
       }
     },
-    onSuccess: (_data, permanent) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] });
-      if (!permanent) queryClient.invalidateQueries({ queryKey: ['deleted-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['statements'] });
       toast.success(
-        permanent
-          ? toDelete.length === 1
-            ? 'Duplicate transaction permanently deleted.'
-            : `${toDelete.length} duplicate transactions permanently deleted.`
-          : toDelete.length === 1
-            ? 'Duplicate transaction moved to recycle bin.'
-            : `${toDelete.length} duplicate transactions moved to recycle bin.`
+        toDeleteStatements.length === 1
+          ? 'Statement moved to recycle bin.'
+          : `${toDeleteStatements.length} statements moved to recycle bin.`
       );
       onDeleted();
     },
     onError: (err: any) => {
-      toast.error(err?.message || 'Failed to process transactions.');
+      toast.error(err?.message || 'Failed to delete statement.');
     },
   });
 
-  const handleConfirm = (permanent: boolean) => {
-    setDeleteMode(permanent ? 'permanent' : 'recycle');
-    mutation.mutate(permanent);
-  };
+  if (statements.length < 2) {
+    return (
+      <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Review Duplicate Group {groupIndex + 1}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground py-4">
+            All duplicate transactions belong to the same statement — no statement to delete.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
@@ -90,16 +107,20 @@ function ReviewModal({ group, groupIndex, onClose, onDeleted }: ReviewModalProps
         {!confirmed ? (
           <>
             <p className="text-sm text-muted-foreground mb-3">
-              Select the transaction to <span className="font-semibold text-foreground">keep</span>.
-              The others will be removed.
+              These duplicate transactions appear across multiple statements.
+              Select the <span className="font-semibold text-foreground">statement to keep</span>;
+              the others will be moved to the recycle bin.
+            </p>
+            <p className="text-xs text-muted-foreground mb-3 font-mono bg-muted/30 rounded px-2 py-1 truncate">
+              {group[0]?.description} · {group[0]?.date} · {formatAmount(group[0]?.amount)}
             </p>
 
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {group.map(txn => {
-                const isKept = txn.id === keepId;
+              {statements.map(s => {
+                const isKept = s.statement_id === keepStatementId;
                 return (
                   <label
-                    key={txn.id}
+                    key={s.statement_id}
                     className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
                       isKept
                         ? 'border-primary bg-primary/5'
@@ -108,20 +129,19 @@ function ReviewModal({ group, groupIndex, onClose, onDeleted }: ReviewModalProps
                   >
                     <input
                       type="radio"
-                      name="keep-transaction"
-                      value={txn.id}
+                      name={`keep-statement-${groupIndex}`}
+                      value={s.statement_id}
                       checked={isKept}
-                      onChange={() => setKeepId(txn.id)}
+                      onChange={() => setKeepStatementId(s.statement_id)}
                       className="mt-0.5 accent-primary"
                     />
                     <div className="flex-1 min-w-0 text-sm">
-                      <p className="font-medium text-foreground truncate">{txn.description}</p>
+                      <p className="font-medium text-foreground truncate flex items-center gap-1.5">
+                        <FileText className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                        {s.statement_filename}
+                      </p>
                       <p className="text-muted-foreground text-xs mt-0.5">
-                        {txn.date}
-                        {' · '}
-                        <span className="font-mono font-semibold text-foreground">{formatAmount(txn.amount)}</span>
-                        {' · '}
-                        <span className="opacity-70">{txn.statement_filename}</span>
+                        {txnCountByStatement[s.statement_id]} duplicate transaction{txnCountByStatement[s.statement_id] !== 1 ? 's' : ''} in this group
                       </p>
                     </div>
                     {isKept && (
@@ -132,63 +152,42 @@ function ReviewModal({ group, groupIndex, onClose, onDeleted }: ReviewModalProps
               })}
             </div>
 
-            <DialogFooter className="mt-4 gap-2 flex-wrap">
+            <DialogFooter className="mt-4 gap-2">
               <Button variant="outline" onClick={onClose}>Cancel</Button>
               <Button
-                variant="outline"
-                className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-950/20"
-                onClick={() => setConfirmed(true)}
-                disabled={toDelete.length === 0}
-              >
-                <Archive className="h-4 w-4 mr-1.5" />
-                Move {toDelete.length} to Recycle Bin
-              </Button>
-              <Button
                 variant="destructive"
-                onClick={() => { setConfirmed(true); }}
-                disabled={toDelete.length === 0}
+                onClick={() => setConfirmed(true)}
+                disabled={toDeleteStatements.length === 0}
               >
                 <Trash2 className="h-4 w-4 mr-1.5" />
-                Permanently Delete {toDelete.length}
+                Delete {toDeleteStatements.length} statement{toDeleteStatements.length !== 1 ? 's' : ''}
               </Button>
             </DialogFooter>
           </>
         ) : (
           <>
-            <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm mb-4">
-              <p className="font-semibold mb-1 text-foreground">Confirm action</p>
-              <p className="text-muted-foreground">
-                The following {toDelete.length} transaction{toDelete.length !== 1 ? 's' : ''} will be removed:
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive mb-4">
+              <p className="font-semibold mb-1">Move to recycle bin</p>
+              <p>
+                The following {toDeleteStatements.length} statement{toDeleteStatements.length !== 1 ? 's' : ''} will be moved to the recycle bin:
               </p>
-              <ul className="mt-2 space-y-1 list-disc list-inside text-xs text-muted-foreground">
-                {toDelete.map(t => (
-                  <li key={t.id}>
-                    {t.description} · {t.date} · {formatAmount(t.amount)} — <span className="opacity-70">{t.statement_filename}</span>
-                  </li>
+              <ul className="mt-2 space-y-1 list-disc list-inside text-xs">
+                {toDeleteStatements.map(s => (
+                  <li key={s.statement_id}>{s.statement_filename}</li>
                 ))}
               </ul>
             </div>
 
-            <DialogFooter className="gap-2 flex-wrap">
+            <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setConfirmed(false)} disabled={mutation.isPending}>
                 Back
               </Button>
               <Button
-                variant="outline"
-                className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-950/20"
-                onClick={() => handleConfirm(false)}
-                disabled={mutation.isPending}
-              >
-                <Archive className="h-4 w-4 mr-1.5" />
-                {mutation.isPending && deleteMode === 'recycle' ? 'Moving…' : 'Move to Recycle Bin'}
-              </Button>
-              <Button
                 variant="destructive"
-                onClick={() => handleConfirm(true)}
+                onClick={() => mutation.mutate()}
                 disabled={mutation.isPending}
               >
-                <Trash2 className="h-4 w-4 mr-1.5" />
-                {mutation.isPending && deleteMode === 'permanent' ? 'Deleting…' : 'Permanently Delete'}
+                {mutation.isPending ? 'Moving to recycle bin…' : 'Confirm'}
               </Button>
             </DialogFooter>
           </>
@@ -198,7 +197,7 @@ function ReviewModal({ group, groupIndex, onClose, onDeleted }: ReviewModalProps
   );
 }
 
-// ── Bulk "Review All Groups" Modal ────────────────────────────────────────────
+// ── Bulk "Review All Groups" Modal (statement-level) ─────────────────────────
 
 interface BulkReviewModalProps {
   groups: DuplicateTxnEntry[][];
@@ -207,41 +206,46 @@ interface BulkReviewModalProps {
 }
 
 function BulkReviewModal({ groups, onClose, onDone }: BulkReviewModalProps) {
-  // For each group, track which transaction to keep (default: first)
-  const [keepIds, setKeepIds] = useState<Record<number, number>>(
-    Object.fromEntries(groups.map((g, i) => [i, g[0]?.id]))
+  // For each group, derive unique statements and track which statement to keep
+  const groupStatements = groups.map(g =>
+    Array.from(new Map(g.map(t => [t.statement_id, t])).values())
+  );
+  const [keepStatementIds, setKeepStatementIds] = useState<Record<number, number>>(
+    Object.fromEntries(groupStatements.map((stmts, i) => [i, stmts[0]?.statement_id]))
   );
   const [step, setStep] = useState<'select' | 'confirm'>('select');
-  const [deleteMode, setDeleteMode] = useState<'recycle' | 'permanent' | null>(null);
   const queryClient = useQueryClient();
 
-  const allToDelete = groups.flatMap((g, gi) => g.filter(t => t.id !== keepIds[gi]));
+  // Collect unique statement IDs to delete across all groups (deduplicated)
+  const allToDeleteMap = new Map<number, string>();
+  groupStatements.forEach((stmts, gi) => {
+    stmts
+      .filter(s => s.statement_id !== keepStatementIds[gi])
+      .forEach(s => allToDeleteMap.set(s.statement_id, s.statement_filename));
+  });
+  const allToDelete = Array.from(allToDeleteMap.entries()).map(([id, filename]) => ({ id, filename }));
 
   const mutation = useMutation({
-    mutationFn: async (permanent: boolean) => {
-      for (const txn of allToDelete) {
-        await bankStatementApi.deleteTransaction(txn.statement_id, txn.id, permanent);
+    mutationFn: async () => {
+      for (const s of allToDelete) {
+        await bankStatementApi.delete(s.id);
       }
     },
-    onSuccess: (_data, permanent) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] });
-      if (!permanent) queryClient.invalidateQueries({ queryKey: ['deleted-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['statements'] });
       toast.success(
-        permanent
-          ? `${allToDelete.length} duplicate transaction${allToDelete.length !== 1 ? 's' : ''} permanently deleted.`
-          : `${allToDelete.length} duplicate transaction${allToDelete.length !== 1 ? 's' : ''} moved to recycle bin.`
+        `${allToDelete.length} statement${allToDelete.length !== 1 ? 's' : ''} moved to recycle bin.`
       );
       onDone();
     },
     onError: (err: any) => {
-      toast.error(err?.message || 'Failed to process transactions.');
+      toast.error(err?.message || 'Failed to delete statements.');
     },
   });
 
-  const handleAction = (permanent: boolean) => {
-    setDeleteMode(permanent ? 'permanent' : 'recycle');
-    mutation.mutate(permanent);
-  };
+  // Filter to groups that actually span multiple statements
+  const multiStatementGroups = groupStatements.filter(stmts => stmts.length > 1);
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
@@ -253,226 +257,113 @@ function BulkReviewModal({ groups, onClose, onDone }: BulkReviewModalProps) {
         {step === 'select' ? (
           <>
             <p className="text-sm text-muted-foreground mb-3">
-              For each group, select the transaction to <span className="font-semibold text-foreground">keep</span>.
-              All others will be removed.
+              For each group, select the <span className="font-semibold text-foreground">statement to keep</span>.
+              The others will be moved to the recycle bin.
             </p>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-              {groups.map((group, gi) => (
-                <div key={gi} className="rounded-lg border border-border p-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                    Group {gi + 1} · {group.length} occurrences
-                  </p>
-                  <div className="space-y-1.5">
-                    {group.map(txn => {
-                      const isKept = txn.id === keepIds[gi];
-                      return (
-                        <label
-                          key={txn.id}
-                          className={`flex items-start gap-3 rounded-md border p-2.5 cursor-pointer transition-colors ${
-                            isKept
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border bg-muted/20 hover:bg-muted/40'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name={`keep-group-${gi}`}
-                            value={txn.id}
-                            checked={isKept}
-                            onChange={() => setKeepIds(prev => ({ ...prev, [gi]: txn.id }))}
-                            className="mt-0.5 accent-primary"
-                          />
-                          <div className="flex-1 min-w-0 text-xs">
-                            <p className="font-medium text-foreground truncate">{txn.description}</p>
-                            <p className="text-muted-foreground mt-0.5">
-                              {txn.date}
-                              {' · '}
-                              <span className="font-mono font-semibold text-foreground">{formatAmount(txn.amount)}</span>
-                              {' · '}
-                              <span className="opacity-70">{txn.statement_filename}</span>
-                            </p>
-                          </div>
-                          {isKept && (
-                            <span className="text-xs font-medium text-primary mt-0.5 flex-shrink-0">Keep</span>
-                          )}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
+            {multiStatementGroups.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                All duplicate transactions belong to the same statement in every group — nothing to delete.
+              </p>
+            ) : (
+              <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+                {groups.map((group, gi) => {
+                  const stmts = groupStatements[gi];
+                  if (stmts.length < 2) return null;
+                  const txnCountByStatement = group.reduce<Record<number, number>>((acc, t) => {
+                    acc[t.statement_id] = (acc[t.statement_id] ?? 0) + 1;
+                    return acc;
+                  }, {});
+                  return (
+                    <div key={gi} className="rounded-lg border border-border p-3">
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                        Group {gi + 1}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-mono mb-2 truncate">
+                        {group[0]?.description} · {group[0]?.date} · {formatAmount(group[0]?.amount)}
+                      </p>
+                      <div className="space-y-1.5">
+                        {stmts.map(s => {
+                          const isKept = s.statement_id === keepStatementIds[gi];
+                          return (
+                            <label
+                              key={s.statement_id}
+                              className={`flex items-start gap-3 rounded-md border p-2.5 cursor-pointer transition-colors ${
+                                isKept
+                                  ? 'border-primary bg-primary/5'
+                                  : 'border-border bg-muted/20 hover:bg-muted/40'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name={`keep-stmt-group-${gi}`}
+                                value={s.statement_id}
+                                checked={isKept}
+                                onChange={() => setKeepStatementIds(prev => ({ ...prev, [gi]: s.statement_id }))}
+                                className="mt-0.5 accent-primary"
+                              />
+                              <div className="flex-1 min-w-0 text-xs">
+                                <p className="font-medium text-foreground truncate flex items-center gap-1.5">
+                                  <FileText className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                                  {s.statement_filename}
+                                </p>
+                                <p className="text-muted-foreground mt-0.5">
+                                  {txnCountByStatement[s.statement_id]} duplicate transaction{txnCountByStatement[s.statement_id] !== 1 ? 's' : ''} in this group
+                                </p>
+                              </div>
+                              {isKept && (
+                                <span className="text-xs font-medium text-primary mt-0.5 flex-shrink-0">Keep</span>
+                              )}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
-            <DialogFooter className="mt-4 gap-2 flex-wrap border-t pt-4">
+            <DialogFooter className="mt-4 gap-2 border-t pt-4">
               <Button variant="outline" onClick={onClose}>Cancel</Button>
               <Button
-                variant="outline"
-                className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-950/20"
+                variant="destructive"
                 onClick={() => setStep('confirm')}
                 disabled={allToDelete.length === 0}
               >
-                <Archive className="h-4 w-4 mr-1.5" />
-                Review {allToDelete.length} to Remove
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                Delete {allToDelete.length} statement{allToDelete.length !== 1 ? 's' : ''}
               </Button>
             </DialogFooter>
           </>
         ) : (
           <>
-            <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm mb-4 max-h-72 overflow-y-auto">
-              <p className="font-semibold mb-2 text-foreground">
-                {allToDelete.length} transaction{allToDelete.length !== 1 ? 's' : ''} will be removed:
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive mb-4 max-h-72 overflow-y-auto">
+              <p className="font-semibold mb-1">Move to recycle bin</p>
+              <p>
+                The following {allToDelete.length} statement{allToDelete.length !== 1 ? 's' : ''} will be moved to the recycle bin:
               </p>
-              <ul className="space-y-1 list-disc list-inside text-xs text-muted-foreground">
-                {allToDelete.map(t => (
-                  <li key={t.id}>
-                    {t.description} · {t.date} · {formatAmount(t.amount)} — <span className="opacity-70">{t.statement_filename}</span>
-                  </li>
+              <ul className="mt-2 space-y-1 list-disc list-inside text-xs">
+                {allToDelete.map(s => (
+                  <li key={s.id}>{s.filename}</li>
                 ))}
               </ul>
             </div>
-            <p className="text-sm text-muted-foreground mb-2">Choose how to remove them:</p>
 
-            <DialogFooter className="gap-2 flex-wrap">
+            <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setStep('select')} disabled={mutation.isPending}>
                 Back
               </Button>
               <Button
-                variant="outline"
-                className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-950/20"
-                onClick={() => handleAction(false)}
-                disabled={mutation.isPending}
-              >
-                <Archive className="h-4 w-4 mr-1.5" />
-                {mutation.isPending && deleteMode === 'recycle' ? 'Moving…' : 'Move to Recycle Bin'}
-              </Button>
-              <Button
                 variant="destructive"
-                onClick={() => handleAction(true)}
+                onClick={() => mutation.mutate()}
                 disabled={mutation.isPending}
               >
-                <Trash2 className="h-4 w-4 mr-1.5" />
-                {mutation.isPending && deleteMode === 'permanent' ? 'Deleting…' : 'Permanently Delete All'}
+                {mutation.isPending ? 'Moving to recycle bin…' : 'Confirm'}
               </Button>
             </DialogFooter>
           </>
         )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ── Transaction Recycle Bin Modal ─────────────────────────────────────────────
-
-interface TxnRecycleBinModalProps {
-  onClose: () => void;
-}
-
-function TxnRecycleBinModal({ onClose }: TxnRecycleBinModalProps) {
-  const queryClient = useQueryClient();
-  const [items, setItems] = useState<Array<{
-    id: number; statement_id: number; date: string;
-    description: string; amount: number; transaction_type: string; deleted_at?: string | null;
-  }>>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    bankStatementApi.getDeletedTransactions().then(res => {
-      setItems(res.items as any);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
-
-  const restoreMutation = useMutation({
-    mutationFn: ({ statementId, txnId }: { statementId: number; txnId: number }) =>
-      bankStatementApi.restoreTransaction(statementId, txnId),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] });
-      toast.success('Transaction restored.');
-      setItems(prev => prev.filter(t => t.id !== variables.txnId));
-    },
-    onError: () => toast.error('Failed to restore transaction.'),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: ({ statementId, txnId }: { statementId: number; txnId: number }) =>
-      bankStatementApi.permanentlyDeleteTransaction(statementId, txnId),
-    onSuccess: (_data, variables) => {
-      toast.success('Transaction permanently deleted.');
-      setItems(prev => prev.filter(t => t.id !== variables.txnId));
-    },
-    onError: () => toast.error('Failed to delete transaction.'),
-  });
-
-  return (
-    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Trash2 className="h-4 w-4 text-destructive" />
-            Transaction Recycle Bin
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <p className="text-sm text-muted-foreground text-center py-8">Loading…</p>
-          ) : items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <div className="p-4 rounded-full bg-muted/50">
-                <Trash2 className="h-8 w-8 text-muted-foreground/40" />
-              </div>
-              <p className="text-sm text-muted-foreground">Transaction recycle bin is empty</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {items.map(t => (
-                <div
-                  key={t.id}
-                  className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-sm"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{t.description}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {t.date}
-                      {' · '}
-                      <span className="font-mono font-semibold text-foreground">{formatAmount(t.amount)}</span>
-                      {t.deleted_at && (
-                        <span className="ml-2 opacity-60">
-                          · deleted {new Date(t.deleted_at).toLocaleDateString()}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex gap-1.5 flex-shrink-0">
-                    <button
-                      onClick={() => restoreMutation.mutate({ statementId: t.statement_id, txnId: t.id })}
-                      disabled={restoreMutation.isPending || deleteMutation.isPending}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-800/40 transition-colors"
-                      title="Restore transaction"
-                    >
-                      <RotateCcw className="h-3 w-3" />
-                      Restore
-                    </button>
-                    <button
-                      onClick={() => deleteMutation.mutate({ statementId: t.statement_id, txnId: t.id })}
-                      disabled={restoreMutation.isPending || deleteMutation.isPending}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800/40 transition-colors"
-                      title="Permanently delete"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <DialogFooter className="border-t pt-4">
-          <Button variant="outline" onClick={onClose}>Close</Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -485,7 +376,6 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set([0]));
   const [reviewGroupIndex, setReviewGroupIndex] = useState<number | null>(null);
   const [showBulkReview, setShowBulkReview] = useState(false);
-  const [showTxnRecycleBin, setShowTxnRecycleBin] = useState(false);
 
   const count = groups.length;
 
@@ -518,16 +408,6 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
               ? <ChevronUp className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
               : <ChevronDown className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
             }
-          </button>
-
-          {/* Recycle bin button */}
-          <button
-            onClick={e => { e.stopPropagation(); setShowTxnRecycleBin(true); }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-800/40 transition-colors flex-shrink-0 whitespace-nowrap"
-            title="View transaction recycle bin"
-          >
-            <Trash2 className="h-3 w-3" />
-            Recycle Bin
           </button>
 
           {/* Review All button */}
@@ -641,12 +521,6 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
         />
       )}
 
-      {/* Transaction Recycle Bin modal */}
-      {showTxnRecycleBin && (
-        <TxnRecycleBinModal
-          onClose={() => setShowTxnRecycleBin(false)}
-        />
-      )}
     </>
   );
 }
