@@ -544,11 +544,6 @@ class BankStatementTransaction(Base):
     is_audited = Column(Boolean, default=False, nullable=False)  # Track if entity has been audited
     last_audited_at = Column(DateTime(timezone=True), nullable=True)  # When entity was last audited
 
-    # Soft delete (recycle bin)
-    is_deleted = Column(Boolean, default=False, nullable=False, index=True)
-    deleted_at = Column(DateTime(timezone=True), nullable=True)
-    deleted_by = Column(Integer, nullable=True)
-
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

@@ -71,15 +71,6 @@ export interface FileDuplicateEntry {
   created_at?: string | null;
 }
 
-export interface DeletedTransaction {
-  id: number;
-  statement_id: number;
-  date: string;
-  description: string;
-  amount: number;
-  transaction_type: string;
-  deleted_at?: string | null;
-}
 
 export const bankStatementApi = {
   uploadAndExtract: async (
@@ -160,39 +151,13 @@ export const bankStatementApi = {
 
   deleteTransaction: async (
     statementId: number,
-    transactionId: number,
-    permanent = false
-  ): Promise<{ success: boolean; action?: string }> => {
-    return apiRequest<{ success: boolean; action?: string }>(
-      `/statements/${statementId}/transactions/${transactionId}${permanent ? '?permanent=true' : ''}`,
-      { method: 'DELETE' }
-    );
-  },
-
-  restoreTransaction: async (
-    statementId: number,
     transactionId: number
   ): Promise<{ success: boolean }> => {
     return apiRequest<{ success: boolean }>(
-      `/statements/${statementId}/transactions/${transactionId}/restore`,
-      { method: 'POST' }
-    );
-  },
-
-  permanentlyDeleteTransaction: async (
-    statementId: number,
-    transactionId: number
-  ): Promise<{ success: boolean }> => {
-    return apiRequest<{ success: boolean }>(
-      `/statements/${statementId}/transactions/${transactionId}/permanent`,
+      `/statements/${statementId}/transactions/${transactionId}`,
       { method: 'DELETE' }
     );
   },
-
-  getDeletedTransactions: (skip = 0, limit = 100) =>
-    apiRequest<{ success: boolean; items: DeletedTransaction[]; total: number }>(
-      `/statements/transactions/recycle-bin?skip=${skip}&limit=${limit}`
-    ),
 
   getFileDuplicateGroups: () =>
     apiRequest<{ success: boolean; duplicate_groups: FileDuplicateEntry[][]; count: number }>(
