@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   Eye, Download, ExternalLink, Trash2, Plus, X, MoreHorizontal, Loader2,
-  RotateCcw, Search, Tag, Minus, Filter, Share2, Archive
+  RotateCcw, Search, Tag, Minus, Filter, Share2, Archive, ChevronRight, ChevronDown
 } from 'lucide-react';
 import { Wand } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -103,6 +103,16 @@ export function StatementsListView({
   getLocale, timezone, loadList,
 }: StatementsListViewProps) {
   const { t } = useTranslation();
+  const [expandedBankNames, setExpandedBankNames] = useState<Set<number>>(new Set());
+
+  const toggleBankNameExpanded = (id: number) => {
+    setExpandedBankNames(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const isCompleted = (s: { status?: string }) =>
     s.status === 'processed' || s.status === 'done' || s.status === 'failed' || s.status === 'uploaded' || s.status === 'merged';
@@ -422,31 +432,27 @@ export function StatementsListView({
                   )}
                   {isVisible('bank_name') && (
                     <TableCell>
-                      <Input
-                        placeholder={t('statements.bank_name_placeholder', { defaultValue: 'Bank Name...' })}
-                        className="w-[120px] h-7 text-[10px] px-2 bg-muted/20 border-border/40 focus:bg-background transition-all"
-                        value={bankNameValueById[s.id] !== undefined ? bankNameValueById[s.id] : (s.bank_name || '')}
-                        onChange={(ev) => setBankNameValueById((prev) => ({ ...prev, [s.id]: ev.target.value }))}
-                        onBlur={() => {
-                          if (bankNameValueById[s.id] !== undefined) {
-                            const next = bankNameValueById[s.id].trim() || null;
-                            const current = (s.bank_name || '').trim() || null;
-                            
-                            if (next !== current) {
-                              bankStatementApi.updateMeta(s.id, { bank_name: next }).then(() => {
-                                setStatements((prev) => prev.map((x) => (x.id === s.id ? { ...x, bank_name: next } : x)));
-                              }).catch((err: any) => {
-                                toast.error(err?.message || t('statements.bank_name.update_failed', { defaultValue: 'Failed to update bank name' }));
-                              });
-                            }
-                          }
-                        }}
-                        onKeyDown={(ev) => {
-                          if (ev.key === 'Enter') {
-                            ev.currentTarget.blur();
-                          }
-                        }}
-                      />
+                      {s.bank_name ? (
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm text-foreground">
+                            {expandedBankNames.has(s.id) ? s.bank_name : s.bank_name.slice(0, 10)}
+                            {!expandedBankNames.has(s.id) && s.bank_name.length > 10 && '…'}
+                          </span>
+                          {s.bank_name.length > 10 && (
+                            <button
+                              aria-label={expandedBankNames.has(s.id) ? 'Collapse bank name' : 'Expand bank name'}
+                              className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                              onClick={() => toggleBankNameExpanded(s.id)}
+                            >
+                              {expandedBankNames.has(s.id)
+                                ? <ChevronDown className="h-3.5 w-3.5" />
+                                : <ChevronRight className="h-3.5 w-3.5" />}
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground/50">—</span>
+                      )}
                     </TableCell>
                   )}
                   {isVisible('type') && (
