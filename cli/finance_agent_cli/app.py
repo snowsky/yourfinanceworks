@@ -90,7 +90,12 @@ def auth_headers(profile: dict[str, Any] | None) -> dict[str, str]:
     if not profile:
         return headers
 
-    token = profile.get("access_token") or profile.get("api_key")
+    auth_type = profile.get("auth_type")
+    if auth_type == "api_key" and profile.get("api_key"):
+        headers["X-API-Key"] = profile["api_key"]
+        return headers
+
+    token = profile.get("access_token")
     if token:
         headers["Authorization"] = f"Bearer {token}"
     return headers
@@ -382,16 +387,23 @@ def execute_prompt(
         return 1
 
     if not (profile.get("access_token") or profile.get("api_key")):
-        print("Active profile has no bearer token. Run `auth login` or `auth api-key set` first.")
+        print("Active profile has no credentials. Run `auth login`, `auth browser-login`, or `auth api-key set` first.")
         return 1
 
-    payload: dict[str, Any] = {"message": prompt, "config_id": 0}
+    auth_type = profile.get("auth_type", "none")
+    if auth_type == "api_key":
+        endpoint_path = "/api/v1/external/agent/run"
+        payload: dict[str, Any] = {"prompt": prompt, "config_id": 0}
+    else:
+        endpoint_path = "/api/v1/ai/chat"
+        payload = {"message": prompt, "config_id": 0}
+
     if tenant:
         payload["page_context"] = {"tenant": tenant, "cli_agent": agent}
 
     status_code, response = http_json(
         "POST",
-        api_url(base_url, "/api/v1/ai/chat"),
+        api_url(base_url, endpoint_path),
         headers=auth_headers(profile),
         payload=payload,
         profile=profile,
@@ -513,6 +525,7 @@ def handle_auth(args: argparse.Namespace) -> int:
         profile["base_url"] = base_url
         profile["auth_type"] = "bearer"
         profile["access_token"] = response["access_token"]
+        profile.pop("api_key", None)
         config["active_profile"] = target_profile
         save_config(config)
         print(f'Logged in and saved bearer token for profile "{target_profile}"')
@@ -557,12 +570,12 @@ def handle_auth(args: argparse.Namespace) -> int:
         elif args.ca_bundle:
             profile["tls_insecure"] = False
             profile["ca_bundle"] = args.ca_bundle
-        profile["auth_type"] = "bearer"
+        profile["auth_type"] = "api_key"
         profile["api_key"] = args.api_key
         profile.pop("access_token", None)
         config["active_profile"] = args.profile
         save_config(config)
-        print(f'Bearer token saved for profile "{args.profile}"')
+        print(f'API key saved for profile "{args.profile}"')
         return 0
 
     if args.auth_command == "whoami":

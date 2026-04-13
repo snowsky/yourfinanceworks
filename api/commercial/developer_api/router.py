@@ -1,12 +1,14 @@
 """
 External Developer API router — provides read endpoints for financial domains
-(expenses, invoices, bank statements, investment portfolios) secured by API key.
+(expenses, invoices, bank statements, investment portfolios) plus agent access
+secured by API key.
 """
 
 import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from core.models.database import get_db, get_master_db, set_tenant_context  # get_db used via get_tenant_db
@@ -23,6 +25,12 @@ router = APIRouter(prefix="/api/v1/external", tags=["developer-api"])
 logger = logging.getLogger(__name__)
 
 auth_service = ExternalAPIAuthService()
+
+
+class ExternalAgentRunRequest(BaseModel):
+    prompt: str
+    config_id: int = 0
+    page_context: Optional[dict] = None
 
 
 async def get_api_auth_context(
@@ -88,6 +96,33 @@ def _check_domain_access(master_db: Session, auth_context: AuthContext, domain: 
             status_code=403,
             detail=f"'{domain}' domain is not licensed for this API key.",
         )
+
+
+@router.post("/agent/run")
+async def run_agent(
+    payload: ExternalAgentRunRequest,
+    tenant_db: Session = Depends(get_tenant_db),
+    auth_context: AuthContext = Depends(get_api_auth_context),
+):
+    """Run the AI agent using API-key-authenticated external access."""
+    if not auth_context.user:
+        raise HTTPException(
+            status_code=403,
+            detail="API key is not associated with an active user."
+        )
+
+    from commercial.ai.routers.chat import ai_chat
+    from commercial.ai.routers.chat_models import ChatRequest
+
+    return await ai_chat(
+        request=ChatRequest(
+            message=payload.prompt,
+            config_id=payload.config_id,
+            page_context=payload.page_context,
+        ),
+        db=tenant_db,
+        current_user=auth_context.user,
+    )
 
 
 # ---------------------------------------------------------------------------
