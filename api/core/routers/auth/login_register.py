@@ -3,7 +3,8 @@
 # Licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
 # See LICENSE-AGPLv3.txt for details.
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Request, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -11,6 +12,7 @@ from sqlalchemy import func
 import os
 import logging
 import traceback
+from urllib.parse import urlparse, urlencode
 
 from core.models.database import get_master_db
 from core.models.models import MasterUser, Tenant
@@ -29,6 +31,155 @@ from core.routers.auth._shared import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _is_allowed_cli_redirect_uri(redirect_uri: str) -> bool:
+    try:
+        parsed = urlparse(redirect_uri)
+    except Exception:
+        return False
+
+    if parsed.scheme != "http":
+        return False
+    if parsed.username or parsed.password:
+        return False
+    if parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+        return False
+    if not parsed.port:
+        return False
+    if parsed.path not in {"", "/callback"}:
+        return False
+    return True
+
+
+def _build_cli_redirect(redirect_uri: str, **params: str) -> str:
+    parsed = urlparse(redirect_uri)
+    query = urlencode(params)
+    path = parsed.path or "/callback"
+    netloc = parsed.netloc
+    return f"{parsed.scheme}://{netloc}{path}?{query}"
+
+
+def _render_cli_login_page(base_url: str, redirect_uri: str, error_message: str | None = None) -> str:
+    error_block = ""
+    if error_message:
+        error_block = (
+            "<div style='margin-bottom: 16px; color: #8b1e1e; background: #fde8e8; "
+            "padding: 12px 14px; border-radius: 10px; border: 1px solid #f5b5b5;'>"
+            f"{error_message}"
+            "</div>"
+        )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Finance Agent CLI Login</title>
+  </head>
+  <body style="margin:0; font-family: ui-sans-serif, system-ui, sans-serif; background:#f6f7fb; color:#1f2937;">
+    <div style="max-width:420px; margin:64px auto; background:white; padding:28px; border-radius:16px; box-shadow:0 12px 40px rgba(15,23,42,0.08);">
+      <h1 style="margin:0 0 8px 0; font-size:24px;">Finance Agent CLI Login</h1>
+      <p style="margin:0 0 20px 0; color:#4b5563;">
+        Sign in to continue the browser-based CLI authentication flow.
+      </p>
+      {error_block}
+      <form method="post" action="{base_url}/api/v1/auth/cli/login">
+        <input type="hidden" name="redirect_uri" value="{redirect_uri}" />
+        <label style="display:block; margin-bottom:12px;">
+          <div style="font-size:14px; margin-bottom:6px;">Email</div>
+          <input name="email" type="email" required
+            style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:10px; padding:10px 12px;" />
+        </label>
+        <label style="display:block; margin-bottom:16px;">
+          <div style="font-size:14px; margin-bottom:6px;">Password</div>
+          <input name="password" type="password" required
+            style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:10px; padding:10px 12px;" />
+        </label>
+        <button type="submit"
+          style="width:100%; background:#111827; color:white; border:none; border-radius:10px; padding:11px 14px; font-size:14px; cursor:pointer;">
+          Continue
+        </button>
+      </form>
+    </div>
+  </body>
+</html>"""
+
+
+@router.get("/cli/login", response_class=HTMLResponse)
+async def cli_login_page(request: Request, redirect_uri: str):
+    if not _is_allowed_cli_redirect_uri(redirect_uri):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid redirect_uri. Only localhost loopback callbacks are allowed."
+        )
+
+    base_url = str(request.base_url).rstrip("/")
+    return HTMLResponse(content=_render_cli_login_page(base_url, redirect_uri))
+
+
+@router.post("/cli/login")
+async def cli_login_submit(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    redirect_uri: str = Form(...),
+    db: Session = Depends(get_master_db),
+):
+    if not _is_allowed_cli_redirect_uri(redirect_uri):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid redirect_uri. Only localhost loopback callbacks are allowed."
+        )
+
+    user_credentials = UserLogin(email=email, password=password)
+    email_key = (user_credentials.email or "").lower().strip()
+    if record_and_check(f"login:{email_key}", MAX_LOGIN_ATTEMPTS, RATE_LIMIT_WINDOW_SECONDS):
+        return RedirectResponse(
+            url=_build_cli_redirect(redirect_uri, error="too_many_login_attempts"),
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    user = db.query(MasterUser).filter(MasterUser.email == user_credentials.email).first()
+    if not user or not verify_password(user_credentials.password, user.hashed_password):
+        base_url = str(request.base_url).rstrip("/")
+        return HTMLResponse(
+            content=_render_cli_login_page(base_url, redirect_uri, "Invalid email or password."),
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    if not user.is_active:
+        return RedirectResponse(
+            url=_build_cli_redirect(redirect_uri, error="user_disabled"),
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+    if not tenant or not tenant.is_active:
+        return RedirectResponse(
+            url=_build_cli_redirect(redirect_uri, error="tenant_disabled"),
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+
+    response = RedirectResponse(
+        url=_build_cli_redirect(redirect_uri, access_token=access_token, token_type="bearer"),
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+    response.set_cookie(
+        key=AUTH_COOKIE_NAME,
+        value=access_token,
+        httponly=True,
+        samesite="lax",
+        secure=_is_production,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+    return response
 
 
 @router.post("/register", response_model=Token, status_code=201)

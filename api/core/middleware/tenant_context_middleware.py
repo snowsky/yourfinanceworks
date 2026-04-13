@@ -211,6 +211,7 @@ async def tenant_context_middleware(request: Request, call_next):
         "/docs",
         "/openapi.json",
         "/api/v1/auth/login",
+        "/api/v1/auth/cli/login",
         "/api/v1/auth/register",
         "/api/v1/auth/check-email-availability",
         "/api/v1/auth/request-password-reset",
