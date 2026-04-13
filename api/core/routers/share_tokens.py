@@ -29,7 +29,7 @@ from core.schemas.share_token import (
     PublicPortfolioHolding,
 )
 
-from core.utils.audit import log_audit_event_master
+from core.utils.audit import log_audit_event
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +63,7 @@ def create_share_token(
     payload: ShareTokenCreate,
     request: Request,
     current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
     master_db: Session = Depends(get_master_db),
 ):
     """Generate a shareable link token for a record. Idempotent — returns existing token if one is active."""
@@ -102,23 +103,24 @@ def create_share_token(
     master_db.commit()
     master_db.refresh(share)
 
-    log_audit_event_master(
-        db=master_db,
-        user_id=current_user.id,
-        user_email=current_user.email,
-        action="SHARE_TOKEN_CREATED",
-        resource_type=payload.record_type.upper(),
-        resource_id=str(payload.record_id),
-        details={
+    log_audit_event(
+        db,
+        current_user.id,
+        current_user.email,
+        "SHARE_TOKEN_CREATED",
+        payload.record_type.upper(),
+        str(payload.record_id),
+        None,
+        {
             "token": share.token,
             "record_type": payload.record_type,
             "record_id": payload.record_id,
             "expires_at": expires_at.isoformat(),
         },
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        status="success",
-        tenant_id=current_user.tenant_id,
+        request.client.host if request.client else None,
+        request.headers.get("user-agent"),
+        "success",
+        None,
     )
 
     return _token_to_response(share)
@@ -152,6 +154,7 @@ def revoke_share_token(
     token: str,
     request: Request,
     current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
     master_db: Session = Depends(get_master_db),
 ):
     """Revoke a share token so the public link no longer works."""
@@ -168,22 +171,23 @@ def revoke_share_token(
     share.is_active = False
     master_db.commit()
 
-    log_audit_event_master(
-        db=master_db,
-        user_id=current_user.id,
-        user_email=current_user.email,
-        action="SHARE_TOKEN_REVOKED",
-        resource_type=share.record_type.upper(),
-        resource_id=str(share.record_id),
-        details={
+    log_audit_event(
+        db,
+        current_user.id,
+        current_user.email,
+        "SHARE_TOKEN_REVOKED",
+        share.record_type.upper(),
+        str(share.record_id),
+        None,
+        {
             "token": token,
             "record_type": share.record_type,
             "record_id": share.record_id,
         },
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        status="success",
-        tenant_id=current_user.tenant_id,
+        request.client.host if request.client else None,
+        request.headers.get("user-agent"),
+        "success",
+        None,
     )
 
 
@@ -388,59 +392,60 @@ def get_shared_record(token: str, request: Request):
         owner_id = owner.id if owner else share.created_by_user_id
         owner_email = owner.email if owner else "unknown"
 
-        if share.expires_at and share.expires_at < datetime.now(timezone.utc):
-            log_audit_event_master(
-                db=master_db,
-                user_id=owner_id,
-                user_email=owner_email,
-                action="SHARE_TOKEN_EXPIRED",
-                resource_type=share.record_type.upper(),
-                resource_id=str(share.record_id),
-                details={
-                    "token": token,
-                    "record_type": share.record_type,
-                    "record_id": share.record_id,
-                    "expired_at": share.expires_at.isoformat(),
-                    "accessed_from": ip_address,
-                },
-                ip_address=ip_address,
-                user_agent=user_agent,
-                status="failure",
-                error_message="Share link expired",
-                tenant_id=share.tenant_id,
-            )
-            raise HTTPException(status_code=410, detail="This link has expired")
-
         from core.services.tenant_database_manager import tenant_db_manager
         TenantSession = tenant_db_manager.get_tenant_session(share.tenant_id)
         tenant_db = TenantSession()
         try:
-            # Set tenant context so EncryptedColumn can decrypt fields correctly
             set_tenant_context(share.tenant_id)
+
+            if share.expires_at and share.expires_at < datetime.now(timezone.utc):
+                log_audit_event(
+                    tenant_db,
+                    owner_id,
+                    owner_email,
+                    "SHARE_TOKEN_EXPIRED",
+                    share.record_type.upper(),
+                    str(share.record_id),
+                    None,
+                    {
+                        "token": token,
+                        "record_type": share.record_type,
+                        "record_id": share.record_id,
+                        "expired_at": share.expires_at.isoformat(),
+                        "accessed_from": ip_address,
+                    },
+                    ip_address,
+                    user_agent,
+                    "failure",
+                    "Share link expired",
+                )
+                raise HTTPException(status_code=410, detail="This link has expired")
+
             result = _fetch_public_record(tenant_db, share.record_type, share.record_id)
+
+            log_audit_event(
+                tenant_db,
+                owner_id,
+                owner_email,
+                "SHARE_TOKEN_ACCESSED",
+                share.record_type.upper(),
+                str(share.record_id),
+                None,
+                {
+                    "token": token,
+                    "record_type": share.record_type,
+                    "record_id": share.record_id,
+                    "accessed_from": ip_address,
+                },
+                ip_address,
+                user_agent,
+                "success",
+                None,
+            )
+
+            return result
         finally:
             clear_tenant_context()
             tenant_db.close()
-
-        log_audit_event_master(
-            db=master_db,
-            user_id=owner_id,
-            user_email=owner_email,
-            action="SHARE_TOKEN_ACCESSED",
-            resource_type=share.record_type.upper(),
-            resource_id=str(share.record_id),
-            details={
-                "token": token,
-                "record_type": share.record_type,
-                "record_id": share.record_id,
-                "accessed_from": ip_address,
-            },
-            ip_address=ip_address,
-            user_agent=user_agent,
-            status="success",
-            tenant_id=share.tenant_id,
-        )
-
-        return result
     finally:
         master_db.close()
