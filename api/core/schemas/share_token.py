@@ -90,6 +90,7 @@ class PublicBankStatementTransaction(BaseModel):
     description: str
     amount: float
     transaction_type: str
+    balance: Optional[float] = None
     category: Optional[str] = None
 
 
@@ -97,6 +98,7 @@ class PublicBankStatementView(BaseModel):
     record_type: str = "bank_statement"
     id: int
     original_filename: str
+    bank_name: Optional[str] = None
     card_type: str
     status: str
     extracted_count: int

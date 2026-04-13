@@ -273,13 +273,15 @@ def _fetch_public_record(
                 description=tx.description,
                 amount=tx.amount,
                 transaction_type=tx.transaction_type,
+                balance=tx.balance,
                 category=tx.category,
             )
-            for tx in (statement.transactions or [])
+            for tx in sorted(statement.transactions or [], key=lambda t: t.date)
         ]
         return PublicBankStatementView(
             id=statement.id,
             original_filename=statement.original_filename,
+            bank_name=statement.bank_name,
             card_type=statement.card_type,
             status=statement.status,
             extracted_count=statement.extracted_count,

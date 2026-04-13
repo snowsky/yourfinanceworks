@@ -101,32 +101,50 @@ function ClientView({ data }: { data: any }) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function BankStatementView({ data }: { data: any }) {
+  const hasBalance = data.transactions?.some((tx: any) => tx.balance != null);
+  const hasCategory = data.transactions?.some((tx: any) => tx.category);
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 text-sm">
+        {data.bank_name && <div className="col-span-2"><span className="text-muted-foreground">Bank</span><p className="font-medium">{data.bank_name}</p></div>}
         <div><span className="text-muted-foreground">File</span><p className="font-medium">{data.original_filename}</p></div>
         <div><span className="text-muted-foreground">Card type</span><p className="font-medium capitalize">{data.card_type}</p></div>
         <div><span className="text-muted-foreground">Status</span><p className="font-medium capitalize">{data.status}</p></div>
         <div><span className="text-muted-foreground">Transactions</span><p className="font-medium">{data.extracted_count}</p></div>
       </div>
-      {data.transactions?.length > 0 && (
+      {data.transactions?.length > 0 ? (
         <div>
-          <p className="text-sm font-semibold mb-2">Transactions</p>
-          <table className="w-full text-sm border-collapse">
-            <thead><tr className="border-b text-muted-foreground"><th className="text-left py-1">Date</th><th className="text-left py-1">Description</th><th className="text-right py-1">Amount</th><th className="text-left py-1">Type</th></tr></thead>
-            <tbody>
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {data.transactions.map((tx: any, i: number) => (
-                <tr key={i} className="border-b last:border-0">
-                  <td className="py-1">{formatDate(tx.date)}</td>
-                  <td className="py-1">{tx.description}</td>
-                  <td className="text-right py-1">{tx.amount}</td>
-                  <td className="py-1 capitalize">{tx.transaction_type}</td>
+          <p className="text-sm font-semibold mb-2">Transactions ({data.transactions.length})</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse min-w-[480px]">
+              <thead>
+                <tr className="border-b text-muted-foreground">
+                  <th className="text-left py-1.5 pr-3">Date</th>
+                  <th className="text-left py-1.5 pr-3">Description</th>
+                  {hasCategory && <th className="text-left py-1.5 pr-3">Category</th>}
+                  <th className="text-right py-1.5 pr-3">Amount</th>
+                  {hasBalance && <th className="text-right py-1.5">Balance</th>}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {data.transactions.map((tx: any, i: number) => (
+                  <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
+                    <td className="py-1.5 pr-3 whitespace-nowrap">{formatDate(tx.date)}</td>
+                    <td className="py-1.5 pr-3">{tx.description}</td>
+                    {hasCategory && <td className="py-1.5 pr-3 text-muted-foreground capitalize">{tx.category || '—'}</td>}
+                    <td className={`py-1.5 pr-3 text-right font-mono whitespace-nowrap ${tx.transaction_type === 'credit' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {tx.transaction_type === 'credit' ? '+' : '-'}{Math.abs(tx.amount).toFixed(2)}
+                    </td>
+                    {hasBalance && <td className="py-1.5 text-right font-mono text-muted-foreground whitespace-nowrap">{tx.balance != null ? tx.balance.toFixed(2) : '—'}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+      ) : (
+        <p className="text-sm text-muted-foreground italic">No transactions available.</p>
       )}
     </div>
   );
@@ -192,9 +210,11 @@ export default function SharedRecord() {
   const Icon = RECORD_ICONS[recordType] ?? FileText;
   const label = RECORD_LABELS[recordType] ?? 'Record';
 
+  const isBankStatement = recordType === 'bank_statement';
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-start p-6">
-      <div className="w-full max-w-2xl space-y-6 mt-8">
+      <div className={`w-full ${isBankStatement ? 'max-w-4xl' : 'max-w-2xl'} space-y-6 mt-8`}>
         {loading && (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground text-sm">Loading…</CardContent>
