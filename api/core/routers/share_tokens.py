@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from core.models.database import get_db, get_master_db, SessionLocal, set_tenant_context, clear_tenant_context
 from core.models.models import MasterUser, ShareToken
 from core.models.models_per_tenant import (
+    AuditLog,
     Invoice, InvoiceItem, Expense, Payment, Client,
     BankStatement, BankStatementTransaction,
 )
@@ -28,8 +29,6 @@ from core.schemas.share_token import (
     PublicPortfolioView,
     PublicPortfolioHolding,
 )
-
-from core.utils.audit import log_audit_event
 
 logger = logging.getLogger(__name__)
 
@@ -103,25 +102,31 @@ def create_share_token(
     master_db.commit()
     master_db.refresh(share)
 
-    log_audit_event(
-        db,
-        current_user.id,
-        current_user.email,
-        "SHARE_TOKEN_CREATED",
-        payload.record_type.upper(),
-        str(payload.record_id),
-        None,
-        {
-            "token": share.token,
-            "record_type": payload.record_type,
-            "record_id": payload.record_id,
-            "expires_at": expires_at.isoformat(),
-        },
-        request.client.host if request.client else None,
-        request.headers.get("user-agent"),
-        "success",
-        None,
-    )
+    try:
+        db.add(AuditLog(
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="SHARE_TOKEN_CREATED",
+            resource_type=payload.record_type.upper(),
+            resource_id=str(payload.record_id),
+            details={
+                "token": share.token,
+                "record_type": payload.record_type,
+                "record_id": payload.record_id,
+                "expires_at": expires_at.isoformat(),
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            status="success",
+            created_at=datetime.now(timezone.utc),
+        ))
+        db.commit()
+    except Exception:
+        logger.exception("Failed to write SHARE_TOKEN_CREATED audit log")
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
     return _token_to_response(share)
 
@@ -171,24 +176,30 @@ def revoke_share_token(
     share.is_active = False
     master_db.commit()
 
-    log_audit_event(
-        db,
-        current_user.id,
-        current_user.email,
-        "SHARE_TOKEN_REVOKED",
-        share.record_type.upper(),
-        str(share.record_id),
-        None,
-        {
-            "token": token,
-            "record_type": share.record_type,
-            "record_id": share.record_id,
-        },
-        request.client.host if request.client else None,
-        request.headers.get("user-agent"),
-        "success",
-        None,
-    )
+    try:
+        db.add(AuditLog(
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="SHARE_TOKEN_REVOKED",
+            resource_type=share.record_type.upper(),
+            resource_id=str(share.record_id),
+            details={
+                "token": token,
+                "record_type": share.record_type,
+                "record_id": share.record_id,
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            status="success",
+            created_at=datetime.now(timezone.utc),
+        ))
+        db.commit()
+    except Exception:
+        logger.exception("Failed to write SHARE_TOKEN_REVOKED audit log")
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -399,49 +410,62 @@ def get_shared_record(token: str, request: Request):
             set_tenant_context(share.tenant_id)
 
             if share.expires_at and share.expires_at < datetime.now(timezone.utc):
-                log_audit_event(
-                    tenant_db,
-                    owner_id,
-                    owner_email,
-                    "SHARE_TOKEN_EXPIRED",
-                    share.record_type.upper(),
-                    str(share.record_id),
-                    None,
-                    {
-                        "token": token,
-                        "record_type": share.record_type,
-                        "record_id": share.record_id,
-                        "expired_at": share.expires_at.isoformat(),
-                        "accessed_from": ip_address,
-                    },
-                    ip_address,
-                    user_agent,
-                    "failure",
-                    "Share link expired",
-                )
+                try:
+                    tenant_db.add(AuditLog(
+                        user_id=owner_id,
+                        user_email=owner_email,
+                        action="SHARE_TOKEN_EXPIRED",
+                        resource_type=share.record_type.upper(),
+                        resource_id=str(share.record_id),
+                        details={
+                            "token": token,
+                            "record_type": share.record_type,
+                            "record_id": share.record_id,
+                            "expired_at": share.expires_at.isoformat(),
+                            "accessed_from": ip_address,
+                        },
+                        ip_address=ip_address,
+                        user_agent=user_agent,
+                        status="failure",
+                        error_message="Share link expired",
+                        created_at=datetime.now(timezone.utc),
+                    ))
+                    tenant_db.commit()
+                except Exception:
+                    logger.exception("Failed to write SHARE_TOKEN_EXPIRED audit log")
+                    try:
+                        tenant_db.rollback()
+                    except Exception:
+                        pass
                 raise HTTPException(status_code=410, detail="This link has expired")
 
             result = _fetch_public_record(tenant_db, share.record_type, share.record_id)
 
-            log_audit_event(
-                tenant_db,
-                owner_id,
-                owner_email,
-                "SHARE_TOKEN_ACCESSED",
-                share.record_type.upper(),
-                str(share.record_id),
-                None,
-                {
-                    "token": token,
-                    "record_type": share.record_type,
-                    "record_id": share.record_id,
-                    "accessed_from": ip_address,
-                },
-                ip_address,
-                user_agent,
-                "success",
-                None,
-            )
+            try:
+                tenant_db.add(AuditLog(
+                    user_id=owner_id,
+                    user_email=owner_email,
+                    action="SHARE_TOKEN_ACCESSED",
+                    resource_type=share.record_type.upper(),
+                    resource_id=str(share.record_id),
+                    details={
+                        "token": token,
+                        "record_type": share.record_type,
+                        "record_id": share.record_id,
+                        "accessed_from": ip_address,
+                    },
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    status="success",
+                    created_at=datetime.now(timezone.utc),
+                ))
+                tenant_db.commit()
+            except Exception:
+                logger.exception("Failed to write SHARE_TOKEN_ACCESSED audit log")
+                try:
+                    tenant_db.rollback()
+                except Exception:
+                    pass
 
             return result
         finally:
