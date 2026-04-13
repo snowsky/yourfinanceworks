@@ -1,10 +1,10 @@
 """Transaction CRUD and cross-statement transaction link endpoints."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from core.models.database import get_db
@@ -16,6 +16,7 @@ from core.models.models_per_tenant import BankStatement, BankStatementTransactio
 from core.schemas.bank_statement import TransactionLinkCreate
 from core.services import transaction_link_service
 from core.utils.audit import log_audit_event
+from core.utils.timezone import get_tenant_timezone_aware_datetime
 from ._shared import get_tenant_id
 
 logger = logging.getLogger(__name__)
@@ -153,13 +154,55 @@ async def patch_statement_transaction(
     return {"success": True}
 
 
+@router.get("/transactions/recycle-bin", response_model=Dict[str, Any])
+async def get_deleted_transactions(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Return all soft-deleted transactions for this tenant."""
+    tenant_id = get_tenant_id()
+
+    query = (
+        db.query(BankStatementTransaction)
+        .join(BankStatement)
+        .filter(
+            BankStatement.tenant_id == tenant_id,
+            BankStatementTransaction.is_deleted == True,
+        )
+        .order_by(BankStatementTransaction.deleted_at.desc())
+    )
+    total = query.count()
+    txns = query.offset(skip).limit(limit).all()
+
+    items = [
+        {
+            "id": t.id,
+            "statement_id": t.statement_id,
+            "date": str(t.date),
+            "description": t.description,
+            "amount": t.amount,
+            "transaction_type": t.transaction_type,
+            "deleted_at": t.deleted_at.isoformat() if t.deleted_at else None,
+        }
+        for t in txns
+    ]
+    return {"success": True, "items": items, "total": total}
+
+
 @router.delete("/{statement_id}/transactions/{transaction_id}", response_model=Dict[str, Any])
 async def delete_statement_transaction(
     statement_id: int,
     transaction_id: int,
+    permanent: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
+    """Soft-delete (move to recycle bin) or permanently delete a transaction.
+
+    By default performs a soft delete. Pass `?permanent=true` to hard-delete immediately.
+    """
     require_non_viewer(current_user, "delete bank statement transaction")
     tenant_id = get_tenant_id()
 
@@ -170,24 +213,134 @@ async def delete_statement_transaction(
             BankStatementTransaction.id == transaction_id,
             BankStatementTransaction.statement_id == statement_id,
             BankStatement.tenant_id == tenant_id,
+            BankStatementTransaction.is_deleted == False,
         )
         .first()
     )
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
-    db.delete(txn)
+    if permanent:
+        db.delete(txn)
+        db.flush()
+        statement = db.query(BankStatement).filter(BankStatement.id == statement_id).first()
+        if statement:
+            statement.extracted_count = (
+                db.query(BankStatementTransaction)
+                .filter(
+                    BankStatementTransaction.statement_id == statement_id,
+                    BankStatementTransaction.is_deleted == False,
+                )
+                .count()
+            )
+        db.commit()
+        log_audit_event(
+            db, current_user.id, current_user.email, "transaction_permanently_deleted",
+            f"Permanently deleted transaction {transaction_id} from statement {statement_id}",
+        )
+        return {"success": True, "action": "permanently_deleted"}
+    else:
+        txn.is_deleted = True
+        txn.deleted_at = get_tenant_timezone_aware_datetime(db)
+        txn.deleted_by = current_user.id
+        db.flush()
+        statement = db.query(BankStatement).filter(BankStatement.id == statement_id).first()
+        if statement:
+            statement.extracted_count = (
+                db.query(BankStatementTransaction)
+                .filter(
+                    BankStatementTransaction.statement_id == statement_id,
+                    BankStatementTransaction.is_deleted == False,
+                )
+                .count()
+            )
+        db.commit()
+        log_audit_event(
+            db, current_user.id, current_user.email, "transaction_soft_deleted",
+            f"Moved transaction {transaction_id} from statement {statement_id} to recycle bin",
+        )
+        return {"success": True, "action": "moved_to_recycle_bin"}
+
+
+@router.post("/{statement_id}/transactions/{transaction_id}/restore", response_model=Dict[str, Any])
+async def restore_statement_transaction(
+    statement_id: int,
+    transaction_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Restore a soft-deleted transaction from the recycle bin."""
+    require_non_viewer(current_user, "restore bank statement transaction")
+    tenant_id = get_tenant_id()
+
+    txn = (
+        db.query(BankStatementTransaction)
+        .join(BankStatement)
+        .filter(
+            BankStatementTransaction.id == transaction_id,
+            BankStatementTransaction.statement_id == statement_id,
+            BankStatement.tenant_id == tenant_id,
+            BankStatementTransaction.is_deleted == True,
+        )
+        .first()
+    )
+    if not txn:
+        raise HTTPException(status_code=404, detail="Deleted transaction not found")
+
+    txn.is_deleted = False
+    txn.deleted_at = None
+    txn.deleted_by = None
     db.flush()
 
     statement = db.query(BankStatement).filter(BankStatement.id == statement_id).first()
     if statement:
-        statement.extracted_count = db.query(BankStatementTransaction).filter(
-            BankStatementTransaction.statement_id == statement_id
-        ).count()
-
+        statement.extracted_count = (
+            db.query(BankStatementTransaction)
+            .filter(
+                BankStatementTransaction.statement_id == statement_id,
+                BankStatementTransaction.is_deleted == False,
+            )
+            .count()
+        )
     db.commit()
-    log_audit_event(db, current_user.id, current_user.email, "transaction_deleted",
-                    f"Deleted transaction {transaction_id} from statement {statement_id}")
+    log_audit_event(
+        db, current_user.id, current_user.email, "transaction_restored",
+        f"Restored transaction {transaction_id} to statement {statement_id}",
+    )
+    return {"success": True}
+
+
+@router.delete("/{statement_id}/transactions/{transaction_id}/permanent", response_model=Dict[str, Any])
+async def permanently_delete_statement_transaction(
+    statement_id: int,
+    transaction_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Permanently delete a transaction that is already in the recycle bin."""
+    require_non_viewer(current_user, "permanently delete bank statement transaction")
+    tenant_id = get_tenant_id()
+
+    txn = (
+        db.query(BankStatementTransaction)
+        .join(BankStatement)
+        .filter(
+            BankStatementTransaction.id == transaction_id,
+            BankStatementTransaction.statement_id == statement_id,
+            BankStatement.tenant_id == tenant_id,
+            BankStatementTransaction.is_deleted == True,
+        )
+        .first()
+    )
+    if not txn:
+        raise HTTPException(status_code=404, detail="Deleted transaction not found")
+
+    db.delete(txn)
+    db.commit()
+    log_audit_event(
+        db, current_user.id, current_user.email, "transaction_permanently_deleted",
+        f"Permanently deleted transaction {transaction_id} from statement {statement_id}",
+    )
     return {"success": True}
 
 

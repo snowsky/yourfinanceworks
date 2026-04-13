@@ -181,7 +181,11 @@ def find_cross_statement_duplicate_groups(db: Session, tenant_id: int) -> List[L
     rows = (
         db.query(BankStatementTransaction, BankStatement)
         .join(BankStatement, BankStatementTransaction.statement_id == BankStatement.id)
-        .filter(BankStatement.tenant_id == tenant_id, BankStatement.is_deleted == False)
+        .filter(
+            BankStatement.tenant_id == tenant_id,
+            BankStatement.is_deleted == False,
+            BankStatementTransaction.is_deleted == False,
+        )
         .all()
     )
 

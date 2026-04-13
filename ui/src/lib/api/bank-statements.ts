@@ -62,6 +62,16 @@ export interface DeletedBankStatement extends BankStatementSummary {
   deleted_by_username?: string | null;
 }
 
+export interface DeletedTransaction {
+  id: number;
+  statement_id: number;
+  date: string;
+  description: string;
+  amount: number;
+  transaction_type: string;
+  deleted_at?: string | null;
+}
+
 export const bankStatementApi = {
   uploadAndExtract: async (
     files: File[],
@@ -141,13 +151,39 @@ export const bankStatementApi = {
 
   deleteTransaction: async (
     statementId: number,
-    transactionId: number
-  ): Promise<{ success: boolean }> => {
-    return apiRequest<{ success: boolean }>(
-      `/statements/${statementId}/transactions/${transactionId}`,
+    transactionId: number,
+    permanent = false
+  ): Promise<{ success: boolean; action?: string }> => {
+    return apiRequest<{ success: boolean; action?: string }>(
+      `/statements/${statementId}/transactions/${transactionId}${permanent ? '?permanent=true' : ''}`,
       { method: 'DELETE' }
     );
   },
+
+  restoreTransaction: async (
+    statementId: number,
+    transactionId: number
+  ): Promise<{ success: boolean }> => {
+    return apiRequest<{ success: boolean }>(
+      `/statements/${statementId}/transactions/${transactionId}/restore`,
+      { method: 'POST' }
+    );
+  },
+
+  permanentlyDeleteTransaction: async (
+    statementId: number,
+    transactionId: number
+  ): Promise<{ success: boolean }> => {
+    return apiRequest<{ success: boolean }>(
+      `/statements/${statementId}/transactions/${transactionId}/permanent`,
+      { method: 'DELETE' }
+    );
+  },
+
+  getDeletedTransactions: (skip = 0, limit = 100) =>
+    apiRequest<{ success: boolean; items: DeletedTransaction[]; total: number }>(
+      `/statements/transactions/recycle-bin?skip=${skip}&limit=${limit}`
+    ),
 
   reprocess: async (statementId: number): Promise<{ success: boolean; message: string }> => {
     return apiRequest<{ success: boolean; message: string }>(
