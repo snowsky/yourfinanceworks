@@ -474,13 +474,12 @@ def run_shell() -> int:
 def handle_connect(args: argparse.Namespace) -> int:
     config = load_config()
     profiles = config.setdefault("profiles", {})
-    profiles[args.profile] = {
-        "mode": args.mode,
-        "base_url": normalize_base_url(args.base_url),
-        "auth_type": profiles.get(args.profile, {}).get("auth_type", "none"),
-        "tls_insecure": bool(args.insecure),
-        "ca_bundle": args.ca_bundle,
-    }
+    profile = profiles.setdefault(args.profile, {})
+    profile["mode"] = args.mode
+    profile["base_url"] = normalize_base_url(args.base_url)
+    profile["auth_type"] = profile.get("auth_type", "none")
+    profile["tls_insecure"] = bool(args.insecure)
+    profile["ca_bundle"] = args.ca_bundle
     config["active_profile"] = args.profile
     save_config(config)
     print(f'Saved profile "{args.profile}" with base URL {normalize_base_url(args.base_url)}')
