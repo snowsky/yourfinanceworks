@@ -75,12 +75,12 @@ class AuthenticatedAPIClient:
     # Client Management Methods
     async def create_client(self, client_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new client"""
-        return await self._make_request("POST", "/clients/", json=client_data)
+        return await self._make_request("POST", "/tools/clients/", json=client_data)
 
     async def list_clients(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
         return await self._make_request(
             "GET",
-            "/clients/",
+            "/tools/clients/",
             params={"skip": skip, "limit": limit}
         )
 
@@ -108,7 +108,7 @@ class AuthenticatedAPIClient:
     async def list_invoices(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
         return await self._make_request(
             "GET",
-            "/invoices/",
+            "/tools/invoices/",
             params={"skip": skip, "limit": limit}
         )
 
@@ -137,7 +137,7 @@ class AuthenticatedAPIClient:
     async def list_payments(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
         return await self._make_request(
             "GET",
-            "/payments/",
+            "/tools/payments/",
             params={"skip": skip, "limit": limit}
         )
 
@@ -151,13 +151,13 @@ class AuthenticatedAPIClient:
 
     # Analytics Methods
     async def get_clients_with_outstanding_balance(self) -> List[Dict[str, Any]]:
-        return await self._make_request("GET", "/clients/outstanding-balance")
+        return await self._make_request("GET", "/tools/clients/with-outstanding-balance")
 
     async def get_overdue_invoices(self) -> List[Dict[str, Any]]:
-        return await self._make_request("GET", "/invoices/overdue")
+        return await self._make_request("GET", "/tools/invoices/overdue")
 
     async def get_invoice_stats(self) -> Dict[str, Any]:
-        return await self._make_request("GET", "/invoices/stats")
+        return await self._make_request("GET", "/tools/invoices/stats")
 
     async def analyze_invoice_patterns(self) -> Dict[str, Any]:
         return await self._make_request("GET", "/ai/analyze-patterns")
@@ -167,7 +167,7 @@ class AuthenticatedAPIClient:
 
     # Expense Management Methods
     async def create_expense(self, expense_data: Dict[str, Any]) -> Dict[str, Any]:
-        return await self._make_request("POST", "/expenses/", json=expense_data)
+        return await self._make_request("POST", "/tools/expenses/", json=expense_data)
 
     async def list_expenses(self, skip: int = 0, limit: int = 100, category: str = None, invoice_id: int = None, **kwargs) -> List[Dict[str, Any]]:
         params = {"skip": skip, "limit": limit}
@@ -177,7 +177,7 @@ class AuthenticatedAPIClient:
             params["invoice_id"] = invoice_id
         return await self._make_request(
             "GET",
-            "/expenses/",
+            "/tools/expenses/",
             params=params
         )
 
@@ -208,17 +208,17 @@ class AuthenticatedAPIClient:
     async def list_statements(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
         result = await self._make_request(
             "GET",
-            "/statements/",
+            "/tools/statements/",
             params={"skip": skip, "limit": limit}
         )
         return {
             "success": True,
-            "data": result if isinstance(result, list) else result.get("statements", [])
+            "data": result if isinstance(result, list) else result.get("statements", result.get("data", []))
         }
 
     async def get_bank_statement(self, statement_id: int) -> Dict[str, Any]:
         """Get a specific bank statement with transactions"""
-        return await self._make_request("GET", f"/statements/{statement_id}")
+        return await self._make_request("GET", f"/tools/statements/{statement_id}")
 
     async def replace_bank_statement_transactions(
         self, statement_id: int, transactions: List[Dict[str, Any]]
@@ -226,7 +226,7 @@ class AuthenticatedAPIClient:
         """Replace bank statement transactions"""
         return await self._make_request(
             "PUT",
-            f"/statements/{statement_id}/transactions",
+            f"/tools/statements/{statement_id}/transactions",
             json={"transactions": transactions}
         )
 
