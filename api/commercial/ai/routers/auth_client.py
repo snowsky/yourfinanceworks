@@ -33,7 +33,8 @@ class AuthenticatedAPIClient:
                 **kwargs
             )
             response.raise_for_status()
-            return response.json()
+            result = response.json()
+            return self._unwrap_response(result)
 
         except httpx.HTTPStatusError as e:
             # Try to parse the error response
@@ -71,6 +72,12 @@ class AuthenticatedAPIClient:
         except Exception as e:
                 logger.error(f"General Request Error: {e}")
                 raise Exception(f"Request error: {e}")
+
+    def _unwrap_response(self, response_data: Any) -> Any:
+        """Unwrap ToolResponse envelope if present."""
+        if isinstance(response_data, dict) and response_data.get("success") is True and "data" in response_data:
+            return response_data["data"]
+        return response_data
 
     # Client Management Methods
     async def create_client(self, client_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -206,15 +213,11 @@ class AuthenticatedAPIClient:
 
     # Statement Management Methods
     async def list_statements(self, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
-        result = await self._make_request(
+        return await self._make_request(
             "GET",
             "/tools/statements/",
             params={"skip": skip, "limit": limit}
         )
-        return {
-            "success": True,
-            "data": result if isinstance(result, list) else result.get("statements", result.get("data", []))
-        }
 
     async def get_bank_statement(self, statement_id: int) -> Dict[str, Any]:
         """Get a specific bank statement with transactions"""
