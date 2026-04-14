@@ -111,10 +111,13 @@ User message: "{request.message}"
 
 Category:"""
 
+        # Pre-classification check for precise intents (skip LLM for specific patterns)
+        lower_message = request.message.lower()
+
         # PRE-CLASSIFICATION FAST-PATH
         # If the user is asking for specific common things, we skip the LLM classification to save time and increase accuracy
         intent = "general"
-        msg_lower = request.message.lower()
+        msg_lower = lower_message
         if any(word in msg_lower for word in ["overdue", "late payment"]):
             intent = "overdue"
             logger.info(f"Fast-path: Detected 'overdue' intent via keywords")
@@ -127,84 +130,81 @@ Category:"""
 
         if intent == "general":
             # Only call LLM if fast-path didn't match
-            # Pre-classification check for precise intents (skip LLM for specific patterns)
-            lower_message = request.message.lower()
+            # Handle early actions (statement context actions + client/expense creation fast paths)
+            result = await handle_early_actions(
+                message=request.message,
+                lower_message=lower_message,
+                page_context=page_context,
+                ai_config=ai_config,
+                db=db,
+                current_user_email=current_user.email,
+            )
+            if result is not None:
+                return result
 
-        # Handle early actions (statement context actions + client/expense creation fast paths)
-        result = await handle_early_actions(
-            message=request.message,
-            lower_message=lower_message,
-            page_context=page_context,
-            ai_config=ai_config,
-            db=db,
-            current_user_email=current_user.email,
-        )
-        if result is not None:
-            return result
+            # Get intent classification
+            model_name = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
 
-        # Get intent classification
-        model_name = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
+            # Standardize model parameters
+            model_params = AIConfigService.get_model_parameters(model_name, max_tokens=50, temperature=0.1)
 
-        # Standardize model parameters
-        model_params = AIConfigService.get_model_parameters(model_name, max_tokens=50, temperature=0.1)
+            kwargs = {
+                "model": model_name,
+                "messages": [{"role": "user", "content": intent_prompt}],
+                "timeout": 30,  # 30 second timeout for intent classification
+                **model_params
+            }
 
-        kwargs = {
-            "model": model_name,
-            "messages": [{"role": "user", "content": intent_prompt}],
-            "timeout": 30,  # 30 second timeout for intent classification
-            **model_params
-        }
+            if ai_config.provider_name == "ollama" and ai_config.provider_url:
+                kwargs["api_base"] = ai_config.provider_url
+            elif ai_config.api_key:
+                kwargs["api_key"] = ai_config.api_key
 
-        if ai_config.provider_name == "ollama" and ai_config.provider_url:
-            kwargs["api_base"] = ai_config.provider_url
-        elif ai_config.api_key:
-            kwargs["api_key"] = ai_config.api_key
+            try:
+                intent_response = await completion(**kwargs)
+                intent = intent_response.choices[0].message.content.strip().lower()
+                
+                # Clean up Gemma/local model responses like "Category: overdue"
+                if "category:" in intent:
+                    intent = intent.split("category:")[-1].strip()
+                if ":" in intent:
+                    intent = intent.split(":")[-1].strip()
+                # Remove any trailing punctuation
+                intent = intent.rstrip(".").rstrip("!")
 
-        try:
-            intent_response = await completion(**kwargs)
-            intent = intent_response.choices[0].message.content.strip().lower()
-            
-            # Clean up Gemma/local model responses like "Category: overdue"
-            if "category:" in intent:
-                intent = intent.split("category:")[-1].strip()
-            if ":" in intent:
-                intent = intent.split(":")[-1].strip()
-            # Remove any trailing punctuation
-            intent = intent.rstrip(".").rstrip("!")
-
-            # Handle empty or invalid responses
-            if not intent or intent == "" or len(intent) > 50:
-                intent = "general"
-            # Simple keyword fallback for common patterns
-            if intent == "general":
-                msg_lower = request.message.lower()
-                if any(word in msg_lower for word in ["invoice", "invoices", "show invoice", "list invoice"]):
-                    intent = "invoices"
-                elif any(word in msg_lower for word in ["client", "clients", "customer", "customers"]):
-                    intent = "clients"
-                elif any(word in msg_lower for word in ["payment", "payments"]):
-                    intent = "payments"
-                elif any(word in msg_lower for word in ["expense", "expenses"]):
-                    intent = "expenses"
-                elif any(word in msg_lower for word in ["bank", "statements", "show statements", "list statements"]):
-                    intent = "statements"
-                elif any(word in msg_lower for word in ["currency", "currencies", "exchange rate", "exchange rates", "show currencies", "list currencies"]):
-                    intent = "currencies"
-                elif any(word in msg_lower for word in ["outstanding", "outstanding balance", "unpaid", "unpaid amount", "show outstanding", "list outstanding"]):
-                    intent = "outstanding"
-                elif any(word in msg_lower for word in ["overdue", "late payment", "show overdue", "list overdue"]):
-                    intent = "overdue"
-                elif any(word in msg_lower for word in ["statistics", "summary", "total", "count", "show statistics", "list statistics"]):
-                    intent = "statistics"
-                elif any(word in msg_lower for word in ["investment", "investments", "portfolio", "portfolios", "holding", "holdings", "dividend", "dividends"]):
-                    intent = "investments"
-                else:
+                # Handle empty or invalid responses
+                if not intent or intent == "" or len(intent) > 50:
                     intent = "general"
+                # Simple keyword fallback for common patterns
+                if intent == "general":
+                    msg_lower = lower_message
+                    if any(word in msg_lower for word in ["invoice", "invoices", "show invoice", "list invoice"]):
+                        intent = "invoices"
+                    elif any(word in msg_lower for word in ["client", "clients", "customer", "customers"]):
+                        intent = "clients"
+                    elif any(word in msg_lower for word in ["payment", "payments"]):
+                        intent = "payments"
+                    elif any(word in msg_lower for word in ["expense", "expenses"]):
+                        intent = "expenses"
+                    elif any(word in msg_lower for word in ["bank", "statements", "show statements", "list statements"]):
+                        intent = "statements"
+                    elif any(word in msg_lower for word in ["currency", "currencies", "exchange rate", "exchange rates", "show currencies", "list currencies"]):
+                        intent = "currencies"
+                    elif any(word in msg_lower for word in ["outstanding", "outstanding balance", "unpaid", "unpaid amount", "show outstanding", "list outstanding"]):
+                        intent = "outstanding"
+                    elif any(word in msg_lower for word in ["overdue", "late payment", "show overdue", "list overdue"]):
+                        intent = "overdue"
+                    elif any(word in msg_lower for word in ["statistics", "summary", "total", "count", "show statistics", "list statistics"]):
+                        intent = "statistics"
+                    elif any(word in msg_lower for word in ["investment", "investments", "portfolio", "portfolios", "holding", "holdings", "dividend", "dividends"]):
+                        intent = "investments"
+                    else:
+                        intent = "general"
 
-            logger.info(f"MCP Integration: AI classified intent as: '{intent}'")
-        except Exception as e:
-            print(f"MCP Integration: Intent classification failed: {e}")
-            intent = "general"
+                logger.info(f"MCP Integration: AI classified intent as: '{intent}'")
+            except Exception as e:
+                print(f"MCP Integration: Intent classification failed: {e}")
+                intent = "general"
 
         # Initialize MCP tools using current user's session
         from MCP.tools import InvoiceTools
