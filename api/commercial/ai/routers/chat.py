@@ -44,59 +44,29 @@ async def ai_chat(
 
     # Manually set tenant context and get tenant database
     try:
-        ai_config = None
-        if request.config_id and request.config_id > 0:
-            ai_config = db.query(AIConfig).filter(
-                AIConfig.id == request.config_id,
-                AIConfig.is_active == True
-            ).first()
-            if not ai_config:
-                logger.warning(f"Requested AI config ID {request.config_id} not found or inactive, falling back to default")
+        # Get AI configuration using centralized service
+        # This prioritizes database settings, then falls back to environment variables
+        config_dict = AIConfigService.get_ai_config(db, component="chat", require_ocr=False)
 
-        if not ai_config:
-            # Get default AI configuration
-            # No tenant_id filtering needed since we're in the tenant's database
-            ai_config = db.query(AIConfig).filter(
-                AIConfig.is_default == True,
-                AIConfig.is_active == True
-            ).first()
+        if not config_dict:
+            return {
+                "success": False,
+                "error": "No AI configuration found. Please configure an AI provider in Settings > AI Provider Configurations."
+            }
 
-        # If no default config, check if there's only one active config and set it as default
-        if not ai_config:
-            active_configs = db.query(AIConfig).filter(AIConfig.is_active == True).all()
-            if len(active_configs) == 1:
-                config = active_configs[0]
-                config.is_default = True
-                db.commit()
-                ai_config = config
-                print(f"Auto-set single active AI config as default: {config.provider_name}")
+        # Convert dictionary to an object with attributes for backward compatibility
+        class AIConfigObj:
+            def __init__(self, d):
+                self.provider_name = d["provider_name"]
+                self.model_name = d["model_name"]
+                self.api_key = d.get("api_key")
+                self.provider_url = d.get("provider_url")
+                self.is_active = True
+                self.is_default = True
 
-        if not ai_config:
-            # Fallback to environment variables using unified service
-            print("No AI config found in database, checking environment variables...")
-            logger.info("No AI config found in database, checking environment variables...")
-
-            env_config = AIConfigService.get_ai_config(db, component="chat", require_ocr=False)
-
-            if not env_config:
-                return {
-                    "success": False,
-                    "error": "No AI configuration found. Please configure an AI provider in Settings > AI Provider Configurations."
-                }
-
-            # Create a temporary config object from environment variables
-            class EnvAIConfig:
-                def __init__(self, config_dict):
-                    self.provider_name = config_dict["provider_name"]
-                    self.model_name = config_dict["model_name"]
-                    self.api_key = config_dict.get("api_key")
-                    self.provider_url = config_dict.get("provider_url")
-                    self.is_active = True
-                    self.is_default = True
-
-            ai_config = EnvAIConfig(env_config)
-            print(f"Using AI config from environment: provider={ai_config.provider_name}, model={ai_config.model_name}")
-            logger.info(f"Using AI config from environment: provider={ai_config.provider_name}, model={ai_config.model_name}")
+        ai_config = AIConfigObj(config_dict)
+        print(f"Using AI config: provider={ai_config.provider_name}, model={ai_config.model_name}, source={config_dict.get('source', 'unknown')}")
+        logger.info(f"Using AI config: provider={ai_config.provider_name}, model={ai_config.model_name}, source={config_dict.get('source', 'unknown')}")
 
         # Use AI to classify user intent and determine MCP tool
         logger.info(f"MCP Integration: Processing message: '{request.message}'")

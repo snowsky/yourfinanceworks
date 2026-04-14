@@ -52,19 +52,20 @@ services:
       - KAFKA_BANK_TOPIC=bank_statements_ocr
       - KAFKA_REVIEW_TOPIC=review_trigger
       # LLM Configuration (Docker-specific - points to host machine)
-      - LLM_API_BASE=http://host.docker.internal:11434
-      - OLLAMA_API_BASE=http://host.docker.internal:11434 # OLLAMA_API_BASE is used by Ollama service
-      - LLM_API_KEY=
-      - LLM_MODEL_EXPENSES=gemma4:latest
-      - LLM_MODEL_INVOICES=gemma4:latest
-      - LLM_MODEL_BANK_STATEMENTS=gemma4:latest
+      - LLM_API_BASE=${LLM_API_BASE:-http://host.docker.internal:11434}
+      - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL_EXPENSES=${LLM_MODEL_EXPENSES:-gemma4:latest}
+      - LLM_MODEL_INVOICES=${LLM_MODEL_INVOICES:-gemma4:latest}
+      - LLM_MODEL_BANK_STATEMENTS=${LLM_MODEL_BANK_STATEMENTS:-gemma4:latest}
       # AI Chat configuration (Docker-specific)
-      - AI_PROVIDER=ollama
-      - AI_MODEL=gemma4:latest
-      - AI_API_URL=http://host.docker.internal:11434
+      - AI_PROVIDER=${AI_PROVIDER:-ollama}
+      - AI_MODEL=${AI_MODEL:-gemma4:latest}
+      - AI_API_URL=${AI_API_URL:-http://host.docker.internal:11434}
+      - AI_API_KEY=${AI_API_KEY}
       # OCR Configuration (Docker-specific)
-      - OLLAMA_OCR_ENDPOINT=http://host.docker.internal:11434/api/generate
-      - OLLAMA_OCR_MODEL=gemma4:latest
+      - OLLAMA_OCR_ENDPOINT=${OLLAMA_OCR_ENDPOINT:-http://host.docker.internal:11434/api/generate}
+      - OLLAMA_OCR_MODEL=${OLLAMA_OCR_MODEL:-gemma4:latest}
       # OpenSearch Configuration (Docker-specific hostname)
       - OPENSEARCH_HOST=opensearch
       - OPENSEARCH_PORT=9200
@@ -348,13 +349,14 @@ services:
       - KEY_DERIVATION_ITERATIONS=${KEY_DERIVATION_ITERATIONS:-100000}
       - MASTER_KEY_PATH=${MASTER_KEY_PATH:-/app/keys/master.key}
       # LLM Configuration for AI-powered email classification
-      - LLM_API_BASE=http://host.docker.internal:11434
-      - OLLAMA_API_BASE=http://host.docker.internal:11434
-      - LLM_MODEL_EXPENSES=gemma4:latest
-      - OLLAMA_MODEL=gemma4:latest
-      - AI_PROVIDER=ollama
-      - AI_MODEL=gemma4:latest
-      - AI_API_URL=http://host.docker.internal:11434
+      - LLM_API_BASE=${LLM_API_BASE:-http://host.docker.internal:11434}
+      - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      - LLM_MODEL_EXPENSES=${LLM_MODEL_EXPENSES:-gemma4:latest}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma4:latest}
+      - AI_PROVIDER=${AI_PROVIDER:-ollama}
+      - AI_MODEL=${AI_MODEL:-gemma4:latest}
+      - AI_API_URL=${AI_API_URL:-http://host.docker.internal:11434}
+      - AI_API_KEY=${AI_API_KEY}
     depends_on:
       postgres-master:
         condition: service_healthy
