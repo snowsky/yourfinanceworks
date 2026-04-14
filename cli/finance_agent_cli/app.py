@@ -42,6 +42,11 @@ def fallback_config_path() -> Path:
 CONFIG_PATH = resolve_config_path()
 CONFIG_DIR = CONFIG_PATH.parent
 
+BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+
 
 def load_config() -> dict[str, Any]:
     config_path = CONFIG_PATH
@@ -86,7 +91,11 @@ def api_url(base_url: str, path: str) -> str:
 
 
 def auth_headers(profile: dict[str, Any] | None) -> dict[str, str]:
-    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": BROWSER_USER_AGENT,
+    }
     if not profile:
         return headers
 
@@ -124,6 +133,9 @@ def http_json(
 ) -> tuple[int, dict[str, Any] | list[Any] | str]:
     data = None
     request_headers = headers or {}
+    if "User-Agent" not in request_headers:
+        request_headers["User-Agent"] = BROWSER_USER_AGENT
+
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
 
@@ -511,7 +523,11 @@ def handle_auth(args: argparse.Namespace) -> int:
         status_code, response = http_json(
             "POST",
             api_url(base_url, "/api/v1/auth/login"),
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": BROWSER_USER_AGENT,
+            },
             payload={"email": email, "password": password},
             profile=profile,
         )

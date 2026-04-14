@@ -33,6 +33,7 @@ api/.hypothesis
 api/.pytest_cache
 api/venv
 api/**/__pycache__
+cli/**/__pycache__
 api/.env
 api/invoice_api.egg-info
 api/*.db

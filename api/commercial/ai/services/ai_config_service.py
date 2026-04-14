@@ -66,10 +66,10 @@ class AIConfigService:
         },
         # AI Chat
         "chat": {
-            "provider": ["AI_PROVIDER"],
-            "model": ["AI_MODEL"],
-            "api_key": ["AI_API_KEY"],
-            "api_url": ["AI_API_URL"],
+            "provider": ["AI_PROVIDER", "LLM_PROVIDER"],
+            "model": ["AI_MODEL", "LLM_MODEL", "LLM_MODEL_EXPENSES", "OLLAMA_MODEL"],
+            "api_key": ["AI_API_KEY", "LLM_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"],
+            "api_url": ["AI_API_URL", "AI_API_BASE", "LLM_API_BASE", "OLLAMA_API_BASE"],
         },
         # Bank statement processing
         "bank_statement": {
@@ -313,7 +313,13 @@ class AIConfigService:
                 return "anthropic"
             elif "google" in api_base_lower or "generativelanguage" in api_base_lower:
                 return "google"
-            elif "localhost" in api_base_lower or "11434" in api_base_lower:
+            elif "localhost" in api_base_lower or "11434" in api_base_lower or "host.docker.internal" in api_base_lower:
+                # If it looks like Ollama but we have an API key, check if we should prefer a cloud provider
+                if env_api_key:
+                    if env_api_key.startswith("sk-") or env_api_key.startswith("sk-ant"):
+                        if "ant-" in env_api_key:
+                            return "anthropic"
+                        return "openai"
                 return "ollama"
 
         # Detect from model name patterns
