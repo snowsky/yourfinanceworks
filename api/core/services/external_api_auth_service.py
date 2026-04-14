@@ -109,6 +109,54 @@ class ExternalAPIAuthService:
         """Get the first 8 characters of API key for identification."""
         return api_key[:8] + "..."
 
+    async def authenticate_jwt(
+        self, db: Session, token: str
+    ) -> Optional[AuthContext]:
+        """Authenticate using a User JWT token (session fallback)."""
+        try:
+            from jose import jwt
+            
+            # Decode using the system secret (same as core auth)
+            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+            user_email = payload.get("sub")
+            if not user_email:
+                return None
+                
+            # Look up the master user
+            user = db.query(MasterUser).filter(MasterUser.email == user_email).first()
+            if not user or not user.is_active:
+                return None
+                
+            # Create auth context as a user
+            return AuthContext(
+                user_id=str(user.id),
+                username=user.email,
+                email=user.email,
+                roles=["user"],
+                permissions={
+                    Permission.READ, 
+                    Permission.WRITE, 
+                    Permission.INVOICE_READ, 
+                    Permission.INVOICE_WRITE, 
+                    Permission.EXPENSE_READ, 
+                    Permission.EXPENSE_WRITE, 
+                    Permission.DOCUMENT_PROCESSING, 
+                    Permission.TRANSACTION_PROCESSING
+                },
+                api_key_id="jwt_session",
+                authentication_method=AuthenticationMethod.JWT,
+                is_authenticated=True,
+                is_admin=user.role == "admin" or user.is_superuser,
+                tenant_id=user.tenant_id,
+                allowed_document_types=["invoice", "expense", "statement"],
+                user=user,
+                client_id="jwt_session",
+                api_key_prefix="jwt"
+            )
+        except Exception as e:
+            logger.debug(f"JWT authentication failed in service: {e}")
+            return None
+
     async def authenticate_api_key(
         self, db: Session, api_key: str, client_ip: str
     ) -> Optional[AuthContext]:

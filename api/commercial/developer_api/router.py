@@ -74,36 +74,10 @@ async def get_api_auth_context(
     # NEW: Try to authenticate as a regular user via JWT if API key fails
     # This allows the internal AI Chat to call these endpoints using its shared JWT
     if not auth_context:
-        try:
-            import jwt
-            from core.routers.auth import SECRET_KEY, ALGORITHM
-            
-            payload = jwt.decode(api_key, SECRET_KEY, algorithms=[ALGORITHM])
-            user_email = payload.get("sub")
-            if user_email:
-                user = master_db.query(MasterUser).filter(MasterUser.email == user_email).first()
-                if user and user.is_active:
-                    auth_context = AuthContext(
-                        user_id=str(user.id),
-                        username=user.email,
-                        email=user.email,
-                        roles=["user"],
-                        permissions={Permission.READ, Permission.WRITE, Permission.INVOICE_READ, Permission.INVOICE_WRITE, Permission.EXPENSE_READ, Permission.EXPENSE_WRITE, Permission.DOCUMENT_PROCESSING, Permission.TRANSACTION_PROCESSING},
-                        api_key_id="jwt_session",
-                        authentication_method=AuthenticationMethod.JWT,
-                        is_authenticated=True,
-                        is_admin=user.role == "admin" or user.is_superuser,
-                        tenant_id=user.tenant_id,
-                        allowed_document_types=["invoice", "expense", "statement"],
-                        user=user,
-                        client_id="jwt_session",
-                        api_key_prefix="jwt"
-                    )
-        except Exception as e:
-            logger.debug(f"JWT fallback authentication failed: {e}")
+        auth_context = await auth_service.authenticate_jwt(master_db, api_key)
 
     if not auth_context:
-        raise HTTPException(status_code=401, detail="Invalid API key or access denied")
+        raise HTTPException(status_code=401, detail="Invalid API key or Session")
 
     if auth_context.tenant_id:
         set_tenant_context(auth_context.tenant_id)

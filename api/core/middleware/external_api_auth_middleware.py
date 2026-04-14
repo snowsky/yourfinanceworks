@@ -79,9 +79,14 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
                     auth_header = request.headers.get("Authorization", "")
                     if auth_header.startswith("Bearer "):
                         api_key = auth_header[7:]
+                
                 if api_key:
                     client_ip = self._get_client_ip(request)
                     auth_context = await self.auth_service.authenticate_api_key(db, api_key, client_ip)
+                    
+                    # NEW: Try JWT fallback if API key fails (for internal tool calls)
+                    if not auth_context:
+                        auth_context = await self.auth_service.authenticate_jwt(db, api_key)
 
                     if auth_context and auth_context.is_authenticated:
                         # Set auth context on request
@@ -95,7 +100,7 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
                     else:
                         return JSONResponse(
                             status_code=401,
-                            content={"detail": "Invalid API key"}
+                            content={"detail": "Invalid API key or Session"}
                         )
 
                 # If no API key or secret provided for API client endpoints, return unauthorized
