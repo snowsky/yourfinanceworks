@@ -12,8 +12,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from core.models.database import get_db, get_master_db, set_tenant_context  # get_db used via get_tenant_db
+from core.models.models import MasterUser
 from core.models.api_models import APIClient
-from core.services.external_api_auth_service import ExternalAPIAuthService, AuthContext
+from core.services.external_api_auth_service import ExternalAPIAuthService, AuthContext, AuthenticationMethod, Permission
 from core.schemas.api_schemas import (
     ExternalExpenseResponse,
     ExternalInvoiceResponse,
@@ -70,6 +71,37 @@ async def get_api_auth_context(
     client_ip = request.client.host if request.client else "unknown"
     auth_context = await auth_service.authenticate_api_key(master_db, api_key, client_ip)
 
+    # NEW: Try to authenticate as a regular user via JWT if API key fails
+    # This allows the internal AI Chat to call these endpoints using its shared JWT
+    if not auth_context:
+        try:
+            import jwt
+            from core.routers.auth import SECRET_KEY, ALGORITHM
+            
+            payload = jwt.decode(api_key, SECRET_KEY, algorithms=[ALGORITHM])
+            user_email = payload.get("sub")
+            if user_email:
+                user = master_db.query(MasterUser).filter(MasterUser.email == user_email).first()
+                if user and user.is_active:
+                    auth_context = AuthContext(
+                        user_id=str(user.id),
+                        username=user.email,
+                        email=user.email,
+                        roles=["user"],
+                        permissions={Permission.READ, Permission.WRITE, Permission.INVOICE_READ, Permission.INVOICE_WRITE, Permission.EXPENSE_READ, Permission.EXPENSE_WRITE, Permission.DOCUMENT_PROCESSING, Permission.TRANSACTION_PROCESSING},
+                        api_key_id="jwt_session",
+                        authentication_method=AuthenticationMethod.JWT,
+                        is_authenticated=True,
+                        is_admin=user.role == "admin" or user.is_superuser,
+                        tenant_id=user.tenant_id,
+                        allowed_document_types=["invoice", "expense", "statement"],
+                        user=user,
+                        client_id="jwt_session",
+                        api_key_prefix="jwt"
+                    )
+        except Exception as e:
+            logger.debug(f"JWT fallback authentication failed: {e}")
+
     if not auth_context:
         raise HTTPException(status_code=401, detail="Invalid API key or access denied")
 
@@ -87,7 +119,14 @@ def get_tenant_db(
 
 
 def _check_domain_access(master_db: Session, auth_context: AuthContext, domain: str):
-    """Raise 403 if the API key does not have access to the requested domain."""
+    """Raise 403 if the auth context does not have access to the requested domain.
+    
+    JWT-authenticated users (internal web sessions) bypass API Key domain restrictions
+    as they are already governed by regular RBAC.
+    """
+    if auth_context.authentication_method == AuthenticationMethod.JWT:
+        return
+
     api_client = master_db.query(APIClient).filter(
         APIClient.client_id == auth_context.api_key_id
     ).first()
