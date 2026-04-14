@@ -111,8 +111,24 @@ User message: "{request.message}"
 
 Category:"""
 
-        # Pre-classification check for precise intents (skip LLM for specific patterns)
-        lower_message = request.message.lower()
+        # PRE-CLASSIFICATION FAST-PATH
+        # If the user is asking for specific common things, we skip the LLM classification to save time and increase accuracy
+        intent = "general"
+        msg_lower = request.message.lower()
+        if any(word in msg_lower for word in ["overdue", "late payment"]):
+            intent = "overdue"
+            logger.info(f"Fast-path: Detected 'overdue' intent via keywords")
+        elif any(word in msg_lower for word in ["outstanding balance", "unpaid"]):
+            intent = "outstanding"
+            logger.info(f"Fast-path: Detected 'outstanding' intent via keywords")
+        elif any(word in msg_lower for word in ["show invoices", "list invoices"]):
+            intent = "invoices"
+            logger.info(f"Fast-path: Detected 'invoices' intent via keywords")
+
+        if intent == "general":
+            # Only call LLM if fast-path didn't match
+            # Pre-classification check for precise intents (skip LLM for specific patterns)
+            lower_message = request.message.lower()
 
         # Handle early actions (statement context actions + client/expense creation fast paths)
         result = await handle_early_actions(
@@ -147,6 +163,15 @@ Category:"""
         try:
             intent_response = await completion(**kwargs)
             intent = intent_response.choices[0].message.content.strip().lower()
+            
+            # Clean up Gemma/local model responses like "Category: overdue"
+            if "category:" in intent:
+                intent = intent.split("category:")[-1].strip()
+            if ":" in intent:
+                intent = intent.split(":")[-1].strip()
+            # Remove any trailing punctuation
+            intent = intent.rstrip(".").rstrip("!")
+
             # Handle empty or invalid responses
             if not intent or intent == "" or len(intent) > 50:
                 intent = "general"
@@ -196,9 +221,12 @@ Category:"""
             data={"sub": current_user.email}, expires_delta=access_token_expires
         )
 
-        print(f"MCP Integration: Initializing API client with token...")
+        # In Docker, we should try 'localhost' then 'api' as the hostname
+        # The internal API client needs to reach the FastAPI service
+        api_base_host = os.getenv("API_INTERNAL_URL", "http://localhost:8000")
+        print(f"MCP Integration: Initializing API client with token using host {api_base_host}...")
         api_client = AuthenticatedAPIClient(
-            base_url="http://localhost:8000/api/v1",
+            base_url=f"{api_base_host}/api/v1",
             jwt_token=jwt_token
         )
         tools = InvoiceTools(api_client)
