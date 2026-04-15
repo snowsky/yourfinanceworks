@@ -50,12 +50,6 @@ tesseract==0.1.3  # Tesseract OCR engine Python bindings
 # Security fix for HTTP Request Smuggling vulnerability
 h11==0.16.0
 
-# Test dependencies
-pytest==9.0.3
-pytest-asyncio==1.1.0
-pytest-mock==3.14.1
-pytest-cov==6.2.1
-
 # Image processing
 pillow==12.2.0
 
