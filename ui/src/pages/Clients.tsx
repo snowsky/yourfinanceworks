@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Search, Loader2, Pencil, Trash2, Users, Tag, Minus, X, MoreHorizontal } from "lucide-react";
+import { Plus, Search, Loader2, Pencil, Trash2, Users, Tag, Minus, X, MoreHorizontal, DollarSign, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useMemo } from "react";
 import { clientApi, Client, getErrorMessage } from "@/lib/api";
@@ -19,6 +19,7 @@ import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility
 import { ColumnPicker } from "@/components/ui/column-picker";
 import { ShareButton } from "@/components/sharing/ShareButton";
 import { Share2 } from "lucide-react";
+import { ContentSection } from "@/components/ui/professional-layout";
 
 const CLIENT_COLUMNS: ColumnDef[] = [
   { key: 'select', label: 'Select', essential: true },
@@ -130,6 +131,19 @@ const Clients = () => {
     [clients, searchQuery]
   );
 
+  const filteredSummary = useMemo(() => {
+    const totals = filteredClients.reduce(
+      (acc, client) => {
+        acc.paid += Number(client.paid_amount || 0);
+        acc.outstanding += Number(client.outstanding_balance || 0);
+        if ((client.labels || []).length > 0) acc.withLabels += 1;
+        return acc;
+      },
+      { paid: 0, outstanding: 0, withLabels: 0 }
+    );
+    return totals;
+  }, [filteredClients]);
+
   const handleDelete = async () => {
     if (!clientToDelete) return;
 
@@ -165,17 +179,31 @@ const Clients = () => {
 
   return (
     <>
-      <div className="h-full space-y-8 fade-in">
+      <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell">
         {/* Hero Header */}
-        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-6">
-            <div className="space-y-2">
-              <h1 className="text-4xl font-bold tracking-tight">{t('clients.title')}</h1>
-              <p className="text-lg text-muted-foreground">{t('clients.description')}</p>
+        <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-2 flex-1">
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">{t('clients.title')}</h1>
+              <p className="text-muted-foreground text-sm md:text-base max-w-2xl">{t('clients.description')}</p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/25">
+                  <Users className="h-3 w-3 mr-1" />
+                  {t('common.total', { defaultValue: 'Total' })}: {totalClients}
+                </Badge>
+                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20">
+                  <DollarSign className="h-3 w-3 mr-1" />
+                  {t('clients.table.total_paid')}: ${filteredSummary.paid.toFixed(2)}
+                </Badge>
+                <Badge variant="secondary" className="bg-orange-500/10 text-orange-700 border-orange-500/20">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  {t('clients.table.outstanding_balance')}: ${filteredSummary.outstanding.toFixed(2)}
+                </Badge>
+              </div>
             </div>
             {canPerformAction && (
               <Link to="/clients/new">
-                <ProfessionalButton variant="default" size="default" className="shadow-lg whitespace-nowrap">
+                <ProfessionalButton variant="gradient" size="default" className="shadow-lg whitespace-nowrap">
                   <Plus className="h-4 w-4" />
                   {t('clients.add_client')}
                 </ProfessionalButton>
@@ -184,14 +212,25 @@ const Clients = () => {
           </div>
         </div>
 
-        <ProfessionalCard className="slide-in" variant="elevated">
-          <div className="space-y-6">
-            {/* Header with filters */}
-            <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
-              <div>
-                <h2 className="text-2xl font-bold text-foreground">{t('clients.client_list')}</h2>
-                <p className="text-muted-foreground mt-1">{t('clients.manage_clients_description')}</p>
-              </div>
+        <ProfessionalCard className="slide-in dashboard-highlight-block dashboard-highlight-block-primary" variant="elevated">
+          <ContentSection
+            title={t('clients.client_list')}
+            description={t('clients.manage_clients_description')}
+            className="space-y-6 dashboard-section rounded-2xl p-5 md:p-6"
+            headerClassName="dashboard-section-header"
+            titleClassName="dashboard-section-title"
+            descriptionClassName="dashboard-section-description"
+            actions={(
+              <Badge variant="secondary" className="bg-muted/70 text-foreground border-border/60">
+                {t('common.showing_results', {
+                  shown: filteredClients.length,
+                  total: totalClients,
+                  defaultValue: 'Showing {{shown}} of {{total}} results'
+                })}
+              </Badge>
+            )}
+          >
+            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 pb-5 border-b border-border/50">
               <div className="flex flex-col sm:flex-row items-center gap-4">
                 <div className="relative w-full sm:w-auto">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -212,17 +251,16 @@ const Clients = () => {
                     onChange={(e) => setLabelFilter(e.target.value)}
                   />
                 </div>
+              </div>
 
+              <div className="flex items-center gap-3 flex-wrap justify-end">
                 <ColumnPicker columns={CLIENT_COLUMNS} isVisible={isVisible} onToggle={toggle} onReset={reset} hiddenCount={hiddenCount} />
-
-                {/* Page Size */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
                   <Select value={String(pageSize)} onValueChange={(v) => {
-                    // Ensure v is a string before converting to number
                     const pageSizeValue = typeof v === 'string' ? Number(v) : 50;
-                    setPageSize(pageSizeValue); 
-                    setPage(1); 
+                    setPageSize(pageSizeValue);
+                    setPage(1);
                   }}>
                     <SelectTrigger className="w-[100px] h-10 rounded-lg border-border/50 bg-muted/30">
                       <SelectValue />
@@ -239,7 +277,7 @@ const Clients = () => {
 
             {/* Bulk actions bar */}
             {selectedIds.length > 0 && (
-              <div className="flex flex-col md:flex-row items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/30 rounded-xl shadow-sm gap-4 slide-in">
+              <div className="dashboard-highlight-item flex flex-col md:flex-row items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/30 rounded-xl shadow-sm gap-4 slide-in">
                 <div className="flex items-center gap-3">
                   <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
                   <span className="text-sm font-bold text-foreground">
@@ -560,7 +598,7 @@ const Clients = () => {
                 </div>
               </div>
             )}
-          </div>
+          </ContentSection>
         </ProfessionalCard>
       </div>
 
