@@ -31,6 +31,7 @@ import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility
 import { ShareButton } from "@/components/sharing/ShareButton";
 import { Share2 } from "lucide-react";
 import { ColumnPicker } from "@/components/ui/column-picker";
+import { ContentSection } from "@/components/ui/professional-layout";
 
 const INVOICE_COLUMNS: ColumnDef[] = [
   { key: 'select', label: 'Select', essential: true },
@@ -478,16 +479,34 @@ const Invoices = () => {
 
     return matchesSearch;
   });
+  const pendingReviewCount = filteredInvoices.filter(
+    (invoice) => invoice.review_status === 'pending' || invoice.review_status === 'diff_found'
+  ).length;
 
   return (
     <>
-      <div className="h-full space-y-8 fade-in">
+      <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell">
         {/* Hero Header */}
-        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-6">
-            <div className="space-y-2">
-              <h1 className="text-4xl font-bold tracking-tight">{t('invoices.title')}</h1>
-              <p className="text-lg text-muted-foreground">{t('invoices.description')}</p>
+        <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+            <div className="space-y-2 flex-1">
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">{t('invoices.title')}</h1>
+              <p className="text-muted-foreground text-sm md:text-base max-w-2xl">{t('invoices.description')}</p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/25">
+                  {t('common.total', { defaultValue: 'Total' })}: {totalInvoices}
+                </Badge>
+                <Badge variant="secondary" className="bg-muted/70 text-foreground border-border/60">
+                  {t('common.showing_results', {
+                    shown: filteredInvoices.length,
+                    total: totalInvoices,
+                    defaultValue: 'Showing {{shown}} of {{total}} results'
+                  })}
+                </Badge>
+                <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 border-amber-500/20">
+                  {t('invoices.review.title', { defaultValue: 'Review' })}: {pendingReviewCount}
+                </Badge>
+              </div>
             </div>
             {canPerformAction && (
               <div className="flex gap-3 items-center flex-wrap justify-end">
@@ -513,14 +532,14 @@ const Invoices = () => {
                 </ProfessionalButton>
                 <div className="flex gap-1">
                   <Link to="/invoices/new">
-                    <ProfessionalButton variant="default" size="default" className="shadow-lg">
+                    <ProfessionalButton variant="gradient" size="default" className="shadow-lg">
                       <Plus className="h-4 w-4 mr-2" />
                       {t('invoices.new_invoice')}
                     </ProfessionalButton>
                   </Link>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <ProfessionalButton variant="default" size="icon" className="shadow-lg">
+                      <ProfessionalButton variant="gradient" size="icon" className="shadow-lg">
                         <ChevronDown className="h-4 w-4" />
                       </ProfessionalButton>
                     </DropdownMenuTrigger>
@@ -570,7 +589,7 @@ const Invoices = () => {
 
         <Collapsible open={showRecycleBin} onOpenChange={setShowRecycleBin}>
           <CollapsibleContent>
-            <ProfessionalCard className="slide-in mb-8 border-l-4 border-l-destructive overflow-hidden" variant="elevated">
+            <ProfessionalCard className="slide-in mb-8 border-l-4 border-l-destructive overflow-hidden dashboard-highlight-block dashboard-highlight-block-primary" variant="elevated">
               <div className="absolute top-0 right-0 w-40 h-40 bg-destructive/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
               <div className="relative space-y-6">
                 <div className="flex items-center justify-between">
@@ -723,13 +742,24 @@ const Invoices = () => {
           </CollapsibleContent>
         </Collapsible>
 
-        <ProfessionalCard className="slide-in" variant="elevated">
-          <div className="space-y-6">
-            {/* Header with filters */}
-            <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
-              <div>
-                <h2 className="text-2xl font-bold text-foreground">{t('invoices.invoice_list')}</h2>
-              </div>
+        <ProfessionalCard className="slide-in dashboard-highlight-block dashboard-highlight-block-primary" variant="elevated">
+          <ContentSection
+            title={t('invoices.invoice_list')}
+            className="space-y-6 dashboard-section rounded-2xl p-5 md:p-6"
+            headerClassName="dashboard-section-header"
+            titleClassName="dashboard-section-title"
+            descriptionClassName="dashboard-section-description"
+            actions={(
+              <Badge variant="secondary" className="bg-muted/70 text-foreground border-border/60">
+                {t('common.showing_results', {
+                  shown: filteredInvoices.length,
+                  total: totalInvoices,
+                  defaultValue: 'Showing {{shown}} of {{total}} results'
+                })}
+              </Badge>
+            )}
+          >
+            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 pb-6 border-b border-border/50">
               <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
                 {/* Search */}
                 <div className="relative w-full sm:w-auto">
@@ -822,7 +852,7 @@ const Invoices = () => {
 
             {/* Bulk actions bar */}
             {selectedIds.length > 0 && (
-              <div className="flex flex-col md:flex-row items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/30 rounded-xl shadow-sm gap-4 slide-in">
+              <div className="dashboard-highlight-item flex flex-col md:flex-row items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/30 rounded-xl shadow-sm gap-4 slide-in">
                 <div className="flex items-center gap-3">
                   <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
                   <span className="text-sm font-bold text-foreground">
@@ -1245,7 +1275,7 @@ const Invoices = () => {
                 </p>
                 {canPerformAction && (
                   <Link to="/invoices/new">
-                    <ProfessionalButton variant="default" size="lg" className="shadow-lg">
+                    <ProfessionalButton variant="gradient" size="lg" className="shadow-lg">
                       <Plus className="h-4 w-4" />
                       {t('invoices.create_your_first_invoice', { defaultValue: 'Create Your First Invoice' })}
                     </ProfessionalButton>
@@ -1300,7 +1330,7 @@ const Invoices = () => {
                 </ProfessionalButton>
               </div>
             </div>
-          </div>
+          </ContentSection>
         </ProfessionalCard >
       </div >
 
