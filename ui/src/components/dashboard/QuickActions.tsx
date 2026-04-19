@@ -16,7 +16,7 @@ import {
     Package,
     ListChecks,
     BarChart,
-    ArrowRight,
+    ArrowRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { canPerformActions, getCurrentUser } from '@/utils/auth';
@@ -189,13 +189,13 @@ export function QuickActions() {
     const getActionStyles = (variant: string) => {
         switch (variant) {
             case 'primary':
-                return 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 border-0';
+                return 'border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15';
             case 'success':
-                return 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 border-0';
+                return 'border-success/40 bg-success/10 text-foreground hover:bg-success/15';
             case 'warning':
-                return 'bg-gradient-to-r from-orange-500 to-amber-600 text-white hover:from-orange-600 hover:to-amber-700 border-0';
+                return 'border-warning/45 bg-warning/10 text-foreground hover:bg-warning/15';
             default:
-                return 'bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 hover:text-gray-900 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-600 dark:text-slate-200 dark:hover:text-white';
+                return 'border-border bg-card text-foreground hover:bg-muted/40';
         }
     };
 
@@ -218,7 +218,10 @@ export function QuickActions() {
         <div className="space-y-6">
             {/* Primary Actions */}
             <div className="space-y-4">
-                    {/* Primary action buttons */}
+                <div className="space-y-2">
+                    <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                        {t('dashboard.quick_actions.core_actions', 'Core Actions')}
+                    </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {primaryActions.map((action) => {
                             const Icon = action.icon;
@@ -230,44 +233,31 @@ export function QuickActions() {
                                     onClick={() => handleActionClick(action)}
                                     disabled={isDisabled}
                                     className={cn(
-                                        "h-auto p-4 flex flex-col items-start gap-2 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:ring-2 focus:ring-offset-2",
+                                        "group h-auto w-full rounded-xl border p-4 flex items-start gap-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:ring-2 focus:ring-offset-2",
                                         getActionStyles(action.variant || 'default')
                                     )}
                                     aria-label={`${action.title}: ${action.description}`}
                                 >
-                                    <div className="flex items-center gap-3 w-full">
-                                        <div className={cn(
-                                            "p-2 rounded-lg",
-                                            action.variant === 'primary' ? 'bg-white/20' : 'bg-gray-100 dark:bg-slate-700'
-                                        )}>
-                                            <Icon className={cn(
-                                                "h-5 w-5",
-                                                action.variant === 'primary' ? 'text-white' : 'text-gray-600 dark:text-slate-300'
-                                            )} />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="font-medium text-sm">{action.title}</div>
-                                            <div className={cn(
-                                                "text-xs opacity-80",
-                                                action.variant === 'primary' ? 'text-white' : 'text-muted-foreground'
-                                            )}>
-                                                {action.description}
-                                            </div>
-                                        </div>
-                                        {action.badge && (
-                                            <Badge className={getBadgeStyles(action.variant || 'default')}>
-                                                {action.badge}
-                                            </Badge>
-                                        )}
+                                    <div className="mt-0.5 rounded-lg bg-background/70 p-2 ring-1 ring-border/60">
+                                        <Icon className="h-4 w-4 text-foreground/80" />
                                     </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="font-semibold text-sm leading-tight">{action.title}</div>
+                                        <div className="mt-1 text-xs text-muted-foreground leading-relaxed">{action.description}</div>
+                                    </div>
+                                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                                 </Button>
                             );
                         })}
                     </div>
+                </div>
 
-                    <Separator className="my-4" />
+                <Separator className="my-4" />
 
-                    {/* Secondary actions */}
+                <div className="space-y-2">
+                    <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                        {t('dashboard.quick_actions.operations', 'Operations')}
+                    </h3>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         {secondaryActions.map((action) => {
                             const Icon = action.icon;
@@ -277,48 +267,49 @@ export function QuickActions() {
                                     key={action.id}
                                     variant="ghost"
                                     onClick={() => handleActionClick(action)}
-                                    className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-muted/60 transition-all duration-200 hover:-translate-y-0.5 relative"
+                                    className="relative h-auto min-h-[92px] rounded-xl border border-border/70 bg-background/60 p-3 flex flex-col items-start gap-2 text-foreground hover:text-foreground focus:text-foreground hover:bg-muted/50 hover:border-primary/30 transition-all duration-200"
                                 >
                                     {action.badge && (
                                         <Badge className={cn(
-                                            "absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs",
+                                            "absolute top-2 right-2 h-5 min-w-5 px-1.5 flex items-center justify-center text-xs",
                                             getBadgeStyles(action.variant || 'default')
                                         )}>
                                             {action.badge}
                                         </Badge>
                                     )}
                                     <div className={cn(
-                                        "p-2 rounded-lg",
-                                        action.variant === 'warning' ? 'bg-orange-100' : 'bg-gray-100 dark:bg-slate-700'
+                                        "rounded-lg p-2 ring-1 ring-border/60",
+                                        action.variant === 'warning' ? 'bg-warning/10' : 'bg-muted/60'
                                     )}>
                                         <Icon className={cn(
                                             "h-4 w-4",
-                                            action.variant === 'warning' ? 'text-orange-600' : 'text-gray-600 dark:text-slate-300'
+                                            action.variant === 'warning' ? 'text-warning' : 'text-foreground/80'
                                         )} />
                                     </div>
-                                    <span className="text-xs font-medium text-center leading-tight dark:text-slate-200">
+                                    <span className="text-xs font-semibold text-left leading-tight break-words whitespace-normal">
                                         {action.title}
                                     </span>
                                 </Button>
                             );
                         })}
                     </div>
+                </div>
             </div>
 
             {/* Pending Items */}
             {pendingItems.length > 0 && (
-                <Card className="border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-950/50">
+                <Card className="border border-warning/40 bg-warning/5 rounded-xl shadow-sm">
                     <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <AlertCircle className="h-5 w-5 text-orange-600" />
-                                <CardTitle className="text-lg font-semibold text-orange-900 dark:text-orange-100">
+                                <AlertCircle className="h-5 w-5 text-warning" />
+                                <CardTitle className="text-base font-semibold">
                                     {t('dashboard.pending_items.title', 'Needs Attention')}
                                 </CardTitle>
                             </div>
                             <Link
                                 to="/approvals"
-                                className="text-sm text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 flex items-center gap-1"
+                                className="text-sm text-primary hover:text-primary/80 flex items-center gap-1"
                             >
                                 {t('dashboard.pending_items.view_all', 'View All')}
                                 <ArrowRight className="h-3 w-3" />
@@ -328,15 +319,15 @@ export function QuickActions() {
                     <CardContent>
                         <div className="space-y-3">
                             {pendingItems.map((item) => (
-                                <div key={`${item.type}-${item.id}`} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-orange-200 dark:border-orange-800">
+                                <div key={`${item.type}-${item.id}`} className="flex items-center justify-between p-3 bg-card rounded-lg border border-warning/30">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-orange-100 rounded-lg">
-                                            {item.type === 'approval' && <ListChecks className="h-4 w-4 text-orange-600" />}
-                                            {item.type === 'expense' && <DollarSign className="h-4 w-4 text-orange-600" />}
-                                            {item.type === 'invoice' && <FileText className="h-4 w-4 text-orange-600" />}
+                                        <div className="p-2 bg-warning/10 rounded-lg">
+                                            {item.type === 'approval' && <ListChecks className="h-4 w-4 text-warning" />}
+                                            {item.type === 'expense' && <DollarSign className="h-4 w-4 text-warning" />}
+                                            {item.type === 'invoice' && <FileText className="h-4 w-4 text-warning" />}
                                         </div>
                                         <div>
-                                            <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{item.title}</div>
+                                            <div className="font-medium text-sm">{item.title}</div>
                                             {item.amount && (
                                                 <div className="text-xs text-muted-foreground">{item.amount}</div>
                                             )}
