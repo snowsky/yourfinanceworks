@@ -267,7 +267,7 @@ export function QuickActions() {
                                     key={action.id}
                                     variant="ghost"
                                     onClick={() => handleActionClick(action)}
-                                    className="relative h-auto min-h-[92px] rounded-xl border border-border/70 bg-background/60 p-3 flex flex-col items-start gap-2 hover:bg-muted/50 hover:border-primary/30 transition-all duration-200"
+                                    className="relative h-auto min-h-[92px] rounded-xl border border-border/70 bg-background/60 p-3 flex flex-col items-start gap-2 text-foreground hover:text-foreground focus:text-foreground hover:bg-muted/50 hover:border-primary/30 transition-all duration-200"
                                 >
                                     {action.badge && (
                                         <Badge className={cn(
