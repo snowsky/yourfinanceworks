@@ -368,6 +368,35 @@
   --dashboard-highlight-success: hsl(var(--success) / 0.2);
 }
 
+.dashboard-shell {
+  padding: 0.25rem;
+}
+
+.dashboard-hero {
+  letter-spacing: -0.01em;
+}
+
+.dashboard-section {
+  margin-top: 0.25rem;
+}
+
+.dashboard-section-header {
+  margin-bottom: 0.35rem;
+}
+
+.dashboard-section-title {
+  font-size: 1.125rem;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  font-weight: 700;
+}
+
+.dashboard-section-description {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  max-width: 58ch;
+}
+
 .dashboard-highlight-block {
   position: relative;
   border: 1px solid hsl(var(--border) / 0.85);
@@ -467,6 +496,20 @@
   box-shadow:
     0 0 0 1px hsl(var(--primary) / 0.28),
     0 14px 26px hsl(var(--primary) / 0.15);
+}
+
+@media (min-width: 1024px) {
+  .dashboard-shell {
+    padding-inline: 0.35rem;
+  }
+
+  .dashboard-section-title {
+    font-size: 1.2rem;
+  }
+
+  .dashboard-section-description {
+    font-size: 0.95rem;
+  }
 }
 
 .dark .professional-card {

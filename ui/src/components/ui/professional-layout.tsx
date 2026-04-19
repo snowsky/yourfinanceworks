@@ -80,10 +80,24 @@ interface ContentSectionProps extends React.HTMLAttributes<HTMLDivElement> {
   description?: string;
   actions?: React.ReactNode;
   variant?: 'default' | 'card' | 'minimal';
+  headerClassName?: string;
+  titleClassName?: string;
+  descriptionClassName?: string;
 }
 
 const ContentSection = React.forwardRef<HTMLDivElement, ContentSectionProps>(
-  ({ className, title, description, actions, variant = 'default', children, ...props }, ref) => {
+  ({
+    className,
+    title,
+    description,
+    actions,
+    variant = 'default',
+    children,
+    headerClassName,
+    titleClassName,
+    descriptionClassName,
+    ...props
+  }, ref) => {
     const variants = {
       default: "space-y-6",
       card: "bg-card border border-border/50 rounded-xl p-6 shadow-sm space-y-6",
@@ -97,13 +111,13 @@ const ContentSection = React.forwardRef<HTMLDivElement, ContentSectionProps>(
         {...props}
       >
         {(title || description || actions) && (
-          <div className="flex items-start justify-between">
+          <div className={cn("flex items-start justify-between", headerClassName)}>
             <div className="space-y-1">
               {title && (
-                <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+                <h2 className={cn("text-xl font-semibold tracking-tight", titleClassName)}>{title}</h2>
               )}
               {description && (
-                <p className="text-muted-foreground">{description}</p>
+                <p className={cn("text-muted-foreground", descriptionClassName)}>{description}</p>
               )}
             </div>
             
