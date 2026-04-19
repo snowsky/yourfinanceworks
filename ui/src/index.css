@@ -363,6 +363,50 @@
   padding: 8px;
 }
 
+.dashboard-highlight-mode {
+  --dashboard-highlight-primary: hsl(var(--primary) / 0.22);
+  --dashboard-highlight-success: hsl(var(--success) / 0.2);
+}
+
+.dashboard-highlight-block {
+  position: relative;
+  border: 1px solid hsl(var(--border) / 0.85);
+  box-shadow:
+    0 1px 2px hsl(var(--foreground) / 0.06),
+    0 12px 28px hsl(var(--foreground) / 0.06);
+  overflow: hidden;
+}
+
+.dashboard-highlight-block::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 0% 0%, hsl(var(--primary) / 0.08), transparent 52%),
+    linear-gradient(180deg, hsl(var(--background) / 0.18), transparent 28%);
+}
+
+.dashboard-highlight-block-primary {
+  box-shadow:
+    0 1px 2px hsl(var(--primary) / 0.18),
+    0 0 0 1px hsl(var(--primary) / 0.2) inset,
+    0 16px 30px hsl(var(--primary) / 0.08);
+}
+
+.dashboard-highlight-block-success {
+  box-shadow:
+    0 1px 2px hsl(var(--success) / 0.18),
+    0 0 0 1px hsl(var(--success) / 0.22) inset,
+    0 16px 30px hsl(var(--success) / 0.09);
+}
+
+.dashboard-highlight-item {
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.14),
+    0 12px 24px hsl(var(--primary) / 0.08);
+}
+
 .professional-card {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
@@ -390,6 +434,39 @@
 /* Dark mode professional enhancements */
 .dark .professional-dashboard {
   background: linear-gradient(135deg, rgba(0, 0, 0, 0.1), transparent);
+}
+
+.dark .dashboard-highlight-block {
+  border-color: hsl(var(--border) / 0.7);
+  box-shadow:
+    0 1px 2px hsl(220 40% 2% / 0.7),
+    0 16px 36px hsl(220 40% 2% / 0.35);
+}
+
+.dark .dashboard-highlight-block::after {
+  background:
+    radial-gradient(120% 80% at 0% 0%, hsl(var(--primary) / 0.14), transparent 52%),
+    linear-gradient(180deg, hsl(var(--background) / 0.18), transparent 30%);
+}
+
+.dark .dashboard-highlight-block-primary {
+  box-shadow:
+    0 1px 2px hsl(var(--primary) / 0.32),
+    0 0 0 1px hsl(var(--primary) / 0.34) inset,
+    0 16px 30px hsl(var(--primary) / 0.16);
+}
+
+.dark .dashboard-highlight-block-success {
+  box-shadow:
+    0 1px 2px hsl(var(--success) / 0.3),
+    0 0 0 1px hsl(var(--success) / 0.32) inset,
+    0 16px 30px hsl(var(--success) / 0.15);
+}
+
+.dark .dashboard-highlight-item {
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.28),
+    0 14px 26px hsl(var(--primary) / 0.15);
 }
 
 .dark .professional-card {

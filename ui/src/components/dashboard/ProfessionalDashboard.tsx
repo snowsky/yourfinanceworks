@@ -230,9 +230,9 @@ export function ProfessionalDashboard() {
 
 
   return (
-    <div className="h-full space-y-8 fade-in" data-tour="dashboard-welcome">
+    <div className="h-full space-y-8 fade-in dashboard-highlight-mode" data-tour="dashboard-welcome">
       {/* Dashboard Header with Professional Styling */}
-      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 backdrop-blur-sm" data-tour="dashboard-header">
+      <div className="dashboard-highlight-block dashboard-highlight-block-primary bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 backdrop-blur-sm" data-tour="dashboard-header">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-2 flex-1">
             <h1 className="text-4xl font-bold tracking-tight">{userName ? t('dashboard.welcome', { name: userName }) : t('dashboard.title')}</h1>
@@ -265,7 +265,12 @@ export function ProfessionalDashboard() {
       </div>
 
       {/* Metrics Grid */}
-      <ContentSection title={t('dashboard.sections.key_metrics')} description={t('dashboard.sections.key_metrics_desc')} data-tour="dashboard-stats">
+      <ContentSection
+        title={t('dashboard.sections.key_metrics')}
+        description={t('dashboard.sections.key_metrics_desc')}
+        data-tour="dashboard-stats"
+        className="dashboard-highlight-block dashboard-highlight-block-primary rounded-2xl p-5 md:p-6"
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
           {metrics.map((metric, index) => (
             <MetricCard
@@ -277,6 +282,7 @@ export function ProfessionalDashboard() {
               description={metric.description}
               variant={metric.variant}
               loading={loading}
+              className="dashboard-highlight-item"
             />
           ))}
         </div>
@@ -294,7 +300,7 @@ export function ProfessionalDashboard() {
             description={t('dashboard.sections.revenue_trends_desc')}
             variant="card"
             data-tour="dashboard-revenue-chart"
-            className="flex-1 flex flex-col"
+            className="flex-1 flex flex-col dashboard-highlight-block dashboard-highlight-block-primary"
           >
             <div className="flex-1 min-h-0">
               <InvoiceChart />
@@ -310,7 +316,7 @@ export function ProfessionalDashboard() {
             description={t('dashboard.sections.recent_activity_desc')}
             variant="card"
             data-tour="dashboard-recent"
-            className="flex-1 flex flex-col"
+            className="flex-1 flex flex-col dashboard-highlight-block dashboard-highlight-block-primary"
             actions={
               <div className="flex items-center gap-2">
                 <ProfessionalButton
@@ -343,7 +349,7 @@ export function ProfessionalDashboard() {
       <ContentSection
         title={t('dashboard.quick_actions.title')}
         description={t('dashboard.quick_actions.subtitle')}
-        className="scroll-mt-8"
+        className="scroll-mt-8 dashboard-highlight-block dashboard-highlight-block-primary"
         data-tour="dashboard-quick-actions"
         variant="card"
       >
@@ -353,7 +359,11 @@ export function ProfessionalDashboard() {
       {/* Business Insights Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Payment Trends */}
-        <ProfessionalCard variant="elevated" className="p-6" data-tour="dashboard-payment-trends">
+        <ProfessionalCard
+          variant="elevated"
+          className="p-6 dashboard-highlight-block dashboard-highlight-block-success"
+          data-tour="dashboard-payment-trends"
+        >
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-primary/10 rounded-xl">
@@ -394,7 +404,11 @@ export function ProfessionalDashboard() {
         </ProfessionalCard>
 
         {/* Business Health */}
-        <ProfessionalCard variant="elevated" className="p-6" data-tour="dashboard-business-health">
+        <ProfessionalCard
+          variant="elevated"
+          className="p-6 dashboard-highlight-block dashboard-highlight-block-success"
+          data-tour="dashboard-business-health"
+        >
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-emerald-500/10 rounded-xl">
