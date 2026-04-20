@@ -384,6 +384,9 @@ const Expenses = () => {
   const filteredExpenses = useMemo(() => {
     return expenses || [];
   }, [expenses]);
+  const pendingReviewCount = filteredExpenses.filter((expense) =>
+    expense.review_status === 'pending' || expense.review_status === 'diff_found'
+  ).length;
 
 
 
@@ -643,13 +646,21 @@ const Expenses = () => {
 
   return (
     <>
-      <div className="h-full space-y-8 fade-in">
+      <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell">
         {/* Hero Header */}
-        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-6">
-            <div className="space-y-2">
-              <h1 className="text-4xl font-bold tracking-tight">{t('expenses.title')}</h1>
-              <p className="text-lg text-muted-foreground">{t('expenses.description')}</p>
+        <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+            <div className="space-y-2 flex-1">
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">{t('expenses.title')}</h1>
+              <p className="text-muted-foreground text-sm md:text-base max-w-2xl">{t('expenses.description')}</p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="inline-flex items-center rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                  {t('common.total', { defaultValue: 'Total' })}: {totalExpenses}
+                </span>
+                <span className="inline-flex items-center rounded-md border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700">
+                  {t('expenses.review.title', { defaultValue: 'Review' })}: {pendingReviewCount}
+                </span>
+              </div>
             </div>
             {canPerformActions() && (
               <div className="flex gap-2 items-center flex-wrap justify-end">
@@ -748,7 +759,11 @@ const Expenses = () => {
           </>
         )}
 
-        <ProfessionalCard id="expense-list" className="slide-in" variant="default">
+        <ProfessionalCard
+          id="expense-list"
+          className="slide-in dashboard-highlight-block dashboard-highlight-block-primary"
+          variant="elevated"
+        >
           <div className="space-y-6">
             {/* Header with filters */}
             <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">

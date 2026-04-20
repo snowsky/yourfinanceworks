@@ -551,13 +551,29 @@ export function ReminderList({ className }: ReminderListProps) {
   return (
     <div className={cn("space-y-8 fade-in", className)}>
       {/* Hero Header */}
-      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
-        <div className="flex items-center justify-between gap-6">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold tracking-tight text-foreground">{t('reminders.title', { count: totalCount })}</h1>
-            <p className="text-lg text-muted-foreground">{t('reminders.description')}</p>
+      <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="space-y-2 flex-1">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight text-foreground">
+              {t('reminders.title', { count: totalCount })}
+            </h1>
+            <p className="text-muted-foreground text-sm md:text-base">{t('reminders.description')}</p>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/25">
+                <List className="h-3 w-3 mr-1" />
+                {t('common.total', { defaultValue: 'Total' })}: {totalCount}
+              </Badge>
+              <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 border-amber-500/20">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                {t('reminders.overdue')}: {counts.overdue}
+              </Badge>
+              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                {t('reminders.completed')}: {counts.completed}
+              </Badge>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {selectedReminders.size > 0 && (
               <ProfessionalButton
                 variant="destructive"
@@ -566,7 +582,7 @@ export function ReminderList({ className }: ReminderListProps) {
                 className="whitespace-nowrap"
               >
                 <Trash2 className="h-4 w-4" />
-                Delete Selected ({selectedReminders.size})
+                {t('common.delete', { defaultValue: 'Delete' })} ({selectedReminders.size})
               </ProfessionalButton>
             )}
             <ProfessionalButton

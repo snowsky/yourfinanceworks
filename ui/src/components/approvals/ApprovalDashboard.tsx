@@ -130,10 +130,12 @@ export function ApprovalDashboard() {
 
   if (licenseError) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold">{t('approvalDashboard.title')}</h1>
-          <p className="text-gray-600 mt-2">{t('approvalDashboard.description')}</p>
+      <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell p-0">
+        <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
+          <div className="space-y-2">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">{t('approvalDashboard.title')}</h1>
+            <p className="text-muted-foreground text-sm md:text-base">{t('approvalDashboard.description')}</p>
+          </div>
         </div>
 
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
@@ -168,13 +170,13 @@ export function ApprovalDashboard() {
 
   return (
     <ApprovalHelpTooltips context="dashboard">
-      <div className="space-y-6">
+      <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell">
         {/* Dashboard Header with Professional Styling */}
-        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-4">
+        <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
             <div className="space-y-2 flex-1">
-              <h1 className="text-4xl font-bold tracking-tight">{t('approvalDashboard.title')}</h1>
-              <p className="text-muted-foreground text-base">{t('approvalDashboard.description')}</p>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">{t('approvalDashboard.title')}</h1>
+              <p className="text-muted-foreground text-sm md:text-base">{t('approvalDashboard.description')}</p>
             </div>
             <div className="flex-shrink-0">
               <QuickHelp context="dashboard" />
@@ -232,7 +234,7 @@ export function ApprovalDashboard() {
         </div>
 
         {/* Pending Approvals List with Tabs */}
-        <Card>
+        <Card className="dashboard-highlight-block dashboard-highlight-block-primary border-border/50 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -379,7 +381,7 @@ export function ApprovalDashboard() {
         </Card>
 
         {/* Processed Items List */}
-        <Card>
+        <Card className="dashboard-highlight-block dashboard-highlight-block-primary border-border/50 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
