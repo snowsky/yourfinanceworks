@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   Building2, FileText, Percent, Cpu, Bell, Activity, Search,
@@ -67,14 +68,48 @@ const Settings = () => {
     }
   }, [activeTab]);
 
+  const activeTabLabelMap: Record<string, string> = {
+    profile: t('settings.tabs.profile', 'Profile'),
+    appearance: t('settings.tabs.appearance', 'Appearance'),
+    cookies: t('settings.tabs.cookies', 'Privacy'),
+    company: t('settings.tabs.company', 'Company'),
+    invoices: t('settings.tabs.invoices', 'Invoices'),
+    'discount-rules': t('settings.tabs.discount_rules', 'Discounts'),
+    'ai-config': t('settings.tabs.ai_config', 'AI Config'),
+    gamification: t('settings.tabs.gamification', 'Gamification'),
+    plugins: t('settings.tabs.plugins', 'Plugins'),
+    search: t('settings.tabs.search', 'Search'),
+    export: t('settings.tabs.export_destinations', 'Exports'),
+    notifications: t('settings.tabs.email_notifications', 'Notifications'),
+    currencies: t('settings.tabs.currencies', 'Currencies'),
+    payments: t('settings.tabs.payments', 'Payments'),
+    'api-integrations': t('settings.tabs.email', 'Email'),
+    'api-clients': t('settings.tabs.api_keys', 'API Keys'),
+    prompts: t('settings.tabs.prompts', 'Prompts'),
+    license: t('settings.license.tabTitle', 'License'),
+    data: t('settings.tabs.export', 'Data'),
+  };
+
+  const activeTabLabel = activeTabLabelMap[activeTab] || t('settings.title');
+
   return (
-    <div className="space-y-6 animate-fade-in pb-12">
+    <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell pb-12">
       {/* Hero Header */}
-      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
-        <div className="flex items-center justify-between gap-6">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold tracking-tight">{t('settings.title')}</h1>
-            <p className="text-lg text-muted-foreground">{t('settings.description')}</p>
+      <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="space-y-2 flex-1">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">{t('settings.title')}</h1>
+            <p className="text-muted-foreground text-sm md:text-base">{t('settings.description')}</p>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/25">
+                <Settings2 className="w-3 h-3 mr-1" />
+                {activeTabLabel}
+              </Badge>
+              <Badge variant="secondary" className="bg-blue-500/10 text-blue-700 border-blue-500/20">
+                <User className="w-3 h-3 mr-1" />
+                {isAdmin ? t('common.admin', 'Admin') : t('common.user', 'User')}
+              </Badge>
+            </div>
           </div>
           <Settings2 className="w-16 h-16 text-primary/15 flex-shrink-0 hidden sm:block" />
         </div>
@@ -86,7 +121,7 @@ const Settings = () => {
 
           {/* Vertical Sidebar */}
           <div className="w-full md:w-[220px] md:flex-shrink-0 md:sticky md:top-6">
-            <nav className="flex flex-col gap-0.5 bg-muted/20 p-2 rounded-xl border border-border/30">
+            <nav className="dashboard-highlight-block dashboard-highlight-block-primary flex flex-col gap-0.5 bg-muted/20 p-2 rounded-xl border border-border/40 shadow-sm">
 
               {/* Personal */}
               <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
@@ -143,7 +178,11 @@ const Settings = () => {
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 dashboard-highlight-block dashboard-highlight-block-primary rounded-2xl border border-border/40 bg-card/70 p-4 md:p-5 shadow-sm">
+            <div className="pb-4 mb-4 border-b border-border/40">
+              <h2 className="text-lg md:text-xl font-semibold tracking-tight">{activeTabLabel}</h2>
+              <p className="text-sm text-muted-foreground">{t('settings.description')}</p>
+            </div>
             <TabsContent value="profile" className="m-0 focus-visible:outline-none">
               <UserProfileTab />
             </TabsContent>
