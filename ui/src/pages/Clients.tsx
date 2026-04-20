@@ -182,7 +182,7 @@ const Clients = () => {
       <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell">
         {/* Hero Header */}
         <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2 flex-1">
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">{t('clients.title')}</h1>
               <p className="text-muted-foreground text-sm md:text-base max-w-2xl">{t('clients.description')}</p>

@@ -488,20 +488,13 @@ const Invoices = () => {
       <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell">
         {/* Hero Header */}
         <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
             <div className="space-y-2 flex-1">
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">{t('invoices.title')}</h1>
               <p className="text-muted-foreground text-sm md:text-base max-w-2xl">{t('invoices.description')}</p>
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/25">
                   {t('common.total', { defaultValue: 'Total' })}: {totalInvoices}
-                </Badge>
-                <Badge variant="secondary" className="bg-muted/70 text-foreground border-border/60">
-                  {t('common.showing_results', {
-                    shown: filteredInvoices.length,
-                    total: totalInvoices,
-                    defaultValue: 'Showing {{shown}} of {{total}} results'
-                  })}
                 </Badge>
                 <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 border-amber-500/20">
                   {t('invoices.review.title', { defaultValue: 'Review' })}: {pendingReviewCount}
@@ -749,15 +742,6 @@ const Invoices = () => {
             headerClassName="dashboard-section-header"
             titleClassName="dashboard-section-title"
             descriptionClassName="dashboard-section-description"
-            actions={(
-              <Badge variant="secondary" className="bg-muted/70 text-foreground border-border/60">
-                {t('common.showing_results', {
-                  shown: filteredInvoices.length,
-                  total: totalInvoices,
-                  defaultValue: 'Showing {{shown}} of {{total}} results'
-                })}
-              </Badge>
-            )}
           >
             <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 pb-6 border-b border-border/50">
               <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
