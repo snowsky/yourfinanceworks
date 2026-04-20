@@ -182,7 +182,7 @@ const Clients = () => {
       <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell">
         {/* Hero Header */}
         <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2 flex-1">
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">{t('clients.title')}</h1>
               <p className="text-muted-foreground text-sm md:text-base max-w-2xl">{t('clients.description')}</p>
@@ -220,15 +220,6 @@ const Clients = () => {
             headerClassName="dashboard-section-header"
             titleClassName="dashboard-section-title"
             descriptionClassName="dashboard-section-description"
-            actions={(
-              <Badge variant="secondary" className="bg-muted/70 text-foreground border-border/60">
-                {t('common.showing_results', {
-                  shown: filteredClients.length,
-                  total: totalClients,
-                  defaultValue: 'Showing {{shown}} of {{total}} results'
-                })}
-              </Badge>
-            )}
           >
             <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 pb-5 border-b border-border/50">
               <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -254,7 +245,6 @@ const Clients = () => {
               </div>
 
               <div className="flex items-center gap-3 flex-wrap justify-end">
-                <ColumnPicker columns={CLIENT_COLUMNS} isVisible={isVisible} onToggle={toggle} onReset={reset} hiddenCount={hiddenCount} />
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
                   <Select value={String(pageSize)} onValueChange={(v) => {
@@ -272,6 +262,7 @@ const Clients = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                <ColumnPicker columns={CLIENT_COLUMNS} isVisible={isVisible} onToggle={toggle} onReset={reset} hiddenCount={hiddenCount} />
               </div>
             </div>
 
