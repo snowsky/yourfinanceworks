@@ -759,7 +759,13 @@ const Invoices = () => {
                 {/* Status Filter */}
                 <div className="flex items-center gap-2">
                   <Filter className="h-4 w-4 text-muted-foreground" />
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(value) => {
+                      setStatusFilter(value);
+                      setPage(1);
+                    }}
+                  >
                     <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
                       <SelectValue placeholder={t('invoices.filter_by_status')} />
                     </SelectTrigger>
@@ -793,7 +799,9 @@ const Invoices = () => {
                     </button>
                   )}
                 </div>
+              </div>
 
+              <div className="flex items-center gap-3 flex-wrap justify-end xl:ml-auto">
                 {/* Page Size */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
