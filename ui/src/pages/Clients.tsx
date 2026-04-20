@@ -220,15 +220,6 @@ const Clients = () => {
             headerClassName="dashboard-section-header"
             titleClassName="dashboard-section-title"
             descriptionClassName="dashboard-section-description"
-            actions={(
-              <Badge variant="secondary" className="bg-muted/70 text-foreground border-border/60">
-                {t('common.showing_results', {
-                  shown: filteredClients.length,
-                  total: totalClients,
-                  defaultValue: 'Showing {{shown}} of {{total}} results'
-                })}
-              </Badge>
-            )}
           >
             <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 pb-5 border-b border-border/50">
               <div className="flex flex-col sm:flex-row items-center gap-4">
