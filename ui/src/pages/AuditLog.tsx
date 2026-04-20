@@ -273,7 +273,7 @@ export default function AuditLogPage() {
   };
 
   return (
-    <div className="h-full space-y-8 p-8 fade-in">
+    <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell pb-12">
       <PageHeader
         title={t('navigation.audit_log')}
         description={t('auditLog.description')}
@@ -448,7 +448,7 @@ export default function AuditLogPage() {
 
         {error && <div className="text-destructive mb-2 text-sm text-center">{error}</div>}
 
-        <ProfessionalCard className="slide-in" variant="elevated">
+        <ProfessionalCard className="slide-in dashboard-highlight-block dashboard-highlight-block-primary" variant="elevated">
           <ProfessionalCardContent className="p-0">
             <ProfessionalTable>
               <ProfessionalTableHeader>

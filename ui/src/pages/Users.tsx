@@ -411,7 +411,7 @@ export default function UsersPage() {
   );
 
   return (
-    <div className="h-full space-y-8 p-8 fade-in">
+    <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell pb-12">
       <PageHeader
         title={t('users.organization_users')}
         description={t('users.manageorganization_users')}
@@ -477,7 +477,7 @@ export default function UsersPage() {
       />
 
       {invites && invites.length > 0 && (
-        <ProfessionalCard className="slide-in" variant="elevated">
+        <ProfessionalCard className="slide-in dashboard-highlight-block dashboard-highlight-block-primary" variant="elevated">
           <ProfessionalCardHeader>
             <ProfessionalCardTitle>{t('users.all_invites')}</ProfessionalCardTitle>
             <ProfessionalCardDescription>{t('users.all_invites_desc', 'Pending and past invitations')}</ProfessionalCardDescription>
@@ -558,7 +558,7 @@ export default function UsersPage() {
         <JoinRequestsTable showAsCard={true} onRequestProcessed={fetchUsers} />
       </div>
 
-      <ProfessionalCard className="slide-in" variant="elevated">
+      <ProfessionalCard className="slide-in dashboard-highlight-block dashboard-highlight-block-primary" variant="elevated">
         <ProfessionalCardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
