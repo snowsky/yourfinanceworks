@@ -82,3 +82,4 @@ class MonitorCycle:
     cross_summary: dict[str, Any]
     overlap: dict[str, Any]
     exposure: dict[str, Any]
+    sentiment_reports: dict[int, dict[str, Any]] = field(default_factory=dict)

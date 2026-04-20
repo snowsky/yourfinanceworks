@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from .analyzers import build_recommendations, normalize_allocation
+from .analyzers import build_recommendations, build_sentiment_recommendations, normalize_allocation
 from .api_client import InvestmentAPIClient
 from .models import MonitorCycle, Portfolio, PortfolioAnalysis, Recommendation
 from .state import AgentState, append_history, write_snapshot
@@ -25,6 +25,8 @@ class PortfolioMonitorAgent:
         drift_threshold: Decimal,
         refresh_prices: bool = False,
         portfolio_ids: set[int] | None = None,
+        include_sentiment: bool = False,
+        sentiment_lookback_days: int = 7,
     ) -> MonitorCycle:
         if refresh_prices:
             self.api_client.refresh_prices()
@@ -41,6 +43,7 @@ class PortfolioMonitorAgent:
             portfolios = [portfolio for portfolio in portfolios if portfolio.id in portfolio_ids]
 
         analyses: list[PortfolioAnalysis] = []
+        sentiment_reports: dict[int, dict] = {}
         for portfolio in portfolios:
             performance = self.api_client.get_performance(portfolio.id)
             allocation_payload = self.api_client.get_allocation(portfolio.id)
@@ -55,6 +58,11 @@ class PortfolioMonitorAgent:
                     diversification=diversification,
                 )
             )
+            if include_sentiment:
+                sentiment_reports[portfolio.id] = self.api_client.get_community_sentiment(
+                    portfolio.id,
+                    lookback_days=sentiment_lookback_days,
+                )
 
         recommendations = build_recommendations(
             analyses,
@@ -63,6 +71,9 @@ class PortfolioMonitorAgent:
             price_status=price_status,
             drift_threshold=drift_threshold,
         )
+        if include_sentiment:
+            recommendations.extend(build_sentiment_recommendations(list(sentiment_reports.values())))
+            recommendations.sort(key=lambda item: item.severity, reverse=True)
         emitted = self._dedupe(recommendations)
         return MonitorCycle(
             analyses=tuple(analyses),
@@ -72,6 +83,7 @@ class PortfolioMonitorAgent:
             cross_summary=cross_summary,
             overlap=overlap,
             exposure=exposure,
+            sentiment_reports=sentiment_reports,
         )
 
     def persist(self, state_path) -> None:
@@ -100,12 +112,16 @@ class PortfolioMonitorAgent:
         interval_seconds: int,
         refresh_prices: bool = False,
         portfolio_ids: set[int] | None = None,
+        include_sentiment: bool = False,
+        sentiment_lookback_days: int = 7,
     ):
         while True:
             cycle = self.run_cycle(
                 drift_threshold=drift_threshold,
                 refresh_prices=refresh_prices,
                 portfolio_ids=portfolio_ids,
+                include_sentiment=include_sentiment,
+                sentiment_lookback_days=sentiment_lookback_days,
             )
             yield cycle
             self.state.last_run_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -136,6 +152,7 @@ class PortfolioMonitorAgent:
             "cross_summary": cycle.cross_summary,
             "overlap": cycle.overlap,
             "exposure": cycle.exposure,
+            "sentiment_reports": cycle.sentiment_reports,
             "recommendations": [
                 {
                     "portfolio_id": recommendation.portfolio_id,

@@ -87,6 +87,33 @@ def print_transactions(transactions: list[dict[str, Any]]) -> None:
     print(_format_table(rows))
 
 
+def print_sentiment_report(payload: dict[str, Any]) -> None:
+    print(f"Community Sentiment: {payload.get('portfolio_name')} ({payload.get('portfolio_id')})")
+    print(f"Generated: {payload.get('generated_at')}")
+    summary = payload.get("portfolio_summary") or {}
+    print(
+        "Summary: "
+        f"{summary.get('positive_holdings', 0)} positive, "
+        f"{summary.get('negative_holdings', 0)} negative, "
+        f"{summary.get('mixed_holdings', 0)} mixed, "
+        f"{summary.get('unavailable_holdings', 0)} unavailable"
+    )
+    print("")
+    rows = [["Symbol", "Label", "Score", "Mentions", "Confidence", "Signals"]]
+    for holding in payload.get("holdings") or []:
+        rows.append(
+            [
+                str(holding.get("symbol", "")),
+                str(holding.get("sentiment_label", "")),
+                f"{Decimal(str(holding.get('sentiment_score', 0))):.2f}",
+                str(holding.get("mentions", 0)),
+                str(holding.get("confidence", "")),
+                ", ".join(str(item) for item in (holding.get("top_signals") or [])[:3]),
+            ]
+        )
+    print(_format_table(rows))
+
+
 def print_recommendations(recommendations: list[Recommendation], *, title: str = "Recommendations") -> None:
     print(title)
     if not recommendations:

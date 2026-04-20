@@ -68,3 +68,7 @@ license_server/
 api/plugins/*
 !api/plugins/
 !api/plugins/__init__.py
+!api/plugins/loader.py
+!api/plugins/currency_rates/
+!api/plugins/investments/
+!api/plugins/time_tracking/

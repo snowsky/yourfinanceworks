@@ -16,6 +16,7 @@ from .render import (
     print_portfolio_analysis,
     print_portfolios,
     print_recommendations,
+    print_sentiment_report,
     print_transactions,
 )
 from .state import AgentState
@@ -39,6 +40,12 @@ def build_parser() -> argparse.ArgumentParser:
     analyze = portfolio_sub.add_parser("analyze", help="Analyze a portfolio")
     analyze.add_argument("portfolio_id", type=int)
 
+    research = portfolio_sub.add_parser("research", help="Research public community sentiment for a portfolio")
+    research.add_argument("portfolio_id", type=int)
+    research.add_argument("--lookback-days", type=int, default=7, help="Recent days to include in research")
+    research.add_argument("--max-holdings", type=int, default=8, help="Largest holdings to analyze")
+    research.add_argument("--max-items-per-source", type=int, default=5, help="Maximum source items per holding")
+
     rebalance = portfolio_sub.add_parser("rebalance", help="Show rebalance actions for a portfolio")
     rebalance.add_argument("portfolio_id", type=int)
 
@@ -51,6 +58,8 @@ def build_parser() -> argparse.ArgumentParser:
     monitor.add_argument("--refresh-prices", action="store_true", help="Refresh market prices before each cycle")
     monitor.add_argument("--once", action="store_true", help="Run a single cycle and exit")
     monitor.add_argument("--portfolio-id", type=int, action="append", default=None, help="Limit monitoring to selected portfolio IDs")
+    monitor.add_argument("--with-sentiment", action="store_true", help="Include public community sentiment research")
+    monitor.add_argument("--sentiment-lookback-days", type=int, default=7, help="Days of sentiment history to include")
     monitor.add_argument("--history-path", default=None, help="Override JSONL history output path")
     monitor.add_argument("--snapshot-dir", default=None, help="Override snapshot output directory")
 
@@ -113,6 +122,19 @@ def _handle_portfolio(args, client: InvestmentAPIClient, profile) -> int:
             print_portfolio_analysis(analysis)
         return 0
 
+    if args.action == "research":
+        payload = client.get_community_sentiment(
+            args.portfolio_id,
+            lookback_days=args.lookback_days,
+            max_holdings=args.max_holdings,
+            max_items_per_source=args.max_items_per_source,
+        )
+        if args.json:
+            print_json(payload)
+        else:
+            print_sentiment_report(payload)
+        return 0
+
     if args.action == "transactions":
         transactions = client.get_transactions(args.portfolio_id)
         if args.json:
@@ -151,6 +173,8 @@ def _handle_portfolio(args, client: InvestmentAPIClient, profile) -> int:
                 drift_threshold=drift_threshold,
                 refresh_prices=refresh_prices,
                 portfolio_ids=portfolio_ids or None,
+                include_sentiment=bool(args.with_sentiment),
+                sentiment_lookback_days=args.sentiment_lookback_days,
             )
             if args.json:
                 print_json(
@@ -159,6 +183,7 @@ def _handle_portfolio(args, client: InvestmentAPIClient, profile) -> int:
                         "emitted": [recommendation.__dict__ for recommendation in cycle.emitted],
                         "cross_summary": cycle.cross_summary,
                         "price_status": cycle.price_status,
+                        "sentiment_reports": cycle.sentiment_reports,
                     }
                 )
             else:
@@ -177,6 +202,8 @@ def _handle_portfolio(args, client: InvestmentAPIClient, profile) -> int:
                 interval_seconds=interval,
                 refresh_prices=refresh_prices,
                 portfolio_ids=portfolio_ids or None,
+                include_sentiment=bool(args.with_sentiment),
+                sentiment_lookback_days=args.sentiment_lookback_days,
             ):
                 if args.json:
                     print_json(
@@ -185,6 +212,7 @@ def _handle_portfolio(args, client: InvestmentAPIClient, profile) -> int:
                             "emitted": [recommendation.__dict__ for recommendation in cycle.emitted],
                             "cross_summary": cycle.cross_summary,
                             "price_status": cycle.price_status,
+                            "sentiment_reports": cycle.sentiment_reports,
                         }
                     )
                 else:

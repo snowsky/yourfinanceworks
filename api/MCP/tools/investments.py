@@ -124,6 +124,26 @@ class InvestmentToolsMixin:
             logging.getLogger(__name__).error(f"Failed to get diversification analysis for {portfolio_id}: {e}")
             return {"success": False, "error": f"Failed to get diversification analysis: {e}"}
 
+    async def get_portfolio_community_sentiment(
+        self,
+        portfolio_id: int,
+        lookback_days: int = 7,
+        max_holdings: int = 8,
+        max_items_per_source: int = 5,
+    ) -> Dict[str, Any]:
+        """Get public community sentiment research for a portfolio."""
+        try:
+            response = await self.api_client.get_portfolio_community_sentiment(
+                portfolio_id,
+                lookback_days=lookback_days,
+                max_holdings=max_holdings,
+                max_items_per_source=max_items_per_source,
+            )
+            return {"success": True, "data": response}
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Failed to get community sentiment for {portfolio_id}: {e}")
+            return {"success": False, "error": f"Failed to get community sentiment: {e}"}
+
     async def get_portfolio_transactions(self, portfolio_id: int) -> Dict[str, Any]:
         """Get transactions for a portfolio."""
         try:

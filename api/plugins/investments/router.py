@@ -44,6 +44,7 @@ from .services.analytics_service import AnalyticsService
 from .services.rebalance_service import RebalanceService
 from .services.portfolio_import_service import PortfolioImportService
 from .services.cross_portfolio_service import CrossPortfolioService
+from .services.community_sentiment_service import CommunitySentimentService
 
 
 # Import error handling
@@ -1047,6 +1048,47 @@ async def get_diversification_analysis(
         raise
     except Exception as e:
         raise InvestmentError(f"Failed to calculate diversification analysis: {str(e)}")
+
+
+@investment_router.get("/portfolios/{portfolio_id}/community-sentiment", response_model=dict)
+async def get_portfolio_community_sentiment(
+    portfolio_id: int = Depends(validate_portfolio_id_param),
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    lookback_days: int = Query(7, ge=1, le=30, description="How many recent days to analyze"),
+    max_holdings: int = Query(8, ge=1, le=25, description="Maximum holdings to analyze"),
+    max_items_per_source: int = Query(5, ge=1, le=10, description="Maximum items to fetch per source and holding"),
+):
+    """Get public community sentiment research for the largest holdings in a portfolio."""
+    try:
+        portfolio_service = PortfolioService(db)
+        if not portfolio_service.validate_tenant_access(portfolio_id, current_user.tenant_id):
+            raise_not_found_error("Portfolio", portfolio_id)
+
+        portfolio, _summary = portfolio_service.get_portfolio_with_summary(
+            portfolio_id=portfolio_id,
+            tenant_id=current_user.tenant_id,
+        )
+        holdings_service = HoldingsService(db)
+        holdings = holdings_service.get_holdings(
+            tenant_id=current_user.tenant_id,
+            portfolio_id=portfolio_id,
+            include_closed=False,
+        )
+
+        sentiment_service = CommunitySentimentService()
+        return await sentiment_service.build_portfolio_report(
+            portfolio_id=portfolio_id,
+            portfolio_name=portfolio.name,
+            holdings=holdings,
+            lookback_days=lookback_days,
+            max_holdings=max_holdings,
+            max_items_per_source=max_items_per_source,
+        )
+    except InvestmentError:
+        raise
+    except Exception as e:
+        raise InvestmentError(f"Failed to generate community sentiment research: {str(e)}")
 
 
 # File Management Endpoints

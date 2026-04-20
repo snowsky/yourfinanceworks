@@ -49,6 +49,24 @@ async def get_portfolio_diversification(portfolio_id: int) -> dict:
 
 
 @mcp.tool()
+async def get_portfolio_community_sentiment(
+    portfolio_id: int,
+    lookback_days: int = 7,
+    max_holdings: int = 8,
+    max_items_per_source: int = 5,
+) -> dict:
+    """Get public community sentiment research for a portfolio."""
+    if server_context.tools is None:
+        return {"success": False, "error": "Server not properly initialized"}
+    return await server_context.tools.get_portfolio_community_sentiment(
+        portfolio_id=portfolio_id,
+        lookback_days=lookback_days,
+        max_holdings=max_holdings,
+        max_items_per_source=max_items_per_source,
+    )
+
+
+@mcp.tool()
 async def get_portfolio_transactions(portfolio_id: int) -> dict:
     """Get transactions for a portfolio."""
     if server_context.tools is None:

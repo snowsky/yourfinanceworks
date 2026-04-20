@@ -1108,6 +1108,24 @@ class InvoiceAPIClient:
         """Get diversification analysis for a specific portfolio."""
         return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}/diversification")
 
+    async def get_portfolio_community_sentiment(
+        self,
+        portfolio_id: int,
+        lookback_days: int = 7,
+        max_holdings: int = 8,
+        max_items_per_source: int = 5,
+    ) -> Dict[str, Any]:
+        """Get public community sentiment research for a portfolio."""
+        return await self._make_request(
+            "GET",
+            f"/investments/portfolios/{portfolio_id}/community-sentiment",
+            params={
+                "lookback_days": lookback_days,
+                "max_holdings": max_holdings,
+                "max_items_per_source": max_items_per_source,
+            },
+        )
+
     async def get_cross_portfolio_summary(self) -> Dict[str, Any]:
         """Get cross-portfolio dashboard summary."""
         return await self._make_request("GET", "/investments/cross-portfolio/summary")

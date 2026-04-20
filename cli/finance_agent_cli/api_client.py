@@ -158,6 +158,24 @@ class InvestmentAPIClient:
     def get_diversification(self, portfolio_id: int) -> dict[str, Any]:
         return self._request("GET", f"/investments/portfolios/{portfolio_id}/diversification")
 
+    def get_community_sentiment(
+        self,
+        portfolio_id: int,
+        *,
+        lookback_days: int = 7,
+        max_holdings: int = 8,
+        max_items_per_source: int = 5,
+    ) -> dict[str, Any]:
+        return self._request(
+            "GET",
+            f"/investments/portfolios/{portfolio_id}/community-sentiment",
+            params={
+                "lookback_days": lookback_days,
+                "max_holdings": max_holdings,
+                "max_items_per_source": max_items_per_source,
+            },
+        )
+
     def get_aggregated_analytics(self) -> dict[str, Any]:
         return self._request("GET", "/investments/analytics/aggregated")
 
