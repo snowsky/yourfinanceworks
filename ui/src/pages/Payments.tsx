@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, Loader2, CreditCard, ChevronLeft, ChevronRight, MoreHorizontal, Share2, Settings, Sparkles, ExternalLink } from "lucide-react";
+import { Search, Filter, Loader2, CreditCard, ChevronLeft, ChevronRight, MoreHorizontal, Share2, Settings, Sparkles, ExternalLink, DollarSign, Activity } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,6 +17,7 @@ import { ProfessionalCard, ProfessionalCardContent, ProfessionalCardDescription,
 import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
 import { ColumnPicker } from "@/components/ui/column-picker";
 import { getCurrentUser } from "@/utils/auth";
+import { ContentSection } from "@/components/ui/professional-layout";
 
 const PAYMENT_COLUMNS: ColumnDef[] = [
   { key: 'id', label: 'ID' },
@@ -59,6 +60,41 @@ const normalizePaymentSettings = (value: unknown): PaymentSettings => {
       ...(raw.stripe ?? {}),
     },
   };
+};
+
+const formatBadgeLabel = (value?: string) => {
+  if (!value) {
+    return "N/A";
+  }
+  return value.replace(/_/g, " ");
+};
+
+const methodBadgeClass = (method?: string) => {
+  switch ((method || "").toLowerCase()) {
+    case "stripe":
+      return "bg-violet-500/10 text-violet-700 border-violet-500/20";
+    case "credit_card":
+      return "bg-blue-500/10 text-blue-700 border-blue-500/20";
+    case "bank_transfer":
+      return "bg-cyan-500/10 text-cyan-700 border-cyan-500/20";
+    case "cash":
+      return "bg-emerald-500/10 text-emerald-700 border-emerald-500/20";
+    default:
+      return "bg-muted/40 text-foreground border-border/50";
+  }
+};
+
+const statusBadgeClass = (status?: string) => {
+  switch ((status || "").toLowerCase()) {
+    case "completed":
+      return "bg-emerald-500/10 text-emerald-700 border-emerald-500/20";
+    case "pending":
+      return "bg-amber-500/10 text-amber-700 border-amber-500/20";
+    case "failed":
+      return "bg-destructive/10 text-destructive border-destructive/20";
+    default:
+      return "bg-muted/40 text-foreground border-border/50";
+  }
 };
 
 const Payments = () => {
@@ -223,54 +259,73 @@ const Payments = () => {
 
   const totalPages = Math.ceil(totalCount / pageSize);
   const canShowStripePaymentCard = isAdmin ? stripeConfigured && recentStripePayments.length > 0 : recentStripePayments.length > 0;
+  const filteredTotalAmount = filteredPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const completedCount = filteredPayments.filter(payment => payment.status === "completed").length;
 
   return (
-    <div className="h-full space-y-8 fade-in">
+    <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell">
       {/* Hero Header */}
-      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
-        <div className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">{t('payments.title')}</h1>
-          <p className="text-lg text-muted-foreground">{t('payments.description')}</p>
+      <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="space-y-2 flex-1">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">{t('payments.title')}</h1>
+            <p className="text-muted-foreground text-sm md:text-base max-w-2xl">{t('payments.description')}</p>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/25">
+                <Activity className="h-3 w-3 mr-1" />
+                {t('common.total', { defaultValue: 'Total' })}: {totalCount}
+              </Badge>
+              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20">
+                <DollarSign className="h-3 w-3 mr-1" />
+                {t('payments.table.amount')}: ${filteredTotalAmount.toFixed(2)}
+              </Badge>
+              <Badge variant="secondary" className="bg-blue-500/10 text-blue-700 border-blue-500/20">
+                <CreditCard className="h-3 w-3 mr-1" />
+                {t('payments.completed', { defaultValue: 'Completed' })}: {completedCount}
+              </Badge>
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <ProfessionalCard className="slide-in" variant="elevated">
-          <div className="space-y-6">
-          {/* Header with filters */}
-          <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">{t('payments.payment_list')}</h2>
-              <p className="text-muted-foreground mt-1">{t('payments.manage_payments_description')}</p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-              {/* Search */}
-              <div className="relative w-full sm:w-auto">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={t('payments.search_placeholder')}
-                  className="pl-9 w-full sm:w-[240px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
+        <ProfessionalCard className="slide-in dashboard-highlight-block dashboard-highlight-block-primary" variant="elevated">
+          <ContentSection
+            title={t('payments.payment_list')}
+            description={t('payments.manage_payments_description')}
+            className="space-y-6 dashboard-section rounded-2xl p-5 md:p-6"
+            headerClassName="dashboard-section-header"
+            titleClassName="dashboard-section-title"
+            descriptionClassName="dashboard-section-description"
+          >
+            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 pb-6 border-b border-border/50">
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                <div className="relative w-full sm:w-auto">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t('payments.search_placeholder')}
+                    className="pl-9 w-full sm:w-[240px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
 
-              {/* Method Filter */}
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <Select value={methodFilter} onValueChange={setMethodFilter}>
-                  <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
-                    <SelectValue placeholder={t('payments.filter_by_method')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t('payments.all_methods')}</SelectItem>
-                    <SelectItem value="credit_card">{t('payments.payment_methods.credit_card')}</SelectItem>
-                    <SelectItem value="bank_transfer">{t('payments.payment_methods.bank_transfer')}</SelectItem>
-                    <SelectItem value="cash">{t('payments.payment_methods.cash')}</SelectItem>
-                    <SelectItem value="stripe">{t('payments.payment_methods.stripe')}</SelectItem>
-                    <SelectItem value="system">{t('payments.payment_methods.system')}</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <Select value={methodFilter} onValueChange={setMethodFilter}>
+                    <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
+                      <SelectValue placeholder={t('payments.filter_by_method')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('payments.all_methods')}</SelectItem>
+                      <SelectItem value="credit_card">{t('payments.payment_methods.credit_card')}</SelectItem>
+                      <SelectItem value="bank_transfer">{t('payments.payment_methods.bank_transfer')}</SelectItem>
+                      <SelectItem value="cash">{t('payments.payment_methods.cash')}</SelectItem>
+                      <SelectItem value="stripe">{t('payments.payment_methods.stripe')}</SelectItem>
+                      <SelectItem value="system">{t('payments.payment_methods.system')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <ColumnPicker
@@ -281,157 +336,153 @@ const Payments = () => {
                 hiddenCount={hiddenCount}
               />
             </div>
-          </div>
 
-          {/* Content */}
-          {loading ? (
-            <div className="flex justify-center items-center h-40">
-              <div className="flex flex-col items-center gap-4">
-                <div className="relative w-12 h-12">
-                  <Loader2 className="h-12 w-12 animate-spin text-primary/60" />
+            {loading ? (
+              <div className="flex justify-center items-center h-40">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative w-12 h-12">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary/60" />
+                  </div>
+                  <p className="text-muted-foreground font-medium">{t('payments.loading')}</p>
                 </div>
-                <p className="text-muted-foreground font-medium">{t('payments.loading')}</p>
               </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
-                      {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>}
-                      <TableHead className="font-bold text-foreground">{t('payments.table.invoice')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('payments.table.client')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('payments.table.date')}</TableHead>
-                      <TableHead className="font-bold text-foreground">{t('payments.table.amount')}</TableHead>
-                      {isVisible('currency') && <TableHead className="font-bold text-foreground">{t('payments.table.currency', { defaultValue: 'Currency' })}</TableHead>}
-                      {isVisible('method') && <TableHead className="font-bold text-foreground">{t('payments.table.method')}</TableHead>}
-                      {isVisible('reference') && <TableHead className="font-bold text-foreground">{t('payments.table.reference', { defaultValue: 'Reference' })}</TableHead>}
-                      {isVisible('notes') && <TableHead className="font-bold text-foreground">{t('payments.table.notes', { defaultValue: 'Notes' })}</TableHead>}
-                      <TableHead className="font-bold text-foreground">{t('payments.table.status')}</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPayments.length > 0 ? (
-                      filteredPayments.map((payment) => (
-                        <TableRow key={payment.id} className="hover:bg-muted/50 transition-all duration-200 border-b border-border/30">
-                          {isVisible('id') && <TableCell className="font-mono text-sm text-muted-foreground">#{payment.id}</TableCell>}
-                          <TableCell className="font-semibold text-foreground">
-                            <Link
-                              to={`/invoices/view/${payment.invoice_id}`}
-                              className="text-primary hover:underline transition-all"
-                            >
-                              {payment.invoice_number || 'N/A'}
-                            </Link>
-                          </TableCell>
-                          <TableCell className="text-foreground">{payment.client_name || 'N/A'}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-US', { timeZone: 'UTC' }) : 'N/A'} UTC</TableCell>
-                          <TableCell className="font-semibold text-foreground">
-                            <CurrencyDisplay amount={payment.amount || 0} currency={payment.currency || 'USD'} />
-                          </TableCell>
-                          {isVisible('currency') && <TableCell className="text-muted-foreground text-sm">{payment.currency || 'N/A'}</TableCell>}
-                          {isVisible('method') && (
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
+                        {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>}
+                        <TableHead className="font-bold text-foreground">{t('payments.table.invoice')}</TableHead>
+                        <TableHead className="font-bold text-foreground">{t('payments.table.client')}</TableHead>
+                        <TableHead className="font-bold text-foreground">{t('payments.table.date')}</TableHead>
+                        <TableHead className="font-bold text-foreground">{t('payments.table.amount')}</TableHead>
+                        {isVisible('currency') && <TableHead className="font-bold text-foreground">{t('payments.table.currency', { defaultValue: 'Currency' })}</TableHead>}
+                        {isVisible('method') && <TableHead className="font-bold text-foreground">{t('payments.table.method')}</TableHead>}
+                        {isVisible('reference') && <TableHead className="font-bold text-foreground">{t('payments.table.reference', { defaultValue: 'Reference' })}</TableHead>}
+                        {isVisible('notes') && <TableHead className="font-bold text-foreground">{t('payments.table.notes', { defaultValue: 'Notes' })}</TableHead>}
+                        <TableHead className="font-bold text-foreground">{t('payments.table.status')}</TableHead>
+                        <TableHead className="text-right font-bold text-foreground">{t('payments.table.actions', { defaultValue: 'Actions' })}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredPayments.length > 0 ? (
+                        filteredPayments.map((payment) => (
+                          <TableRow key={payment.id} className="hover:bg-muted/50 transition-all duration-200 border-b border-border/30">
+                            {isVisible('id') && <TableCell className="font-mono text-sm text-muted-foreground">#{payment.id}</TableCell>}
+                            <TableCell className="font-semibold text-foreground">
+                              <Link to={`/invoices/view/${payment.invoice_id}`} className="text-primary hover:underline transition-all">
+                                {payment.invoice_number || 'N/A'}
+                              </Link>
+                            </TableCell>
+                            <TableCell className="text-foreground">{payment.client_name || 'N/A'}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">
+                              {payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-US', { timeZone: 'UTC' }) : 'N/A'} UTC
+                            </TableCell>
+                            <TableCell className="font-semibold text-foreground">
+                              <CurrencyDisplay amount={payment.amount || 0} currency={payment.currency || 'USD'} />
+                            </TableCell>
+                            {isVisible('currency') && <TableCell className="text-muted-foreground text-sm">{payment.currency || 'N/A'}</TableCell>}
+                            {isVisible('method') && (
+                              <TableCell>
+                                <Badge variant="outline" className={`capitalize font-medium ${methodBadgeClass(payment.payment_method)}`}>
+                                  {formatBadgeLabel(payment.payment_method)}
+                                </Badge>
+                              </TableCell>
+                            )}
+                            {isVisible('reference') && <TableCell className="text-muted-foreground text-sm font-mono">{payment.reference_number || '—'}</TableCell>}
+                            {isVisible('notes') && <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">{payment.notes || '—'}</TableCell>}
                             <TableCell>
-                              <Badge variant="outline" className="capitalize font-medium">
-                                {payment.payment_method || 'N/A'}
+                              <Badge variant="outline" className={`capitalize font-medium ${statusBadgeClass(payment.status)}`}>
+                                {formatBadgeLabel(payment.status)}
                               </Badge>
                             </TableCell>
-                          )}
-                          {isVisible('reference') && <TableCell className="text-muted-foreground text-sm font-mono">{payment.reference_number || '—'}</TableCell>}
-                          {isVisible('notes') && <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">{payment.notes || '—'}</TableCell>}
-                          <TableCell>
-                            <Badge variant="outline" className="capitalize font-medium">
-                              {payment.status || 'N/A'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => setSharePaymentId(payment.id)}>
-                                  <Share2 className="mr-2 h-4 w-4" /> Share
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                            <ShareButton
-                              recordType="payment"
-                              recordId={payment.id}
-                              open={sharePaymentId === payment.id}
-                              onOpenChange={(isOpen: boolean) => { if (!isOpen) setSharePaymentId(null); }}
-                            />
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => setSharePaymentId(payment.id)}>
+                                    <Share2 className="mr-2 h-4 w-4" /> Share
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                              <ShareButton
+                                recordType="payment"
+                                recordId={payment.id}
+                                open={sharePaymentId === payment.id}
+                                onOpenChange={(isOpen: boolean) => { if (!isOpen) setSharePaymentId(null); }}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6 + (isVisible('id') ? 1 : 0) + (isVisible('currency') ? 1 : 0) + (isVisible('method') ? 1 : 0) + (isVisible('reference') ? 1 : 0) + (isVisible('notes') ? 1 : 0)} className="h-auto p-0 border-none">
+                            <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
+                              <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <CreditCard className="h-8 w-8 text-primary" />
+                              </div>
+                              <h3 className="text-xl font-bold mb-2">{t('payments.no_payments', 'No payments yet')}</h3>
+                              <p className="text-muted-foreground max-w-sm mx-auto">
+                                {t('payments.no_payments_description', 'No payments have been recorded yet. Payments will appear here once invoices are paid or manually marked as paid.')}
+                              </p>
+                            </div>
                           </TableCell>
                         </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6 + (isVisible('id') ? 1 : 0) + (isVisible('currency') ? 1 : 0) + (isVisible('method') ? 1 : 0) + (isVisible('reference') ? 1 : 0) + (isVisible('notes') ? 1 : 0)} className="h-auto p-0 border-none">
-                          <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
-                            <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                              <CreditCard className="h-8 w-8 text-primary" />
-                            </div>
-                            <h3 className="text-xl font-bold mb-2">{t('payments.no_payments', 'No payments yet')}</h3>
-                            <p className="text-muted-foreground max-w-sm mx-auto">
-                              {t('payments.no_payments_description', 'No payments have been recorded yet. Payments will appear here once invoices are paid or manually marked as paid.')}
-                            </p>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
 
-              {/* Pagination Controls */}
-              {totalCount > pageSize && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-2">
-                  <div className="text-sm text-muted-foreground order-2 sm:order-1">
-                    {t('common.showing_of', {
-                      count: filteredPayments.length,
-                      total: totalCount,
-                      defaultValue: `Showing ${filteredPayments.length} of ${totalCount} payments`
-                    })}
-                  </div>
-                  <div className="flex items-center gap-2 order-1 sm:order-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1 || loading}
-                      className="h-9 w-9 p-0"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <div className="flex items-center px-4 text-sm font-medium bg-muted/30 h-9 rounded-lg border border-border/50">
-                      {t('common.page_of', {
-                        current: currentPage,
-                        total: totalPages,
-                        defaultValue: `Page ${currentPage} of ${totalPages}`
+                {totalCount > pageSize && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-2">
+                    <div className="text-sm text-muted-foreground order-2 sm:order-1">
+                      {t('common.showing_of', {
+                        count: filteredPayments.length,
+                        total: totalCount,
+                        defaultValue: `Showing ${filteredPayments.length} of ${totalCount} payments`
                       })}
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages || loading}
-                      className="h-9 w-9 p-0"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2 order-1 sm:order-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1 || loading}
+                        className="h-9 w-9 p-0"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <div className="flex items-center px-4 text-sm font-medium bg-muted/30 h-9 rounded-lg border border-border/50">
+                        {t('common.page_of', {
+                          current: currentPage,
+                          total: totalPages,
+                          defaultValue: `Page ${currentPage} of ${totalPages}`
+                        })}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages || loading}
+                        className="h-9 w-9 p-0"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
-          </div>
+                )}
+              </div>
+            )}
+          </ContentSection>
         </ProfessionalCard>
 
         <div className="space-y-6 xl:sticky xl:top-6 self-start">
-          <ProfessionalCard variant="elevated">
+          <ProfessionalCard variant="elevated" className="dashboard-highlight-block dashboard-highlight-block-secondary">
             <ProfessionalCardHeader>
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
@@ -459,8 +510,8 @@ const Payments = () => {
                 <>
                   {canShowStripePaymentCard && recentStripePayments.length > 0 ? (
                     <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                       {recentStripePayments.map(payment => (
-                       <div key={payment.id} className="space-y-4 rounded-xl border border-border/50 bg-muted/20 p-4">
+                      {recentStripePayments.map(payment => (
+                        <div key={payment.id} className="space-y-4 rounded-xl border border-border/50 bg-muted/20 p-4">
                          <div className="flex items-center justify-between gap-2">
                            <p className="font-medium text-foreground">
                              {stripeSettings.stripe.accountLabel || t("payments.payment_methods.stripe")}
@@ -506,8 +557,8 @@ const Payments = () => {
                              {t("payments.stripe_sidebar.open_invoice", "Open invoice")}
                            </Link>
                          </Button>
-                       </div>
-                       ))}
+                        </div>
+                      ))}
                     </div>
                   ) : stripeConfigured ? (
                     <div className="space-y-3 rounded-xl border border-dashed border-border/60 bg-muted/10 p-4">
