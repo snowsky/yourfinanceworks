@@ -1096,6 +1096,38 @@ class InvoiceAPIClient:
         """Get dividend summary for a specific portfolio"""
         return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}/dividends")
 
+    async def get_portfolio_transactions(self, portfolio_id: int) -> List[Dict[str, Any]]:
+        """Get transactions for a specific portfolio."""
+        return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}/transactions")
+
+    async def get_portfolio_rebalance(self, portfolio_id: int) -> Dict[str, Any]:
+        """Get rebalance recommendations for a portfolio."""
+        return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}/rebalance")
+
+    async def get_portfolio_diversification(self, portfolio_id: int) -> Dict[str, Any]:
+        """Get diversification analysis for a specific portfolio."""
+        return await self._make_request("GET", f"/investments/portfolios/{portfolio_id}/diversification")
+
+    async def get_cross_portfolio_summary(self) -> Dict[str, Any]:
+        """Get cross-portfolio dashboard summary."""
+        return await self._make_request("GET", "/investments/cross-portfolio/summary")
+
+    async def get_cross_portfolio_overlap(self) -> Dict[str, Any]:
+        """Get overlap analysis across portfolios."""
+        return await self._make_request("GET", "/investments/cross-portfolio/overlap-analysis")
+
+    async def get_cross_portfolio_exposure(self) -> Dict[str, Any]:
+        """Get concentration/exposure report across portfolios."""
+        return await self._make_request("GET", "/investments/cross-portfolio/exposure-report")
+
+    async def get_price_status(self) -> Dict[str, Any]:
+        """Get price freshness status across holdings."""
+        return await self._make_request("GET", "/investments/holdings/price-status")
+
+    async def update_prices(self) -> Dict[str, Any]:
+        """Trigger market price refresh for all tenant holdings."""
+        return await self._make_request("POST", "/investments/holdings/update-prices")
+
     async def close(self):
         """Close the HTTP client and auth client"""
         await self._client.aclose()

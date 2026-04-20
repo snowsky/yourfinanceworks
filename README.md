@@ -104,6 +104,7 @@ The first user to sign up in a fresh system is automatically granted Super User 
 
 - **Environment Setup**: [docs/developer/environment_setup.md](docs/developer/environment_setup.md)
 - **Quick Start (Docker)**: See the [Quick Start](#quick-start-docker) section above.
+- **Finance Agent CLI + MCP**: [docs/technical-notes/FINANCE_AGENT_CLI_AND_MCP.md](docs/technical-notes/FINANCE_AGENT_CLI_AND_MCP.md)
 
 ## 🤝 Contributing
 

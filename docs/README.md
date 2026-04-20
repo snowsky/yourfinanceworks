@@ -51,6 +51,7 @@ Technical documentation for contributors and system integrators:
 - **[Developer Guide Index](developer/README.md)**: Entry point for setup and integration docs.
 - **[Integration Instructions Index](instructions/README.md)**: Entry point for API and migration instructions.
 - **[MCP Server Guide](developer/MCP_SERVER_GUIDE.md)**: AI integration and FastMCP tool details.
+- **[Finance Agent CLI + MCP](technical-notes/FINANCE_AGENT_CLI_AND_MCP.md)**: Install and run the finance agent CLI, monitor artifacts, and investment MCP tools.
 - **[Environment Setup](developer/environment_setup.md)**: Local development prerequisites.
 - **[Invoice API Guide](instructions/invoice-api-guide.md)**: Invoice lifecycle endpoints and usage.
 - **[Receipt PDF Upload API Guide](instructions/receipt-pdf-upload-api.md)**: Upload receipts via API.
