@@ -245,7 +245,6 @@ const Clients = () => {
               </div>
 
               <div className="flex items-center gap-3 flex-wrap justify-end">
-                <ColumnPicker columns={CLIENT_COLUMNS} isVisible={isVisible} onToggle={toggle} onReset={reset} hiddenCount={hiddenCount} />
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
                   <Select value={String(pageSize)} onValueChange={(v) => {
@@ -263,6 +262,7 @@ const Clients = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                <ColumnPicker columns={CLIENT_COLUMNS} isVisible={isVisible} onToggle={toggle} onReset={reset} hiddenCount={hiddenCount} />
               </div>
             </div>
 
