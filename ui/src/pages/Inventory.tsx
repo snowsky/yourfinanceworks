@@ -17,7 +17,6 @@ import { useTranslation } from 'react-i18next';
 import { BarcodeScanner } from "@/components/inventory/BarcodeScanner";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { formatDateTime } from "@/lib/utils";
-import { PageHeader } from "@/components/ui/professional-layout";
 import { ProfessionalCard, MetricCard } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
@@ -201,34 +200,45 @@ const Inventory = () => {
 
   return (
     <>
-      <div className="h-full space-y-6 fade-in">
-        <PageHeader
-          title={t('inventory.title', 'Inventory')}
-          description={businessType === 'service'
-            ? t('inventory.service_description', 'Create a service catalog for your consulting and freelance work')
-            : t('inventory.product_description', 'Manage your products and stock levels')
-          }
-          actions={
-            <div className="flex gap-2">
-              {canPerformAction && (
-                <>
-                  <Link to="/inventory/new">
-                    <ProfessionalButton className="sm:self-end whitespace-nowrap">
-                      <Plus className="mr-2 h-4 w-4" /> {t('inventory.add_item', 'Add Item')}
-                    </ProfessionalButton>
-                  </Link>
-                  <BarcodeScanner
-                    onItemFound={(item) => {
-                      toast.success(`Found item: ${item.name}`);
-                      // Could navigate to item details or add to cart
-                    }}
-                    autoClose={false}
-                  />
-                </>
-              )}
+      <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell">
+        <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+            <div className="space-y-2 flex-1">
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">
+                {t('inventory.title', 'Inventory')}
+              </h1>
+              <p className="text-muted-foreground text-sm md:text-base max-w-2xl">
+                {businessType === 'service'
+                  ? t('inventory.service_description', 'Create a service catalog for your consulting and freelance work')
+                  : t('inventory.product_description', 'Manage your products and stock levels')
+                }
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="inline-flex items-center rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                  {t('common.total', { defaultValue: 'Total' })}: {analytics?.total_items ?? items.length}
+                </span>
+                <span className="inline-flex items-center rounded-md border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700">
+                  {t('inventory.analytics.low_stock_items', 'Low Stock Items')}: {analytics?.low_stock_items ?? 0}
+                </span>
+              </div>
             </div>
-          }
-        />
+            {canPerformAction && (
+              <div className="flex gap-2 flex-wrap justify-end">
+                <Link to="/inventory/new">
+                  <ProfessionalButton className="sm:self-end whitespace-nowrap shadow-lg">
+                    <Plus className="mr-2 h-4 w-4" /> {t('inventory.add_item', 'Add Item')}
+                  </ProfessionalButton>
+                </Link>
+                <BarcodeScanner
+                  onItemFound={(item) => {
+                    toast.success(`Found item: ${item.name}`);
+                  }}
+                  autoClose={false}
+                />
+              </div>
+            )}
+          </div>
+        </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full tabs-professional">
           <TabsList className="grid w-full grid-cols-4 bg-muted/50 border border-border/50 rounded-lg p-1">
@@ -285,7 +295,7 @@ const Inventory = () => {
               </div>
             )}
 
-            <ProfessionalCard className="slide-in">
+            <ProfessionalCard className="slide-in dashboard-highlight-block dashboard-highlight-block-primary" variant="elevated">
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row justify-between gap-4">
                   <CardTitle>{t('inventory.items_list', 'Inventory Items')}</CardTitle>

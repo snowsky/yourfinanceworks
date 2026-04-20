@@ -792,10 +792,13 @@ export default function Statements() {
     setIsSplitView(false);
     setSearchParams({}, { replace: true });
   };
+  const processingCount = statements.filter((statement) =>
+    statement.status === 'processing' || statement.status === 'uploaded'
+  ).length;
 
   return (
     <>
-      <div className="space-y-8 overflow-visible">
+      <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell overflow-visible">
         {/* API unavailable banner (shown while API is restarting) */}
         {!apiAvailable && (
           <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
@@ -815,11 +818,19 @@ export default function Statements() {
 
         {/* Hero Header - list view */}
         {!selected && (
-          <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
-            <div className="flex items-center justify-between gap-6">
-              <div className="space-y-2">
-                <h1 className="text-4xl font-bold tracking-tight">{t('navigation.bank_statements')}</h1>
-                <p className="text-lg text-muted-foreground">{t('statements.description')}</p>
+          <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+              <div className="space-y-2 flex-1">
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">{t('navigation.bank_statements')}</h1>
+                <p className="text-muted-foreground text-sm md:text-base max-w-2xl">{t('statements.description')}</p>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className="inline-flex items-center rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                    {t('common.total', { defaultValue: 'Total' })}: {totalStatements}
+                  </span>
+                  <span className="inline-flex items-center rounded-md border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700">
+                    {t('common.processing', { defaultValue: 'Processing' })}: {processingCount}
+                  </span>
+                </div>
               </div>
               <div className="flex gap-3 items-center flex-wrap justify-end">
                 <ProfessionalButton variant="outline" size="default" onClick={() => { loadList(); queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] }); }} className="whitespace-nowrap" disabled={loading}>
