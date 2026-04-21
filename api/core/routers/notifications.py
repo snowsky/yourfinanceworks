@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from typing import List
+from typing import List, Optional
 import logging
 
 from core.models.database import get_db, get_master_db
@@ -15,10 +15,38 @@ from core.schemas.email_notifications import (
 from core.routers.auth import get_current_user
 from core.services.tenant_database_manager import tenant_db_manager
 from core.utils.audit import log_audit_event
+from core.utils.rbac import require_admin_or_superuser
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+
+def _build_email_service(db: Session):
+    """Create tenant email service from stored email_config settings."""
+    from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
+    from core.models.models_per_tenant import Settings
+
+    email_settings = db.query(Settings).filter(Settings.key == "email_config").first()
+    if not email_settings or not email_settings.value:
+        return None
+
+    email_config_data = email_settings.value
+    if not email_config_data.get("enabled", False):
+        return None
+
+    config = EmailProviderConfig(
+        provider=EmailProvider(email_config_data["provider"]),
+        from_email=email_config_data.get("from_email"),
+        from_name=email_config_data.get("from_name"),
+        aws_access_key_id=email_config_data.get("aws_access_key_id"),
+        aws_secret_access_key=email_config_data.get("aws_secret_access_key"),
+        aws_region=email_config_data.get("aws_region"),
+        azure_connection_string=email_config_data.get("azure_connection_string"),
+        mailgun_api_key=email_config_data.get("mailgun_api_key"),
+        mailgun_domain=email_config_data.get("mailgun_domain")
+    )
+    return EmailService(config)
 
 @router.get("/settings", response_model=EmailNotificationSettingsSchema)
 async def get_notification_settings(
@@ -446,6 +474,48 @@ async def send_approval_digest(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send approval digest"
+        )
+
+
+@router.post("/expense-digest/send")
+async def send_expense_digest(
+    force: bool = True,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """Send expense digest email using tenant Expense settings (manual trigger/test)."""
+    try:
+        require_admin_or_superuser(current_user, "send expense digest")
+
+        from core.services.expense_digest_service import ExpenseDigestService
+
+        email_service = _build_email_service(db)
+        if not email_service:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email service not configured"
+            )
+
+        digest_service = ExpenseDigestService(db, email_service)
+        result = digest_service.process_due_digest(
+            triggering_user_id=current_user.id,
+            force=force
+        )
+
+        if result.get("status") == "failed":
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to send expense digest: {result.get('errors', ['unknown_error'])}"
+            )
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sending expense digest: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send expense digest"
         )
 
 @router.get("/expense-preferences", response_model=dict)

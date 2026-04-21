@@ -13,7 +13,7 @@ import {
   NotificationsTab, DataManagementTab, CurrenciesTab, SearchSettingsTab,
   CookieSettingsTab, ExportDestinationsTab, EmailIntegrationSettingsTab,
   APIClientManagementTab, LicenseManagementTab, GamificationTab, PluginsTab,
-  AppearanceTab, PaymentSettingsTab
+  AppearanceTab, PaymentSettingsTab, ExpensesSettingsTab
 } from "@/components/settings";
 import PromptManagement from "./PromptManagement";
 
@@ -74,6 +74,7 @@ const Settings = () => {
     cookies: t('settings.tabs.cookies', 'Privacy'),
     company: t('settings.tabs.company', 'Company'),
     invoices: t('settings.tabs.invoices', 'Invoices'),
+    expenses: t('settings.tabs.expenses', 'Expenses'),
     'discount-rules': t('settings.tabs.discount_rules', 'Discounts'),
     'ai-config': t('settings.tabs.ai_config', 'AI Config'),
     gamification: t('settings.tabs.gamification', 'Gamification'),
@@ -140,6 +141,7 @@ const Settings = () => {
                   </p>
                   <NavItem value="company" icon={Building2} label={t('settings.tabs.company', 'Company')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="invoices" icon={FileText} label={t('settings.tabs.invoices', 'Invoices')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="expenses" icon={FileText} label={t('settings.tabs.expenses', 'Expenses')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="discount-rules" icon={Percent} label={t('settings.tabs.discount_rules', 'Discounts')} activeTab={activeTab} onClick={setActiveTab} />
 
                   {/* Features */}
@@ -203,6 +205,10 @@ const Settings = () => {
 
                 <TabsContent value="invoices" className="m-0 focus-visible:outline-none">
                   <InvoiceSettingsTab isAdmin={isAdmin} />
+                </TabsContent>
+
+                <TabsContent value="expenses" className="m-0 focus-visible:outline-none">
+                  <ExpensesSettingsTab isAdmin={isAdmin} />
                 </TabsContent>
 
                 <TabsContent value="discount-rules" className="m-0 focus-visible:outline-none">

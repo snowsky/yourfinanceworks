@@ -202,7 +202,16 @@ export const settingsApi = {
       body: JSON.stringify(settings),
     }),
   testNotification: () => apiRequest<any>("/notifications/test", { method: 'POST' }),
-  testEmailConfiguration: () => apiRequest<any>("/email/test", { method: 'POST' }),
+  sendExpenseDigest: (force = true) =>
+    apiRequest<any>(`/notifications/expense-digest/send?force=${force}`, { method: 'POST' }),
+  testEmailConfiguration: (testEmail: string, config?: any) =>
+    apiRequest<any>("/email/test", {
+      method: 'POST',
+      body: JSON.stringify({
+        test_email: testEmail,
+        ...(config ? { config } : {}),
+      }),
+    }),
   exportData: async () => {
     const response = await fetch(`${API_BASE_URL}/settings/export-data`, {
       credentials: 'include',

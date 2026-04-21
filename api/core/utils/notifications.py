@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from core.models.models_per_tenant import Settings, User
+from core.models.database import get_tenant_context
 from core.services.notification_service import NotificationService
 from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
 from config import APP_NAME
@@ -17,7 +18,11 @@ def get_notification_service(db: Session) -> Optional[NotificationService]:
         ).first()
         
         if not email_settings or not email_settings.value:
-            logger.warning("Email service not configured for notifications")
+            tenant_id = get_tenant_context()
+            logger.debug(
+                "Email service not configured for notifications (tenant_id=%s)",
+                tenant_id
+            )
             return None
         
         email_config_data = email_settings.value
