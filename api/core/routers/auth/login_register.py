@@ -21,11 +21,6 @@ from core.services.tenant_database_manager import tenant_db_manager
 from core.middleware.tenant_context_middleware import set_tenant_context
 from core.utils.rate_limiter import record_and_check
 from core.constants.error_codes import USER_NOT_FOUND, INCORRECT_PASSWORD
-try:
-    from commercial.mfa_chain.router import maybe_require_mfa_for_user
-except ImportError:
-    def maybe_require_mfa_for_user(user, next_path="/dashboard"):
-        return None
 from core.routers.auth._shared import (
     get_current_user, get_user_organizations,
     AUTH_COOKIE_NAME, _is_production,
@@ -34,6 +29,15 @@ from core.routers.auth._shared import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _maybe_require_mfa_for_user(user, next_path="/dashboard"):
+    """Resolve commercial MFA hook lazily so startup import failures don't disable MFA permanently."""
+    try:
+        from commercial.mfa_chain.router import maybe_require_mfa_for_user as maybe_require
+    except Exception:
+        return None
+    return maybe_require(user, next_path=next_path)
 
 
 @router.post("/register", response_model=Token, status_code=201)
@@ -353,7 +357,7 @@ async def login(user_credentials: UserLogin, response: Response, db: Session = D
     user_response.organizations = organizations
 
     try:
-        mfa_prompt = maybe_require_mfa_for_user(user, next_path="/dashboard")
+        mfa_prompt = _maybe_require_mfa_for_user(user, next_path="/dashboard")
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
