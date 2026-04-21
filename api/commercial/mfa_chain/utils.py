@@ -68,7 +68,7 @@ def _get_user_policy(user: MasterUser) -> Optional[Policy]:
 
     factor_ids = normalize_factor_ids(getattr(user, "mfa_chain_factors", None) or [])
     if not factor_ids:
-        return None
+        raise ValueError("MFA setup incomplete: no authenticators selected in sequence.")
 
     mode = getattr(user, "mfa_chain_mode", "fixed")
     if mode not in ("fixed", "random"):
@@ -135,7 +135,12 @@ def validate_settings_payload(payload: dict[str, Any], secrets: dict[str, str]) 
 
 def maybe_start_mfa_session(user: MasterUser, next_path: str = "/dashboard") -> Optional[dict[str, Any]]:
     _prune_sessions()
-    policy = _get_user_policy(user)
+    try:
+        policy = _get_user_policy(user)
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(f"MFA setup incomplete: {exc}") from exc
     if policy is None:
         return None
 
@@ -145,8 +150,11 @@ def maybe_start_mfa_session(user: MasterUser, next_path: str = "/dashboard") -> 
             logger.warning("MFA enabled for user %s but factor %s is not enrolled", user.email, factor.id)
             raise ValueError(f"MFA setup incomplete: missing enrollment for factor '{factor.id}'")
 
-    orchestrator = MFAOrchestrator(policy)
-    chain = orchestrator.initialize_attempt()
+    try:
+        orchestrator = MFAOrchestrator(policy)
+        chain = orchestrator.initialize_attempt()
+    except Exception as exc:
+        raise ValueError(f"MFA setup incomplete: {exc}") from exc
     session_id = str(uuid4())
     MFA_LOGIN_SESSIONS[session_id] = {
         "created_at": time.time(),

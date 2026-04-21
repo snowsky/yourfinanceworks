@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import { ProfessionalInput } from "@/components/ui/professional-input";
-import { authApi } from "@/lib/api";
+import { authApi, getErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { updateCurrentUser } from "@/utils/auth";
@@ -169,6 +169,10 @@ export const UserProfileTab: React.FC = () => {
     };
 
     const saveMFASettings = async () => {
+        if (mfaSettings.enabled && mfaSettings.factors.length === 0) {
+            toast.error('Select at least one authenticator before enabling MFA chain.');
+            return;
+        }
         setSavingMFA(true);
         try {
             const saved = await authApi.updateMFAChainSettings({
@@ -181,7 +185,7 @@ export const UserProfileTab: React.FC = () => {
             toast.success('MFA chain settings saved');
         } catch (error) {
             console.error('Failed to save MFA settings:', error);
-            toast.error('Failed to save MFA chain settings');
+            toast.error(getErrorMessage(error, (key: string) => t(key)));
         } finally {
             setSavingMFA(false);
         }
@@ -372,7 +376,22 @@ export const UserProfileTab: React.FC = () => {
                             </div>
                             <Switch
                                 checked={mfaSettings.enabled}
-                                onCheckedChange={(checked) => setMfaSettings((prev) => ({ ...prev, enabled: checked }))}
+                                onCheckedChange={(checked) =>
+                                    setMfaSettings((prev) => {
+                                        if (!checked) {
+                                            return { ...prev, enabled: false };
+                                        }
+                                        if (prev.factors.length > 0) {
+                                            return { ...prev, enabled: true };
+                                        }
+                                        const firstFactor = prev.supported_factors[0]?.id;
+                                        if (!firstFactor) {
+                                            return { ...prev, enabled: true };
+                                        }
+                                        toast.info('Selected the first authenticator. Enroll it before saving.');
+                                        return { ...prev, enabled: true, factors: [firstFactor] };
+                                    })
+                                }
                             />
                         </div>
 
