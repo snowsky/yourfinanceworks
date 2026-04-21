@@ -35,12 +35,6 @@ from core.utils.rbac import require_admin
 from core.services.license_service import LicenseService
 
 try:
-    from commercial.mfa_chain.router import maybe_require_mfa_for_user
-except Exception:
-    def maybe_require_mfa_for_user(user, next_path="/dashboard"):
-        return None
-
-try:
     from commercial.mfa_chain.utils import build_user_b64
 except Exception:
     def build_user_b64(user: MasterUser) -> str:
@@ -52,6 +46,31 @@ except Exception:
             raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
         return base64.urlsafe_b64encode(json.dumps(user_payload, default=_datetime_serializer).encode()).decode()
+
+
+def _maybe_require_mfa_for_user(user: MasterUser, next_path: str = "/dashboard") -> dict | None:
+    try:
+        from commercial.mfa_chain.utils import maybe_start_mfa_session
+    except Exception as exc:
+        if getattr(user, "mfa_chain_enabled", False):
+            logger.error("MFA chain import failed for MFA-enabled SSO user %s: %s", user.email, exc)
+            raise ValueError("MFA setup incomplete: MFA module is unavailable.") from exc
+        return None
+
+    tenant_session = tenant_db_manager.get_tenant_session(user.tenant_id)
+    tenant_db = tenant_session()
+    try:
+        try:
+            check_feature("mfa_chain", tenant_db)
+        except Exception as exc:
+            if getattr(user, "mfa_chain_enabled", False):
+                logger.error("MFA chain feature gate failed for MFA-enabled SSO user %s: %s", user.email, exc)
+                raise ValueError("MFA setup incomplete: MFA chain is not licensed for this tenant.") from exc
+            return None
+    finally:
+        tenant_db.close()
+
+    return maybe_start_mfa_session(user, next_path)
 
 logger = logging.getLogger(__name__)
 
@@ -369,7 +388,7 @@ async def google_callback(request: Request, code: Optional[str] = None, state: O
     redirect_next = state_data.get("next") or "/dashboard"
 
     try:
-        mfa_prompt = maybe_require_mfa_for_user(user, next_path=redirect_next)
+        mfa_prompt = _maybe_require_mfa_for_user(user, next_path=redirect_next)
     except ValueError:
         return RedirectResponse(url=f"{ui_base}/login?error=mfa_setup_incomplete")
 
@@ -603,7 +622,7 @@ async def azure_callback(request: Request, code: Optional[str] = None, state: Op
     redirect_next = state_data.get("next") or "/dashboard"
 
     try:
-        mfa_prompt = maybe_require_mfa_for_user(user, next_path=redirect_next)
+        mfa_prompt = _maybe_require_mfa_for_user(user, next_path=redirect_next)
     except ValueError:
         return RedirectResponse(url=f"{ui_base}/login?error=mfa_setup_incomplete")
 

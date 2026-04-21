@@ -37,6 +37,9 @@ def _maybe_require_mfa_for_user(user, next_path="/dashboard"):
         from core.utils.feature_gate import check_feature
         from commercial.mfa_chain.utils import maybe_start_mfa_session
     except Exception as exc:
+        if getattr(user, "mfa_chain_enabled", False):
+            logger.error("MFA chain import failed for MFA-enabled user %s: %s", user.email, exc)
+            raise ValueError("MFA setup incomplete: MFA module is unavailable.") from exc
         logger.debug("MFA chain unavailable for user %s: import failed: %s", user.email, exc)
         return None
 
@@ -46,6 +49,9 @@ def _maybe_require_mfa_for_user(user, next_path="/dashboard"):
         try:
             check_feature("mfa_chain", tenant_db)
         except Exception as exc:
+            if getattr(user, "mfa_chain_enabled", False):
+                logger.error("MFA chain feature gate failed for MFA-enabled user %s: %s", user.email, exc)
+                raise ValueError("MFA setup incomplete: MFA chain is not licensed for this tenant.") from exc
             logger.debug("MFA chain feature disabled for tenant %s: %s", user.tenant_id, exc)
             return None
     finally:
