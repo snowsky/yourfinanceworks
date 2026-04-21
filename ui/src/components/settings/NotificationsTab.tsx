@@ -20,6 +20,7 @@ import {
 import { ProfessionalInput } from "@/components/ui/professional-input";
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import { settingsApi, getErrorMessage } from "@/lib/api";
+import { getCurrentUser } from "@/utils/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface EmailSettings {
@@ -187,7 +188,7 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({ isAdmin }) =
     const updateNotificationsMutation = useMutation({
         mutationFn: (data: NotificationSettings) => settingsApi.updateNotificationSettings(data),
         onSuccess: () => {
-            toast.success(t('settings.notification_settings_updated_successfully'));
+            toast.success(t('settings.notification_settings_updated_successfully', 'Notification settings updated successfully'));
             queryClient.invalidateQueries({ queryKey: ['notificationSettings'] });
         },
         onError: (error) => toast.error(getErrorMessage(error, t))
@@ -202,7 +203,19 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({ isAdmin }) =
     };
     const handleTestEmailConfiguration = async () => {
         try {
-            await settingsApi.testEmailConfiguration();
+            const currentUser = getCurrentUser();
+            const fallbackEmail =
+                notificationSettings.notification_email?.trim() ||
+                emailSettings.from_email?.trim() ||
+                currentUser?.email?.trim() ||
+                "";
+
+            if (!fallbackEmail) {
+                toast.error(t('settings.notification_email_required', 'Please provide an email address to send a test email.'));
+                return;
+            }
+
+            await settingsApi.testEmailConfiguration(fallbackEmail);
             toast.success(t('settings.test_email_sent_successfully'));
         } catch (error) { toast.error(getErrorMessage(error, t)); }
     };
