@@ -202,6 +202,8 @@ export const settingsApi = {
       body: JSON.stringify(settings),
     }),
   testNotification: () => apiRequest<any>("/notifications/test", { method: 'POST' }),
+  sendExpenseDigest: (force = true) =>
+    apiRequest<any>(`/notifications/expense-digest/send?force=${force}`, { method: 'POST' }),
   testEmailConfiguration: () => apiRequest<any>("/email/test", { method: 'POST' }),
   exportData: async () => {
     const response = await fetch(`${API_BASE_URL}/settings/export-data`, {

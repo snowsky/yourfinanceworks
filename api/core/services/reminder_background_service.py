@@ -126,6 +126,11 @@ class ReminderBackgroundService:
                 workflow_stats = workflow_service.process_due_invoice_workflows()
                 logger.info(f"Processed workflows for tenant {tenant_id}: {workflow_stats}")
 
+                # Process expense digest schedule
+                expense_digest_stats = self._process_expense_digest(db, tenant_id)
+                if expense_digest_stats.get("status") not in {"skipped", "failed"}:
+                    logger.info(f"Processed expense digest for tenant {tenant_id}: {expense_digest_stats}")
+
                 # Cleanup old notifications once per day (roughly)
                 if self._should_cleanup():
                     cleanup_count = scheduler.cleanup_old_notifications()
@@ -136,6 +141,7 @@ class ReminderBackgroundService:
                     "due_reminders": due_stats,
                     "upcoming_reminders": upcoming_stats,
                     "workflow_runs": workflow_stats,
+                    "expense_digest": expense_digest_stats,
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }
 
@@ -149,6 +155,39 @@ class ReminderBackgroundService:
                 "error": str(e),
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
+
+    def _process_expense_digest(self, db, tenant_id: int) -> Dict[str, Any]:
+        """Process due expense digest for a tenant if configured."""
+        try:
+            from core.models.models_per_tenant import Settings
+            from core.services.email_service import EmailProvider, EmailProviderConfig, EmailService
+            from core.services.expense_digest_service import ExpenseDigestService
+
+            email_settings = db.query(Settings).filter(Settings.key == "email_config").first()
+            if not email_settings or not email_settings.value:
+                return {"status": "skipped", "reason": "email_config_missing"}
+
+            email_config_data = email_settings.value
+            if not email_config_data.get("enabled", False):
+                return {"status": "skipped", "reason": "email_disabled"}
+
+            config = EmailProviderConfig(
+                provider=EmailProvider(email_config_data["provider"]),
+                from_email=email_config_data.get("from_email"),
+                from_name=email_config_data.get("from_name"),
+                aws_access_key_id=email_config_data.get("aws_access_key_id"),
+                aws_secret_access_key=email_config_data.get("aws_secret_access_key"),
+                aws_region=email_config_data.get("aws_region"),
+                azure_connection_string=email_config_data.get("azure_connection_string"),
+                mailgun_api_key=email_config_data.get("mailgun_api_key"),
+                mailgun_domain=email_config_data.get("mailgun_domain"),
+            )
+            email_service = EmailService(config)
+            digest_service = ExpenseDigestService(db, email_service)
+            return digest_service.process_due_digest(force=False)
+        except Exception as e:
+            logger.error(f"Error processing expense digest for tenant {tenant_id}: {str(e)}")
+            return {"status": "failed", "reason": str(e)}
     
     def _should_cleanup(self) -> bool:
         """Determine if we should run cleanup (approximately once per day)."""

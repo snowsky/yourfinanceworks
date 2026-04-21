@@ -280,6 +280,21 @@ export const ExpensesSettingsTab: React.FC<ExpensesSettingsTabProps> = ({ isAdmi
     },
   });
 
+  const testDigestMutation = useMutation({
+    mutationFn: () => settingsApi.sendExpenseDigest(true),
+    onSuccess: (result) => {
+      const status = result?.status || "sent";
+      toast.success(
+        status === "sent"
+          ? t("settings.expenses.digest.test_success", "Expense digest sent")
+          : t("settings.expenses.digest.test_processed", "Expense digest processed")
+      );
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, t));
+    },
+  });
+
   return (
     <div className="space-y-6">
       <ProfessionalCard variant="elevated">
@@ -813,8 +828,18 @@ export const ExpensesSettingsTab: React.FC<ExpensesSettingsTabProps> = ({ isAdmi
 
       <div className="flex justify-end">
         <ProfessionalButton
+          onClick={() => testDigestMutation.mutate()}
+          disabled={isLoading || saveMutation.isPending || testDigestMutation.isPending}
+          variant="outline"
+          className="mr-2"
+        >
+          {testDigestMutation.isPending
+            ? t("settings.sending", "Sending...")
+            : t("settings.expenses.digest.send_test", "Send Test Digest")}
+        </ProfessionalButton>
+        <ProfessionalButton
           onClick={() => saveMutation.mutate(settings)}
-          disabled={isLoading || saveMutation.isPending}
+          disabled={isLoading || saveMutation.isPending || testDigestMutation.isPending}
         >
           <Save className="mr-2 h-4 w-4" />
           {saveMutation.isPending
