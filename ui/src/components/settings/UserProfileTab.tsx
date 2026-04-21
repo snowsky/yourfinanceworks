@@ -14,6 +14,9 @@ import { authApi } from "@/lib/api";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { updateCurrentUser } from "@/utils/auth";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useFeatures } from "@/contexts/FeatureContext";
 
 interface UserProfile {
     id: number;
@@ -31,9 +34,18 @@ interface PasswordData {
     confirm_password: string;
 }
 
+interface MFAChainSettings {
+    enabled: boolean;
+    mode: 'fixed' | 'random';
+    factors: string[];
+    enrolled_factors: string[];
+    supported_factors: Array<{ id: string; label: string; type: string }>;
+}
+
 export const UserProfileTab: React.FC = () => {
     const { t } = useTranslation();
     const queryClient = useQueryClient();
+    const { isFeatureEnabled } = useFeatures();
     const [userProfile, setUserProfile] = useState<UserProfile>({
         id: 0,
         first_name: "",
@@ -50,10 +62,25 @@ export const UserProfileTab: React.FC = () => {
 
     const [showPasswordChange, setShowPasswordChange] = useState(false);
     const [savingProfile, setSavingProfile] = useState(false);
+    const [savingMFA, setSavingMFA] = useState(false);
+    const [mfaSettings, setMfaSettings] = useState<MFAChainSettings>({
+        enabled: false,
+        mode: 'fixed',
+        factors: [],
+        enrolled_factors: [],
+        supported_factors: [],
+    });
+    const [enrollmentData, setEnrollmentData] = useState<Record<string, { secret: string; otpauth_uri: string; qr_png_base64: string }>>({});
 
     const { data: user, isLoading } = useQuery({
         queryKey: ['currentUser'],
         queryFn: () => authApi.getCurrentUser(),
+    });
+
+    const { data: fetchedMFASettings } = useQuery({
+        queryKey: ['mfaChainSettings'],
+        queryFn: () => authApi.getMFAChainSettings(),
+        enabled: isFeatureEnabled('mfa_chain'),
     });
 
     const isSSOUser = user && (user.has_sso === true || user.sso_provider !== null);
@@ -63,6 +90,12 @@ export const UserProfileTab: React.FC = () => {
             setUserProfile(user);
         }
     }, [user]);
+
+    useEffect(() => {
+        if (fetchedMFASettings) {
+            setMfaSettings(fetchedMFASettings);
+        }
+    }, [fetchedMFASettings]);
 
     const getInitials = () => {
         const first = userProfile.first_name?.charAt(0)?.toUpperCase() || '';
@@ -119,6 +152,64 @@ export const UserProfileTab: React.FC = () => {
             console.error("Failed to change password:", error);
             toast.error(t('settings.profile.failed_to_change_password'));
         }
+    };
+
+    const toggleFactor = (factorId: string, checked: boolean) => {
+        setMfaSettings((prev) => {
+            const nextFactors = checked
+                ? Array.from(new Set([...prev.factors, factorId]))
+                : prev.factors.filter((f) => f !== factorId);
+            return { ...prev, factors: nextFactors };
+        });
+    };
+
+    const swapFactorOrder = () => {
+        if (mfaSettings.factors.length !== 2) return;
+        setMfaSettings((prev) => ({ ...prev, factors: [prev.factors[1], prev.factors[0]] }));
+    };
+
+    const saveMFASettings = async () => {
+        setSavingMFA(true);
+        try {
+            const saved = await authApi.updateMFAChainSettings({
+                enabled: mfaSettings.enabled,
+                mode: mfaSettings.mode,
+                factors: mfaSettings.factors,
+            });
+            setMfaSettings(saved);
+            queryClient.invalidateQueries({ queryKey: ['mfaChainSettings'] });
+            toast.success('MFA chain settings saved');
+        } catch (error) {
+            console.error('Failed to save MFA settings:', error);
+            toast.error('Failed to save MFA chain settings');
+        } finally {
+            setSavingMFA(false);
+        }
+    };
+
+    const enrollFactor = async (factorId: string) => {
+        try {
+            const enrolled = await authApi.enrollMFAFactor(factorId);
+            setEnrollmentData((prev) => ({
+                ...prev,
+                [factorId]: {
+                    secret: enrolled.secret,
+                    otpauth_uri: enrolled.otpauth_uri,
+                    qr_png_base64: enrolled.qr_png_base64,
+                },
+            }));
+            const refreshed = await authApi.getMFAChainSettings();
+            setMfaSettings(refreshed);
+            queryClient.invalidateQueries({ queryKey: ['mfaChainSettings'] });
+            toast.success(`${enrolled.factor_label} enrolled`);
+        } catch (error) {
+            console.error('Failed to enroll MFA factor:', error);
+            toast.error('Failed to enroll factor');
+        }
+    };
+
+    const factorName = (factorId: string) => {
+        return mfaSettings.supported_factors.find((f) => f.id === factorId)?.label || factorId;
     };
 
     if (isLoading) {
@@ -270,6 +361,101 @@ export const UserProfileTab: React.FC = () => {
                                 </div>
                             )}
                         </>
+                    )}
+
+                    {isFeatureEnabled('mfa_chain') && (
+                    <div className="border-t border-border/50 pt-6 space-y-5">
+                        <div className="flex items-center justify-between rounded-xl border border-border/50 p-4 bg-muted/20">
+                            <div>
+                                <Label className="text-base font-semibold">MFA Chain</Label>
+                                <p className="text-sm text-muted-foreground">Require one or more authenticator apps after password or SSO.</p>
+                            </div>
+                            <Switch
+                                checked={mfaSettings.enabled}
+                                onCheckedChange={(checked) => setMfaSettings((prev) => ({ ...prev, enabled: checked }))}
+                            />
+                        </div>
+
+                        <div className="space-y-3">
+                            <Label className="text-sm font-semibold">Authenticators</Label>
+                            {mfaSettings.supported_factors.map((factor) => {
+                                const isSelected = mfaSettings.factors.includes(factor.id);
+                                const isEnrolled = mfaSettings.enrolled_factors.includes(factor.id);
+                                const enrollment = enrollmentData[factor.id];
+
+                                return (
+                                    <div key={factor.id} className="rounded-xl border border-border/50 p-4 space-y-3">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div>
+                                                <p className="font-medium text-sm">{factor.label}</p>
+                                                <p className="text-xs text-muted-foreground">{isEnrolled ? 'Enrolled' : 'Not enrolled'}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Switch
+                                                    checked={isSelected}
+                                                    onCheckedChange={(checked) => toggleFactor(factor.id, checked)}
+                                                />
+                                                <ProfessionalButton
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => enrollFactor(factor.id)}
+                                                >
+                                                    {isEnrolled ? 'Re-enroll' : 'Enroll'}
+                                                </ProfessionalButton>
+                                            </div>
+                                        </div>
+
+                                        {enrollment && (
+                                            <div className="rounded-lg bg-muted/30 border border-border/40 p-3 space-y-2">
+                                                <p className="text-xs font-medium">Setup Secret: <span className="font-mono">{enrollment.secret}</span></p>
+                                                <p className="text-xs break-all">{enrollment.otpauth_uri}</p>
+                                                {enrollment.qr_png_base64 && (
+                                                    <img
+                                                        src={`data:image/png;base64,${enrollment.qr_png_base64}`}
+                                                        alt={`${factor.label} QR`}
+                                                        className="h-28 w-28 rounded border border-border/40"
+                                                    />
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-sm font-semibold">Chain Mode</Label>
+                                <Select
+                                    value={mfaSettings.mode}
+                                    onValueChange={(value: 'fixed' | 'random') => setMfaSettings((prev) => ({ ...prev, mode: value }))}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select mode" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="fixed">Fixed sequence</SelectItem>
+                                        <SelectItem value="random">Random sequence</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-sm font-semibold">Sequence</Label>
+                                <div className="rounded-lg border border-border/50 px-3 py-2 text-sm text-muted-foreground min-h-10 flex items-center justify-between">
+                                    <span>{mfaSettings.factors.length ? mfaSettings.factors.map(factorName).join(' -> ') : 'No factors selected'}</span>
+                                    {mfaSettings.mode === 'fixed' && mfaSettings.factors.length === 2 && (
+                                        <ProfessionalButton size="sm" variant="ghost" onClick={swapFactorOrder}>Swap</ProfessionalButton>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end">
+                            <ProfessionalButton variant="default" onClick={saveMFASettings} loading={savingMFA}>
+                                Save MFA Security
+                            </ProfessionalButton>
+                        </div>
+                    </div>
                     )}
                 </ProfessionalCardContent>
             </ProfessionalCard>

@@ -57,6 +57,12 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ssoStatus, setSsoStatus] = useState<{ google: boolean; microsoft: boolean; has_sso: boolean } | null>(null);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaSessionId, setMfaSessionId] = useState<string | null>(null);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [mfaFactorLabel, setMfaFactorLabel] = useState<string>("Authenticator");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaLoading, setMfaLoading] = useState(false);
   const navigate = useNavigate();
 
   const clearError = () => setError(null);
@@ -67,6 +73,16 @@ const Login = () => {
     setError(null);
     try {
       const data = await authApi.login(email, password);
+      if (data?.mfa_required && data?.mfa_session_id) {
+        setMfaRequired(true);
+        setMfaSessionId(data.mfa_session_id);
+        setMfaFactorId(data.current_factor_id || null);
+        setMfaFactorLabel(data.current_factor_label || 'Authenticator');
+        setMfaCode('');
+        toast.info(`MFA required: ${data.current_factor_label || 'Authenticator'}`);
+        return;
+      }
+
       localStorage.removeItem("selected_tenant_id");
       localStorage.removeItem("token");
       localStorage.setItem("user", JSON.stringify(data.user));
@@ -78,6 +94,49 @@ const Login = () => {
       setError(getErrorMessage(err, t));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleMFAVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaSessionId || !mfaFactorId) {
+      setError('Missing MFA session. Please sign in again.');
+      return;
+    }
+
+    setMfaLoading(true);
+    setError(null);
+    try {
+      const result = await authApi.verifyMFAAttempt({
+        session_id: mfaSessionId,
+        factor_id: mfaFactorId,
+        user_input: mfaCode,
+        window: 1,
+      });
+
+      if (!result?.is_complete) {
+        if (result?.reset) {
+          toast.error('Invalid code. MFA chain restarted from step 1.');
+        }
+        setMfaFactorId(result.next_factor_id || null);
+        setMfaFactorLabel(result.next_factor_label || 'Authenticator');
+        setMfaCode('');
+        return;
+      }
+
+      localStorage.removeItem("selected_tenant_id");
+      localStorage.removeItem("token");
+      localStorage.setItem("user", JSON.stringify(result.user));
+      window.dispatchEvent(new Event("auth-changed"));
+      toast.success(t("auth.login_success"));
+      const redirectTo = new URLSearchParams(window.location.search).get("next")
+        || new URLSearchParams(window.location.search).get("redirect")
+        || "/dashboard";
+      navigate(redirectTo, { replace: true });
+    } catch (err: any) {
+      setError(getErrorMessage(err, t));
+    } finally {
+      setMfaLoading(false);
     }
   };
 
@@ -113,6 +172,24 @@ const Login = () => {
     if (errorParam === "sso_license_required") setError(t("auth.sso_license_required_recovery"));
     else if (errorParam === "sso_registration_disabled") setError(t("auth.sso_registration_disabled"));
     else if (errorParam === "tenant_limit_reached") setError(t("auth.tenant_limit_reached"));
+    else if (errorParam === "mfa_setup_incomplete") setError('MFA is enabled but not fully configured. Please contact your administrator.');
+
+    const params = new URLSearchParams(window.location.search);
+    const mfaSession = params.get('mfa_session');
+    if (mfaSession) {
+      setMfaRequired(true);
+      setMfaSessionId(mfaSession);
+      authApi.getMFAAttempt(mfaSession)
+        .then((session) => {
+          setMfaFactorId(session.current_factor_id);
+          setMfaFactorLabel(session.current_factor_label);
+        })
+        .catch(() => {
+          setError('MFA session expired. Please sign in again.');
+          setMfaRequired(false);
+          setMfaSessionId(null);
+        });
+    }
   }, [t]);
 
   return (
@@ -211,7 +288,7 @@ const Login = () => {
             </div>
           )}
 
-          {/* Login form */}
+          {!mfaRequired && (
           <form onSubmit={handleLogin} className="space-y-4">
             <ProfessionalInput
               id="email"
@@ -257,9 +334,39 @@ const Login = () => {
               {!isLoading && t("auth.login")}
             </ProfessionalButton>
           </form>
+          )}
+
+          {mfaRequired && (
+            <form onSubmit={handleMFAVerify} className="space-y-4">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100/50 dark:bg-slate-900/40 p-3">
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">MFA Chain Challenge</p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Current step: {mfaFactorLabel}</p>
+              </div>
+              <ProfessionalInput
+                id="mfa_code"
+                type="text"
+                label="Authenticator Code"
+                placeholder="Enter 6-digit code"
+                value={mfaCode}
+                onChange={(e) => { setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6)); clearError(); }}
+                autoComplete="one-time-code"
+                required
+                inputSize="lg"
+              />
+              <ProfessionalButton
+                type="submit"
+                variant="gradient"
+                size="xl"
+                className="w-full mt-2"
+                loading={mfaLoading}
+              >
+                {!mfaLoading && 'Verify and Continue'}
+              </ProfessionalButton>
+            </form>
+          )}
 
           {/* SSO section */}
-          {ssoStatus?.has_sso && (
+          {!mfaRequired && ssoStatus?.has_sso && (
             <>
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
@@ -306,6 +413,7 @@ const Login = () => {
           )}
 
           {/* Sign-up link */}
+          {!mfaRequired && (
           <p className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
             {t("auth.no_account")}{" "}
             <Link
@@ -315,6 +423,7 @@ const Login = () => {
               {t("auth.signup.homepage")}
             </Link>
           </p>
+          )}
         </div>
 
         {/* Locale / theme controls */}

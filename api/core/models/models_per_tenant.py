@@ -29,6 +29,10 @@ class User(Base):
     google_id = Column(EncryptedColumn(), unique=True, nullable=True)  # Encrypted for privacy
     azure_ad_id = Column(EncryptedColumn(), unique=True, nullable=True)  # Encrypted for privacy
     azure_tenant_id = Column(String, nullable=True)  # Azure AD Tenant ID - keep unencrypted for system use
+    mfa_chain_enabled = Column(Boolean, default=False, nullable=False)
+    mfa_chain_mode = Column(String, default="fixed", nullable=False)
+    mfa_chain_factors = Column(JSON, nullable=True)
+    mfa_factor_secrets = Column(EncryptedJSON(), nullable=True)
     theme = Column(String, default="system")
     show_analytics = Column(Boolean, default=False)  # Show/hide analytics menu
 

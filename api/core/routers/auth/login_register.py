@@ -21,6 +21,11 @@ from core.services.tenant_database_manager import tenant_db_manager
 from core.middleware.tenant_context_middleware import set_tenant_context
 from core.utils.rate_limiter import record_and_check
 from core.constants.error_codes import USER_NOT_FOUND, INCORRECT_PASSWORD
+try:
+    from commercial.mfa_chain.router import maybe_require_mfa_for_user
+except ImportError:
+    def maybe_require_mfa_for_user(user, next_path="/dashboard"):
+        return None
 from core.routers.auth._shared import (
     get_current_user, get_user_organizations,
     AUTH_COOKIE_NAME, _is_production,
@@ -306,7 +311,7 @@ async def logout(response: Response):
     return {"message": "Logged out successfully"}
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login")
 async def login(user_credentials: UserLogin, response: Response, db: Session = Depends(get_master_db)):
     email_key = (user_credentials.email or "").lower().strip()
     if record_and_check(f"login:{email_key}", MAX_LOGIN_ATTEMPTS, RATE_LIMIT_WINDOW_SECONDS):
@@ -342,15 +347,29 @@ async def login(user_credentials: UserLogin, response: Response, db: Session = D
             detail="Your organization has been disabled. Please contact support."
         )
 
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
-
     organizations = get_user_organizations(db, user)
 
     user_response = UserRead.model_validate(user)
     user_response.organizations = organizations
+
+    try:
+        mfa_prompt = maybe_require_mfa_for_user(user, next_path="/dashboard")
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    if mfa_prompt:
+        return {
+            "mfa_required": True,
+            "mfa_session_id": mfa_prompt["session_id"],
+            "current_factor_id": mfa_prompt["current_factor_id"],
+            "current_factor_label": mfa_prompt["current_factor_label"],
+            "user": user_response,
+        }
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
 
     response.set_cookie(
         key=AUTH_COOKIE_NAME,

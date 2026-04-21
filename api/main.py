@@ -122,6 +122,11 @@ except ImportError as e:
     developer_api_router = None
     tools_api_router = None
     COMMERCIAL_MODULES_AVAILABLE = False
+
+try:
+    from commercial.mfa_chain.router import router as mfa_chain_router
+except ImportError:
+    mfa_chain_router = None
 from core.models.database import engine
 from core.models import models
 
@@ -597,6 +602,9 @@ plugin_loader.register_all(app)
 
 if sso_router:
     app.include_router(sso_router, prefix="/api/v1")
+
+if mfa_chain_router:
+    app.include_router(mfa_chain_router, prefix="/api/v1")
 
 if ai:
     app.include_router(ai, prefix="/api/v1")

@@ -10,6 +10,7 @@ interface FeatureFlags {
   slack_integration: boolean;
   cloud_storage: boolean;
   sso: boolean;
+  mfa_chain: boolean;
   external_api: boolean;
   external_transactions: boolean;
   advanced_export: boolean;
@@ -96,6 +97,7 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         slack_integration: hasAllFeatures || enabledFeatures.includes('slack_integration'),
         cloud_storage: hasAllFeatures || enabledFeatures.includes('cloud_storage'),
         sso: hasAllFeatures || enabledFeatures.includes('sso'),
+        mfa_chain: hasAllFeatures || enabledFeatures.includes('mfa_chain'),
         external_api: hasAllFeatures || enabledFeatures.includes('external_api'),
         external_transactions: hasAllFeatures || enabledFeatures.includes('external_transactions'),
         advanced_export: hasAllFeatures || enabledFeatures.includes('advanced_export'),
@@ -209,6 +211,7 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
           slack_integration: false,
           cloud_storage: false,
           sso: false,
+          mfa_chain: false,
           external_api: false,
           external_transactions: false,
           advanced_export: false,

@@ -79,6 +79,41 @@ export const authApi = {
   getCurrentUser: () => apiRequest<any>('/auth/me', {}, { skipTenant: true }),
   getSSOStatus: () => apiRequest<{ google: boolean; microsoft: boolean; has_sso: boolean }>('/auth/sso-status', {}, { skipTenant: true }),
   getPasswordRequirements: () => apiRequest<{ min_length: number; complexity: any; requirements: string[] }>('/auth/password-requirements', {}, { skipTenant: true }),
+  getMFAChainSettings: () => apiRequest<{
+    enabled: boolean;
+    mode: 'fixed' | 'random';
+    factors: string[];
+    enrolled_factors: string[];
+    supported_factors: Array<{ id: string; label: string; type: string }>;
+  }>('/auth/mfa-chain/settings'),
+  updateMFAChainSettings: (data: { enabled: boolean; mode: 'fixed' | 'random'; factors: string[] }) =>
+    apiRequest<any>('/auth/mfa-chain/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  enrollMFAFactor: (factorId: string) =>
+    apiRequest<{
+      factor_id: string;
+      factor_label: string;
+      otpauth_uri: string;
+      secret: string;
+      qr_png_base64: string;
+    }>(`/auth/mfa-chain/factors/${factorId}/enroll`, {
+      method: 'POST',
+    }),
+  getMFAAttempt: (sessionId: string) =>
+    apiRequest<{
+      session_id: string;
+      current_factor_id: string;
+      current_factor_label: string;
+    }>(`/auth/mfa-chain/attempt/${sessionId}`, {
+      method: 'GET',
+    }, { isLogin: true, skipTenant: true }),
+  verifyMFAAttempt: (payload: { session_id: string; factor_id: string; user_input: string; window?: number }) =>
+    apiRequest<any>('/auth/mfa-chain/attempt/verify', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }, { isLogin: true, skipTenant: true }),
 };
 
 // User API methods
