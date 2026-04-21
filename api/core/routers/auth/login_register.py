@@ -32,12 +32,26 @@ logger = logging.getLogger(__name__)
 
 
 def _maybe_require_mfa_for_user(user, next_path="/dashboard"):
-    """Resolve commercial MFA hook lazily so startup import failures don't disable MFA permanently."""
+    """Resolve MFA requirement without relying on commercial router import side effects."""
     try:
-        from commercial.mfa_chain.router import maybe_require_mfa_for_user as maybe_require
-    except Exception:
+        from core.utils.feature_gate import check_feature
+        from commercial.mfa_chain.utils import maybe_start_mfa_session
+    except Exception as exc:
+        logger.debug("MFA chain unavailable for user %s: import failed: %s", user.email, exc)
         return None
-    return maybe_require(user, next_path=next_path)
+
+    tenant_session = tenant_db_manager.get_tenant_session(user.tenant_id)
+    tenant_db = tenant_session()
+    try:
+        try:
+            check_feature("mfa_chain", tenant_db)
+        except Exception as exc:
+            logger.debug("MFA chain feature disabled for tenant %s: %s", user.tenant_id, exc)
+            return None
+    finally:
+        tenant_db.close()
+
+    return maybe_start_mfa_session(user, next_path=next_path)
 
 
 @router.post("/register", response_model=Token, status_code=201)
