@@ -56,6 +56,7 @@ type User = {
   first_name?: string;
   last_name?: string;
   role: string;
+  is_superuser?: boolean;
   is_active: boolean;
   created_at: string;
 };
@@ -145,6 +146,7 @@ export default function UsersPage() {
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
   const [deletingUser, setDeletingUser] = useState(false);
+  const [disablingMFA, setDisablingMFA] = useState(false);
   const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
   const [userToReset, setUserToReset] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -383,6 +385,25 @@ export default function UsersPage() {
     setUserToDelete(user);
   };
 
+  const handleDisableUserMFA = async (targetUser: User) => {
+    if (!user?.is_superuser) return;
+    if (!confirm(`Disable MFA for ${targetUser.email}? This will clear enrolled authenticators and active MFA sessions.`)) {
+      return;
+    }
+
+    setDisablingMFA(true);
+    try {
+      await superAdminApi.disableUserMFA(targetUser.id);
+      toast.success(`MFA disabled for ${targetUser.email}`);
+      fetchUsers();
+    } catch (err: any) {
+      console.error("Failed to disable user MFA:", err);
+      toast.error(getErrorMessage(err, t));
+    } finally {
+      setDisablingMFA(false);
+    }
+  };
+
   const confirmDeleteUser = async () => {
     if (!userToDelete) return;
 
@@ -604,17 +625,17 @@ export default function UsersPage() {
                   </ProfessionalTableCell>
                 </ProfessionalTableRow>
               ) : (
-                sortedUsers.map((user) => (
-                  <ProfessionalTableRow key={user.id}>
-                    <ProfessionalTableCell className="font-medium">{user.email}</ProfessionalTableCell>
-                    <ProfessionalTableCell>{[user.first_name, user.last_name].filter(Boolean).join(" ") || "-"}</ProfessionalTableCell>
+                sortedUsers.map((member) => (
+                  <ProfessionalTableRow key={member.id}>
+                    <ProfessionalTableCell className="font-medium">{member.email}</ProfessionalTableCell>
+                    <ProfessionalTableCell>{[member.first_name, member.last_name].filter(Boolean).join(" ") || "-"}</ProfessionalTableCell>
                     <ProfessionalTableCell>
-                      {user.id === currentUserId ? (
-                        <StatusBadge status="neutral" variant="outline">{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</StatusBadge>
+                      {member.id === currentUserId ? (
+                        <StatusBadge status="neutral" variant="outline">{member.role.charAt(0).toUpperCase() + member.role.slice(1)}</StatusBadge>
                       ) : (
                         <Select
-                          value={user.role}
-                          onValueChange={(role: string) => handleRoleChange(user.id, role)}
+                          value={member.role}
+                          onValueChange={(role: string) => handleRoleChange(member.id, role)}
                         >
                           <SelectTrigger className="w-28 h-8 text-xs border-border/50 bg-background/50">
                             <SelectValue />
@@ -630,29 +651,35 @@ export default function UsersPage() {
                       )}
                     </ProfessionalTableCell>
                     <ProfessionalTableCell>
-                      <StatusBadge status={user.is_active ? "success" : "neutral"}>
-                        {user.is_active ? t('users.active') : t('users.inactive')}
+                      <StatusBadge status={member.is_active ? "success" : "neutral"}>
+                        {member.is_active ? t('users.active') : t('users.inactive')}
                       </StatusBadge>
                     </ProfessionalTableCell>
-                    <ProfessionalTableCell className="text-muted-foreground">{new Date(user.created_at).toLocaleDateString()}</ProfessionalTableCell>
+                    <ProfessionalTableCell className="text-muted-foreground">{new Date(member.created_at).toLocaleDateString()}</ProfessionalTableCell>
                     <ProfessionalTableCell className="text-right">
                       <TableActionMenu
                         actions={[
+                          ...(user?.is_superuser ? [{
+                            label: 'Disable MFA',
+                            onClick: () => handleDisableUserMFA(member),
+                            disabled: disablingMFA,
+                            variant: 'destructive' as const
+                          }] : []),
                           {
-                            label: user.is_active ? t('users.deactivate') : t('users.activate'),
-                            onClick: () => handleToggleUserStatus(user.id, user.email, user.is_active),
-                            disabled: togglingStatus || user.id === currentUserId,
-                            variant: user.is_active ? 'destructive' : 'default'
+                            label: member.is_active ? t('users.deactivate') : t('users.activate'),
+                            onClick: () => handleToggleUserStatus(member.id, member.email, member.is_active),
+                            disabled: togglingStatus || member.id === currentUserId,
+                            variant: member.is_active ? 'destructive' : 'default'
                           },
                           {
                             label: t('users.resetPassword'),
-                            onClick: () => openResetPasswordModal(user),
+                            onClick: () => openResetPasswordModal(member),
                             disabled: resettingPassword
                           },
                           {
                             label: t('users.delete'),
-                            onClick: () => handleDeleteUser(user),
-                            disabled: deletingUser || user.id === currentUserId,
+                            onClick: () => handleDeleteUser(member),
+                            disabled: deletingUser || member.id === currentUserId,
                             variant: 'destructive'
                           }
                         ]}

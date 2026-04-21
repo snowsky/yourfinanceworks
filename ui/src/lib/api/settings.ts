@@ -402,6 +402,11 @@ export const superAdminApi = {
       }),
     }, { skipTenant: true });
   },
+  disableUserMFA: async (userId: number) => {
+    return apiRequest<{ message: string }>(`/super-admin/users/${userId}/disable-mfa`, {
+      method: "POST",
+    }, { skipTenant: true });
+  },
 
   // Licensing & Capacity Control
   getTenantLicenseMonitoring: async () => {

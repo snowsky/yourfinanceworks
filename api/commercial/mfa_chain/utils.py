@@ -59,6 +59,13 @@ def _prune_sessions() -> None:
         MFA_LOGIN_SESSIONS.pop(sid, None)
 
 
+def clear_mfa_sessions_for_user(user_id: int) -> None:
+    _prune_sessions()
+    session_ids = [sid for sid, payload in MFA_LOGIN_SESSIONS.items() if payload.get("user_id") == user_id]
+    for session_id in session_ids:
+        MFA_LOGIN_SESSIONS.pop(session_id, None)
+
+
 def normalize_factor_ids(factor_ids: list[str] | None) -> list[str]:
     if not factor_ids:
         return []
