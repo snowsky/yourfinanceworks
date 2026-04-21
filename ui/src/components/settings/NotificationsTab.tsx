@@ -156,9 +156,9 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({ isAdmin }) =
         daily_summary: false, weekly_summary: false
     });
 
-    const { data: generalSettings, isLoading: isLoadingGeneral } = useQuery({
-        queryKey: ['settings'],
-        queryFn: () => settingsApi.getSettings(),
+    const { data: emailConfigData, isLoading: isLoadingEmailConfig } = useQuery({
+        queryKey: ['settings', 'email_config'],
+        queryFn: () => settingsApi.getSetting('email_config'),
         enabled: isAdmin,
     });
 
@@ -169,18 +169,20 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({ isAdmin }) =
     });
 
     useEffect(() => {
-        if (generalSettings?.email_settings) setEmailSettings(generalSettings.email_settings);
-    }, [generalSettings]);
+        if (emailConfigData?.value) {
+            setEmailSettings(prev => ({ ...prev, ...emailConfigData.value }));
+        }
+    }, [emailConfigData]);
 
     useEffect(() => {
         if (notificationsData) setNotificationSettings(notificationsData);
     }, [notificationsData]);
 
     const updateEmailMutation = useMutation({
-        mutationFn: (data: EmailSettings) => settingsApi.updateSettings({ email_settings: data }),
+        mutationFn: (data: EmailSettings) => settingsApi.updateSetting('email_config', data),
         onSuccess: () => {
             toast.success(t('settings.settings_saved_successfully'));
-            queryClient.invalidateQueries({ queryKey: ['settings'] });
+            queryClient.invalidateQueries({ queryKey: ['settings', 'email_config'] });
         },
         onError: (error) => toast.error(getErrorMessage(error, t))
     });
@@ -232,7 +234,7 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({ isAdmin }) =
         } catch (error) { toast.error(getErrorMessage(error, t)); }
     };
 
-    if (isLoadingGeneral || isLoadingNotifications) {
+    if (isLoadingEmailConfig || isLoadingNotifications) {
         return <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
     }
 
