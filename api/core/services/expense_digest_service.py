@@ -83,7 +83,7 @@ class ExpenseDigestService:
             .all()
         )
 
-        if not expenses and not bool(digest_cfg.get("include_no_activity", False)):
+        if not expenses and not bool(digest_cfg.get("include_no_activity", False)) and not force:
             self._save_runtime(self._next_runtime(now_utc, interval, digest_cfg, runtime, sent=False))
             return {"status": "skipped", "reason": "no_activity"}
 
