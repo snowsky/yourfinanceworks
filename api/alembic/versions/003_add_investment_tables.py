@@ -19,11 +19,46 @@ def upgrade():
     """Create investment tables"""
 
     # Create enum types for investment management
-    op.execute("CREATE TYPE portfoliotype AS ENUM ('TAXABLE', 'RETIREMENT', 'BUSINESS')")
-    op.execute("CREATE TYPE securitytype AS ENUM ('STOCK', 'BOND', 'ETF', 'MUTUAL_FUND', 'CASH')")
-    op.execute("CREATE TYPE assetclass AS ENUM ('STOCKS', 'BONDS', 'CASH', 'REAL_ESTATE', 'COMMODITIES')")
-    op.execute("CREATE TYPE transactiontype AS ENUM ('BUY', 'SELL', 'DIVIDEND', 'INTEREST', 'FEE', 'TRANSFER', 'CONTRIBUTION')")
-    op.execute("CREATE TYPE dividendtype AS ENUM ('ORDINARY')")
+    op.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'portfoliotype') THEN
+            CREATE TYPE portfoliotype AS ENUM ('TAXABLE', 'RETIREMENT', 'BUSINESS');
+        END IF;
+    END $$;
+    """)
+    op.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'securitytype') THEN
+            CREATE TYPE securitytype AS ENUM ('STOCK', 'BOND', 'ETF', 'MUTUAL_FUND', 'CASH');
+        END IF;
+    END $$;
+    """)
+    op.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'assetclass') THEN
+            CREATE TYPE assetclass AS ENUM ('STOCKS', 'BONDS', 'CASH', 'REAL_ESTATE', 'COMMODITIES');
+        END IF;
+    END $$;
+    """)
+    op.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'transactiontype') THEN
+            CREATE TYPE transactiontype AS ENUM ('BUY', 'SELL', 'DIVIDEND', 'INTEREST', 'FEE', 'TRANSFER', 'CONTRIBUTION');
+        END IF;
+    END $$;
+    """)
+    op.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'dividendtype') THEN
+            CREATE TYPE dividendtype AS ENUM ('ORDINARY');
+        END IF;
+    END $$;
+    """)
 
     # Create investment_portfolios table
     op.create_table(

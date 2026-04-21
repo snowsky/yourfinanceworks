@@ -12,7 +12,7 @@ from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision = "018_add_mfa_chain_columns"
-down_revision = "017_add_bank_name_to_bank_statements"
+down_revision = "017_add_bank_name"
 branch_labels = None
 depends_on = None
 
