@@ -24,10 +24,21 @@ logger = logging.getLogger(__name__)
 try:
     from mfa_chain_orchestrator import MFAChainBreached, MFAOrchestrator, Policy
 except ImportError:
-    repo_root = Path(__file__).resolve().parents[3]
-    local_src = repo_root / "mfa-chain-orchestrator" / "src"
-    if local_src.exists():
-        sys.path.insert(0, str(local_src))
+    candidate_paths: list[Path] = []
+    env_src = os.getenv("MFA_CHAIN_ORCHESTRATOR_SRC")
+    if env_src:
+        candidate_paths.append(Path(env_src))
+    candidate_paths.extend(
+        [
+            Path("/mfa-chain-orchestrator/src"),
+            Path(__file__).resolve().parents[2] / "mfa-chain-orchestrator" / "src",
+            Path(__file__).resolve().parents[3] / "mfa-chain-orchestrator" / "src",
+        ]
+    )
+    for local_src in candidate_paths:
+        if local_src.exists():
+            sys.path.insert(0, str(local_src))
+            break
     from mfa_chain_orchestrator import MFAChainBreached, MFAOrchestrator, Policy
 
 

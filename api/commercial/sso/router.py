@@ -33,8 +33,25 @@ from config import config
 from sqlalchemy import func
 from core.utils.rbac import require_admin
 from core.services.license_service import LicenseService
-from commercial.mfa_chain.router import maybe_require_mfa_for_user
-from commercial.mfa_chain.utils import build_user_b64
+
+try:
+    from commercial.mfa_chain.router import maybe_require_mfa_for_user
+except Exception:
+    def maybe_require_mfa_for_user(user, next_path="/dashboard"):
+        return None
+
+try:
+    from commercial.mfa_chain.utils import build_user_b64
+except Exception:
+    def build_user_b64(user: MasterUser) -> str:
+        user_payload = UserRead.model_validate(user).model_dump()
+
+        def _datetime_serializer(obj: Any) -> str:
+            if isinstance(obj, (datetime, date)):
+                return obj.isoformat()
+            raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+        return base64.urlsafe_b64encode(json.dumps(user_payload, default=_datetime_serializer).encode()).decode()
 
 logger = logging.getLogger(__name__)
 

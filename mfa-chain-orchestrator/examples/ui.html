@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MFA Chain Orchestrator Test UI</title>
+  <style>
+    :root {
+      --bg: #f4f7f8;
+      --panel: #ffffff;
+      --text: #102a43;
+      --muted: #486581;
+      --accent: #0b7285;
+      --accent-2: #1864ab;
+      --border: #d9e2ec;
+      --ok: #2f9e44;
+      --warn: #c92a2a;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --sans: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      background: radial-gradient(circle at top right, #d0ebff 0%, #f4f7f8 35%, #edf2f7 100%);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 28px auto;
+      padding: 0 16px 40px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+      letter-spacing: 0.01em;
+    }
+
+    .sub {
+      margin: 0 0 18px;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 8px 24px rgba(16, 42, 67, 0.07);
+    }
+
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 1.05rem;
+    }
+
+    .note {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    label {
+      display: block;
+      margin: 6px 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    input {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+
+    button {
+      border: none;
+      border-radius: 9px;
+      padding: 9px 12px;
+      color: #fff;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #4c6f8a;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    pre {
+      margin: 0;
+      padding: 10px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 220px;
+      overflow: auto;
+    }
+
+    .status {
+      margin: 6px 0 0;
+      font-weight: 700;
+    }
+
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+
+    img.qr {
+      margin-top: 8px;
+      max-width: 180px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: none;
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>MFA Chain Orchestrator Test UI</h1>
+    <p class="sub">Onboard two authenticator apps, then run the MFA login chain in order.</p>
+
+    <div class="grid">
+      <section class="card">
+        <h2>1) Setup User</h2>
+        <p class="note">Use one user id for enrollment and login attempts.</p>
+        <label for="userId">User ID</label>
+        <input id="userId" value="alice" />
+      </section>
+
+      <section class="card">
+        <h2>2) Enroll MFA Apps</h2>
+        <p class="note">Enroll both factors before starting a login attempt.</p>
+        <div class="row">
+          <button id="enrollGoogle">Enroll Google Authenticator</button>
+          <button id="enrollMs">Enroll Microsoft Authenticator</button>
+        </div>
+        <p class="note">Returned `otpauth_uri` can be scanned in each app.</p>
+        <img id="qrImage" class="qr" alt="QR code" />
+      </section>
+
+      <section class="card">
+        <h2>3) Start Login Attempt</h2>
+        <p class="note">Session state is in memory and resets on server restart.</p>
+        <button id="startAttempt">Start Attempt</button>
+        <label for="sessionId">Session ID</label>
+        <input id="sessionId" readonly />
+        <label for="expectedFactor">Current Factor ID</label>
+        <input id="expectedFactor" readonly />
+      </section>
+
+      <section class="card">
+        <h2>4) Verify Step</h2>
+        <p class="note">Use code from your authenticator app for the expected factor.</p>
+        <div class="row">
+          <button class="secondary" id="debugCode">Get Debug Code</button>
+        </div>
+        <label for="factorId">Factor ID</label>
+        <input id="factorId" />
+        <label for="code">6-digit Code</label>
+        <input id="code" maxlength="6" />
+        <label for="window">Window</label>
+        <input id="window" type="number" value="1" min="0" />
+        <div class="row">
+          <button id="verify">Verify</button>
+        </div>
+        <p id="loginStatus" class="status"></p>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top: 14px;">
+      <h2>Latest API Response</h2>
+      <pre id="output">Ready.</pre>
+    </section>
+  </div>
+
+  <script>
+    const output = document.getElementById("output");
+    const loginStatus = document.getElementById("loginStatus");
+
+    const userIdEl = document.getElementById("userId");
+    const sessionIdEl = document.getElementById("sessionId");
+    const expectedFactorEl = document.getElementById("expectedFactor");
+    const factorIdEl = document.getElementById("factorId");
+    const codeEl = document.getElementById("code");
+    const windowEl = document.getElementById("window");
+    const qrImage = document.getElementById("qrImage");
+
+    function setOutput(data) {
+      output.textContent = JSON.stringify(data, null, 2);
+    }
+
+    function setStatus(text, ok) {
+      loginStatus.textContent = text;
+      loginStatus.className = ok ? "status ok" : "status warn";
+    }
+
+    async function callApi(url, options = {}) {
+      const res = await fetch(url, options);
+      const isJson = (res.headers.get("content-type") || "").includes("application/json");
+      const body = isJson ? await res.json() : await res.text();
+      if (!res.ok) {
+        throw { status: res.status, body };
+      }
+      return body;
+    }
+
+    async function enroll(factorId) {
+      const userId = userIdEl.value.trim();
+      if (!userId) {
+        setStatus("User ID is required.", false);
+        return;
+      }
+
+      try {
+        const data = await callApi(`/users/${encodeURIComponent(userId)}/factors/${factorId}/enroll`, {
+          method: "POST"
+        });
+        setOutput(data);
+        setStatus(`Enrolled ${data.factor_label} for ${data.user_id}.`, true);
+
+        if (data.qr_png_base64) {
+          qrImage.src = `data:image/png;base64,${data.qr_png_base64}`;
+          qrImage.style.display = "block";
+        } else {
+          qrImage.style.display = "none";
+        }
+      } catch (err) {
+        setOutput(err.body || err);
+        setStatus(`Enroll failed (${err.status}).`, false);
+      }
+    }
+
+    async function startAttempt() {
+      const userId = userIdEl.value.trim();
+      if (!userId) {
+        setStatus("User ID is required.", false);
+        return;
+      }
+
+      try {
+        const data = await callApi(`/users/${encodeURIComponent(userId)}/attempt/start`, {
+          method: "POST"
+        });
+        setOutput(data);
+        sessionIdEl.value = data.session_id;
+        expectedFactorEl.value = data.current_factor_id;
+        factorIdEl.value = data.current_factor_id;
+        setStatus(`Attempt started. Expect factor ${data.current_factor_id}.`, true);
+      } catch (err) {
+        setOutput(err.body || err);
+        setStatus(`Start attempt failed (${err.status}).`, false);
+      }
+    }
+
+    async function getDebugCode() {
+      const sessionId = sessionIdEl.value.trim();
+      if (!sessionId) {
+        setStatus("Session ID is required.", false);
+        return;
+      }
+
+      try {
+        const data = await callApi(`/attempt/${encodeURIComponent(sessionId)}/debug/current-code`);
+        setOutput(data);
+        expectedFactorEl.value = data.factor_id;
+        factorIdEl.value = data.factor_id;
+        codeEl.value = data.code;
+        setStatus(`Debug code loaded for ${data.factor_id}.`, true);
+      } catch (err) {
+        setOutput(err.body || err);
+        setStatus(`Debug fetch failed (${err.status}).`, false);
+      }
+    }
+
+    async function verify() {
+      const payload = {
+        session_id: sessionIdEl.value.trim(),
+        factor_id: factorIdEl.value.trim(),
+        user_input: codeEl.value.trim(),
+        window: Number(windowEl.value || "1")
+      };
+
+      if (!payload.session_id || !payload.factor_id || !payload.user_input) {
+        setStatus("session_id, factor_id, and code are required.", false);
+        return;
+      }
+
+      try {
+        const data = await callApi("/attempt/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        setOutput(data);
+        if (data.success && data.is_complete) {
+          setStatus("MFA complete. User authenticated.", true);
+        } else if (data.success) {
+          setStatus(`Step passed. Next: ${data.next_factor_label}.`, true);
+        } else {
+          setStatus(`Verification failed. ${data.next_factor_label}`, false);
+        }
+      } catch (err) {
+        setOutput(err.body || err);
+        setStatus(`Verify failed (${err.status}).`, false);
+      }
+    }
+
+    document.getElementById("enrollGoogle").addEventListener("click", () => enroll("google_auth"));
+    document.getElementById("enrollMs").addEventListener("click", () => enroll("ms_auth"));
+    document.getElementById("startAttempt").addEventListener("click", startAttempt);
+    document.getElementById("debugCode").addEventListener("click", getDebugCode);
+    document.getElementById("verify").addEventListener("click", verify);
+  </script>
+</body>
+</html>

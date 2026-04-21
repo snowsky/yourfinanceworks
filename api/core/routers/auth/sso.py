@@ -15,12 +15,22 @@ async def get_sso_status():
     google_available = False
     azure_available = False
 
-    try:
-        from commercial.sso.router import google_oauth_client, azure_oauth_client
-        google_available = google_oauth_client is not None
-        azure_available = azure_oauth_client is not None
-    except ImportError:
-        pass
+    # Keep status endpoint independent from commercial.sso.router import health.
+    # If the router import fails for unrelated reasons (e.g. optional MFA package),
+    # we still want accurate capability flags from env/dependencies.
+    if os.getenv("GOOGLE_CLIENT_ID") and os.getenv("GOOGLE_CLIENT_SECRET"):
+        try:
+            from httpx_oauth.clients.google import GoogleOAuth2  # noqa: F401
+            google_available = True
+        except Exception:
+            google_available = False
+
+    if os.getenv("AZURE_CLIENT_ID") and os.getenv("AZURE_CLIENT_SECRET"):
+        try:
+            from msal import ConfidentialClientApplication  # noqa: F401
+            azure_available = True
+        except Exception:
+            azure_available = False
 
     google_enabled = os.getenv("GOOGLE_SSO_ENABLED", "false").lower() == "true" and google_available
     azure_enabled = os.getenv("AZURE_SSO_ENABLED", "false").lower() == "true" and azure_available

@@ -77,6 +77,8 @@ services:
       - YFW_SECRET_KEY=${YFW_SECRET_KEY:-}
       # Redis — auth cache and SSO OAuth state store
       - REDIS_URL=redis://redis:6379
+      # Temporary local MFA chain orchestrator source path (pre-publish testing)
+      - MFA_CHAIN_ORCHESTRATOR_SRC=/mfa-chain-orchestrator/src
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -95,6 +97,7 @@ services:
       - /app/venv
       - ./infra/docker/wait-for-it.sh:/wait-for-it.sh
       - ./ui/src/plugins:/ui_plugins
+      - ./mfa-chain-orchestrator:/mfa-chain-orchestrator:ro
       - api_plugins_dynamic_data:/app/plugins_dynamic
       - ui_plugins_dynamic_data:/ui_plugins_dynamic
     healthcheck:
