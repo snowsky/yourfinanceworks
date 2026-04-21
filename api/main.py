@@ -127,6 +127,14 @@ try:
     from commercial.mfa_chain.router import router as mfa_chain_router
 except ImportError:
     mfa_chain_router = None
+
+# Keep plugin registry available even if another commercial import fails.
+if plugin_management is None:
+    try:
+        from commercial.plugin_management.router import router as plugin_management
+        logger.info("Recovered plugin_management router via standalone import")
+    except ImportError as e:
+        logger.error(f"Standalone plugin_management import failed: {str(e)}")
 from core.models.database import engine
 from core.models import models
 
