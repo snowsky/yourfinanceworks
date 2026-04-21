@@ -101,6 +101,11 @@ export const authApi = {
     }>(`/auth/mfa-chain/factors/${factorId}/enroll`, {
       method: 'POST',
     }),
+  verifyMFAFactorEnrollment: (factorId: string, payload: { user_input: string; window?: number }) =>
+    apiRequest<{ success: boolean; factor_id: string; message: string }>(`/auth/mfa-chain/factors/${factorId}/verify-enrollment`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   getMFAAttempt: (sessionId: string) =>
     apiRequest<{
       session_id: string;

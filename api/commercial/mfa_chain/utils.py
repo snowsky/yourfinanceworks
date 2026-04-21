@@ -131,6 +131,21 @@ def create_mfa_enrollment(user: MasterUser, factor_id: str) -> dict[str, Any]:
     }
 
 
+def verify_factor_enrollment(user: MasterUser, factor_id: str, user_input: str, window: int = 1) -> bool:
+    if factor_id not in SUPPORTED_FACTORS:
+        raise ValueError(f"Unsupported factor_id: {factor_id}")
+
+    secrets = dict(getattr(user, "mfa_factor_secrets", None) or {})
+    secret = secrets.get(factor_id)
+    if not secret:
+        raise ValueError(f"Factor '{factor_id}' is not enrolled")
+
+    if len(user_input) != 6 or not user_input.isdigit():
+        return False
+
+    return bool(pyotp.TOTP(secret).verify(user_input, valid_window=max(0, window)))
+
+
 def validate_settings_payload(payload: dict[str, Any], secrets: dict[str, str]) -> tuple[bool, str]:
     enabled = bool(payload.get("enabled", False))
     if not enabled:

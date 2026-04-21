@@ -22,6 +22,7 @@ from commercial.mfa_chain.utils import (
     validate_settings_payload,
     verify_mfa_step,
     create_mfa_enrollment,
+    verify_factor_enrollment,
     MFA_LOGIN_SESSIONS,
 )
 
@@ -37,6 +38,11 @@ class MFAChainSettingsUpdate(BaseModel):
 class MFAChainVerifyRequest(BaseModel):
     session_id: str = Field(min_length=1)
     factor_id: str = Field(min_length=1)
+    user_input: str = Field(min_length=1)
+    window: int = Field(default=1, ge=0)
+
+
+class MFAEnrollmentVerifyRequest(BaseModel):
     user_input: str = Field(min_length=1)
     window: int = Field(default=1, ge=0)
 
@@ -139,6 +145,38 @@ async def enroll_mfa_factor(
         "otpauth_uri": enrollment["otpauth_uri"],
         "secret": enrollment["secret"],
         "qr_png_base64": enrollment["qr_png_base64"],
+    }
+
+
+@router.post("/mfa-chain/factors/{factor_id}/verify-enrollment")
+async def verify_enrolled_mfa_factor(
+    factor_id: str,
+    payload: MFAEnrollmentVerifyRequest,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    _check_mfa_chain_feature_for_tenant(current_user.tenant_id)
+    db_user = db.query(MasterUser).filter(MasterUser.id == current_user.id).first()
+    if not db_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    try:
+        success = verify_factor_enrollment(
+            db_user,
+            factor_id=factor_id,
+            user_input=payload.user_input,
+            window=payload.window,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    if not success:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid authenticator code")
+
+    return {
+        "success": True,
+        "factor_id": factor_id,
+        "message": "Authenticator enrollment verified",
     }
 
 
