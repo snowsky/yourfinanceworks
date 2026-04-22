@@ -86,6 +86,14 @@ class FeatureConfigService:
             'default': False,
             'license_tier': 'commercial'
         },
+        'mfa_chain': {
+            'name': 'MFA Chain Authentication',
+            'description': 'Multi-step authenticator chain after password or SSO sign-in',
+            'category': 'integration',
+            'env_var': 'FEATURE_MFA_CHAIN_ENABLED',
+            'default': False,
+            'license_tier': 'commercial'
+        },
         'email_integration': {
             'name': 'Email Integration',
             'description': 'Ingest expenses from email via IMAP',

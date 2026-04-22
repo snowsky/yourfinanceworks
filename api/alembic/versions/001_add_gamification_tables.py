@@ -20,11 +20,46 @@ def upgrade():
     """Add gamification tables"""
     
     # Create enum types
-    op.execute("CREATE TYPE dataretentionpolicy AS ENUM ('preserve', 'archive', 'delete')")
-    op.execute("CREATE TYPE habittype AS ENUM ('daily_expense_tracking', 'weekly_budget_review', 'invoice_follow_up', 'receipt_documentation')")
-    op.execute("CREATE TYPE achievementcategory AS ENUM ('expense_tracking', 'invoice_management', 'habit_formation', 'financial_health', 'exploration')")
-    op.execute("CREATE TYPE achievementdifficulty AS ENUM ('bronze', 'silver', 'gold', 'platinum')")
-    op.execute("CREATE TYPE challengetype AS ENUM ('personal', 'community', 'seasonal')")
+    op.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'dataretentionpolicy') THEN
+            CREATE TYPE dataretentionpolicy AS ENUM ('preserve', 'archive', 'delete');
+        END IF;
+    END $$;
+    """)
+    op.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'habittype') THEN
+            CREATE TYPE habittype AS ENUM ('daily_expense_tracking', 'weekly_budget_review', 'invoice_follow_up', 'receipt_documentation');
+        END IF;
+    END $$;
+    """)
+    op.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'achievementcategory') THEN
+            CREATE TYPE achievementcategory AS ENUM ('expense_tracking', 'invoice_management', 'habit_formation', 'financial_health', 'exploration');
+        END IF;
+    END $$;
+    """)
+    op.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'achievementdifficulty') THEN
+            CREATE TYPE achievementdifficulty AS ENUM ('bronze', 'silver', 'gold', 'platinum');
+        END IF;
+    END $$;
+    """)
+    op.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'challengetype') THEN
+            CREATE TYPE challengetype AS ENUM ('personal', 'community', 'seasonal');
+        END IF;
+    END $$;
+    """)
     
     # Create user_gamification_profiles table
     op.create_table(

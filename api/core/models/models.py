@@ -31,6 +31,10 @@ class MasterUser(Base):
     theme = Column(String, default="system")
     show_analytics = Column(Boolean, default=False, nullable=False)  # Show/hide analytics menu
     count_against_license = Column(Boolean, default=True, nullable=False)  # Whether this user counts against global license limits
+    mfa_chain_enabled = Column(Boolean, default=False, nullable=False)
+    mfa_chain_mode = Column(String, default="fixed", nullable=False)
+    mfa_chain_factors = Column(JSON, nullable=True)
+    mfa_factor_secrets = Column(JSON, nullable=True)
 
     # Tenant relationship (keeping for backward compatibility)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
@@ -169,6 +173,10 @@ class User(Base):
     google_id = Column(String, unique=True, nullable=True)  # For Google SSO
     azure_ad_id = Column(String, unique=True, nullable=True)  # For Azure AD SSO (Object ID)
     azure_tenant_id = Column(String, nullable=True)  # Azure AD Tenant ID
+    mfa_chain_enabled = Column(Boolean, default=False, nullable=False)
+    mfa_chain_mode = Column(String, default="fixed", nullable=False)
+    mfa_chain_factors = Column(JSON, nullable=True)
+    mfa_factor_secrets = Column(JSON, nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

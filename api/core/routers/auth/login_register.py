@@ -31,6 +31,35 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+def _maybe_require_mfa_for_user(user, next_path="/dashboard"):
+    """Resolve MFA requirement without relying on commercial router import side effects."""
+    try:
+        from core.utils.feature_gate import check_feature
+        from commercial.mfa_chain.utils import maybe_start_mfa_session
+    except Exception as exc:
+        if getattr(user, "mfa_chain_enabled", False):
+            logger.error("MFA chain import failed for MFA-enabled user %s: %s", user.email, exc)
+            raise ValueError("MFA setup incomplete: MFA module is unavailable.") from exc
+        logger.debug("MFA chain unavailable for user %s: import failed: %s", user.email, exc)
+        return None
+
+    tenant_session = tenant_db_manager.get_tenant_session(user.tenant_id)
+    tenant_db = tenant_session()
+    try:
+        try:
+            check_feature("mfa_chain", tenant_db)
+        except Exception as exc:
+            if getattr(user, "mfa_chain_enabled", False):
+                logger.error("MFA chain feature gate failed for MFA-enabled user %s: %s", user.email, exc)
+                raise ValueError("MFA setup incomplete: MFA chain is not licensed for this tenant.") from exc
+            logger.debug("MFA chain feature disabled for tenant %s: %s", user.tenant_id, exc)
+            return None
+    finally:
+        tenant_db.close()
+
+    return maybe_start_mfa_session(user, next_path=next_path)
+
+
 @router.post("/register", response_model=Token, status_code=201)
 async def register(user: UserCreate, db: Session = Depends(get_master_db)):
     logger = logging.getLogger("registration")
@@ -306,7 +335,7 @@ async def logout(response: Response):
     return {"message": "Logged out successfully"}
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login")
 async def login(user_credentials: UserLogin, response: Response, db: Session = Depends(get_master_db)):
     email_key = (user_credentials.email or "").lower().strip()
     if record_and_check(f"login:{email_key}", MAX_LOGIN_ATTEMPTS, RATE_LIMIT_WINDOW_SECONDS):
@@ -342,15 +371,29 @@ async def login(user_credentials: UserLogin, response: Response, db: Session = D
             detail="Your organization has been disabled. Please contact support."
         )
 
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
-
     organizations = get_user_organizations(db, user)
 
     user_response = UserRead.model_validate(user)
     user_response.organizations = organizations
+
+    try:
+        mfa_prompt = _maybe_require_mfa_for_user(user, next_path="/dashboard")
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    if mfa_prompt:
+        return {
+            "mfa_required": True,
+            "mfa_session_id": mfa_prompt["session_id"],
+            "current_factor_id": mfa_prompt["current_factor_id"],
+            "current_factor_label": mfa_prompt["current_factor_label"],
+            "user": user_response,
+        }
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
 
     response.set_cookie(
         key=AUTH_COOKIE_NAME,

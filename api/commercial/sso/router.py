@@ -11,6 +11,7 @@ import logging
 import traceback
 import json
 import base64
+from urllib.parse import quote
 
 try:
     import redis as _redis_lib
@@ -32,6 +33,44 @@ from config import config
 from sqlalchemy import func
 from core.utils.rbac import require_admin
 from core.services.license_service import LicenseService
+
+try:
+    from commercial.mfa_chain.utils import build_user_b64
+except Exception:
+    def build_user_b64(user: MasterUser) -> str:
+        user_payload = UserRead.model_validate(user).model_dump()
+
+        def _datetime_serializer(obj: Any) -> str:
+            if isinstance(obj, (datetime, date)):
+                return obj.isoformat()
+            raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+        return base64.urlsafe_b64encode(json.dumps(user_payload, default=_datetime_serializer).encode()).decode()
+
+
+def _maybe_require_mfa_for_user(user: MasterUser, next_path: str = "/dashboard") -> dict | None:
+    try:
+        from commercial.mfa_chain.utils import maybe_start_mfa_session
+    except Exception as exc:
+        if getattr(user, "mfa_chain_enabled", False):
+            logger.error("MFA chain import failed for MFA-enabled SSO user %s: %s", user.email, exc)
+            raise ValueError("MFA setup incomplete: MFA module is unavailable.") from exc
+        return None
+
+    tenant_session = tenant_db_manager.get_tenant_session(user.tenant_id)
+    tenant_db = tenant_session()
+    try:
+        try:
+            check_feature("mfa_chain", tenant_db)
+        except Exception as exc:
+            if getattr(user, "mfa_chain_enabled", False):
+                logger.error("MFA chain feature gate failed for MFA-enabled SSO user %s: %s", user.email, exc)
+                raise ValueError("MFA setup incomplete: MFA chain is not licensed for this tenant.") from exc
+            return None
+    finally:
+        tenant_db.close()
+
+    return maybe_start_mfa_session(user, next_path)
 
 logger = logging.getLogger(__name__)
 
@@ -345,21 +384,26 @@ async def google_callback(request: Request, code: Optional[str] = None, state: O
             finally:
                 tenant_db.close()
 
+    ui_base = config.UI_BASE_URL
+    redirect_next = state_data.get("next") or "/dashboard"
+
+    try:
+        mfa_prompt = _maybe_require_mfa_for_user(user, next_path=redirect_next)
+    except ValueError:
+        return RedirectResponse(url=f"{ui_base}/login?error=mfa_setup_incomplete")
+
+    if mfa_prompt:
+        redirect_url = (
+            f"{ui_base}/login?mfa_session={quote(mfa_prompt['session_id'])}"
+            f"&next={quote(redirect_next)}&factor={quote(mfa_prompt['current_factor_label'])}"
+        )
+        return RedirectResponse(url=redirect_url)
+
     # Issue JWT
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": user.email}, expires_delta=access_token_expires)
 
-    # Redirect back to UI with token via fragment so it doesn't hit server logs
-    ui_base = config.UI_BASE_URL
-    redirect_next = state_data.get("next") or "/dashboard"
-    # Compose URL: e.g., /oauth-callback?token=...&user=...
-    user_payload = UserRead.model_validate(user).model_dump()
-    # Convert datetime objects to strings for JSON serialization
-    def datetime_serializer(obj):
-        if isinstance(obj, (datetime, date)):
-            return obj.isoformat()
-        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
-    user_b64 = base64.urlsafe_b64encode(json.dumps(user_payload, default=datetime_serializer).encode()).decode()
+    user_b64 = build_user_b64(user)
     redirect_url = f"{ui_base}/oauth-callback?user={user_b64}&next={redirect_next}"
     redirect_response = RedirectResponse(url=redirect_url)
     redirect_response.set_cookie(
@@ -574,20 +618,26 @@ async def azure_callback(request: Request, code: Optional[str] = None, state: Op
             finally:
                 tenant_db.close()
 
+    ui_base = config.UI_BASE_URL
+    redirect_next = state_data.get("next") or "/dashboard"
+
+    try:
+        mfa_prompt = _maybe_require_mfa_for_user(user, next_path=redirect_next)
+    except ValueError:
+        return RedirectResponse(url=f"{ui_base}/login?error=mfa_setup_incomplete")
+
+    if mfa_prompt:
+        redirect_url = (
+            f"{ui_base}/login?mfa_session={quote(mfa_prompt['session_id'])}"
+            f"&next={quote(redirect_next)}&factor={quote(mfa_prompt['current_factor_label'])}"
+        )
+        return RedirectResponse(url=redirect_url)
+
     # Issue JWT
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": user.email}, expires_delta=access_token_expires)
 
-    # Redirect back to UI...
-    ui_base = config.UI_BASE_URL
-    redirect_next = state_data.get("next") or "/dashboard"
-    # Serialize user data to JSON and then base64 encode
-    user_payload = UserRead.model_validate(user).model_dump()
-    def datetime_serializer(obj):
-        if isinstance(obj, (datetime, date)):
-            return obj.isoformat()
-        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
-    user_b64 = base64.urlsafe_b64encode(json.dumps(user_payload, default=datetime_serializer).encode()).decode()
+    user_b64 = build_user_b64(user)
     redirect_url = f"{ui_base}/oauth-callback?user={user_b64}&next={redirect_next}"
     redirect_response = RedirectResponse(url=redirect_url)
     redirect_response.set_cookie(

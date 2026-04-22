@@ -26,6 +26,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _disable_mfa_fields(user: Any) -> None:
+    user.mfa_chain_enabled = False
+    user.mfa_chain_mode = "fixed"
+    user.mfa_chain_factors = []
+    user.mfa_factor_secrets = {}
+
+
 @router.get("/users", response_model=List[Dict[str, Any]])
 async def get_users(
     skip: int = 0,
@@ -497,6 +504,55 @@ async def super_admin_reset_password(
     )
 
     return {"message": "Password updated"}
+
+
+@router.post("/users/{user_id}/disable-mfa")
+async def super_admin_disable_mfa(
+    user_id: int,
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(require_super_admin)
+):
+    """Super admin disables MFA for any user and clears active MFA sessions."""
+    user = master_db.query(MasterUser).filter(MasterUser.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=USER_NOT_FOUND)
+
+    _disable_mfa_fields(user)
+    user.updated_at = datetime.now(timezone.utc)
+    master_db.commit()
+
+    try:
+        tenant_session = tenant_db_manager.get_tenant_session(user.tenant_id)()
+        from core.models.models_per_tenant import User as TenantUserModel
+        tenant_user = tenant_session.query(TenantUserModel).filter(TenantUserModel.id == user.id).first()
+        if tenant_user:
+            _disable_mfa_fields(tenant_user)
+            tenant_user.updated_at = datetime.now(timezone.utc)
+            tenant_session.commit()
+        tenant_session.close()
+    except Exception as exc:
+        logger.warning("Failed to sync MFA disable to tenant DB for user %s: %s", user.email, exc)
+
+    try:
+        from commercial.mfa_chain.utils import clear_mfa_sessions_for_user
+        clear_mfa_sessions_for_user(user.id)
+    except Exception as exc:
+        logger.warning("Failed to clear MFA sessions for user %s: %s", user.email, exc)
+
+    log_audit_event_master(
+        db=master_db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="DISABLE_MFA",
+        resource_type="user_mfa",
+        resource_id=str(user.id),
+        resource_name=f"MFA disabled for {user.email}",
+        details={"target_user_email": user.email},
+        tenant_id=current_user.tenant_id,
+        status="success"
+    )
+
+    return {"message": f"MFA disabled for {user.email}"}
 
 
 @router.put("/tenants/{tenant_id}/users/{user_id}/role")
