@@ -18,11 +18,30 @@ from core.schemas.reminders import (
 from core.routers.auth import get_current_user
 from core.utils.rbac import require_admin
 from core.constants.reminders import JOIN_REQUEST_REMINDER_TITLE_PREFIX
+from core.utils.audit import log_audit_event
 
 logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
+
+
+def _reminder_audit_details(reminder: Reminder) -> dict:
+    return {
+        "assigned_to_id": reminder.assigned_to_id,
+        "created_by_id": reminder.created_by_id,
+        "due_date": reminder.due_date,
+        "priority": getattr(reminder.priority, "value", reminder.priority),
+        "status": getattr(reminder.status, "value", reminder.status),
+        "is_pinned": reminder.is_pinned,
+        "tags": reminder.tags,
+    }
+
+
+def _normalize_audit_value(value):
+    if hasattr(value, "value"):
+        return value.value
+    return value
 
 def check_reminder_permissions(reminder: Reminder, current_user: MasterUser, action: str = "access"):
     """
@@ -321,6 +340,18 @@ def create_reminder(
     db.commit()
     db.refresh(reminder)
 
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="CREATE",
+        resource_type="reminder",
+        resource_id=str(reminder.id),
+        resource_name=reminder.title,
+        details=_reminder_audit_details(reminder),
+        status="success",
+    )
+
     # Create immediate notification if reminder is due soon (within 1 hour)
     now = datetime.now(timezone.utc)
     time_until_due = (reminder.due_date - now).total_seconds()
@@ -380,6 +411,7 @@ def update_reminder(
 
     # Update fields
     update_data = reminder_data.model_dump(exclude_unset=True)
+    changes = {}
 
     for field, value in update_data.items():
         if field == "assigned_to_id" and value:
@@ -410,7 +442,13 @@ def update_reminder(
                 finally:
                     master_db.close()
 
+        old_value = getattr(reminder, field)
         setattr(reminder, field, value)
+        if _normalize_audit_value(old_value) != _normalize_audit_value(value):
+            changes[field] = {
+                "old_value": _normalize_audit_value(old_value),
+                "new_value": _normalize_audit_value(value),
+            }
 
     # Recalculate next due date if recurrence changed
     if "recurrence_pattern" in update_data or "recurrence_interval" in update_data or "due_date" in update_data:
@@ -425,6 +463,21 @@ def update_reminder(
 
     db.commit()
     db.refresh(reminder)
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="UPDATE",
+        resource_type="reminder",
+        resource_id=str(reminder.id),
+        resource_name=reminder.title,
+        details={
+            **_reminder_audit_details(reminder),
+            "changes": changes,
+        },
+        status="success",
+    )
 
     # Load relationships for response
     reminder = db.query(Reminder).options(
@@ -467,6 +520,7 @@ def update_reminder_status(
             )
 
     # Update status
+    previous_status = getattr(reminder.status, "value", reminder.status)
     reminder.status = status_data.status
 
     if status_data.status == ReminderStatus.COMPLETED:
@@ -527,6 +581,26 @@ def update_reminder_status(
     db.commit()
     db.refresh(reminder)
 
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="UPDATE_STATUS",
+        resource_type="reminder",
+        resource_id=str(reminder.id),
+        resource_name=reminder.title,
+        details={
+            **_reminder_audit_details(reminder),
+            "status_change": {
+                "old_value": previous_status,
+                "new_value": getattr(reminder.status, "value", reminder.status),
+            },
+            "completion_notes": status_data.completion_notes,
+            "snoozed_until": status_data.snoozed_until,
+        },
+        status="success",
+    )
+
     # Load relationships for response
     reminder = db.query(Reminder).options(
         joinedload(Reminder.created_by),
@@ -574,11 +648,31 @@ def unsnooze_reminder(
         )
 
     # Unsnooze the reminder
+    previous_status = getattr(reminder.status, "value", reminder.status)
     reminder.status = ReminderStatus.PENDING
     reminder.snoozed_until = None
 
     db.commit()
     db.refresh(reminder)
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="UPDATE_STATUS",
+        resource_type="reminder",
+        resource_id=str(reminder.id),
+        resource_name=reminder.title,
+        details={
+            **_reminder_audit_details(reminder),
+            "status_change": {
+                "old_value": previous_status,
+                "new_value": ReminderStatus.PENDING.value,
+            },
+            "operation": "unsnooze",
+        },
+        status="success",
+    )
 
     # Load relationships for response
     reminder = db.query(Reminder).options(
@@ -618,9 +712,15 @@ def bulk_delete_reminders(
             # Check permissions
             check_reminder_permissions(reminder, current_user, "delete")
 
+            audit_details = {
+                **_reminder_audit_details(reminder),
+                "deleted_at": datetime.now(timezone.utc),
+                "deleted_by_id": current_user.id,
+            }
+
             # Soft delete
             reminder.is_deleted = True
-            reminder.deleted_at = datetime.now(timezone.utc)
+            reminder.deleted_at = audit_details["deleted_at"]
             reminder.deleted_by_id = current_user.id
 
             # Mark associated notifications as read so they don't count towards unread count
@@ -628,6 +728,18 @@ def bulk_delete_reminders(
                 ReminderNotification.reminder_id == reminder.id,
                 ReminderNotification.is_read == False
             ).update({"is_read": True})
+
+            log_audit_event(
+                db=db,
+                user_id=current_user.id,
+                user_email=current_user.email,
+                action="DELETE",
+                resource_type="reminder",
+                resource_id=str(reminder.id),
+                resource_name=reminder.title,
+                details=audit_details,
+                status="success",
+            )
 
             deleted_count += 1
 
@@ -665,9 +777,15 @@ def delete_reminder(
     # Check permissions
     check_reminder_permissions(reminder, current_user, "delete")
 
+    audit_details = {
+        **_reminder_audit_details(reminder),
+        "deleted_at": datetime.now(timezone.utc),
+        "deleted_by_id": current_user.id,
+    }
+
     # Soft delete
     reminder.is_deleted = True
-    reminder.deleted_at = datetime.now(timezone.utc)
+    reminder.deleted_at = audit_details["deleted_at"]
     reminder.deleted_by_id = current_user.id
 
     # Mark associated notifications as read so they don't count towards unread count
@@ -677,6 +795,18 @@ def delete_reminder(
     ).update({"is_read": True})
 
     db.commit()
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="DELETE",
+        resource_type="reminder",
+        resource_id=str(reminder.id),
+        resource_name=reminder.title,
+        details=audit_details,
+        status="success",
+    )
 
 @router.post("/bulk-update", response_model=BulkReminderResponse)
 def bulk_update_reminders(
@@ -709,6 +839,7 @@ def bulk_update_reminders(
 
             # Apply updates
             update_data = bulk_data.model_dump(exclude_unset=True, exclude={"reminder_ids"})
+            changes = {}
 
             for field, value in update_data.items():
                 if field == "assigned_to_id" and value is not None:
@@ -738,7 +869,29 @@ def bulk_update_reminders(
                         finally:
                             master_db.close()
 
+                old_value = getattr(reminder, field)
                 setattr(reminder, field, value)
+                if _normalize_audit_value(old_value) != _normalize_audit_value(value):
+                    changes[field] = {
+                        "old_value": _normalize_audit_value(old_value),
+                        "new_value": _normalize_audit_value(value),
+                    }
+
+            log_audit_event(
+                db=db,
+                user_id=current_user.id,
+                user_email=current_user.email,
+                action="UPDATE",
+                resource_type="reminder",
+                resource_id=str(reminder.id),
+                resource_name=reminder.title,
+                details={
+                    **_reminder_audit_details(reminder),
+                    "changes": changes,
+                    "operation": "bulk_update",
+                },
+                status="success",
+            )
 
             updated_count += 1
 
@@ -867,7 +1020,26 @@ def reorder_reminders(
             check_reminder_permissions(reminder, current_user, "reorder")
 
             # Update position
+            previous_position = reminder.position
             reminder.position = index + 1
+
+            log_audit_event(
+                db=db,
+                user_id=current_user.id,
+                user_email=current_user.email,
+                action="REORDER",
+                resource_type="reminder",
+                resource_id=str(reminder.id),
+                resource_name=reminder.title,
+                details={
+                    **_reminder_audit_details(reminder),
+                    "position_change": {
+                        "old_value": previous_position,
+                        "new_value": reminder.position,
+                    },
+                },
+                status="success",
+            )
             updated_count += 1
         except Exception as e:
             failed_count += 1
@@ -903,9 +1075,29 @@ def toggle_reminder_pin(
     check_reminder_permissions(reminder, current_user, "pin")
 
     # Toggle pin
+    previous_pin_state = reminder.is_pinned
     reminder.is_pinned = not reminder.is_pinned
     db.commit()
     db.refresh(reminder)
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="UPDATE",
+        resource_type="reminder",
+        resource_id=str(reminder.id),
+        resource_name=reminder.title,
+        details={
+            **_reminder_audit_details(reminder),
+            "pin_change": {
+                "old_value": previous_pin_state,
+                "new_value": reminder.is_pinned,
+            },
+            "operation": "toggle_pin",
+        },
+        status="success",
+    )
 
     # Load relationships for response
     reminder = db.query(Reminder).options(
