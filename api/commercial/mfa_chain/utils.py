@@ -4,42 +4,20 @@ import base64
 import json
 import logging
 import os
-import sys
 import time
 from datetime import date, datetime, timedelta
 from io import BytesIO
-from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
 
 import pyotp
+from mfa_chain_orchestrator import MFAChainBreached, MFAOrchestrator, Policy
 
 from core.models.models import MasterUser
 from core.schemas.user import UserRead
 from core.utils.auth import ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token
 
 logger = logging.getLogger(__name__)
-
-
-try:
-    from mfa_chain_orchestrator import MFAChainBreached, MFAOrchestrator, Policy
-except ImportError:
-    candidate_paths: list[Path] = []
-    env_src = os.getenv("MFA_CHAIN_ORCHESTRATOR_SRC")
-    if env_src:
-        candidate_paths.append(Path(env_src))
-    candidate_paths.extend(
-        [
-            Path("/mfa-chain-orchestrator/src"),
-            Path(__file__).resolve().parents[2] / "mfa-chain-orchestrator" / "src",
-            Path(__file__).resolve().parents[3] / "mfa-chain-orchestrator" / "src",
-        ]
-    )
-    for local_src in candidate_paths:
-        if local_src.exists():
-            sys.path.insert(0, str(local_src))
-            break
-    from mfa_chain_orchestrator import MFAChainBreached, MFAOrchestrator, Policy
 
 
 MFA_SESSION_TTL_SECONDS = 600

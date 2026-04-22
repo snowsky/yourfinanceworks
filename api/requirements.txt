@@ -19,6 +19,7 @@ setuptools==80.9.0
 python-multipart==0.0.22
 pyotp==2.9.0
 qrcode==8.2
+mfa-chain-orchestrator
 
 # PostgreSQL driver
 psycopg2-binary==2.9.10
