@@ -1,15 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import Dict, Any
+from datetime import datetime, timezone
 
 from core.models.database import get_master_db
 from core.models.models import (
-    Tenant, MasterUser, User, Client, ClientNote, Invoice, Payment, Settings,
-    CurrencyRate, DiscountRule, AIConfig, TenantKey, OrganizationJoinRequest,
-    InvoiceHistory, AuditLog, TenantPluginSettings, user_tenant_association,
+    Tenant, MasterUser, user_tenant_association,
 )
-from core.models.api_models import APIClient, ExternalTransaction, ClientPermission
 from core.schemas.tenant import TenantCreate, TenantUpdate, Tenant as TenantSchema
 from core.services.tenant_database_manager import tenant_db_manager
 from core.services.license_service import LicenseService
@@ -41,7 +38,8 @@ async def get_organizations(
     for tenant in tenants:
         organizations.append({
             'id': tenant.id,
-            'name': tenant.name
+            'name': tenant.name,
+            'is_archived': tenant.archived_at is not None,
         })
 
     # Sort by name for better UX
@@ -83,6 +81,7 @@ async def get_tenants(
         # Union and count unique users
         user_count = primary_users.union(member_users).count()
         tenant_dict['user_count'] = user_count
+        tenant_dict['is_archived'] = tenant.archived_at is not None
 
         enriched_tenants.append(tenant_dict)
 
@@ -171,7 +170,9 @@ async def create_tenant(
             # Check license from super admin's tenant
             license_service = LicenseService(admin_tenant_db)
             max_tenants = license_service.get_max_tenants()
-            current_tenants_count = master_db.query(Tenant).count()
+            current_tenants_count = master_db.query(Tenant).filter(
+                Tenant.count_against_license == True
+            ).count()
 
             if current_tenants_count >= max_tenants:
                 raise HTTPException(
@@ -351,152 +352,156 @@ async def delete_tenant(
     current_user: MasterUser = Depends(require_super_admin),
     request: Request = None
 ):
-    """Delete a tenant and its database"""
+    """Archive a tenant while preserving its database and audit trail."""
     tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
 
-    # Don't allow deleting your own tenant
+    # Don't allow archiving your own tenant
     if tenant_id == current_user.tenant_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete your own tenant"
+            detail="Cannot archive your own tenant"
         )
 
+    if tenant.archived_at:
+        return {"message": f"Tenant {tenant.name} is already archived"}
+
+    tenant_info = {
+        "tenant_id": tenant.id,
+        "tenant_name": tenant.name,
+        "tenant_email": tenant.email,
+        "default_currency": tenant.default_currency,
+        "old_is_active": tenant.is_active,
+        "old_is_enabled": tenant.is_enabled,
+        "old_count_against_license": tenant.count_against_license,
+        "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
+    }
+
     try:
-        # Store tenant info for audit before deletion
-        tenant_info = {
-            "tenant_id": tenant.id,
-            "tenant_name": tenant.name,
-            "tenant_email": tenant.email,
-            "default_currency": tenant.default_currency,
-            "is_active": tenant.is_active,
-            "created_at": tenant.created_at.isoformat() if tenant.created_at else None
-        }
+        tenant.is_active = False
+        tenant.is_enabled = False
+        tenant.count_against_license = False
+        tenant.archived_at = datetime.now(timezone.utc)
+        tenant.archived_by_id = current_user.id
+        tenant.archive_reason = "Archived by super admin"
+        tenant.updated_at = datetime.now(timezone.utc)
+        master_db.commit()
 
-        # Manually delete all related data for this tenant
-        # Delete records that reference the tenant (in order to avoid foreign key constraints)
-
-        # Delete API-related records first
-        master_db.query(ExternalTransaction).filter(ExternalTransaction.tenant_id == tenant_id).delete()
-
-        # Delete client permissions for API clients belonging to this tenant
-        api_client_ids = master_db.query(APIClient.id).filter(APIClient.tenant_id == tenant_id).subquery()
-        master_db.query(ClientPermission).filter(ClientPermission.client_id.in_(api_client_ids)).delete(synchronize_session=False)
-
-        master_db.query(APIClient).filter(APIClient.tenant_id == tenant_id).delete()
-
-        # Note: StorageOperationLog and CloudStorageConfiguration are in tenant databases, not master
-
-        # Delete audit logs for this tenant
-        master_db.query(AuditLog).filter(AuditLog.tenant_id == tenant_id).delete()
-
-        # Delete organization join requests
-        master_db.query(OrganizationJoinRequest).filter(OrganizationJoinRequest.tenant_id == tenant_id).delete()
-
-        # Delete tenant keys (encryption keys)
-        master_db.query(TenantKey).filter(TenantKey.tenant_id == tenant_id).delete()
-
-        # Delete core business records
-        # Delete user-tenant associations first
-        master_db.execute(user_tenant_association.delete().where(user_tenant_association.c.tenant_id == tenant_id))
-
-        master_db.query(MasterUser).filter(MasterUser.tenant_id == tenant_id).delete()
-        master_db.query(User).filter(User.tenant_id == tenant_id).delete()
-        master_db.query(ClientNote).filter(ClientNote.tenant_id == tenant_id).delete()
-        master_db.query(InvoiceHistory).filter(InvoiceHistory.tenant_id == tenant_id).delete()
-        master_db.query(Payment).filter(Payment.tenant_id == tenant_id).delete()
-        master_db.query(Invoice).filter(Invoice.tenant_id == tenant_id).delete()
-        master_db.query(Client).filter(Client.tenant_id == tenant_id).delete()
-        master_db.query(Settings).filter(Settings.tenant_id == tenant_id).delete()
-        master_db.query(CurrencyRate).filter(CurrencyRate.tenant_id == tenant_id).delete()
-        master_db.query(DiscountRule).filter(DiscountRule.tenant_id == tenant_id).delete()
-        master_db.query(AIConfig).filter(AIConfig.tenant_id == tenant_id).delete()
-        master_db.query(TenantPluginSettings).filter(TenantPluginSettings.tenant_id == tenant_id).delete()
-
-    except Exception as e:
-        master_db.rollback()
-
-        # Log audit event for failed tenant deletion
         log_audit_event_master(
             db=master_db,
             user_id=current_user.id,
             user_email=current_user.email,
-            action="DELETE_TENANT",
+            action="ARCHIVE_TENANT",
+            resource_type="TENANT",
+            resource_id=str(tenant_id),
+            resource_name=tenant.name,
+            details={
+                "tenant_info": tenant_info,
+                "database_deleted": False,
+                "data_deleted": False,
+                "count_against_license": False,
+            },
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            status="success",
+            tenant_id=tenant_id,
+        )
+
+        return {"message": f"Tenant {tenant.name} archived successfully"}
+
+    except Exception as e:
+        master_db.rollback()
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="ARCHIVE_TENANT",
             resource_type="TENANT",
             resource_id=str(tenant_id),
             resource_name=tenant.name,
             details={
                 "tenant_info": tenant_info,
                 "error": str(e),
-                "stage": "data_deletion"
             },
             ip_address=request.client.host if request else None,
             user_agent=request.headers.get("user-agent") if request else None,
             status="error",
             error_message=str(e),
-            tenant_id=tenant_id
+            tenant_id=tenant_id,
         )
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete tenant data: {str(e)}"
+            detail=f"Failed to archive tenant: {str(e)}"
         )
 
-    # Delete tenant database first
-    success = tenant_db_manager.drop_tenant_database(tenant_id)
-    if not success:
-        # Log audit event for failed database deletion
+
+@router.patch("/tenants/{tenant_id}/restore")
+async def restore_tenant(
+    tenant_id: int,
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(require_super_admin),
+    request: Request = None,
+):
+    """Restore an archived tenant and make it count against license capacity again."""
+    tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    if not tenant.archived_at:
+        return {"message": f"Tenant {tenant.name} is not archived"}
+
+    try:
+        tenant.is_active = True
+        tenant.is_enabled = True
+        tenant.count_against_license = True
+        tenant.archived_at = None
+        tenant.archived_by_id = None
+        tenant.archive_reason = None
+        tenant.updated_at = datetime.now(timezone.utc)
+        master_db.commit()
+
         log_audit_event_master(
             db=master_db,
             user_id=current_user.id,
             user_email=current_user.email,
-            action="DELETE_TENANT",
+            action="RESTORE_TENANT",
             resource_type="TENANT",
             resource_id=str(tenant_id),
             resource_name=tenant.name,
             details={
-                "tenant_info": tenant_info,
-                "error": "Failed to delete tenant database",
-                "stage": "database_deletion"
+                "tenant_id": tenant_id,
+                "tenant_name": tenant.name,
+                "count_against_license": True,
             },
             ip_address=request.client.host if request else None,
             user_agent=request.headers.get("user-agent") if request else None,
-            status="error",
-            error_message="Failed to delete tenant database",
-            tenant_id=tenant_id
+            status="success",
+            tenant_id=tenant_id,
         )
 
+        return {"message": f"Tenant {tenant.name} restored successfully"}
+    except Exception as e:
+        master_db.rollback()
+        log_audit_event_master(
+            db=master_db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="RESTORE_TENANT",
+            resource_type="TENANT",
+            resource_id=str(tenant_id),
+            resource_name=tenant.name,
+            details={"tenant_id": tenant_id, "error": str(e)},
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            status="error",
+            error_message=str(e),
+            tenant_id=tenant_id,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete tenant database"
+            detail=f"Failed to restore tenant: {str(e)}",
         )
-
-    # Delete tenant from master database
-    master_db.delete(tenant)
-    master_db.commit()
-
-    # Log audit event for successful tenant deletion
-    log_audit_event_master(
-        db=master_db,
-        user_id=current_user.id,
-        user_email=current_user.email,
-        action="DELETE_TENANT",
-        resource_type="TENANT",
-        resource_id=str(tenant_id),
-        resource_name=tenant.name,
-        details={
-            "tenant_info": tenant_info,
-            "database_deleted": True,
-            "all_data_deleted": True
-        },
-        ip_address=request.client.host if request else None,
-        user_agent=request.headers.get("user-agent") if request else None,
-        status="success",
-        tenant_id=tenant_id
-    )
-
-    return {"message": f"Tenant {tenant.name} deleted successfully"}
 
 
 @router.patch("/tenants/{tenant_id}/toggle-status")
@@ -518,9 +523,16 @@ async def toggle_tenant_status(
             detail="Cannot disable your own tenant"
         )
 
+    if tenant.archived_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Archived tenants must be restored before changing status"
+        )
+
     try:
         old_status = tenant.is_active
         tenant.is_active = not tenant.is_active
+        tenant.is_enabled = tenant.is_active
         new_status = tenant.is_active
         master_db.commit()
 

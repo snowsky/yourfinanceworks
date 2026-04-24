@@ -121,6 +121,9 @@ class Tenant(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     is_enabled = Column(Boolean, default=True, nullable=False)  # License-based tenant control
     count_against_license = Column(Boolean, default=True, nullable=False)  # Whether this tenant counts against global capacity
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+    archived_by_id = Column(Integer, nullable=True)
+    archive_reason = Column(Text, nullable=True)
 
     # Company details
     email = Column(String, nullable=True)

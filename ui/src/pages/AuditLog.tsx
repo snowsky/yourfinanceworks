@@ -53,6 +53,7 @@ interface AuditLog {
 interface Organization {
   id: number;
   name: string;
+  is_archived?: boolean;
 }
 
 type DateOrNull = Date | null;
@@ -389,7 +390,7 @@ export default function AuditLogPage() {
                 </SelectItem>
                 {organizations.map(org => (
                   <SelectItem key={org.id} value={org.id.toString()}>
-                    {org.name}
+                    {org.name}{org.is_archived ? ' (Archived)' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>

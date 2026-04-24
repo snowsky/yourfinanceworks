@@ -3,6 +3,12 @@ export interface Tenant {
   name: string;
   email: string;
   is_active: boolean;
+  is_enabled?: boolean;
+  count_against_license?: boolean;
+  is_archived?: boolean;
+  archived_at?: string | null;
+  archived_by_id?: number | null;
+  archive_reason?: string | null;
   created_at: string;
   user_count: number;
   subdomain?: string;

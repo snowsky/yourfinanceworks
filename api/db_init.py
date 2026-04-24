@@ -105,6 +105,9 @@ def ensure_required_columns(database_url):
                     "allow_join_lookup": "BOOLEAN NOT NULL DEFAULT TRUE",
                     "join_lookup_exact_match": "BOOLEAN NOT NULL DEFAULT FALSE",
                     "count_against_license": "BOOLEAN NOT NULL DEFAULT TRUE",
+                    "archived_at": "TIMESTAMP",
+                    "archived_by_id": "INTEGER",
+                    "archive_reason": "TEXT",
                 }
 
                 for col_name, col_definition in required_columns_tenants.items():

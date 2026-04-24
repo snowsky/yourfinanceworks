@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building, Edit, Trash2 } from 'lucide-react';
+import { Archive, Building, Edit, RotateCcw } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { CurrencySelector } from '@/components/ui/currency-selector';
@@ -91,20 +91,34 @@ export const TenantsTab: React.FC<TenantsTabProps> = ({
     }
   };
 
-  const confirmDeleteTenant = async () => {
+  const confirmArchiveTenant = async () => {
     if (!tenantToDelete) return;
     try {
       await apiRequest(`/super-admin/tenants/${tenantToDelete.id}`, {
         method: 'DELETE',
       }, { skipTenant: true });
-      toast.success('Tenant deleted successfully');
+      toast.success('Organization archived successfully');
       setTenantToDelete(null);
       onTenantsChanged();
       onUsersChanged(selectedTenantForUsersId);
       onDatabasesChanged();
     } catch (err) {
-      toast.error('Failed to delete tenant');
+      toast.error('Failed to archive organization');
       setTenantToDelete(null);
+    }
+  };
+
+  const handleRestoreTenant = async (tenant: Tenant) => {
+    try {
+      await apiRequest(`/super-admin/tenants/${tenant.id}/restore`, {
+        method: 'PATCH',
+      }, { skipTenant: true });
+      toast.success('Organization restored successfully');
+      onTenantsChanged();
+      onUsersChanged(selectedTenantForUsersId);
+      onDatabasesChanged();
+    } catch (err) {
+      toast.error('Failed to restore organization');
     }
   };
 
@@ -194,8 +208,8 @@ export const TenantsTab: React.FC<TenantsTabProps> = ({
                       <TableCell>{tenant.user_count}</TableCell>
                       <TableCell>{tenant.default_currency}</TableCell>
                       <TableCell>
-                        <Badge variant={tenant.is_active ? 'default' : 'secondary'}>
-                          {tenant.is_active ? t('superAdmin.active_status') : t('superAdmin.inactive_status')}
+                        <Badge variant={tenant.is_archived ? 'outline' : tenant.is_active ? 'default' : 'secondary'}>
+                          {tenant.is_archived ? 'Archived' : tenant.is_active ? t('superAdmin.active_status') : t('superAdmin.inactive_status')}
                         </Badge>
                       </TableCell>
                       <TableCell>{new Date(tenant.created_at).toLocaleDateString()}</TableCell>
@@ -204,7 +218,7 @@ export const TenantsTab: React.FC<TenantsTabProps> = ({
                           <Button size="sm" variant="outline" onClick={() => handleEditTenant(tenant)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          {currentUser && tenant.id !== currentUser.tenant_id && (
+                          {currentUser && tenant.id !== currentUser.tenant_id && !tenant.is_archived && (
                             <Button
                               size="sm"
                               variant={tenant.is_active ? 'destructive' : 'default'}
@@ -213,9 +227,14 @@ export const TenantsTab: React.FC<TenantsTabProps> = ({
                               {tenant.is_active ? t('superAdmin.disable_button') : t('superAdmin.enable_button')}
                             </Button>
                           )}
-                          {currentUser && tenant.id !== currentUser.tenant_id && (
+                          {currentUser && tenant.id !== currentUser.tenant_id && tenant.is_archived && (
+                            <Button size="sm" variant="outline" onClick={() => handleRestoreTenant(tenant)}>
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {currentUser && tenant.id !== currentUser.tenant_id && !tenant.is_archived && (
                             <Button size="sm" variant="outline" onClick={() => setTenantToDelete(tenant)}>
-                              <Trash2 className="h-4 w-4" />
+                              <Archive className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
@@ -256,17 +275,17 @@ export const TenantsTab: React.FC<TenantsTabProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Delete Tenant Confirmation Dialog */}
+      {/* Archive Tenant Confirmation Dialog */}
       <Dialog open={!!tenantToDelete} onOpenChange={open => { if (!open) setTenantToDelete(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('superAdmin.delete_tenant_title')}</DialogTitle>
+            <DialogTitle>Archive organization</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p>{String(t('superAdmin.delete_tenant_confirmation_text', { tenantName: tenantToDelete?.name || '' } as any))}</p>
+            <p>Archive "{tenantToDelete?.name || ''}"? The organization data and audit trail will be preserved, normal access will be disabled, and it will no longer count against license capacity.</p>
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setTenantToDelete(null)}>{t('superAdmin.cancel_button')}</Button>
-              <Button variant="destructive" onClick={confirmDeleteTenant}>{t('superAdmin.delete_button')}</Button>
+              <Button variant="destructive" onClick={confirmArchiveTenant}>Archive</Button>
             </div>
           </div>
         </DialogContent>
