@@ -38,6 +38,11 @@ class Tenant(TenantBase):
     id: int
     is_enabled: bool = True
     count_against_license: bool = True
+    database_size_bytes: Optional[int] = None
+    attachment_size_bytes: Optional[int] = None
+    local_attachment_size_bytes: Optional[int] = None
+    total_size_bytes: Optional[int] = None
+    size_calculation_error: Optional[str] = None
     archived_at: Optional[datetime] = None
     archived_by_id: Optional[int] = None
     archive_reason: Optional[str] = None

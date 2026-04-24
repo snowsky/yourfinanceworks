@@ -43,6 +43,17 @@ The system includes built-in scripts for managing storage:
 - **Health Check**: `python scripts/validate_cloud_storage_config.py` - Verify connectivity and permissions.
 - **Deployment Check**: `python scripts/cloud_storage_deployment_check.py` - Pre-flight check for production.
 
+## Storage Usage Reporting
+
+The Super Admin Dashboard shows organization storage from application metadata:
+
+- Database size comes from PostgreSQL `pg_database_size`.
+- Attachment size comes from `file_size` values stored on attachment records.
+
+This works for both local and cloud storage when uploads or migrations preserve attachment metadata. The dashboard does not list S3/Azure/GCS objects live on every page load, because provider scans can be slow, rate-limited, and billable. Files that exist only in cloud storage without a matching attachment row, or records with missing `file_size`, will not be reflected in the dashboard total.
+
+Use cloud-provider usage reports or a scheduled storage usage job for billing-grade totals.
+
 ---
 
 ### Pro Tips
