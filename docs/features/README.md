@@ -13,6 +13,7 @@ YourFinanceWORKS is organized into focused capability areas. This overview links
 ## 📊 Expense Intelligence & Automation
 
 - **AI-Powered OCR** - Upload receipts and invoices for automatic data extraction with high accuracy ([Guide](EXPENSE_INTELLIGENCE.md))
+- **Mobile Expense Service** - Organization-bound mobile API for receipt capture, signup, login, and branded mobile app configuration ([Guide](MOBILE_EXPENSE_SERVICE.md))
 - **Smart Categorization** - Automatic expense categorization based on vendor patterns and historical data
 - **Batch Processing** - Process multiple receipts simultaneously with background worker efficiency
 - **Spend Analytics** - Visual expense breakdowns, trend detection, and category-based reporting
