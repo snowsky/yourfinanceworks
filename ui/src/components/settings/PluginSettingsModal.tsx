@@ -41,6 +41,8 @@ interface PluginSettingsModalProps {
   onOpenChange: (open: boolean) => void;
   pluginId: string;
   pluginName: string;
+  targetTenantId?: number;
+  targetTenantName?: string;
 }
 
 export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
@@ -48,6 +50,8 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
   onOpenChange,
   pluginId,
   pluginName,
+  targetTenantId,
+  targetTenantName,
 }) => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
@@ -60,17 +64,23 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
   useEffect(() => {
     if (open) {
       loadConfig();
-      loadPublicAccessConfig();
+      if (targetTenantId == null) {
+        loadPublicAccessConfig();
+      } else {
+        setPublicAccess(null);
+      }
       if (users.length === 0) {
         loadUsers();
       }
     }
-  }, [open, pluginId]);
+  }, [open, pluginId, targetTenantId]);
 
   const loadConfig = async () => {
     setLoading(true);
     try {
-      const response = await pluginApi.getPluginConfig(pluginId);
+      const response = targetTenantId != null
+        ? await pluginApi.getAdminTenantPluginConfig(targetTenantId, pluginId)
+        : await pluginApi.getPluginConfig(pluginId);
       setConfig(response.config || {});
     } catch (error) {
       console.error('Failed to load plugin config:', error);
@@ -135,8 +145,10 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
     setSaving(true);
     try {
       await Promise.all([
-        pluginApi.updatePluginConfig(pluginId, config),
-        publicAccess !== null
+        targetTenantId != null
+          ? pluginApi.updateAdminTenantPluginConfig(targetTenantId, pluginId, config)
+          : pluginApi.updatePluginConfig(pluginId, config),
+        targetTenantId == null && publicAccess !== null
           ? pluginApi.updatePublicAccessConfig(pluginId, {
               enabled: publicAccess.enabled,
               require_login: publicAccess.require_login,
@@ -187,10 +199,230 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
     );
   };
 
+  const updateExpenseMobileConfig = (patch: Record<string, any>) => {
+    const current = config.mobile_app || {};
+    setConfig({
+      ...config,
+      mobile_app: {
+        enabled: false,
+        app_id: '',
+        signup_enabled: true,
+        default_role: 'user',
+        allowed_auth_methods: {
+          password: true,
+          google: false,
+          microsoft: false,
+        },
+        branding: {
+          title: '',
+          subtitle: '',
+          accent_color: '#0f766e',
+        },
+        ...current,
+        ...patch,
+      },
+    });
+  };
+
+  const renderExpenseConfig = () => {
+    const mobileApp = config.mobile_app || {};
+    const authMethods = mobileApp.allowed_auth_methods || {};
+    const branding = mobileApp.branding || {};
+
+    return (
+      <div className="space-y-5">
+        <div className="rounded-lg border p-4 space-y-4">
+          <div className="space-y-1">
+            <h4 className="text-sm font-semibold">Mobile Binding</h4>
+            <p className="text-xs text-muted-foreground">
+              This binds `yfw-mobile` to the current organization. End users never choose the organization in-app.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <UILabel htmlFor="expense-mobile-enabled">Enable mobile service</UILabel>
+              <p className="text-xs text-muted-foreground">Allow the configured app ID to sign in and save expenses into this organization.</p>
+            </div>
+            <Switch
+              id="expense-mobile-enabled"
+              checked={Boolean(mobileApp.enabled)}
+              onCheckedChange={(checked) => updateExpenseMobileConfig({ enabled: checked })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <UILabel htmlFor="expense-mobile-app-id">Mobile App ID</UILabel>
+            <Input
+              id="expense-mobile-app-id"
+              value={mobileApp.app_id || ''}
+              onChange={(e) => updateExpenseMobileConfig({ app_id: e.target.value })}
+              placeholder="e.g. yfw-expense-demo"
+            />
+            <p className="text-xs text-muted-foreground">
+              Set the same value in `EXPO_PUBLIC_EXPENSE_APP_ID` for the mobile app build.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <UILabel htmlFor="expense-mobile-signup-enabled">Allow sign up</UILabel>
+              <p className="text-xs text-muted-foreground">Permit new mobile users to create accounts directly in this organization.</p>
+            </div>
+            <Switch
+              id="expense-mobile-signup-enabled"
+              checked={mobileApp.signup_enabled !== false}
+              onCheckedChange={(checked) => updateExpenseMobileConfig({ signup_enabled: checked })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <UILabel htmlFor="expense-mobile-default-role">Default role</UILabel>
+            <Select
+              value={mobileApp.default_role || 'user'}
+              onValueChange={(value) => updateExpenseMobileConfig({ default_role: value })}
+            >
+              <SelectTrigger id="expense-mobile-default-role">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">User</SelectItem>
+                <SelectItem value="viewer">Viewer</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="rounded-lg border p-4 space-y-4">
+          <div className="space-y-1">
+            <h4 className="text-sm font-semibold">Allowed Auth Methods</h4>
+            <p className="text-xs text-muted-foreground">
+              Password is implemented now. SSO flags are stored for future rollout.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <UILabel htmlFor="expense-auth-password">Password</UILabel>
+            <Switch
+              id="expense-auth-password"
+              checked={authMethods.password !== false}
+              onCheckedChange={(checked) =>
+                updateExpenseMobileConfig({
+                  allowed_auth_methods: {
+                    password: checked,
+                    google: Boolean(authMethods.google),
+                    microsoft: Boolean(authMethods.microsoft),
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <UILabel htmlFor="expense-auth-google">Google</UILabel>
+            <Switch
+              id="expense-auth-google"
+              checked={Boolean(authMethods.google)}
+              onCheckedChange={(checked) =>
+                updateExpenseMobileConfig({
+                  allowed_auth_methods: {
+                    password: authMethods.password !== false,
+                    google: checked,
+                    microsoft: Boolean(authMethods.microsoft),
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <UILabel htmlFor="expense-auth-microsoft">Microsoft</UILabel>
+            <Switch
+              id="expense-auth-microsoft"
+              checked={Boolean(authMethods.microsoft)}
+              onCheckedChange={(checked) =>
+                updateExpenseMobileConfig({
+                  allowed_auth_methods: {
+                    password: authMethods.password !== false,
+                    google: Boolean(authMethods.google),
+                    microsoft: checked,
+                  },
+                })
+              }
+            />
+          </div>
+        </div>
+
+        <div className="rounded-lg border p-4 space-y-4">
+          <div className="space-y-1">
+            <h4 className="text-sm font-semibold">Mobile Branding</h4>
+            <p className="text-xs text-muted-foreground">
+              These values are returned to the mobile app during bootstrap.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <UILabel htmlFor="expense-brand-title">Title</UILabel>
+            <Input
+              id="expense-brand-title"
+              value={branding.title || ''}
+              onChange={(e) =>
+                updateExpenseMobileConfig({
+                  branding: {
+                    ...branding,
+                    title: e.target.value,
+                  },
+                })
+              }
+              placeholder="YFW Expenses"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <UILabel htmlFor="expense-brand-subtitle">Subtitle</UILabel>
+            <Input
+              id="expense-brand-subtitle"
+              value={branding.subtitle || ''}
+              onChange={(e) =>
+                updateExpenseMobileConfig({
+                  branding: {
+                    ...branding,
+                    subtitle: e.target.value,
+                  },
+                })
+              }
+              placeholder="Capture receipts and voice expenses in seconds."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <UILabel htmlFor="expense-brand-accent">Accent Color</UILabel>
+            <Input
+              id="expense-brand-accent"
+              value={branding.accent_color || '#0f766e'}
+              onChange={(e) =>
+                updateExpenseMobileConfig({
+                  branding: {
+                    ...branding,
+                    accent_color: e.target.value,
+                  },
+                })
+              }
+              placeholder="#0f766e"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderConfigForm = () => {
     switch (pluginId) {
       case 'investments':
         return renderInvestmentsConfig();
+      case 'expense':
+        return renderExpenseConfig();
       default:
         return (
           <p className="text-sm text-muted-foreground">
@@ -209,7 +441,9 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
             {t('plugins.configure_plugin', 'Configure Plugin')}: {pluginName}
           </DialogTitle>
           <DialogDescription>
-            {t('plugins.configure_description', 'Manage settings and features for this plugin')}
+            {targetTenantId != null && targetTenantName
+              ? `Manage settings for ${targetTenantName}.`
+              : t('plugins.configure_description', 'Manage settings and features for this plugin')}
           </DialogDescription>
         </DialogHeader>
 

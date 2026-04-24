@@ -308,6 +308,20 @@ class PluginDiscovery {
         lastUpdated: '2026-03-02',
         downloadCount: 0,
         rating: 5.0,
+      },
+      {
+        id: 'expense',
+        name: 'Expense Mobile Service',
+        description: 'Bind yfw-mobile to one hidden organization and manage standalone mobile expense capture settings',
+        icon: '📷',
+        version: '0.1.0',
+        author: 'YourFinanceWORKS',
+        category: 'finance',
+        minAppVersion: '1.0.0',
+        dependencies: [],
+        lastUpdated: '2026-04-23',
+        downloadCount: 0,
+        rating: 5.0,
       }
     ];
   }

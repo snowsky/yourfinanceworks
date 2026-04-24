@@ -32,8 +32,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["plugins"])
 
 from commercial.plugin_management.auth import router as auth_router
+from commercial.plugin_management.expense_mobile import router as expense_mobile_router
 
 router.include_router(auth_router)
+router.include_router(expense_mobile_router)
 
 
 def _valid_plugins() -> set[str]:
@@ -689,6 +691,108 @@ async def update_plugin_config(
     return {
         "plugin_id": plugin_id,
         "config": config,
+        "message": f"Configuration for plugin '{plugin_id}' updated successfully"
+    }
+
+
+@router.get("/admin/tenants/{tenant_id}/settings/{plugin_id}/config")
+async def get_admin_tenant_plugin_config(
+    tenant_id: int,
+    plugin_id: str,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """
+    Get configuration for a specific plugin for an explicit tenant.
+    Super admin only.
+    """
+    if not _is_superuser(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Super admin only")
+
+    plugin_id = _validate_plugin_id(plugin_id)
+
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
+
+    settings = db.query(TenantPluginSettings).filter(
+        TenantPluginSettings.tenant_id == tenant_id
+    ).first()
+
+    if not settings:
+        return {
+            "tenant_id": tenant_id,
+            "plugin_id": plugin_id,
+            "config": {}
+        }
+
+    plugin_config = settings.plugin_config or {}
+    return {
+        "tenant_id": tenant_id,
+        "plugin_id": plugin_id,
+        "config": plugin_config.get(plugin_id, {})
+    }
+
+
+@router.put("/admin/tenants/{tenant_id}/settings/{plugin_id}/config")
+async def update_admin_tenant_plugin_config(
+    tenant_id: int,
+    plugin_id: str,
+    payload: dict,
+    db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user)
+):
+    """
+    Update configuration for a specific plugin for an explicit tenant.
+    Super admin only.
+    """
+    if not _is_superuser(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Super admin only")
+
+    plugin_id = _validate_plugin_id(plugin_id)
+
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
+
+    config = payload.get("config", {})
+    if not isinstance(config, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="config must be a dictionary"
+        )
+
+    settings = db.query(TenantPluginSettings).filter(
+        TenantPluginSettings.tenant_id == tenant_id
+    ).with_for_update().first()
+
+    if not settings:
+        settings = TenantPluginSettings(
+            tenant_id=tenant_id,
+            enabled_plugins=[],
+            plugin_config={plugin_id: config}
+        )
+        db.add(settings)
+    else:
+        current_config = settings.plugin_config or {}
+        existing_plugin_cfg = current_config.get(plugin_id, {})
+
+        new_plugin_cfg = dict(config)
+        if _PUBLIC_ACCESS_KEY in existing_plugin_cfg:
+            new_plugin_cfg[_PUBLIC_ACCESS_KEY] = existing_plugin_cfg[_PUBLIC_ACCESS_KEY]
+
+        current_config[plugin_id] = new_plugin_cfg
+        settings.plugin_config = current_config
+        flag_modified(settings, 'plugin_config')
+        settings.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(settings)
+
+    return {
+        "tenant_id": tenant_id,
+        "plugin_id": plugin_id,
+        "config": settings.plugin_config.get(plugin_id, {}),
         "message": f"Configuration for plugin '{plugin_id}' updated successfully"
     }
 

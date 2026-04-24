@@ -204,6 +204,10 @@ async def tenant_context_middleware(request: Request, call_next):
        "/public-auth/" in request.url.path:
         return await call_next(request)
 
+    # Standalone mobile expense service resolves tenant context from plugin config.
+    if request.url.path.startswith("/api/v1/plugins/expense/mobile/"):
+        return await call_next(request)
+
     # Skip tenant context for specific endpoints that don't need it or handle it manually
     skip_tenant_paths = [
         "/health",
