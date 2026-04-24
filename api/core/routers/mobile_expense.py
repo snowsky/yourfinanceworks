@@ -196,7 +196,10 @@ async def get_mobile_expense_config(
     tenant, config = resolve_expense_mobile_binding(db, app_id)
     resolved = get_expense_mobile_config(db, tenant)
     return ExpenseMobileConfigResponse(
-        **resolved,
+        enabled=resolved["enabled"],
+        app_id=resolved["app_id"],
+        signup_enabled=resolved["signup_enabled"],
+        default_role=resolved["default_role"],
         branding=BrandingPayload(**resolved["branding"]),
         allowed_auth_methods=AllowedAuthMethods(**resolved["allowed_auth_methods"]),
     )
