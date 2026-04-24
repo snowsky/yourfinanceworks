@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import bindparam, func, text
 from datetime import datetime, timezone
+from pathlib import Path
 
+from config import config as app_config
 from core.models.database import get_master_db
 from core.models.models import (
     Tenant, MasterUser, user_tenant_association,
@@ -22,6 +24,147 @@ import logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _sum_local_tenant_files(tenant_id: int) -> int:
+    """Return bytes stored in the local attachment folder for a tenant."""
+    tenant_folder = Path(app_config.UPLOAD_PATH) / f"tenant_{tenant_id}"
+    if not tenant_folder.exists():
+        return 0
+
+    total = 0
+    for path in tenant_folder.rglob("*"):
+        if path.is_file():
+            try:
+                total += path.stat().st_size
+            except OSError:
+                logger.warning("Unable to stat tenant attachment file: %s", path)
+    return total
+
+
+def _get_tenant_database_sizes(tenant_ids: list[int]) -> tuple[dict[int, int], str | None]:
+    """Return PostgreSQL database sizes for tenants in a single catalog query."""
+    if not tenant_ids:
+        return {}, None
+
+    database_names = [f"tenant_{tenant_id}" for tenant_id in tenant_ids]
+    query = text("""
+        SELECT
+            replace(datname, 'tenant_', '')::int AS tenant_id,
+            pg_database_size(datname) AS size_bytes
+        FROM pg_database
+        WHERE datname IN :database_names
+    """).bindparams(bindparam("database_names", expanding=True))
+
+    try:
+        with tenant_db_manager.master_engine.connect() as conn:
+            rows = conn.execute(query, {"database_names": database_names}).fetchall()
+            return {int(row.tenant_id): int(row.size_bytes or 0) for row in rows}, None
+    except Exception as e:
+        logger.warning("Unable to calculate tenant database sizes: %s", e)
+        return {}, f"Database size unavailable: {str(e)}"
+
+
+def _sum_tenant_attachment_metadata(tenant_session: Session) -> tuple[int, list[str]]:
+    """Sum file payload sizes tracked by tenant tables."""
+    from core.models.models_per_tenant import (
+        BankStatementAttachment,
+        BatchFileProcessing,
+        ExpenseAttachment,
+        InvoiceAttachment,
+        ItemAttachment,
+    )
+
+    attachment_models = (
+        ExpenseAttachment,
+        BankStatementAttachment,
+        ItemAttachment,
+        InvoiceAttachment,
+        BatchFileProcessing,
+    )
+
+    total = 0
+    errors = []
+    for model in attachment_models:
+        try:
+            total += tenant_session.query(func.coalesce(func.sum(model.file_size), 0)).scalar() or 0
+        except Exception as e:
+            tenant_session.rollback()
+            errors.append(f"{model.__tablename__}: {str(e)}")
+            logger.warning("Unable to sum attachment size for %s: %s", model.__tablename__, e)
+
+    return int(total), errors
+
+
+def _get_tenant_attachment_metadata_size(tenant_id: int) -> tuple[int | None, str | None]:
+    """Return file payload bytes recorded in tenant attachment metadata."""
+    tenant_session = None
+    try:
+        tenant_session = tenant_db_manager.get_tenant_session(tenant_id)()
+        attachment_size_bytes, attachment_errors = _sum_tenant_attachment_metadata(tenant_session)
+        if attachment_errors:
+            return attachment_size_bytes, f"Some attachment metadata unavailable: {'; '.join(attachment_errors)}"
+        return attachment_size_bytes, None
+    except Exception as e:
+        logger.warning("Unable to calculate attachment metadata size for tenant %s: %s", tenant_id, e)
+        return None, f"Attachment metadata unavailable: {str(e)}"
+    finally:
+        if tenant_session:
+            tenant_session.close()
+
+
+def _get_tenant_size_summary(tenant_id: int) -> dict:
+    database_size_bytes = 0
+    attachment_size_bytes = 0
+    local_attachment_size_bytes = 0
+    size_calculation_error = None
+
+    database_name = f"tenant_{tenant_id}"
+
+    try:
+        with tenant_db_manager.master_engine.connect() as conn:
+            database_size_bytes = conn.execute(
+                text("SELECT pg_database_size(:database_name)"),
+                {"database_name": database_name}
+            ).scalar() or 0
+    except Exception as e:
+        size_calculation_error = f"Database size unavailable: {str(e)}"
+        logger.warning("Unable to calculate database size for tenant %s: %s", tenant_id, e)
+
+    tenant_session = None
+    try:
+        tenant_session = tenant_db_manager.get_tenant_session(tenant_id)()
+        attachment_size_bytes, attachment_errors = _sum_tenant_attachment_metadata(tenant_session)
+        if attachment_errors:
+            error = f"Some attachment metadata unavailable: {'; '.join(attachment_errors)}"
+            size_calculation_error = f"{size_calculation_error}; {error}" if size_calculation_error else error
+    except Exception as e:
+        error = f"Attachment metadata unavailable: {str(e)}"
+        size_calculation_error = f"{size_calculation_error}; {error}" if size_calculation_error else error
+        logger.warning("Unable to calculate attachment metadata size for tenant %s: %s", tenant_id, e)
+    finally:
+        if tenant_session:
+            tenant_session.close()
+
+    try:
+        local_attachment_size_bytes = _sum_local_tenant_files(tenant_id)
+    except Exception as e:
+        error = f"Local attachment size unavailable: {str(e)}"
+        size_calculation_error = f"{size_calculation_error}; {error}" if size_calculation_error else error
+        logger.warning("Unable to calculate local attachment size for tenant %s: %s", tenant_id, e)
+
+    total_size_bytes = int(database_size_bytes) + max(
+        int(attachment_size_bytes),
+        int(local_attachment_size_bytes),
+    )
+
+    return {
+        "database_size_bytes": int(database_size_bytes),
+        "attachment_size_bytes": int(attachment_size_bytes),
+        "local_attachment_size_bytes": int(local_attachment_size_bytes),
+        "total_size_bytes": total_size_bytes,
+        "size_calculation_error": size_calculation_error,
+    }
 
 
 @router.get("/organizations")
@@ -57,6 +200,8 @@ async def get_tenants(
 ):
     """List all tenants with their statistics"""
     tenants = master_db.query(Tenant).offset(skip).limit(limit).all()
+    tenant_ids = [tenant.id for tenant in tenants]
+    database_sizes, database_size_error = _get_tenant_database_sizes(tenant_ids)
 
     # Add user counts for each tenant
     enriched_tenants = []
@@ -82,6 +227,18 @@ async def get_tenants(
         user_count = primary_users.union(member_users).count()
         tenant_dict['user_count'] = user_count
         tenant_dict['is_archived'] = tenant.archived_at is not None
+        database_size_bytes = database_sizes.get(tenant.id)
+        attachment_size_bytes, attachment_size_error = _get_tenant_attachment_metadata_size(tenant.id)
+        size_calculation_error = "; ".join(
+            error for error in (database_size_error, attachment_size_error) if error
+        ) or None
+        tenant_dict.update({
+            "database_size_bytes": database_size_bytes,
+            "attachment_size_bytes": attachment_size_bytes,
+            "local_attachment_size_bytes": None,
+            "total_size_bytes": (database_size_bytes or 0) + (attachment_size_bytes or 0),
+            "size_calculation_error": size_calculation_error,
+        })
 
         enriched_tenants.append(tenant_dict)
 

@@ -38,6 +38,27 @@ export const TenantsTab: React.FC<TenantsTabProps> = ({
   const [editTenantForm, setEditTenantForm] = useState({ name: '', email: '', default_currency: 'USD' });
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
 
+  const formatBytes = (bytes?: number | null) => {
+    if (bytes === null || bytes === undefined) return 'Unknown';
+    if (bytes === 0) return '0 B';
+
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    const value = bytes / Math.pow(1024, index);
+
+    return `${value >= 10 || index === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[index]}`;
+  };
+
+  const getFileSizeBytes = (tenant: Tenant) => {
+    const metadataSize = tenant.attachment_size_bytes;
+    const localSize = tenant.local_attachment_size_bytes;
+
+    if (metadataSize === null && localSize === null) return null;
+    if (metadataSize === undefined && localSize === undefined) return null;
+
+    return Math.max(metadataSize ?? 0, localSize ?? 0);
+  };
+
   const handleCreateTenant = async () => {
     try {
       await apiRequest('/super-admin/tenants', {
@@ -191,6 +212,7 @@ export const TenantsTab: React.FC<TenantsTabProps> = ({
                   <TableHead>{t('superAdmin.name_header')}</TableHead>
                   <TableHead>{t('superAdmin.email_header')}</TableHead>
                   <TableHead>{t('superAdmin.users_header')}</TableHead>
+                  <TableHead>Size</TableHead>
                   <TableHead>{t('superAdmin.currency_header')}</TableHead>
                   <TableHead>{t('superAdmin.status_header')}</TableHead>
                   <TableHead>{t('superAdmin.created_at_header')}</TableHead>
@@ -206,6 +228,17 @@ export const TenantsTab: React.FC<TenantsTabProps> = ({
                       <TableCell className="font-medium">{tenant.name}</TableCell>
                       <TableCell>{tenant.email}</TableCell>
                       <TableCell>{tenant.user_count}</TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="font-medium">{formatBytes(tenant.total_size_bytes)}</div>
+                          <div className="text-xs text-muted-foreground">
+                            DB {formatBytes(tenant.database_size_bytes)} / files {formatBytes(getFileSizeBytes(tenant))}
+                          </div>
+                          {tenant.size_calculation_error && (
+                            <div className="text-xs text-amber-600" title={tenant.size_calculation_error}>Partial</div>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>{tenant.default_currency}</TableCell>
                       <TableCell>
                         <Badge variant={tenant.is_archived ? 'outline' : tenant.is_active ? 'default' : 'secondary'}>

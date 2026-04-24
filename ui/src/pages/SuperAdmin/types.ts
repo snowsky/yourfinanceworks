@@ -11,6 +11,11 @@ export interface Tenant {
   archive_reason?: string | null;
   created_at: string;
   user_count: number;
+  database_size_bytes?: number | null;
+  attachment_size_bytes?: number | null;
+  local_attachment_size_bytes?: number | null;
+  total_size_bytes?: number | null;
+  size_calculation_error?: string | null;
   subdomain?: string;
   default_currency: string;
 }
