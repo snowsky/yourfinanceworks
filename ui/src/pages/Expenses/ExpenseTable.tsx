@@ -71,8 +71,8 @@ export function ExpenseTable({
   const { t } = useTranslation();
 
   return (
-    <div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
-      <Table>
+    <div className="rounded-xl border border-border/50 overflow-x-auto shadow-sm">
+      <Table className="min-w-[1100px]">
         <TableHeader>
           <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
             <TableHead className="w-[40px]">

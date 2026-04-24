@@ -175,7 +175,7 @@ export default function ExpensesView() {
             { label: (form as any)?.description || `Expense #${id}`, href: '#' }
           ]}
           actions={
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {form.id && <ShareButton recordType="expense" recordId={form.id as number} />}
               {approval && (
                 <ApprovalActionButtons
@@ -316,7 +316,7 @@ export default function ExpensesView() {
         <ContentSection title={t('expenses.details')}>
           <ProfessionalCard>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle>{t('expenses.details')}</CardTitle>
                 {attachments && attachments.length > 0 &&
                   form.status !== 'pending_approval' && form.status !== 'approved' && (
@@ -634,7 +634,7 @@ export default function ExpensesView() {
           </ProfessionalCard>
         </ContentSection>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => navigate(-1)}>{t('common.back', { defaultValue: 'Back' })}</Button>
           <Button
             variant="default"

@@ -648,7 +648,7 @@ const Expenses = () => {
     <>
       <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell">
         {/* Hero Header */}
-        <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
+        <div className="dashboard-highlight-block dashboard-highlight-block-primary dashboard-hero min-w-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 md:p-7 backdrop-blur-sm">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
             <div className="space-y-2 flex-1">
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">{t('expenses.title')}</h1>
@@ -663,7 +663,7 @@ const Expenses = () => {
               </div>
             </div>
             {canPerformActions() && (
-              <div className="flex gap-2 items-center flex-wrap justify-end">
+              <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
                 <ProfessionalButton
                   variant="outline"
                   size="default"
@@ -766,8 +766,8 @@ const Expenses = () => {
         >
           <div className="space-y-6">
             {/* Header with filters */}
-            <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
-              <div>
+            <div className="flex min-w-0 flex-col justify-between gap-6 border-b border-border/50 pb-6 lg:flex-row">
+              <div className="min-w-0">
                 <h2 className="text-2xl font-bold text-foreground">{t('expenses.list_title')}</h2>
               </div>
               <ExpenseFilters

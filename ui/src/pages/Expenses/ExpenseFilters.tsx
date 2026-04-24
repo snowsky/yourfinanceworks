@@ -50,7 +50,7 @@ export function ExpenseFilters({
   const { t } = useTranslation();
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+    <div className="flex w-full min-w-0 flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
       {/* Search */}
       <div className="relative w-full sm:w-auto">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -63,7 +63,7 @@ export function ExpenseFilters({
       </div>
 
       {/* Category Filter */}
-      <div className="flex items-center gap-2">
+      <div className="flex w-full items-center gap-2 sm:w-auto">
         <Filter className="h-4 w-4 text-muted-foreground" />
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
@@ -92,7 +92,7 @@ export function ExpenseFilters({
       </Select>
 
       {/* Label Filter */}
-      <div className="relative">
+      <div className="relative w-full sm:w-auto">
         <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder={t('expenses.filter_by_label', { defaultValue: 'Filter by label' })}
@@ -118,7 +118,7 @@ export function ExpenseFilters({
       </label>
 
       {/* Page Size */}
-      <div className="flex items-center gap-2">
+      <div className="flex w-full items-center gap-2 sm:w-auto">
         <span className="text-sm text-muted-foreground">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
         <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
           <SelectTrigger className="w-[100px] h-10 rounded-lg border-border/50 bg-muted/30">

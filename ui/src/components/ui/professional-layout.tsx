@@ -33,7 +33,7 @@ const PageHeader = React.forwardRef<HTMLDivElement, PageHeaderProps>(
           className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm space-y-4"
         >
           {breadcrumbs && breadcrumbs.length > 0 && (
-            <nav className="flex items-center space-x-1 text-sm text-muted-foreground">
+            <nav className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-2 text-sm text-muted-foreground">
               <Home className="h-4 w-4" />
               {breadcrumbs.map((crumb, index) => (
                 <React.Fragment key={index}>
@@ -41,28 +41,28 @@ const PageHeader = React.forwardRef<HTMLDivElement, PageHeaderProps>(
                   {crumb.href ? (
                     <Link
                       to={crumb.href}
-                      className="hover:text-foreground transition-colors"
+                      className="min-w-0 max-w-full truncate hover:text-foreground transition-colors"
                     >
                       {crumb.label}
                     </Link>
                   ) : (
-                    <span className="text-foreground font-medium">{crumb.label}</span>
+                    <span className="min-w-0 max-w-full truncate text-foreground font-medium">{crumb.label}</span>
                   )}
                 </React.Fragment>
               ))}
             </nav>
           )}
           
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-2 flex-1">
-              <h1 className="text-4xl font-bold tracking-tight">{title}</h1>
+          <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0 flex-1 space-y-2">
+              <h1 className="break-words text-3xl font-bold tracking-tight md:text-4xl">{title}</h1>
               {description && (
                 <p className="text-muted-foreground text-base">{description}</p>
               )}
             </div>
             
             {actions && (
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex flex-wrap items-center gap-2 lg:flex-shrink-0">
                 {actions}
               </div>
             )}
