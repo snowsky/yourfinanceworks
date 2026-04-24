@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ReceiptText, Save } from "lucide-react";
+import { ReceiptText, Save, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -17,7 +17,7 @@ import { ProfessionalTextarea } from "@/components/ui/professional-textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { settingsApi, getErrorMessage } from "@/lib/api";
+import { ExpenseMobileServiceSettings, settingsApi, getErrorMessage } from "@/lib/api";
 
 const EXPENSE_SETTINGS_KEY = "expense_settings";
 
@@ -140,6 +140,24 @@ const defaultExpenseSettings: ExpenseSettings = {
   },
 };
 
+const defaultExpenseMobileSettings: ExpenseMobileServiceSettings = {
+  enabled: false,
+  app_id: "",
+  signup_enabled: true,
+  default_role: "user",
+  allowed_auth_methods: {
+    password: true,
+    google: false,
+    microsoft: false,
+  },
+  branding: {
+    title: "",
+    subtitle: "",
+    accent_color: "#10b981",
+    logo_url: "",
+  },
+};
+
 const toNumber = (value: unknown, fallback: number): number => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -255,10 +273,17 @@ export const ExpensesSettingsTab: React.FC<ExpensesSettingsTabProps> = ({ isAdmi
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [settings, setSettings] = useState<ExpenseSettings>(defaultExpenseSettings);
+  const [expenseMobile, setExpenseMobile] = useState<ExpenseMobileServiceSettings>(defaultExpenseMobileSettings);
 
   const { data, isLoading } = useQuery({
     queryKey: ["settings", EXPENSE_SETTINGS_KEY],
     queryFn: () => settingsApi.getSetting(EXPENSE_SETTINGS_KEY),
+    enabled: isAdmin,
+  });
+
+  const { data: organizationSettings, isLoading: isOrganizationSettingsLoading } = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => settingsApi.getSettings(),
     enabled: isAdmin,
   });
 
@@ -268,17 +293,53 @@ export const ExpensesSettingsTab: React.FC<ExpensesSettingsTabProps> = ({ isAdmi
     }
   }, [data]);
 
+  useEffect(() => {
+    if (organizationSettings?.expense_mobile) {
+      setExpenseMobile(organizationSettings.expense_mobile);
+    }
+  }, [organizationSettings]);
+
   const saveMutation = useMutation({
     mutationFn: (nextSettings: ExpenseSettings) =>
-      settingsApi.updateSetting(EXPENSE_SETTINGS_KEY, nextSettings),
+      Promise.all([
+        settingsApi.updateSetting(EXPENSE_SETTINGS_KEY, nextSettings),
+        settingsApi.updateSettings({ expense_mobile: expenseMobile }),
+      ]),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings", EXPENSE_SETTINGS_KEY] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
       toast.success(t("settings.settings_saved_successfully", "Settings saved successfully"));
     },
     onError: (error) => {
       toast.error(getErrorMessage(error, t));
     },
   });
+
+  const updateExpenseMobile = (patch: Partial<ExpenseMobileServiceSettings>) => {
+    setExpenseMobile((prev) => ({ ...prev, ...patch }));
+  };
+
+  const updateExpenseMobileBranding = (patch: Partial<ExpenseMobileServiceSettings["branding"]>) => {
+    setExpenseMobile((prev) => ({
+      ...prev,
+      branding: {
+        ...prev.branding,
+        ...patch,
+      },
+    }));
+  };
+
+  const updateExpenseMobileAuthMethods = (
+    patch: Partial<ExpenseMobileServiceSettings["allowed_auth_methods"]>
+  ) => {
+    setExpenseMobile((prev) => ({
+      ...prev,
+      allowed_auth_methods: {
+        ...prev.allowed_auth_methods,
+        ...patch,
+      },
+    }));
+  };
 
   const testDigestMutation = useMutation({
     mutationFn: () => settingsApi.sendExpenseDigest(true),
@@ -310,6 +371,153 @@ export const ExpensesSettingsTab: React.FC<ExpensesSettingsTabProps> = ({ isAdmi
             )}
           </ProfessionalCardDescription>
         </ProfessionalCardHeader>
+      </ProfessionalCard>
+
+      <ProfessionalCard variant="elevated">
+        <ProfessionalCardHeader>
+          <ProfessionalCardTitle className="flex items-center gap-2">
+            <Smartphone className="h-5 w-5 text-primary" />
+            {t("settings.expenses.mobile.title", "Standalone Mobile Expense Service")}
+          </ProfessionalCardTitle>
+          <ProfessionalCardDescription>
+            {t(
+              "settings.expenses.mobile.description",
+              "Configure the yfw-mobile expense app for this organization. End users never choose the organization in-app."
+            )}
+          </ProfessionalCardDescription>
+        </ProfessionalCardHeader>
+        <ProfessionalCardContent className="space-y-6">
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 bg-muted/20 p-4">
+            <div className="space-y-1">
+              <p className="font-medium">
+                {t("settings.expenses.mobile.enabled", "Enable organization-bound mobile service")}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {t(
+                  "settings.expenses.mobile.enabled_description",
+                  "Allow the configured mobile app ID to sign in and save expenses into this organization."
+                )}
+              </p>
+            </div>
+            <Switch
+              checked={expenseMobile.enabled}
+              onCheckedChange={(checked) => updateExpenseMobile({ enabled: checked })}
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <ProfessionalInput
+              label={t("settings.expenses.mobile.app_id", "Mobile App ID")}
+              id="expense-mobile-app-id"
+              name="expense-mobile-app-id"
+              value={expenseMobile.app_id}
+              onChange={(event) => updateExpenseMobile({ app_id: event.target.value })}
+              helperText={t(
+                "settings.expenses.mobile.app_id_hint",
+                "Set the same value in EXPO_PUBLIC_EXPENSE_APP_ID for the mobile build."
+              )}
+            />
+            <div className="space-y-2">
+              <Label htmlFor="expense-mobile-default-role">
+                {t("settings.expenses.mobile.default_role", "Default mobile signup role")}
+              </Label>
+              <Select
+                value={expenseMobile.default_role}
+                onValueChange={(value: ExpenseMobileServiceSettings["default_role"]) =>
+                  updateExpenseMobile({ default_role: value })
+                }
+              >
+                <SelectTrigger id="expense-mobile-default-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">{t("settings.roles.user", "User")}</SelectItem>
+                  <SelectItem value="viewer">{t("settings.roles.viewer", "Viewer")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 bg-muted/20 p-4">
+            <div className="space-y-1">
+              <p className="font-medium">{t("settings.expenses.mobile.signup", "Allow direct sign up")}</p>
+              <p className="text-sm text-muted-foreground">
+                {t(
+                  "settings.expenses.mobile.signup_description",
+                  "Let new mobile users create normal YFW accounts directly inside this organization."
+                )}
+              </p>
+            </div>
+            <Switch
+              checked={expenseMobile.signup_enabled}
+              onCheckedChange={(checked) => updateExpenseMobile({ signup_enabled: checked })}
+            />
+          </div>
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="font-medium">{t("settings.expenses.mobile.auth_methods", "Allowed auth methods")}</p>
+              <p className="text-sm text-muted-foreground">
+                {t(
+                  "settings.expenses.mobile.auth_methods_description",
+                  "Password is active now. SSO flags are stored for later rollout."
+                )}
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="flex items-center justify-between rounded-lg border border-border/40 p-3">
+                <Label htmlFor="expense-mobile-password">{t("settings.expenses.mobile.password", "Password")}</Label>
+                <Switch
+                  id="expense-mobile-password"
+                  checked={expenseMobile.allowed_auth_methods.password}
+                  onCheckedChange={(checked) => updateExpenseMobileAuthMethods({ password: checked })}
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-border/40 p-3">
+                <Label htmlFor="expense-mobile-google">{t("settings.expenses.mobile.google", "Google")}</Label>
+                <Switch
+                  id="expense-mobile-google"
+                  checked={expenseMobile.allowed_auth_methods.google}
+                  onCheckedChange={(checked) => updateExpenseMobileAuthMethods({ google: checked })}
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-border/40 p-3">
+                <Label htmlFor="expense-mobile-microsoft">{t("settings.expenses.mobile.microsoft", "Microsoft")}</Label>
+                <Switch
+                  id="expense-mobile-microsoft"
+                  checked={expenseMobile.allowed_auth_methods.microsoft}
+                  onCheckedChange={(checked) => updateExpenseMobileAuthMethods({ microsoft: checked })}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <ProfessionalInput
+              label={t("settings.expenses.mobile.mobile_title", "Mobile title")}
+              id="expense-mobile-title"
+              name="expense-mobile-title"
+              value={expenseMobile.branding.title}
+              onChange={(event) => updateExpenseMobileBranding({ title: event.target.value })}
+            />
+            <ProfessionalInput
+              label={t("settings.expenses.mobile.accent_color", "Accent color")}
+              id="expense-mobile-accent-color"
+              name="expense-mobile-accent-color"
+              value={expenseMobile.branding.accent_color}
+              onChange={(event) => updateExpenseMobileBranding({ accent_color: event.target.value })}
+            />
+          </div>
+
+          <ProfessionalTextarea
+            label={t("settings.expenses.mobile.subtitle", "Mobile subtitle")}
+            id="expense-mobile-subtitle"
+            name="expense-mobile-subtitle"
+            rows={3}
+            value={expenseMobile.branding.subtitle}
+            onChange={(event) => updateExpenseMobileBranding({ subtitle: event.target.value })}
+          />
+        </ProfessionalCardContent>
       </ProfessionalCard>
 
       <ProfessionalCard variant="elevated">
@@ -829,7 +1037,7 @@ export const ExpensesSettingsTab: React.FC<ExpensesSettingsTabProps> = ({ isAdmi
       <div className="flex justify-end">
         <ProfessionalButton
           onClick={() => testDigestMutation.mutate()}
-          disabled={isLoading || saveMutation.isPending || testDigestMutation.isPending}
+          disabled={isLoading || isOrganizationSettingsLoading || saveMutation.isPending || testDigestMutation.isPending}
           variant="outline"
           className="mr-2"
         >
@@ -839,7 +1047,7 @@ export const ExpensesSettingsTab: React.FC<ExpensesSettingsTabProps> = ({ isAdmi
         </ProfessionalButton>
         <ProfessionalButton
           onClick={() => saveMutation.mutate(settings)}
-          disabled={isLoading || saveMutation.isPending || testDigestMutation.isPending}
+          disabled={isLoading || isOrganizationSettingsLoading || saveMutation.isPending || testDigestMutation.isPending}
         >
           <Save className="mr-2 h-4 w-4" />
           {saveMutation.isPending
