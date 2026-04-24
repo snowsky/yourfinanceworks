@@ -32,7 +32,20 @@ Manage the lifecycle of organizations in your system.
 
 - **Organization Creation**: Manually onboard new businesses or clients.
 - **Tenant Monitoring**: View statistics and health for each individual organization.
+- **Storage Visibility**: View each organization's PostgreSQL database size and known attachment payload size from the Organizations table.
 - **Access Control**: Enable or disable organization-wide features or manage their commercial license status.
+
+### Organization Size Reporting
+
+The Super Admin Dashboard -> Organizations table includes a storage summary for each organization:
+
+- **DB**: The PostgreSQL database size returned by `pg_database_size`. This includes the tenant schema, system catalog overhead, indexes, TOAST tables, and stored data. Empty tenant databases commonly show a non-zero baseline such as 10-20 MB.
+- **files**: The sum of attachment file sizes recorded in tenant metadata tables, including invoice, expense, bank statement, inventory item, and batch-processing attachments.
+- **total**: The displayed primary size is `DB + files`.
+
+The list view intentionally does not recursively scan local attachment folders or cloud buckets on every page load. Local and cloud attachments are counted when their database rows have `file_size` populated. Orphaned files without attachment metadata, or older records missing `file_size`, are not included in the list total.
+
+For exact cloud-provider billing usage, use provider-native bucket/container reporting or a background storage usage job that periodically scans cloud storage and stores cached totals. The Super Admin Organizations table is designed for fast operational visibility, not billing-grade storage reconciliation.
 
 ## 2. Cross-Tenant User Oversight
 
