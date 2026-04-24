@@ -41,8 +41,6 @@ interface PluginSettingsModalProps {
   onOpenChange: (open: boolean) => void;
   pluginId: string;
   pluginName: string;
-  targetTenantId?: number;
-  targetTenantName?: string;
 }
 
 export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
@@ -50,8 +48,6 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
   onOpenChange,
   pluginId,
   pluginName,
-  targetTenantId,
-  targetTenantName,
 }) => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
@@ -64,23 +60,17 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
   useEffect(() => {
     if (open) {
       loadConfig();
-      if (targetTenantId == null) {
-        loadPublicAccessConfig();
-      } else {
-        setPublicAccess(null);
-      }
+      loadPublicAccessConfig();
       if (users.length === 0) {
         loadUsers();
       }
     }
-  }, [open, pluginId, targetTenantId]);
+  }, [open, pluginId]);
 
   const loadConfig = async () => {
     setLoading(true);
     try {
-      const response = targetTenantId != null
-        ? await pluginApi.getAdminTenantPluginConfig(targetTenantId, pluginId)
-        : await pluginApi.getPluginConfig(pluginId);
+      const response = await pluginApi.getPluginConfig(pluginId);
       setConfig(response.config || {});
     } catch (error) {
       console.error('Failed to load plugin config:', error);
@@ -145,10 +135,8 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
     setSaving(true);
     try {
       await Promise.all([
-        targetTenantId != null
-          ? pluginApi.updateAdminTenantPluginConfig(targetTenantId, pluginId, config)
-          : pluginApi.updatePluginConfig(pluginId, config),
-        targetTenantId == null && publicAccess !== null
+        pluginApi.updatePluginConfig(pluginId, config),
+        publicAccess !== null
           ? pluginApi.updatePublicAccessConfig(pluginId, {
               enabled: publicAccess.enabled,
               require_login: publicAccess.require_login,
@@ -221,9 +209,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
             {t('plugins.configure_plugin', 'Configure Plugin')}: {pluginName}
           </DialogTitle>
           <DialogDescription>
-            {targetTenantId != null && targetTenantName
-              ? `Manage settings for ${targetTenantName}.`
-              : t('plugins.configure_description', 'Manage settings and features for this plugin')}
+            {t('plugins.configure_description', 'Manage settings and features for this plugin')}
           </DialogDescription>
         </DialogHeader>
 

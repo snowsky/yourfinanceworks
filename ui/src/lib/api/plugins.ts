@@ -110,19 +110,6 @@ export const pluginApi = {
       `/plugins/admin/tenants/${tenantId}/access`,
     ),
 
-  /** Get plugin config for an explicit tenant (super admin only). */
-  getAdminTenantPluginConfig: (tenantId: number, pluginId: string) =>
-    apiRequest<{ tenant_id: number; plugin_id: string; config: Record<string, any> }>(
-      `/plugins/admin/tenants/${tenantId}/settings/${pluginId}/config`,
-    ),
-
-  /** Update plugin config for an explicit tenant (super admin only). */
-  updateAdminTenantPluginConfig: (tenantId: number, pluginId: string, config: Record<string, any>) =>
-    apiRequest<{ tenant_id: number; plugin_id: string; config: Record<string, any>; message: string }>(
-      `/plugins/admin/tenants/${tenantId}/settings/${pluginId}/config`,
-      { method: 'PUT', body: JSON.stringify({ config }) },
-    ),
-
   /** Grant a plugin to a tenant (super admin only). */
   grantPluginAccess: (tenantId: number, pluginId: string) =>
     apiRequest<{ message: string; plugin_id: string; tenant_id: number; granted_at: string }>(

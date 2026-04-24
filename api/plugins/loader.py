@@ -407,14 +407,12 @@ class PluginLoader:
         # We look in the parent directory of 'api' (the project root)
         project_root = _PLUGINS_DIR.parent.parent
         fs_discovered = []
-        fs_manifests: dict[str, Path] = {}
         try:
             # We look for folders outside the 'api' directory that have a plugin.json
             for item in project_root.glob("yfw-*/plugin.json"):
                 # Normalize ID: yfw-statement-tools -> statement-tools
                 p_dir_name = item.parent.name
                 plugin_id = p_dir_name.replace("yfw-", "").replace("_", "-")
-                fs_manifests[plugin_id] = item
                 if plugin_id not in declared:
                     fs_discovered.append(plugin_id)
                     logger.debug("Auto-discovered sibling sidecar plugin: %s", plugin_id)
@@ -428,17 +426,8 @@ class PluginLoader:
         try:
             import httpx
         except ImportError:
-            logger.warning("httpx not available — sidecar plugin discovery limited to on-disk manifests")
-            offline_only: list[DiscoveredPlugin] = []
-            for name in all_names:
-                offline_plugin = self._build_offline_sidecar(name, fs_manifests.get(name))
-                if offline_plugin:
-                    offline_only.append(offline_plugin)
-                    self._load_errors[name] = (
-                        f"Sidecar plugin '{name}' is installed but runtime probing is unavailable "
-                        "because httpx is not installed."
-                    )
-            return offline_only
+            logger.warning("httpx not available — sidecar plugin discovery skipped")
+            return []
 
         found: list[DiscoveredPlugin] = []
         pending: list[str] = []
@@ -448,14 +437,6 @@ class PluginLoader:
             if plugin:
                 found.append(plugin)
             else:
-                manifest_path = fs_manifests.get(name)
-                offline_plugin = self._build_offline_sidecar(name, manifest_path)
-                if offline_plugin:
-                    found.append(offline_plugin)
-                    self._load_errors[name] = (
-                        f"Sidecar plugin '{name}' is installed but not running. "
-                        "Start its sidecar service to enable runtime routes."
-                    )
                 pending.append(name)
 
         if pending:
@@ -468,46 +449,6 @@ class PluginLoader:
             ).start()
 
         return found
-
-    def _build_offline_sidecar(self, name: str, manifest_path: Optional[Path]) -> Optional[DiscoveredPlugin]:
-        if not manifest_path or not manifest_path.exists():
-            return None
-
-        try:
-            manifest = self._load_manifest(manifest_path)
-        except Exception as exc:
-            logger.warning("Sidecar plugin '%s' manifest could not be loaded from disk: %s", name, exc)
-            return None
-
-        if not self._validate_manifest(name, manifest):
-            return None
-
-        logger.info("Sidecar plugin '%s' discovered from disk before runtime became reachable.", name)
-        return DiscoveredPlugin(
-            plugin_id=name,
-            package="",
-            manifest=manifest,
-            plugin_dir=manifest_path.parent,
-            is_sidecar=True,
-        )
-
-    def _upsert_sidecar_plugin(self, plugin: DiscoveredPlugin) -> None:
-        existing_idx = next(
-            (idx for idx, existing in enumerate(self._discovered)
-             if existing.plugin_id == plugin.plugin_id and existing.is_sidecar),
-            None,
-        )
-        if existing_idx is None:
-            self._discovered.append(plugin)
-        else:
-            self._discovered[existing_idx] = plugin
-
-        self._plugin_dir_cache[plugin.plugin_id] = plugin.plugin_dir
-        permitted = set(plugin.manifest.get("permitted_core_tables", []))
-        self._permissions_registry[plugin.plugin_id] = permitted
-        manifest_name = plugin.manifest.get("name")
-        if manifest_name and manifest_name != plugin.plugin_id:
-            self._permissions_registry[manifest_name.lower().replace("_", "-")] = permitted
 
     _SIDECAR_RETRY_ATTEMPTS = 10
     _SIDECAR_RETRY_DELAY = 5  # seconds between attempts
@@ -545,8 +486,10 @@ class PluginLoader:
             for name in remaining:
                 plugin = self._probe_sidecar(name, httpx)
                 if plugin:
-                    self._upsert_sidecar_plugin(plugin)
-                    self._load_errors.pop(plugin.plugin_id, None)
+                    self._discovered.append(plugin)
+                    self._plugin_dir_cache[plugin.plugin_id] = plugin.plugin_dir
+                    permitted = set(plugin.manifest.get("permitted_core_tables", []))
+                    self._permissions_registry[plugin.plugin_id] = permitted
                     logger.info(
                         "Sidecar plugin '%s' registered after %d retry attempt(s).",
                         name, attempt,
