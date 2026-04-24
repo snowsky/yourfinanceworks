@@ -45,6 +45,7 @@ from ._shared import (
     BulkLabelsRequest,
     _apply_creator_fallback,
     _find_potential_expense_duplicates,
+    _is_expense_duplicate_detection_eligible,
     check_expense_modification_allowed,
     validate_status_transition,
 )
@@ -224,7 +225,11 @@ async def get_potential_expense_duplicates(
     buckets: dict = defaultdict(list)
     for e in all_exp:
         try:
+            if not _is_expense_duplicate_detection_eligible(e):
+                continue
             vendor_key = (e.vendor or "").strip().lower()
+            if not vendor_key:
+                continue
             amount_key = round(float(e.amount or 0), 2)
             buckets[(amount_key, vendor_key)].append(e)
         except (TypeError, ValueError) as exc:
@@ -592,16 +597,17 @@ async def create_expense(
 
         potential_duplicate_id = None
         try:
-            exp_date = db_expense.expense_date.date() if hasattr(db_expense.expense_date, 'date') else db_expense.expense_date
-            dup_candidates = _find_potential_expense_duplicates(
-                db=db,
-                amount=float(db_expense.amount or 0),
-                expense_date=exp_date,
-                date_window_days=1,
-                exclude_id=db_expense.id,
-            )
-            if dup_candidates:
-                potential_duplicate_id = dup_candidates[0]["id"]
+            if _is_expense_duplicate_detection_eligible(db_expense):
+                exp_date = db_expense.expense_date.date() if hasattr(db_expense.expense_date, 'date') else db_expense.expense_date
+                dup_candidates = _find_potential_expense_duplicates(
+                    db=db,
+                    amount=float(db_expense.amount or 0),
+                    expense_date=exp_date,
+                    date_window_days=1,
+                    exclude_id=db_expense.id,
+                )
+                if dup_candidates:
+                    potential_duplicate_id = dup_candidates[0]["id"]
         except Exception as dup_err:
             uvicorn_logger.warning(f"Duplicate check failed for expense {db_expense.id}: {dup_err}")
 

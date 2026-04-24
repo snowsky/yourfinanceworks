@@ -74,6 +74,13 @@ def _find_potential_expense_duplicates(
     """SQL-filter expenses by amount + date window. Vendor comparison must be done
     in Python because the vendor column uses EncryptedColumn.
     """
+    if not _is_expense_duplicate_detection_eligible_by_values(
+        amount=amount,
+        imported_from_attachment=False,
+        analysis_status="done",
+    ):
+        return []
+
     window_start = expense_date - timedelta(days=date_window_days)
     window_end = expense_date + timedelta(days=date_window_days)
     candidates = (
@@ -89,6 +96,7 @@ def _find_potential_expense_duplicates(
     )
     if exclude_id is not None:
         candidates = [e for e in candidates if e.id != exclude_id]
+    candidates = [e for e in candidates if _is_expense_duplicate_detection_eligible(e)]
     return [
         {
             "id": e.id,
@@ -99,6 +107,34 @@ def _find_potential_expense_duplicates(
         }
         for e in candidates
     ]
+
+
+INCOMPLETE_OCR_STATUSES = {"pending", "queued", "processing", "failed", "cancelled"}
+
+
+def _is_expense_duplicate_detection_eligible(expense: Expense) -> bool:
+    return _is_expense_duplicate_detection_eligible_by_values(
+        amount=getattr(expense, "amount", None),
+        imported_from_attachment=bool(getattr(expense, "imported_from_attachment", False)),
+        analysis_status=getattr(expense, "analysis_status", None),
+    )
+
+
+def _is_expense_duplicate_detection_eligible_by_values(
+    amount,
+    imported_from_attachment: bool,
+    analysis_status: Optional[str],
+) -> bool:
+    try:
+        amount_value = round(float(amount), 2)
+    except (TypeError, ValueError):
+        return False
+
+    status = (analysis_status or "").strip().lower()
+    if imported_from_attachment and status in INCOMPLETE_OCR_STATUSES:
+        return False
+
+    return amount_value != 0
 
 
 class BulkLabelsRequest(BaseModel):
