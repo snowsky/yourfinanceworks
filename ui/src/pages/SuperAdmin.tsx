@@ -108,7 +108,8 @@ const SuperAdminDashboardContent: React.FC = () => {
     );
   }
 
-  const activeTenants = tenants.filter(t => t.is_active).length;
+  const activeTenants = tenants.filter(t => t.is_active && !t.is_archived).length;
+  const archivedTenants = tenants.filter(t => t.is_archived).length;
   const healthyDatabases = databases.filter(db => db.status === 'connected').length;
   const superUsers = users.filter(u => u.is_superuser).length;
   const unhealthyDatabases = databases.filter(db => db.status !== 'connected');
@@ -154,7 +155,7 @@ const SuperAdminDashboardContent: React.FC = () => {
           title={t('superAdmin.total_organizations_label')}
           value={tenants.length}
           icon={Building}
-          description={`${activeTenants} ${t('superAdmin.active_label')}`}
+          description={`${activeTenants} ${t('superAdmin.active_label')}${archivedTenants ? `, ${archivedTenants} archived` : ''}`}
         />
         <MetricCard
           title={t('superAdmin.total_users_label')}

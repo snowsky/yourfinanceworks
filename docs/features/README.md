@@ -61,6 +61,7 @@ YourFinanceWORKS is organized into focused capability areas. This overview links
 ## 🏢 Enterprise & Governance
 
 - **Multi-Tenant Architecture** - Secure database-per-tenant isolation for organizations
+- **Organization Archiving** - Preserve tenant data and audit history while disabling access and freeing license capacity ([Guide](ORGANIZATION_ARCHIVING.md))
 - **Governance Workflows** - Advanced approval systems for invoices and expenses ([Guide](GOVERNANCE_WORKFLOWS.md))
 - **Plugin Data Access Approvals** - Explicit user approval before one plugin can access another plugin's data ([Guide](PLUGIN_DATA_ACCESS_APPROVALS.md))
 - **Role-Based Access Control** - Granular permissions (Admin, Editor, Viewer) with governance

@@ -36,6 +36,12 @@ class TenantUpdate(BaseModel):
 
 class Tenant(TenantBase):
     id: int
+    is_enabled: bool = True
+    count_against_license: bool = True
+    archived_at: Optional[datetime] = None
+    archived_by_id: Optional[int] = None
+    archive_reason: Optional[str] = None
+    is_archived: bool = False
     created_at: datetime
     updated_at: datetime
 
