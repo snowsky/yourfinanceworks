@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ReceiptText, Save, Smartphone } from "lucide-react";
+import { Save, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -358,21 +358,6 @@ export const ExpensesSettingsTab: React.FC<ExpensesSettingsTabProps> = ({ isAdmi
 
   return (
     <div className="space-y-6">
-      <ProfessionalCard variant="elevated">
-        <ProfessionalCardHeader>
-          <ProfessionalCardTitle className="flex items-center gap-2">
-            <ReceiptText className="h-5 w-5 text-primary" />
-            {t("settings.expenses.title", "Expenses")}
-          </ProfessionalCardTitle>
-          <ProfessionalCardDescription>
-            {t(
-              "settings.expenses.description",
-              "Manage expense digest delivery, policy thresholds, validation rules, defaults, and approval notifications."
-            )}
-          </ProfessionalCardDescription>
-        </ProfessionalCardHeader>
-      </ProfessionalCard>
-
       <ProfessionalCard variant="elevated">
         <ProfessionalCardHeader>
           <ProfessionalCardTitle className="flex items-center gap-2">

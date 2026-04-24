@@ -92,6 +92,13 @@ const Settings = () => {
   };
 
   const activeTabLabel = activeTabLabelMap[activeTab] || t('settings.title');
+  const activeTabDescriptionMap: Record<string, string> = {
+    expenses: t(
+      'settings.expenses.description',
+      'Manage mobile expense settings, expense digest delivery, policy thresholds, validation rules, defaults, and approval notifications.'
+    ),
+  };
+  const activeTabDescription = activeTabDescriptionMap[activeTab] || t('settings.description');
 
   return (
     <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell pb-12">
@@ -100,7 +107,7 @@ const Settings = () => {
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="space-y-2 flex-1">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">{t('settings.title')}</h1>
-            <p className="text-muted-foreground text-sm md:text-base">{t('settings.description')}</p>
+            <p className="text-muted-foreground text-sm md:text-base">{activeTabDescription}</p>
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/25">
                 <Settings2 className="w-3 h-3 mr-1" />
@@ -183,7 +190,7 @@ const Settings = () => {
           <div className="flex-1 min-w-0 dashboard-highlight-block dashboard-highlight-block-primary rounded-2xl border border-border/40 bg-card/70 p-4 md:p-5 shadow-sm">
             <div className="pb-4 mb-4 border-b border-border/40">
               <h2 className="text-lg md:text-xl font-semibold tracking-tight">{activeTabLabel}</h2>
-              <p className="text-sm text-muted-foreground">{t('settings.description')}</p>
+              <p className="text-sm text-muted-foreground">{activeTabDescription}</p>
             </div>
             <TabsContent value="profile" className="m-0 focus-visible:outline-none">
               <UserProfileTab />
