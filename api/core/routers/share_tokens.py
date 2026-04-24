@@ -1,5 +1,6 @@
 import uuid
 import logging
+import math
 import os
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Union
@@ -7,7 +8,14 @@ from typing import Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from core.models.database import get_db, get_master_db, SessionLocal, set_tenant_context, clear_tenant_context
+from core.models.database import (
+    get_db,
+    get_master_db,
+    SessionLocal,
+    clear_tenant_context,
+    get_tenant_context,
+    set_tenant_context,
+)
 from core.models.models import MasterUser, ShareToken
 from core.models.models_per_tenant import (
     AuditLog,
@@ -37,6 +45,15 @@ router = APIRouter(tags=["sharing"])
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8080")
 
 
+def _active_tenant_id(current_user: MasterUser) -> int:
+    """Use the request's active tenant, falling back to the user's default tenant."""
+    try:
+        tenant_id = get_tenant_context()
+    except Exception:
+        tenant_id = None
+    return tenant_id or current_user.tenant_id
+
+
 def _build_share_url(token: str) -> str:
     return f"{FRONTEND_URL}/shared/{token}"
 
@@ -51,6 +68,16 @@ def _token_to_response(share: ShareToken) -> ShareTokenResponse:
         expires_at=share.expires_at,
         is_active=share.is_active,
     )
+
+
+def _safe_float(value: Optional[float], default: Optional[float] = None) -> Optional[float]:
+    if value is None:
+        return default
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return number if math.isfinite(number) else default
 
 
 # ---------------------------------------------------------------------------
@@ -74,12 +101,13 @@ def create_share_token(
 
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(hours=1)
+    tenant_id = _active_tenant_id(current_user)
 
     # Idempotency: return existing active non-expired token for this record
     existing = (
         master_db.query(ShareToken)
         .filter(
-            ShareToken.tenant_id == current_user.tenant_id,
+            ShareToken.tenant_id == tenant_id,
             ShareToken.record_type == payload.record_type,
             ShareToken.record_id == payload.record_id,
             ShareToken.is_active == True,
@@ -92,7 +120,7 @@ def create_share_token(
 
     share = ShareToken(
         token=uuid.uuid4().hex,
-        tenant_id=current_user.tenant_id,
+        tenant_id=tenant_id,
         record_type=payload.record_type,
         record_id=payload.record_id,
         created_by_user_id=current_user.id,
@@ -142,7 +170,7 @@ def get_share_token(
     share = (
         master_db.query(ShareToken)
         .filter(
-            ShareToken.tenant_id == current_user.tenant_id,
+            ShareToken.tenant_id == _active_tenant_id(current_user),
             ShareToken.record_type == record_type,
             ShareToken.record_id == record_id,
             ShareToken.is_active == True,
@@ -167,7 +195,7 @@ def revoke_share_token(
         master_db.query(ShareToken)
         .filter(
             ShareToken.token == token,
-            ShareToken.tenant_id == current_user.tenant_id,
+            ShareToken.tenant_id == _active_tenant_id(current_user),
         )
         .first()
     )
@@ -327,10 +355,10 @@ def _fetch_public_record(
         transactions = [
             PublicBankStatementTransaction(
                 date=tx.date,
-                description=tx.description,
-                amount=tx.amount,
-                transaction_type=tx.transaction_type,
-                balance=tx.balance,
+                description=tx.description or "",
+                amount=_safe_float(tx.amount, 0) or 0,
+                transaction_type=tx.transaction_type or "debit",
+                balance=_safe_float(tx.balance),
                 category=tx.category,
             )
             for tx in sorted(statement.transactions or [], key=lambda t: t.date)
@@ -339,7 +367,7 @@ def _fetch_public_record(
             id=statement.id,
             original_filename=statement.original_filename,
             bank_name=statement.bank_name,
-            card_type=statement.card_type,
+            card_type=statement.card_type or "debit",
             status=statement.status,
             extracted_count=statement.extracted_count,
             created_at=statement.created_at,

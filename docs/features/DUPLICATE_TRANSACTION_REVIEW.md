@@ -10,7 +10,7 @@ When the same transaction (matching date, description, and amount) appears in mo
 
 ### 1. Duplicate Detection
 
-The backend scans all non-deleted statements and groups transactions that share identical:
+The backend scans all non-deleted, non-merged statements and groups transactions that share identical:
 - **Date**
 - **Description** (normalized, case-insensitive)
 - **Amount** (rounded to 2 decimal places)

@@ -1,6 +1,7 @@
 """CRUD, recycle-bin, bulk-labels, merge, and file-download endpoints for bank statements."""
 
 import logging
+import math
 import os
 import uuid
 from datetime import datetime, timezone
@@ -31,6 +32,16 @@ from ._shared import get_tenant_id
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _safe_float(value: Optional[float], default: Optional[float] = None) -> Optional[float]:
+    if value is None:
+        return default
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return number if math.isfinite(number) else default
 
 
 @router.get("/", response_model=PaginatedBankStatements)
@@ -262,6 +273,7 @@ async def merge_statements(
             file_path=file_path,
             status="merged",
             extracted_count=0,
+            card_type="debit",
             created_by_user_id=current_user.id,
             notes=f"Merged from statement IDs: {', '.join(map(str, sorted(ids)))}",
             created_at=now,
@@ -283,9 +295,9 @@ async def merge_statements(
                     statement_id=merged_statement.id,
                     date=t.date,
                     description=t.description,
-                    amount=t.amount,
+                    amount=_safe_float(t.amount, 0) or 0,
                     transaction_type=t.transaction_type,
-                    balance=t.balance,
+                    balance=_safe_float(t.balance),
                     category=t.category,
                     invoice_id=t.invoice_id,
                     expense_id=t.expense_id,
