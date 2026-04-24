@@ -19,6 +19,7 @@ from core.utils.audit import log_audit_event
 from core.utils.feature_gate import feature_enabled
 from core.constants.error_codes import FAILED_TO_IMPORT_DATA
 from core.services.tenant_database_manager import tenant_db_manager
+from core.services.expense_mobile_service import get_expense_mobile_config, save_expense_mobile_config
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,8 @@ async def get_settings(
             "ai_chat_history_retention_days": ai_chat_history_retention_days,
             "timezone": timezone,
             "allow_join_lookup": tenant.allow_join_lookup if tenant.allow_join_lookup is not None else True,
-            "join_lookup_exact_match": tenant.join_lookup_exact_match if tenant.join_lookup_exact_match is not None else False
+            "join_lookup_exact_match": tenant.join_lookup_exact_match if tenant.join_lookup_exact_match is not None else False,
+            "expense_mobile": get_expense_mobile_config(master_db, tenant),
         }
 
         # If AI assistant is enabled, validate license status
@@ -248,6 +250,9 @@ async def update_settings(
                 db.add(timezone_setting)
 
             db.commit()
+
+    if "expense_mobile" in settings:
+        save_expense_mobile_config(master_db, tenant, settings.get("expense_mobile"))
 
     master_db.commit()
     master_db.refresh(tenant)

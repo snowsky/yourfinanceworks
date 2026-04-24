@@ -204,10 +204,6 @@ async def tenant_context_middleware(request: Request, call_next):
        "/public-auth/" in request.url.path:
         return await call_next(request)
 
-    # Standalone mobile expense service resolves tenant context from plugin config.
-    if request.url.path.startswith("/api/v1/plugins/expense/mobile/"):
-        return await call_next(request)
-
     # Skip tenant context for specific endpoints that don't need it or handle it manually
     skip_tenant_paths = [
         "/health",
@@ -238,6 +234,10 @@ async def tenant_context_middleware(request: Request, call_next):
         "/api/v1/organization-join/request",
         # Plugin registry endpoint must be public (used for plugin discovery)
         "/api/v1/plugins/registry",
+        # Mobile expense service bootstrap + public auth
+        "/api/v1/mobile/expenses/config",
+        "/api/v1/mobile/expenses/auth/login",
+        "/api/v1/mobile/expenses/auth/signup",
         # Sync endpoints handle their own authentication (JWT or API key)
         "/api/v1/sync/status",
         "/api/v1/sync/import"

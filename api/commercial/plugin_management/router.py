@@ -32,10 +32,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["plugins"])
 
 from commercial.plugin_management.auth import router as auth_router
-from commercial.plugin_management.expense_mobile import router as expense_mobile_router
 
 router.include_router(auth_router)
-router.include_router(expense_mobile_router)
 
 
 def _valid_plugins() -> set[str]:

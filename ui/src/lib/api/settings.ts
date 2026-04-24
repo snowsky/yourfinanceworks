@@ -27,6 +27,7 @@ export interface Settings {
   email_settings?: any;
   allow_join_lookup?: boolean;
   join_lookup_exact_match?: boolean;
+  expense_mobile?: ExpenseMobileServiceSettings;
 }
 
 export interface StripePaymentSettings {
@@ -40,6 +41,24 @@ export interface StripePaymentSettings {
 export interface PaymentSettings {
   provider: 'stripe';
   stripe: StripePaymentSettings;
+}
+
+export interface ExpenseMobileServiceSettings {
+  enabled: boolean;
+  app_id: string;
+  signup_enabled: boolean;
+  default_role: 'user' | 'viewer';
+  allowed_auth_methods: {
+    password: boolean;
+    google: boolean;
+    microsoft: boolean;
+  };
+  branding: {
+    title: string;
+    subtitle: string;
+    accent_color: string;
+    logo_url?: string;
+  };
 }
 
 // AI Configuration types

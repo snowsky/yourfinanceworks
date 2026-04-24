@@ -41,6 +41,7 @@ from core.routers import (
     invoices,
     payments,
     expenses,
+    mobile_expense,
     currency,
     settings,
     tenant,
@@ -573,6 +574,7 @@ app.include_router(clients.router, prefix="/api/v1")
 app.include_router(invoices.router, prefix="/api/v1")
 app.include_router(payments.router, prefix="/api/v1")
 app.include_router(expenses.router, prefix="/api/v1")
+app.include_router(mobile_expense.router, prefix="/api/v1")
 app.include_router(currency.router, prefix="/api/v1")
 app.include_router(settings.router, prefix="/api/v1")
 app.include_router(discount_rules.router, prefix="/api/v1")

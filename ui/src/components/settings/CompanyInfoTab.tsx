@@ -14,7 +14,7 @@ import {
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import { ProfessionalInput } from "@/components/ui/professional-input";
 import { ProfessionalTextarea } from "@/components/ui/professional-textarea";
-import { settingsApi, CompanyInfo, apiRequest } from "@/lib/api";
+import { settingsApi, CompanyInfo, ExpenseMobileServiceSettings, apiRequest } from "@/lib/api";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -37,6 +37,23 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({ isAdmin }) => {
     const [timezone, setTimezone] = useState("UTC");
     const [allowJoinLookup, setAllowJoinLookup] = useState(true);
     const [joinLookupExactMatch, setJoinLookupExactMatch] = useState(false);
+    const [expenseMobile, setExpenseMobile] = useState<ExpenseMobileServiceSettings>({
+        enabled: false,
+        app_id: "",
+        signup_enabled: true,
+        default_role: "user",
+        allowed_auth_methods: {
+            password: true,
+            google: false,
+            microsoft: false,
+        },
+        branding: {
+            title: "",
+            subtitle: "",
+            accent_color: "#10b981",
+            logo_url: "",
+        },
+    });
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [logoPreview, setLogoPreview] = useState<string>("");
     const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -53,6 +70,7 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({ isAdmin }) => {
             if (settings.timezone) setTimezone(settings.timezone);
             if (settings.allow_join_lookup !== undefined) setAllowJoinLookup(settings.allow_join_lookup);
             if (settings.join_lookup_exact_match !== undefined) setJoinLookupExactMatch(settings.join_lookup_exact_match);
+            if (settings.expense_mobile) setExpenseMobile(settings.expense_mobile);
         }
     }, [settings]);
 
@@ -86,6 +104,30 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({ isAdmin }) => {
         }
     };
 
+    const updateExpenseMobile = (patch: Partial<ExpenseMobileServiceSettings>) => {
+        setExpenseMobile((prev) => ({ ...prev, ...patch }));
+    };
+
+    const updateExpenseMobileBranding = (patch: Partial<ExpenseMobileServiceSettings["branding"]>) => {
+        setExpenseMobile((prev) => ({
+            ...prev,
+            branding: {
+                ...prev.branding,
+                ...patch,
+            },
+        }));
+    };
+
+    const updateExpenseMobileAuthMethods = (patch: Partial<ExpenseMobileServiceSettings["allowed_auth_methods"]>) => {
+        setExpenseMobile((prev) => ({
+            ...prev,
+            allowed_auth_methods: {
+                ...prev.allowed_auth_methods,
+                ...patch,
+            },
+        }));
+    };
+
     const uploadLogo = async (): Promise<string | null> => {
         if (!logoFile) return null;
         setUploadingLogo(true);
@@ -117,7 +159,8 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({ isAdmin }) => {
                 company_info: { ...companyInfo, logo: currentLogo },
                 timezone,
                 allow_join_lookup: allowJoinLookup,
-                join_lookup_exact_match: joinLookupExactMatch
+                join_lookup_exact_match: joinLookupExactMatch,
+                expense_mobile: expenseMobile,
             });
         } catch {
             toast.error(t('settings.failed_to_save_settings'));
@@ -250,7 +293,126 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({ isAdmin }) => {
                 </ProfessionalCardContent>
             </ProfessionalCard>
 
-            {/* Card 3: Organization & Branding */}
+            {/* Card 3: Standalone Mobile Expense Service */}
+            <ProfessionalCard variant="elevated">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-primary" />
+                        Standalone Mobile Expense Service
+                    </ProfessionalCardTitle>
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent className="space-y-6">
+                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                        <div className="space-y-0.5">
+                            <Label className="text-base font-semibold">Enable organization-bound mobile service</Label>
+                            <p className="text-sm text-muted-foreground">
+                                Bind `yfw-mobile` to this organization. End users never choose the organization in-app.
+                            </p>
+                        </div>
+                        <Switch checked={expenseMobile.enabled} onCheckedChange={(checked) => updateExpenseMobile({ enabled: checked })} />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <ProfessionalInput
+                            label="Mobile App ID"
+                            id="expense-mobile-app-id"
+                            name="expense-mobile-app-id"
+                            value={expenseMobile.app_id}
+                            onChange={(e) => updateExpenseMobile({ app_id: e.target.value })}
+                            helperText="Set the same value in EXPO_PUBLIC_EXPENSE_APP_ID for the mobile build."
+                        />
+                        <div className="space-y-2">
+                            <Label htmlFor="expense-mobile-default-role" className="text-sm font-medium">Default mobile signup role</Label>
+                            <Select
+                                value={expenseMobile.default_role}
+                                onValueChange={(value: ExpenseMobileServiceSettings["default_role"]) => updateExpenseMobile({ default_role: value })}
+                            >
+                                <SelectTrigger id="expense-mobile-default-role" className="rounded-lg">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="user">User</SelectItem>
+                                    <SelectItem value="viewer">Viewer</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                        <div className="space-y-0.5">
+                            <Label className="text-base font-semibold">Allow direct sign up</Label>
+                            <p className="text-sm text-muted-foreground">
+                                Let new mobile users create normal YFW accounts directly inside this organization.
+                            </p>
+                        </div>
+                        <Switch
+                            checked={expenseMobile.signup_enabled}
+                            onCheckedChange={(checked) => updateExpenseMobile({ signup_enabled: checked })}
+                        />
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="space-y-1">
+                            <Label className="text-base font-semibold">Allowed auth methods</Label>
+                            <p className="text-sm text-muted-foreground">Password is active now. SSO flags are stored for later rollout.</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                                <Label htmlFor="expense-mobile-password">Password</Label>
+                                <Switch
+                                    id="expense-mobile-password"
+                                    checked={expenseMobile.allowed_auth_methods.password}
+                                    onCheckedChange={(checked) => updateExpenseMobileAuthMethods({ password: checked })}
+                                />
+                            </div>
+                            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                                <Label htmlFor="expense-mobile-google">Google</Label>
+                                <Switch
+                                    id="expense-mobile-google"
+                                    checked={expenseMobile.allowed_auth_methods.google}
+                                    onCheckedChange={(checked) => updateExpenseMobileAuthMethods({ google: checked })}
+                                />
+                            </div>
+                            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                                <Label htmlFor="expense-mobile-microsoft">Microsoft</Label>
+                                <Switch
+                                    id="expense-mobile-microsoft"
+                                    checked={expenseMobile.allowed_auth_methods.microsoft}
+                                    onCheckedChange={(checked) => updateExpenseMobileAuthMethods({ microsoft: checked })}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <ProfessionalInput
+                            label="Mobile title"
+                            id="expense-mobile-title"
+                            name="expense-mobile-title"
+                            value={expenseMobile.branding.title}
+                            onChange={(e) => updateExpenseMobileBranding({ title: e.target.value })}
+                        />
+                        <ProfessionalInput
+                            label="Accent color"
+                            id="expense-mobile-accent-color"
+                            name="expense-mobile-accent-color"
+                            value={expenseMobile.branding.accent_color}
+                            onChange={(e) => updateExpenseMobileBranding({ accent_color: e.target.value })}
+                        />
+                    </div>
+
+                    <ProfessionalTextarea
+                        label="Mobile subtitle"
+                        id="expense-mobile-subtitle"
+                        name="expense-mobile-subtitle"
+                        rows={3}
+                        value={expenseMobile.branding.subtitle}
+                        onChange={(e) => updateExpenseMobileBranding({ subtitle: e.target.value })}
+                    />
+                </ProfessionalCardContent>
+            </ProfessionalCard>
+
+            {/* Card 4: Organization & Branding */}
             <ProfessionalCard variant="elevated">
                 <ProfessionalCardHeader>
                     <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
