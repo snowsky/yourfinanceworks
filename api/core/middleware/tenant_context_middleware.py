@@ -76,6 +76,34 @@ def _invalidate_auth_cache(token: str) -> None:
         pass
     _auth_cache_local.pop(key, None)
 
+
+def _resolve_mobile_expense_tenant_id(request: Request) -> Optional[int | JSONResponse]:
+    app_id = request.headers.get("X-Mobile-Expense-App-ID")
+    if not app_id or not request.url.path.startswith("/api/v1/expenses"):
+        return None
+
+    db_gen = get_master_db()
+    db = next(db_gen)
+    try:
+        from fastapi import HTTPException
+        from core.services.expense_mobile_service import resolve_expense_mobile_binding
+
+        tenant, _ = resolve_expense_mobile_binding(db, app_id)
+        return tenant.id
+    except HTTPException as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+        )
+    except Exception:
+        logger.exception("Failed to resolve mobile expense app binding")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Failed to resolve mobile expense app binding."},
+        )
+    finally:
+        db_gen.close()
+
 # SECURITY IMPROVEMENT 1: Better secret key validation
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
@@ -339,6 +367,12 @@ async def tenant_context_middleware(request: Request, call_next):
             if email:
                 email_hash = hashlib.sha256(email.encode()).hexdigest()[:8]
                 logger.info(f"Token processed for user hash: {email_hash}")
+
+                mobile_expense_tenant_id = _resolve_mobile_expense_tenant_id(request)
+                if isinstance(mobile_expense_tenant_id, JSONResponse):
+                    return mobile_expense_tenant_id
+                if mobile_expense_tenant_id:
+                    header_tenant_id = str(mobile_expense_tenant_id)
 
                 # --- Fast path: serve from auth cache to skip 4-5 DB queries ---
                 cached = _get_auth_cache(token)
