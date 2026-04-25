@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
@@ -25,6 +26,7 @@ import { toast } from 'sonner';
 import { bankStatementApi, expenseApi, invoiceApi, BankStatementDetail } from '@/lib/api';
 import { BankRow, CATEGORY_OPTIONS, formatDateToISO, safeParseDateString } from './types';
 import { CardTypeBadge } from './CardTypeBadge';
+import { PdfHighlightViewer } from '@/components/pdf/PdfHighlightViewer';
 
 interface StatementDetailViewProps {
   selected: number;
@@ -98,6 +100,10 @@ export function StatementDetailView({
   setRowToUnlink, setUnlinkModalOpen,
 }: StatementDetailViewProps) {
   const { t } = useTranslation();
+  const [hoveredRowIdx, setHoveredRowIdx] = useState<number | null>(null);
+
+  // Derive search data from the hovered transaction
+  const hoveredTransaction = hoveredRowIdx !== null ? rows[hoveredRowIdx] : null;
 
   const isCompleted = (s: { status?: string }) =>
     s.status === 'processed' || s.status === 'done' || s.status === 'failed' || s.status === 'uploaded' || s.status === 'merged';
@@ -246,10 +252,16 @@ export function StatementDetailView({
                   </ProfessionalButton>
                 </div>
                 <div className="flex-1 min-h-0 bg-muted/10">
-                  <embed key={splitViewPdfUrl} src={splitViewPdfUrl} type="application/pdf" className="w-full h-full border-none" />
+                  <PdfHighlightViewer
+                    key={splitViewPdfUrl}
+                    pdfUrl={splitViewPdfUrl}
+                    searchText={hoveredTransaction?.description ?? null}
+                    searchAmount={hoveredTransaction?.amount ?? null}
+                    searchDate={hoveredTransaction?.date ?? null}
+                  />
                 </div>
                 <div className="p-2 border-t text-[10px] text-muted-foreground bg-muted/30 text-center">
-                  {t('statements.split_view_hint', 'Review transactions alongside the PDF')}
+                  {t('statements.split_view_hint', 'Hover a transaction to highlight it in the PDF')}
                 </div>
               </ProfessionalCard>
             </div>
@@ -587,7 +599,15 @@ export function StatementDetailView({
                   {rows.map((r, idx) => (
                     <ContextMenu key={idx}>
                       <ContextMenuTrigger asChild>
-                        <TableRow className={`hover:bg-muted/20 transition-colors border-b border-border/30${(r as any).backend_id && (r as any).backend_id === highlightedBackendId ? ' ring-2 ring-inset ring-blue-400 bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
+                        <TableRow
+                          className={cn(
+                            'hover:bg-muted/20 transition-colors border-b border-border/30 statement-row-hoverable',
+                            (r as any).backend_id && (r as any).backend_id === highlightedBackendId && 'ring-2 ring-inset ring-blue-400 bg-blue-50/50 dark:bg-blue-950/20',
+                            isSplitView && hoveredRowIdx === idx && 'is-hovered-for-pdf'
+                          )}
+                          onMouseEnter={isSplitView ? () => setHoveredRowIdx(idx) : undefined}
+                          onMouseLeave={isSplitView ? () => setHoveredRowIdx(null) : undefined}
+                        >
                           <TableCell className="text-center font-mono text-xs text-muted-foreground">{(r as any).id ?? idx + 1}</TableCell>
                           <TableCell>
                             {editingRow === idx ? (

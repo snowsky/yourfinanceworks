@@ -67,6 +67,7 @@
     "react-dropzone": "^14.3.8",
     "react-hook-form": "^7.64.0",
     "react-i18next": "^15.7.4",
+    "react-pdf": "^10.4.1",
     "react-resizable-panels": "^2.1.3",
     "react-router-dom": "^6.26.2",
     "recharts": "^2.12.7",
