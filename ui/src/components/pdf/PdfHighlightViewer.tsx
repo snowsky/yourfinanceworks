@@ -75,21 +75,6 @@ export function PdfHighlightViewer({
   , [searchText]);
 
   /**
-   * Fallback single token: the longest word (> 4 chars) from the phrase.
-   * Used when the PDF text layer splits the phrase across multiple spans.
-   * e.g. "SHOPIFY" for "SHOPIFY INC ACH" — avoids highlighting "INC"/"ACH" alone.
-   */
-  const searchFallbackToken = useMemo(() => {
-    if (!searchText) return null;
-    const words = searchText
-      .replace(/[^\w\s]/g, ' ')
-      .split(/\s+/)
-      .filter((w) => w.length > 4)
-      .sort((a, b) => b.length - a.length);
-    return words[0]?.toLowerCase() ?? null;
-  }, [searchText]);
-
-  /**
    * All words (> 3 chars) used only for page-level scoring — never for highlight.
    */
   const scoringTokens = useMemo(() => {
@@ -148,18 +133,16 @@ export function PdfHighlightViewer({
   //  1. Full phrase match in this span          → highlight entire phrase
   //  2. Amount match                            → highlight amount
   //  3. Date format match                       → highlight date
-  //  4. Fallback: longest distinctive word      → highlight that word only
   //
   // Intentionally NOT matching individual short words ("INC", "ACH") in
   // isolation — that's handled by the page-scoring logic only.
   // ---------------------------------------------------------------------------
   const customTextRenderer = useCallback(
     (textItem: { str: string; itemIndex: number; pageIndex: number; pageNumber: number }) => {
-      if (!hasAnySearch) return textItem.str;
-
       const str = textItem.str;
       const lowerStr = str.toLowerCase();
       const escaped = escapeHtml(str);
+      if (!hasAnySearch) return escaped;
 
       // Tier 1: full phrase
       if (searchPhrase && lowerStr.includes(searchPhrase.toLowerCase())) {
@@ -181,37 +164,10 @@ export function PdfHighlightViewer({
         }
       }
 
-      // Tier 4: fallback to longest distinctive word — but only if it's
-      // genuinely a substring (catches split text layers like "SHOPIFY" alone)
-      if (searchFallbackToken && lowerStr.includes(searchFallbackToken)) {
-        const regex = new RegExp(`(${escapeRegex(searchFallbackToken)})`, 'gi');
-        return escaped.replace(regex, '<mark class="pdf-text-match">$1</mark>');
-      }
-
-      return str;
+      return escaped;
     },
-    [hasAnySearch, searchPhrase, amountStr, dateTokens, searchFallbackToken]
+    [hasAnySearch, searchPhrase, amountStr, dateTokens]
   );
-
-  // ---------------------------------------------------------------------------
-  // Find the best-matching page and scroll to it
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (!hasAnySearch) {
-      setMatchedPage(null);
-      return;
-    }
-
-    // Debounce the search slightly
-    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
-    highlightTimeoutRef.current = setTimeout(() => {
-      findBestPageAndScroll();
-    }, 80);
-
-    return () => {
-      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
-    };
-  }, [hasAnySearch, searchPhrase, scoringTokens, amountStr, dateTokens, renderedTextLayers]);
 
   const findBestPageAndScroll = useCallback(() => {
     const container = containerRef.current;
@@ -268,6 +224,26 @@ export function PdfHighlightViewer({
       }
     }
   }, [numPages, searchPhrase, scoringTokens, amountStr, dateTokens]);
+
+  // ---------------------------------------------------------------------------
+  // Find the best-matching page and scroll to it
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!hasAnySearch) {
+      setMatchedPage(null);
+      return;
+    }
+
+    // Debounce the search slightly
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    highlightTimeoutRef.current = setTimeout(() => {
+      findBestPageAndScroll();
+    }, 80);
+
+    return () => {
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    };
+  }, [hasAnySearch, renderedTextLayers, findBestPageAndScroll]);
 
   // ---------------------------------------------------------------------------
   // Document load
