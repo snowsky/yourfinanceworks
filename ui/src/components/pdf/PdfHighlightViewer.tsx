@@ -127,15 +127,14 @@ export function PdfHighlightViewer({
   const hasAnySearch = !!(searchPhrase || amountStr || dateTokens.length > 0);
 
   // ---------------------------------------------------------------------------
-  // customTextRenderer – three-tier phrase-first matching
+  // customTextRenderer – phrase/amount matching
   //
   // Priority:
   //  1. Full phrase match in this span          → highlight entire phrase
   //  2. Amount match                            → highlight amount
-  //  3. Date format match                       → highlight date
   //
-  // Intentionally NOT matching individual short words ("INC", "ACH") in
-  // isolation — that's handled by the page-scoring logic only.
+  // Individual words and dates are used only for page scoring. Rendering them
+  // as marks is too noisy for statement PDFs where many rows share a date.
   // ---------------------------------------------------------------------------
   const customTextRenderer = useCallback(
     (textItem: { str: string; itemIndex: number; pageIndex: number; pageNumber: number }) => {
@@ -156,17 +155,9 @@ export function PdfHighlightViewer({
         return escaped.replace(regex, '<mark class="pdf-text-match">$1</mark>');
       }
 
-      // Tier 3: date formats
-      for (const dt of dateTokens) {
-        if (lowerStr.includes(dt.toLowerCase())) {
-          const regex = new RegExp(`(${escapeRegex(dt)})`, 'gi');
-          return escaped.replace(regex, '<mark class="pdf-text-match">$1</mark>');
-        }
-      }
-
       return escaped;
     },
-    [hasAnySearch, searchPhrase, amountStr, dateTokens]
+    [hasAnySearch, searchPhrase, amountStr]
   );
 
   const findBestPageAndScroll = useCallback(() => {
@@ -292,22 +283,15 @@ export function PdfHighlightViewer({
       >
         {Array.from({ length: numPages }, (_, i) => {
           const pageNum = i + 1;
-          const isMatched = matchedPage === pageNum;
-
           return (
             <div
               key={pageNum}
               ref={(el) => {
                 if (el) pageRefs.current.set(pageNum, el);
               }}
-              className={`pdf-page-wrapper ${isMatched ? 'matched' : ''}`}
+              className="pdf-page-wrapper"
               style={{ position: 'relative' }}
             >
-              {isMatched && (
-                <div className="pdf-match-indicator">
-                  ● Match found
-                </div>
-              )}
               <Page
                 pageNumber={pageNum}
                 width={containerWidth}
