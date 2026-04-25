@@ -18,7 +18,7 @@ export default defineConfig({
           radix_ui: ['@radix-ui/react-accordion', '@radix-ui/react-alert-dialog', '@radix-ui/react-avatar', '@radix-ui/react-checkbox', '@radix-ui/react-slot', 'class-variance-authority', 'cmdk', 'sonner'],
           forms: ['react-hook-form', '@hookform/resolvers', 'zod'],
           charts: ['recharts'],
-          pdf: ['@react-pdf/renderer'],
+          pdf: ['@react-pdf/renderer', 'react-pdf', 'pdfjs-dist'],
           icons: ['lucide-react'],
           utils: ['date-fns', 'date-fns-tz', 'clsx', 'tailwind-merge']
         }

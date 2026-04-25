@@ -3,9 +3,11 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/TextLayer.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import './PdfHighlightViewer.css';
+// Import the worker as a bundled URL (Vite ?url import — no CDN dependency)
+import PdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Configure PDF.js worker from the locally bundled file
+pdfjs.GlobalWorkerOptions.workerSrc = PdfjsWorkerUrl;
 
 export interface PdfHighlightViewerProps {
   /** URL (object URL or remote) of the PDF to display */
@@ -61,17 +63,46 @@ export function PdfHighlightViewer({
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Build search tokens from the hovered transaction
+  // Build search data from the hovered transaction
   // ---------------------------------------------------------------------------
-  const searchTokens = useMemo(() => {
-    if (!searchText) return [];
-    // Split description into meaningful tokens (>2 chars), deduplicate
-    const raw = searchText
-      .toLowerCase()
-      .replace(/[^\w\s.-]/g, ' ')
+
+  /**
+   * The full trimmed phrase — primary highlight target.
+   * e.g. "SHOPIFY INC ACH"
+   */
+  const searchPhrase = useMemo(() =>
+    searchText ? searchText.trim() : null
+  , [searchText]);
+
+  /**
+   * Fallback single token: the longest word (> 4 chars) from the phrase.
+   * Used when the PDF text layer splits the phrase across multiple spans.
+   * e.g. "SHOPIFY" for "SHOPIFY INC ACH" — avoids highlighting "INC"/"ACH" alone.
+   */
+  const searchFallbackToken = useMemo(() => {
+    if (!searchText) return null;
+    const words = searchText
+      .replace(/[^\w\s]/g, ' ')
       .split(/\s+/)
-      .filter((t) => t.length > 2);
-    return [...new Set(raw)];
+      .filter((w) => w.length > 4)
+      .sort((a, b) => b.length - a.length);
+    return words[0]?.toLowerCase() ?? null;
+  }, [searchText]);
+
+  /**
+   * All words (> 3 chars) used only for page-level scoring — never for highlight.
+   */
+  const scoringTokens = useMemo(() => {
+    if (!searchText) return [];
+    return [
+      ...new Set(
+        searchText
+          .toLowerCase()
+          .replace(/[^\w\s]/g, ' ')
+          .split(/\s+/)
+          .filter((w) => w.length > 3)
+      ),
+    ];
   }, [searchText]);
 
   const amountStr = useMemo(() => {
@@ -81,7 +112,6 @@ export function PdfHighlightViewer({
 
   const dateTokens = useMemo(() => {
     if (!searchDate) return [];
-    // Parse YYYY-MM-DD and generate several formats to match
     const parts = searchDate.split('-');
     if (parts.length !== 3) return [searchDate];
     const [y, m, d] = parts;
@@ -92,99 +122,82 @@ export function PdfHighlightViewer({
     const mi = parseInt(m, 10);
     const di = parseInt(d, 10);
     const tokens: string[] = [
-      searchDate,                                  // 2024-01-15
-      `${m}/${d}/${y}`,                            // 01/15/2024
-      `${di}/${mi}/${y}`,                          // 15/1/2024
-      `${m}-${d}-${y}`,                            // 01-15-2024
-      `${d}-${m}-${y}`,                            // 15-01-2024
-      `${m}/${d}`,                                 // 01/15
-      `${d}/${m}`,                                 // 15/01
+      searchDate,
+      `${m}/${d}/${y}`,
+      `${di}/${mi}/${y}`,
+      `${m}-${d}-${y}`,
+      `${d}-${m}-${y}`,
+      `${m}/${d}`,
+      `${d}/${m}`,
     ];
     if (mi >= 1 && mi <= 12) {
       const mName = monthNames[mi];
-      tokens.push(`${mName} ${di}`);               // jan 15
-      tokens.push(`${di} ${mName}`);               // 15 jan
-      tokens.push(`${mName} ${d}`);                // jan 15 (padded)
+      tokens.push(`${mName} ${di}`);
+      tokens.push(`${di} ${mName}`);
+      tokens.push(`${mName} ${d}`);
     }
     return tokens;
   }, [searchDate]);
 
+  const hasAnySearch = !!(searchPhrase || amountStr || dateTokens.length > 0);
+
   // ---------------------------------------------------------------------------
-  // customTextRenderer – injects <mark> around matching tokens
+  // customTextRenderer – three-tier phrase-first matching
+  //
+  // Priority:
+  //  1. Full phrase match in this span          → highlight entire phrase
+  //  2. Amount match                            → highlight amount
+  //  3. Date format match                       → highlight date
+  //  4. Fallback: longest distinctive word      → highlight that word only
+  //
+  // Intentionally NOT matching individual short words ("INC", "ACH") in
+  // isolation — that's handled by the page-scoring logic only.
   // ---------------------------------------------------------------------------
   const customTextRenderer = useCallback(
     (textItem: { str: string; itemIndex: number; pageIndex: number; pageNumber: number }) => {
-      if (searchTokens.length === 0 && !amountStr && dateTokens.length === 0) {
-        return textItem.str;
+      if (!hasAnySearch) return textItem.str;
+
+      const str = textItem.str;
+      const lowerStr = str.toLowerCase();
+      const escaped = escapeHtml(str);
+
+      // Tier 1: full phrase
+      if (searchPhrase && lowerStr.includes(searchPhrase.toLowerCase())) {
+        const regex = new RegExp(`(${escapeRegex(searchPhrase)})`, 'gi');
+        return escaped.replace(regex, '<mark class="pdf-text-match">$1</mark>');
       }
 
-      let result = textItem.str;
-      const lowerStr = result.toLowerCase();
-
-      // Check if this text item contains any match
-      let hasMatch = false;
-
-      // Check description tokens
-      for (const token of searchTokens) {
-        if (lowerStr.includes(token)) {
-          hasMatch = true;
-          break;
-        }
-      }
-
-      // Check amount
-      if (!hasMatch && amountStr && lowerStr.includes(amountStr)) {
-        hasMatch = true;
-      }
-
-      // Check date tokens
-      if (!hasMatch) {
-        for (const dt of dateTokens) {
-          if (lowerStr.includes(dt.toLowerCase())) {
-            hasMatch = true;
-            break;
-          }
-        }
-      }
-
-      if (!hasMatch) return result;
-
-      // Escape HTML in the original string first
-      const escaped = result
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-
-      // Build a combined regex from all matching patterns
-      const patterns: string[] = [];
-
-      for (const token of searchTokens) {
-        if (lowerStr.includes(token)) {
-          patterns.push(escapeRegex(token));
-        }
-      }
+      // Tier 2: amount
       if (amountStr && lowerStr.includes(amountStr)) {
-        patterns.push(escapeRegex(amountStr));
+        const regex = new RegExp(`(${escapeRegex(amountStr)})`, 'gi');
+        return escaped.replace(regex, '<mark class="pdf-text-match">$1</mark>');
       }
+
+      // Tier 3: date formats
       for (const dt of dateTokens) {
         if (lowerStr.includes(dt.toLowerCase())) {
-          patterns.push(escapeRegex(dt));
+          const regex = new RegExp(`(${escapeRegex(dt)})`, 'gi');
+          return escaped.replace(regex, '<mark class="pdf-text-match">$1</mark>');
         }
       }
 
-      if (patterns.length === 0) return result;
+      // Tier 4: fallback to longest distinctive word — but only if it's
+      // genuinely a substring (catches split text layers like "SHOPIFY" alone)
+      if (searchFallbackToken && lowerStr.includes(searchFallbackToken)) {
+        const regex = new RegExp(`(${escapeRegex(searchFallbackToken)})`, 'gi');
+        return escaped.replace(regex, '<mark class="pdf-text-match">$1</mark>');
+      }
 
-      const regex = new RegExp(`(${patterns.join('|')})`, 'gi');
-      return escaped.replace(regex, '<mark class="pdf-text-match">$1</mark>');
+      return str;
     },
-    [searchTokens, amountStr, dateTokens]
+    [hasAnySearch, searchPhrase, amountStr, dateTokens, searchFallbackToken]
   );
 
   // ---------------------------------------------------------------------------
   // Find the best-matching page and scroll to it
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (searchTokens.length === 0 && !amountStr && dateTokens.length === 0) {
+    if (!hasAnySearch) {
       setMatchedPage(null);
       return;
     }
@@ -198,7 +211,7 @@ export function PdfHighlightViewer({
     return () => {
       if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
     };
-  }, [searchTokens, amountStr, dateTokens, renderedTextLayers]);
+  }, [hasAnySearch, searchPhrase, scoringTokens, amountStr, dateTokens, renderedTextLayers]);
 
   const findBestPageAndScroll = useCallback(() => {
     const container = containerRef.current;
@@ -207,7 +220,6 @@ export function PdfHighlightViewer({
     let bestPage: number | null = null;
     let bestScore = 0;
 
-    // Search through rendered text layer spans in the DOM
     for (let pageNum = 1; pageNum <= numPages; pageNum++) {
       const pageEl = pageRefs.current.get(pageNum);
       if (!pageEl) continue;
@@ -217,17 +229,29 @@ export function PdfHighlightViewer({
       );
       let pageScore = 0;
 
-      textSpans.forEach((span) => {
-        const text = (span.textContent || '').toLowerCase();
+      // Collect all text on this page for phrase matching
+      const allText = Array.from(textSpans)
+        .map((s) => s.textContent || '')
+        .join(' ')
+        .toLowerCase();
 
-        for (const token of searchTokens) {
-          if (text.includes(token)) pageScore += 2;
-        }
-        if (amountStr && text.includes(amountStr)) pageScore += 5;
-        for (const dt of dateTokens) {
-          if (text.includes(dt.toLowerCase())) pageScore += 3;
-        }
-      });
+      // Full phrase match is highest priority (score 10)
+      if (searchPhrase && allText.includes(searchPhrase.toLowerCase())) {
+        pageScore += 10;
+      }
+
+      // Individual scoring tokens (for partial matches across spans)
+      for (const token of scoringTokens) {
+        if (allText.includes(token)) pageScore += 2;
+      }
+
+      // Amount is very distinctive
+      if (amountStr && allText.includes(amountStr)) pageScore += 8;
+
+      // Date formats
+      for (const dt of dateTokens) {
+        if (allText.includes(dt.toLowerCase())) pageScore += 4;
+      }
 
       if (pageScore > bestScore) {
         bestScore = pageScore;
@@ -237,14 +261,13 @@ export function PdfHighlightViewer({
 
     setMatchedPage(bestPage);
 
-    // Scroll to the matched page
     if (bestPage) {
       const pageEl = pageRefs.current.get(bestPage);
       if (pageEl) {
         pageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
-  }, [numPages, searchTokens, amountStr, dateTokens]);
+  }, [numPages, searchPhrase, scoringTokens, amountStr, dateTokens]);
 
   // ---------------------------------------------------------------------------
   // Document load
@@ -314,11 +337,7 @@ export function PdfHighlightViewer({
                 width={containerWidth}
                 renderTextLayer={true}
                 renderAnnotationLayer={false}
-                customTextRenderer={
-                  searchTokens.length > 0 || amountStr || dateTokens.length > 0
-                    ? customTextRenderer
-                    : undefined
-                }
+                customTextRenderer={hasAnySearch ? customTextRenderer : undefined}
                 onRenderTextLayerSuccess={() => handleTextLayerSuccess(pageNum)}
                 loading={
                   <div
@@ -347,4 +366,12 @@ export function PdfHighlightViewer({
 /** Escape special regex characters in a string */
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Escape HTML special characters */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
