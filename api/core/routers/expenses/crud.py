@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import date, datetime, timezone
 
 import sqlalchemy as sa
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from core.constants.error_codes import EXPENSE_LINKED_TO_INVOICE
@@ -70,6 +70,7 @@ async def list_expenses(
     search: str = None,
     created_by_user_id: int = None,
     include_total: bool = False,
+    request: Request = None,
     db: Session = Depends(get_db),
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user),
@@ -83,6 +84,13 @@ async def list_expenses(
         query = db.query(Expense).options(joinedload(Expense.created_by)).filter(Expense.is_deleted == False)
         base_count = query.count()
         logger.info(f"list_expenses: current_user.id={current_user.id}, tenant_id={current_user.tenant_id}, search={search}")
+        if request and request.headers.get("X-Mobile-Expense-App-ID"):
+            query = query.filter(
+                sa.or_(
+                    Expense.created_by_user_id == current_user.id,
+                    sa.and_(Expense.created_by_user_id.is_(None), Expense.user_id == current_user.id),
+                )
+            )
         if category and category != "all":
             query = query.filter(Expense.category == category)
         if label:

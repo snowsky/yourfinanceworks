@@ -34,6 +34,9 @@ class ExpenseDigestPreferenceResponse(ExpenseDigestPreferencePayload):
 
 
 def _get_or_create_notification_settings(db: Session, user_id: int) -> EmailNotificationSettings:
+    from core.services.expense_digest_service import ensure_expense_digest_preference_columns
+
+    ensure_expense_digest_preference_columns(db)
     settings = db.query(EmailNotificationSettings).filter(
         EmailNotificationSettings.user_id == user_id
     ).first()

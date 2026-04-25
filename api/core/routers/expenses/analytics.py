@@ -6,7 +6,8 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+import sqlalchemy as sa
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from core.models.database import get_db
@@ -26,6 +27,7 @@ async def get_expense_summary(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     compare_with_previous: bool = True,
+    request: Request = None,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
@@ -39,6 +41,13 @@ async def get_expense_summary(
             Expense.status != 'pending_approval',
             Expense.is_deleted == False
         )
+        if request and request.headers.get("X-Mobile-Expense-App-ID"):
+            base_query = base_query.filter(
+                sa.or_(
+                    Expense.created_by_user_id == current_user.id,
+                    sa.and_(Expense.created_by_user_id.is_(None), Expense.user_id == current_user.id),
+                )
+            )
 
         end_dt = datetime.now(timezone.utc)
         start_dt = None

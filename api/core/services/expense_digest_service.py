@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 from jinja2 import Template
-from sqlalchemy import or_
+from sqlalchemy import inspect, or_, text
 from sqlalchemy.orm import Session
 
 from config import APP_NAME
@@ -38,6 +38,35 @@ DEFAULT_EXPENSE_SETTINGS: Dict[str, Any] = {
         },
     }
 }
+
+
+def ensure_expense_digest_preference_columns(db: Session) -> None:
+    """Backfill per-user digest columns for tenant DBs that have not run migrations yet."""
+    bind = db.get_bind()
+    inspector = inspect(bind)
+    if not inspector.has_table("email_notification_settings"):
+        return
+
+    existing = {col["name"] for col in inspector.get_columns("email_notification_settings")}
+    dialect = bind.dialect.name
+    column_defs = {
+        "expense_digest_enabled": (
+            "BOOLEAN NOT NULL DEFAULT FALSE"
+            if dialect == "postgresql"
+            else "BOOLEAN NOT NULL DEFAULT 0"
+        ),
+        "expense_digest_frequency": "VARCHAR DEFAULT 'weekly' NOT NULL",
+        "expense_digest_next_run_at": "TIMESTAMP WITH TIME ZONE" if dialect == "postgresql" else "DATETIME",
+        "expense_digest_last_sent_at": "TIMESTAMP WITH TIME ZONE" if dialect == "postgresql" else "DATETIME",
+    }
+
+    changed = False
+    for column_name, column_def in column_defs.items():
+        if column_name not in existing:
+            db.execute(text(f"ALTER TABLE email_notification_settings ADD COLUMN {column_name} {column_def}"))
+            changed = True
+    if changed:
+        db.commit()
 
 
 class ExpenseDigestService:
@@ -139,6 +168,7 @@ class ExpenseDigestService:
         if not self.email_service:
             return {"status": "skipped", "reason": "email_service_not_configured"}
 
+        ensure_expense_digest_preference_columns(self.db)
         settings = self._load_expense_settings()
         digest_cfg = settings.get("digest", {})
         if not bool(digest_cfg.get("allow_user_overrides", True)):
@@ -189,6 +219,7 @@ class ExpenseDigestService:
         if not self.email_service:
             return {"status": "skipped", "reason": "email_service_not_configured", "user_id": user_id}
 
+        ensure_expense_digest_preference_columns(self.db)
         user = self.db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
         if not user:
             return {"status": "skipped", "reason": "user_not_found", "user_id": user_id}
