@@ -103,6 +103,12 @@ class EmailNotificationSettings(Base):
     notification_email = Column(String, nullable=True)
     daily_summary = Column(Boolean, default=False)
     weekly_summary = Column(Boolean, default=False)
+
+    # Personal expense digest preferences
+    expense_digest_enabled = Column(Boolean, default=False, nullable=False)
+    expense_digest_frequency = Column(String, default="weekly", nullable=False)
+    expense_digest_next_run_at = Column(DateTime(timezone=True), nullable=True)
+    expense_digest_last_sent_at = Column(DateTime(timezone=True), nullable=True)
     
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

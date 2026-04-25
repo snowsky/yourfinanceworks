@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
@@ -20,6 +21,45 @@ from core.utils.rbac import require_admin_or_superuser
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+
+class ExpenseDigestPreferencePayload(BaseModel):
+    enabled: bool
+    frequency: str = "weekly"
+
+
+class ExpenseDigestPreferenceResponse(ExpenseDigestPreferencePayload):
+    next_run_at: Optional[str] = None
+    last_sent_at: Optional[str] = None
+
+
+def _get_or_create_notification_settings(db: Session, user_id: int) -> EmailNotificationSettings:
+    settings = db.query(EmailNotificationSettings).filter(
+        EmailNotificationSettings.user_id == user_id
+    ).first()
+    if settings:
+        return settings
+
+    settings = EmailNotificationSettings(user_id=user_id)
+    db.add(settings)
+    db.commit()
+    db.refresh(settings)
+    return settings
+
+
+def _serialize_expense_digest_preferences(settings: EmailNotificationSettings) -> dict:
+    return {
+        "enabled": bool(settings.expense_digest_enabled),
+        "frequency": settings.expense_digest_frequency
+        if settings.expense_digest_frequency in {"daily", "weekly"}
+        else "weekly",
+        "next_run_at": settings.expense_digest_next_run_at.isoformat()
+        if settings.expense_digest_next_run_at
+        else None,
+        "last_sent_at": settings.expense_digest_last_sent_at.isoformat()
+        if settings.expense_digest_last_sent_at
+        else None,
+    }
 
 
 def _build_email_service(db: Session):
@@ -516,6 +556,73 @@ async def send_expense_digest(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send expense digest"
+        )
+
+
+@router.get("/expense-digest/preferences", response_model=ExpenseDigestPreferenceResponse)
+async def get_expense_digest_preferences(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Get the current user's personal expense digest preference."""
+    try:
+        tenant_user = db.query(User).filter(User.id == current_user.id).first()
+        if not tenant_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found in tenant database",
+            )
+
+        settings = _get_or_create_notification_settings(db, tenant_user.id)
+        return _serialize_expense_digest_preferences(settings)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting expense digest preferences: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get expense digest preferences",
+        )
+
+
+@router.put("/expense-digest/preferences", response_model=ExpenseDigestPreferenceResponse)
+async def update_expense_digest_preferences(
+    payload: ExpenseDigestPreferencePayload,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Update the current user's personal expense digest preference."""
+    try:
+        tenant_user = db.query(User).filter(User.id == current_user.id).first()
+        if not tenant_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found in tenant database",
+            )
+
+        settings = _get_or_create_notification_settings(db, tenant_user.id)
+        if payload.frequency not in {"daily", "weekly"}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="frequency must be one of: daily, weekly",
+            )
+        previous_frequency = settings.expense_digest_frequency
+        settings.expense_digest_enabled = payload.enabled
+        settings.expense_digest_frequency = payload.frequency
+        if previous_frequency != payload.frequency:
+            settings.expense_digest_next_run_at = None
+
+        db.commit()
+        db.refresh(settings)
+        return _serialize_expense_digest_preferences(settings)
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating expense digest preferences: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update expense digest preferences",
         )
 
 @router.get("/expense-preferences", response_model=dict)

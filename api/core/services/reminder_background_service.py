@@ -184,7 +184,13 @@ class ReminderBackgroundService:
             )
             email_service = EmailService(config)
             digest_service = ExpenseDigestService(db, email_service)
-            return digest_service.process_due_digest(force=False)
+            tenant_digest = digest_service.process_due_digest(force=False)
+            user_digests = digest_service.process_due_user_digests(force=False)
+            return {
+                "status": "processed",
+                "tenant_digest": tenant_digest,
+                "user_digests": user_digests,
+            }
         except Exception as e:
             logger.error(f"Error processing expense digest for tenant {tenant_id}: {str(e)}")
             return {"status": "failed", "reason": str(e)}

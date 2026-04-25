@@ -98,6 +98,12 @@ class EmailNotificationSettingsBase(BaseModel):
     notification_email: Optional[str] = None
     daily_summary: bool = False
     weekly_summary: bool = False
+
+    # Personal expense digest preferences
+    expense_digest_enabled: bool = False
+    expense_digest_frequency: str = "weekly"
+    expense_digest_next_run_at: Optional[datetime] = None
+    expense_digest_last_sent_at: Optional[datetime] = None
     
     @field_validator('approval_notification_frequency')
     @classmethod
@@ -121,6 +127,14 @@ class EmailNotificationSettingsBase(BaseModel):
         valid_frequencies = ["immediate", "daily_digest"]
         if v not in valid_frequencies:
             raise ValueError(f'reminder_notification_frequency must be one of {valid_frequencies}')
+        return v
+
+    @field_validator('expense_digest_frequency')
+    @classmethod
+    def validate_expense_digest_frequency(cls, v):
+        valid_frequencies = ["daily", "weekly"]
+        if v not in valid_frequencies:
+            raise ValueError(f'expense_digest_frequency must be one of {valid_frequencies}')
         return v
     
     @field_validator('reminder_advance_days')
