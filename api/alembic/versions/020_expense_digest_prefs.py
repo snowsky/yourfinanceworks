@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy import inspect
 
 
-revision = "020_expense_digest_user_preferences"
+revision = "020_expense_digest_prefs"
 down_revision = "019_add_tenant_archive_columns"
 branch_labels = None
 depends_on = None
