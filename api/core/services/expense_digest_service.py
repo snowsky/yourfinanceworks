@@ -25,6 +25,7 @@ DEFAULT_EXPENSE_SETTINGS: Dict[str, Any] = {
         "delivery_time": "09:00",
         "timezone": "UTC",
         "include_no_activity": False,
+        "allow_user_overrides": True,
         "recipients": {
             "mode": "admins",
             "custom_emails": "",
@@ -140,6 +141,9 @@ class ExpenseDigestService:
 
         settings = self._load_expense_settings()
         digest_cfg = settings.get("digest", {})
+        if not bool(digest_cfg.get("allow_user_overrides", True)):
+            return {"status": "skipped", "reason": "user_overrides_disabled"}
+
         rows = (
             self.db.query(EmailNotificationSettings)
             .join(User, User.id == EmailNotificationSettings.user_id)

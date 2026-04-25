@@ -5,7 +5,7 @@ import pytest
 
 from core.models import EmailNotificationSettings
 from core.models.models import MasterUser, Tenant
-from core.models.models_per_tenant import Expense, User as TenantUser
+from core.models.models_per_tenant import Expense, Settings, User as TenantUser
 from core.services.expense_digest_service import ExpenseDigestService
 from core.utils.auth import create_access_token, get_password_hash
 
@@ -103,6 +103,47 @@ def test_expense_digest_preferences_reject_invalid_frequency(client, digest_auth
     )
 
     assert response.status_code == 400
+
+
+def test_expense_digest_preferences_respect_org_override_setting(client, db_session, digest_auth_headers):
+    _, headers = digest_auth_headers
+    db_session.add(
+        Settings(
+            key="expense_settings",
+            value={"digest": {"allow_user_overrides": False}},
+        )
+    )
+    db_session.commit()
+
+    response = client.put(
+        "/api/v1/notifications/expense-digest/preferences",
+        json={"enabled": True, "frequency": "daily"},
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+
+
+def test_due_user_digests_skip_when_org_disables_overrides(db_session, digest_auth_headers):
+    user_id, _ = digest_auth_headers
+    db_session.add_all(
+        [
+            Settings(
+                key="expense_settings",
+                value={"digest": {"allow_user_overrides": False}},
+            ),
+            EmailNotificationSettings(
+                user_id=user_id,
+                expense_digest_enabled=True,
+                expense_digest_frequency="daily",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    result = ExpenseDigestService(db_session, CapturingEmailService()).process_due_user_digests()
+
+    assert result == {"status": "skipped", "reason": "user_overrides_disabled"}
 
 
 def test_personal_digest_includes_only_user_expenses(db_session, digest_auth_headers):

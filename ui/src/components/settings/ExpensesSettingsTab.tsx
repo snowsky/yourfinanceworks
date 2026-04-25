@@ -33,6 +33,7 @@ interface ExpenseSettings {
     delivery_time: string;
     timezone: string;
     include_no_activity: boolean;
+    allow_user_overrides: boolean;
     recipients: {
       mode: RecipientMode;
       custom_emails: string;
@@ -92,6 +93,7 @@ const defaultExpenseSettings: ExpenseSettings = {
     delivery_time: "09:00",
     timezone: "UTC",
     include_no_activity: false,
+    allow_user_overrides: true,
     recipients: {
       mode: "admins",
       custom_emails: "",
@@ -678,6 +680,28 @@ export const ExpensesSettingsTab: React.FC<ExpensesSettingsTabProps> = ({ isAdmi
                 checked={settings.digest.include_no_activity}
                 onCheckedChange={(checked) =>
                   setSettings((prev) => ({ ...prev, digest: { ...prev.digest, include_no_activity: checked } }))
+                }
+              />
+            </div>
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border/40 p-3 md:col-span-2">
+              <div className="space-y-1">
+                <Label>
+                  {t(
+                    "settings.expenses.digest.allow_user_overrides",
+                    "Allow each user to override this digest in the mobile app"
+                  )}
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  {t(
+                    "settings.expenses.digest.allow_user_overrides_description",
+                    "Users can choose Off, Daily, or Weekly for their own expense digest without changing this organization digest."
+                  )}
+                </p>
+              </div>
+              <Switch
+                checked={settings.digest.allow_user_overrides}
+                onCheckedChange={(checked) =>
+                  setSettings((prev) => ({ ...prev, digest: { ...prev.digest, allow_user_overrides: checked } }))
                 }
               />
             </div>

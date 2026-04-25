@@ -62,6 +62,19 @@ def _serialize_expense_digest_preferences(settings: EmailNotificationSettings) -
     }
 
 
+def _expense_digest_user_overrides_allowed(db: Session) -> bool:
+    from core.models.models_per_tenant import Settings
+    from core.services.expense_digest_service import DEFAULT_EXPENSE_SETTINGS
+
+    record = db.query(Settings).filter(Settings.key == "expense_settings").first()
+    raw = record.value if record and isinstance(record.value, dict) else {}
+    digest_cfg = {
+        **DEFAULT_EXPENSE_SETTINGS["digest"],
+        **raw.get("digest", {}),
+    }
+    return bool(digest_cfg.get("allow_user_overrides", True))
+
+
 def _build_email_service(db: Session):
     """Create tenant email service from stored email_config settings."""
     from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
@@ -601,6 +614,11 @@ async def update_expense_digest_preferences(
             )
 
         settings = _get_or_create_notification_settings(db, tenant_user.id)
+        if not _expense_digest_user_overrides_allowed(db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Personal expense digest overrides are disabled by the organization.",
+            )
         if payload.frequency not in {"daily", "weekly"}:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
