@@ -34,6 +34,12 @@ logger = logging.getLogger(__name__)
 # Settings key for cash flow thresholds
 CASHFLOW_SETTINGS_KEY = "cashflow_thresholds"
 
+# Minimum number of concrete forecast entries before adding historical pattern predictions
+MIN_CONCRETE_ENTRIES_FOR_PATTERN = 5
+
+# Interval (in days) between historical pattern-based prediction entries
+HISTORICAL_PATTERN_INTERVAL_DAYS = 7
+
 
 class CashFlowService:
     """Service for cash flow forecasting and analysis."""
@@ -461,7 +467,7 @@ class CashFlowService:
 
         # 3. Historical pattern-based prediction (average daily income from last 90 days)
         # Only add if we have few concrete entries to fill gaps
-        if len(entries) < 5:
+        if len(entries) < MIN_CONCRETE_ENTRIES_FOR_PATTERN:
             avg_daily = self._get_historical_average_daily_income()
             if avg_daily > 0:
                 current = start_date + timedelta(days=1)
@@ -478,7 +484,7 @@ class CashFlowService:
                                 confidence=0.4,
                             )
                         )
-                    current += timedelta(days=7)  # Weekly average
+                    current += timedelta(days=HISTORICAL_PATTERN_INTERVAL_DAYS)
 
         return sorted(entries, key=lambda e: e.date)
 
@@ -535,7 +541,7 @@ class CashFlowService:
                             confidence=0.4,
                         )
                     )
-                current += timedelta(days=7)
+                current += timedelta(days=HISTORICAL_PATTERN_INTERVAL_DAYS)
 
         return sorted(entries, key=lambda e: e.date)
 
