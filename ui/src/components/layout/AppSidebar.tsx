@@ -396,6 +396,12 @@ export function AppSidebar() {
       icon: <BarChart className="w-5 h-5" />,
       tourId: 'nav-reports'
     },
+    {
+      path: '/cashflow',
+      label: t('navigation.cashflow', { defaultValue: 'Cash Flow' }),
+      icon: <TrendingUp className="w-5 h-5" />,
+      tourId: 'nav-cashflow'
+    },
 
     // Users, Audit Log, and Analytics moved under Settings; remove from main nav
   ];
