@@ -195,7 +195,7 @@ const ForecastChart: React.FC<{ forecast: CashFlowForecastResponse | undefined; 
           </div>
         )}
 
-        <div className="h-64">
+        <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -209,12 +209,121 @@ const ForecastChart: React.FC<{ forecast: CashFlowForecastResponse | undefined; 
                 type="monotone"
                 dataKey="balance"
                 stroke="#3b82f6"
-                fill="#3b82f680"
+                fill="#3b82f620"
                 strokeWidth={2}
                 name="Balance"
               />
+              <Area
+                type="monotone"
+                dataKey="inflows"
+                stroke="#16a34a"
+                fill="#16a34a30"
+                strokeWidth={1.5}
+                name="Inflows (Income)"
+              />
+              <Area
+                type="monotone"
+                dataKey="outflows"
+                stroke="#dc2626"
+                fill="#dc262630"
+                strokeWidth={1.5}
+                name="Outflows (Expenses)"
+              />
             </AreaChart>
           </ResponsiveContainer>
+        </div>
+      </ProfessionalCardContent>
+    </ProfessionalCard>
+  );
+};
+
+// ---- Income & Expenses Breakdown ----
+const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | undefined; isLoading: boolean }> = ({
+  forecast,
+  isLoading,
+}) => {
+  if (isLoading || !forecast) return null;
+
+  const inflows = forecast.inflow_entries || [];
+  const outflows = forecast.outflow_entries || [];
+
+  if (inflows.length === 0 && outflows.length === 0) {
+    return (
+      <ProfessionalCard>
+        <ProfessionalCardHeader>
+          <ProfessionalCardTitle className="flex items-center gap-2">
+            <DollarSign className="w-5 h-5" />
+            Income &amp; Expenses Breakdown
+          </ProfessionalCardTitle>
+        </ProfessionalCardHeader>
+        <ProfessionalCardContent>
+          <p className="text-muted-foreground text-sm">No projected income or expenses found for this period. Add invoices and expenses to see projections here.</p>
+        </ProfessionalCardContent>
+      </ProfessionalCard>
+    );
+  }
+
+  return (
+    <ProfessionalCard>
+      <ProfessionalCardHeader>
+        <ProfessionalCardTitle className="flex items-center gap-2">
+          <DollarSign className="w-5 h-5" />
+          Income &amp; Expenses Breakdown
+        </ProfessionalCardTitle>
+      </ProfessionalCardHeader>
+      <ProfessionalCardContent>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Inflows / Income */}
+          <div>
+            <h4 className="flex items-center gap-2 font-semibold text-green-700 dark:text-green-400 mb-3">
+              <TrendingUp className="w-4 h-4" />
+              Income ({inflows.length} items) — {formatCurrency(forecast.total_projected_inflows)}
+            </h4>
+            {inflows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No projected income</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {inflows.map((entry, i) => (
+                  <div key={i} className="flex items-center justify-between p-2 rounded border bg-green-50/50 dark:bg-green-950/30">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{entry.description || entry.category}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(entry.date)} • {entry.category}</p>
+                    </div>
+                    <div className="text-right ml-2">
+                      <p className="text-sm font-semibold text-green-700 dark:text-green-400">+{formatCurrency(entry.amount)}</p>
+                      <p className="text-xs text-muted-foreground">{Math.round(entry.confidence * 100)}% conf.</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Outflows / Expenses */}
+          <div>
+            <h4 className="flex items-center gap-2 font-semibold text-red-700 dark:text-red-400 mb-3">
+              <TrendingDown className="w-4 h-4" />
+              Expenses ({outflows.length} items) — {formatCurrency(forecast.total_projected_outflows)}
+            </h4>
+            {outflows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No projected expenses</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {outflows.map((entry, i) => (
+                  <div key={i} className="flex items-center justify-between p-2 rounded border bg-red-50/50 dark:bg-red-950/30">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{entry.description || entry.category}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(entry.date)} • {entry.category}</p>
+                    </div>
+                    <div className="text-right ml-2">
+                      <p className="text-sm font-semibold text-red-700 dark:text-red-400">-{formatCurrency(entry.amount)}</p>
+                      <p className="text-xs text-muted-foreground">{Math.round(entry.confidence * 100)}% conf.</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </ProfessionalCardContent>
     </ProfessionalCard>
@@ -402,6 +511,9 @@ const CashFlow: React.FC = () => {
 
       {/* Forecast chart */}
       <ForecastChart forecast={forecast} isLoading={forecastLoading} />
+
+      {/* Income & Expenses breakdown */}
+      <InflowOutflowBreakdown forecast={forecast} isLoading={forecastLoading} />
 
       {/* Scenario builder */}
       <ScenarioBuilder />
