@@ -135,6 +135,7 @@ class CashFlowService:
         # Average daily income (payments received)
         total_income_90d = (
             self.db.query(func.coalesce(func.sum(Payment.amount), 0.0))
+            .filter(Payment.payment_date != None)  # noqa: E711
             .filter(Payment.payment_date >= ninety_days_ago)
             .scalar()
         ) or 0.0
@@ -144,6 +145,7 @@ class CashFlowService:
             self.db.query(func.coalesce(func.sum(Expense.amount), 0.0))
             .filter(Expense.is_deleted == False)  # noqa: E712
             .filter(Expense.status != "cancelled")
+            .filter(Expense.expense_date != None)  # noqa: E711
             .filter(Expense.expense_date >= ninety_days_ago)
             .scalar()
         ) or 0.0
@@ -612,6 +614,7 @@ class CashFlowService:
 
         total = (
             self.db.query(func.coalesce(func.sum(Payment.amount), 0.0))
+            .filter(Payment.payment_date != None)  # noqa: E711
             .filter(Payment.payment_date >= ninety_days_ago)
             .scalar()
         ) or 0.0
@@ -626,6 +629,7 @@ class CashFlowService:
             self.db.query(func.coalesce(func.sum(Expense.amount), 0.0))
             .filter(Expense.is_deleted == False)  # noqa: E712
             .filter(Expense.status != "cancelled")
+            .filter(Expense.expense_date != None)  # noqa: E711
             .filter(Expense.expense_date >= ninety_days_ago)
             .scalar()
         ) or 0.0
