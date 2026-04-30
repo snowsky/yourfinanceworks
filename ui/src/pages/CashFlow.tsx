@@ -53,11 +53,14 @@ import {
   ReferenceLine,
 } from 'recharts';
 
+// Milliseconds per day constant
+const MS_PER_DAY = 86_400_000;
+
 // Format currency
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-US', {
+const formatCurrency = (amount: number, currency = 'USD'): string => {
+  return new Intl.NumberFormat(undefined, {
     style: 'currency',
-    currency: 'USD',
+    currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
@@ -126,7 +129,7 @@ const RunwayCard: React.FC<{ runway: CashRunwayResponse | undefined; isLoading: 
             <p className="text-sm text-muted-foreground">Runway</p>
             <p className="text-2xl font-bold">
               {runway.is_sustainable ? (
-                <Badge variant="default" className="bg-green-600 text-lg px-3 py-1">Sustainable ✓</Badge>
+                <Badge variant="default" className="bg-green-600 text-lg px-3 py-1" aria-label="Cash flow is sustainable">Sustainable ✓</Badge>
               ) : runway.runway_days != null ? (
                 <span className="text-orange-600">{runway.runway_days} days</span>
               ) : (
@@ -249,7 +252,7 @@ const ScenarioBuilder: React.FC = () => {
       expense_change_percent: expenseChange ? parseFloat(expenseChange) : null,
       additional_expense: additionalExpense ? parseFloat(additionalExpense) : null,
       additional_expense_date: additionalExpense
-        ? new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
+        ? new Date(Date.now() + 7 * MS_PER_DAY).toISOString().split('T')[0]
         : null,
     };
 
