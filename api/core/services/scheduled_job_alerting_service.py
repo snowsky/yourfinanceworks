@@ -291,6 +291,35 @@ class ScheduledJobAlertingService:
 
     # --- Notification Dispatch ---
 
+    @staticmethod
+    def _get_email_config():
+        """Get email configuration from environment."""
+        import os
+        from core.services.email_service import EmailProviderConfig, EmailProvider
+
+        provider = os.getenv("EMAIL_PROVIDER", "").lower()
+
+        if provider == "aws_ses":
+            return EmailProviderConfig(
+                provider=EmailProvider.AWS_SES,
+                aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+                aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+                aws_region=os.getenv("AWS_REGION", "us-east-1"),
+            )
+        elif provider == "azure_email":
+            return EmailProviderConfig(
+                provider=EmailProvider.AZURE_EMAIL,
+                azure_connection_string=os.getenv("AZURE_EMAIL_CONNECTION_STRING"),
+            )
+        elif provider == "mailgun":
+            return EmailProviderConfig(
+                provider=EmailProvider.MAILGUN,
+                mailgun_api_key=os.getenv("MAILGUN_API_KEY"),
+                mailgun_domain=os.getenv("MAILGUN_DOMAIN"),
+            )
+
+        return None
+
     def _dispatch_notification(
         self,
         alert: ScheduledJobAlert,
@@ -331,8 +360,7 @@ class ScheduledJobAlertingService:
         body = self._format_alert_email(alert, evaluation, report_result)
 
         try:
-            from core.services.report_scheduler_background import ReportSchedulerBackgroundService
-            email_config = ReportSchedulerBackgroundService()._get_email_config()
+            email_config = self._get_email_config()
             if not email_config:
                 logger.warning("No email configuration available for alert notifications")
                 return
@@ -357,7 +385,7 @@ class ScheduledJobAlertingService:
         report_result: ReportResult,
     ) -> None:
         """Send alert notification via webhook."""
-        import requests as http_requests
+        import requests
 
         payload = {
             "alert_id": alert.id,
@@ -372,7 +400,7 @@ class ScheduledJobAlertingService:
         for recipient in alert.recipients:
             if recipient.startswith("http"):
                 try:
-                    resp = http_requests.post(recipient, json=payload, timeout=10)
+                    resp = requests.post(recipient, json=payload, timeout=10)
                     resp.raise_for_status()
                 except Exception as e:
                     logger.error(f"Webhook notification failed for {recipient}: {e}")
@@ -385,7 +413,7 @@ class ScheduledJobAlertingService:
         report_result: ReportResult,
     ) -> None:
         """Send alert notification via Slack webhook."""
-        import requests as http_requests
+        import requests
 
         severity_emoji = {
             "low": "ℹ️",
@@ -408,7 +436,7 @@ class ScheduledJobAlertingService:
         for recipient in alert.recipients:
             if recipient.startswith("http"):
                 try:
-                    resp = http_requests.post(recipient, json=payload, timeout=10)
+                    resp = requests.post(recipient, json=payload, timeout=10)
                     resp.raise_for_status()
                 except Exception as e:
                     logger.error(f"Slack notification failed for {recipient}: {e}")
