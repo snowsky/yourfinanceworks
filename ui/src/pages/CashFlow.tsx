@@ -90,11 +90,15 @@ const getSourceLabel = (entry: CashFlowEntry): string => {
   return entry.category.replace(/_/g, ' ');
 };
 
-const EntryReferences: React.FC<{ entry: CashFlowEntry }> = ({ entry }) => {
-  const references = entry.references || [];
+type CashFlowReferenceList = NonNullable<CashFlowEntry['references']>;
+
+const ReferenceLinks: React.FC<{ references: CashFlowReferenceList; limit?: number }> = ({
+  references,
+  limit = 3,
+}) => {
   if (references.length === 0) return null;
 
-  const visibleReferences = references.slice(0, 3);
+  const visibleReferences = references.slice(0, limit);
   const remainingCount = references.length - visibleReferences.length;
 
   return (
@@ -129,6 +133,20 @@ const EntryReferences: React.FC<{ entry: CashFlowEntry }> = ({ entry }) => {
   );
 };
 
+const EntryReferences: React.FC<{ entry: CashFlowEntry }> = ({ entry }) => (
+  <ReferenceLinks references={entry.references || []} />
+);
+
+const uniqueReferences = (entries: CashFlowEntry[]): CashFlowReferenceList => {
+  const references = new Map<string, CashFlowReferenceList[number]>();
+  entries.forEach((entry) => {
+    (entry.references || []).forEach((reference) => {
+      references.set(`${reference.type}-${reference.id}`, reference);
+    });
+  });
+  return Array.from(references.values());
+};
+
 const buildSourceSummary = (entries: CashFlowEntry[]) => {
   const summary = new Map<string, { label: string; count: number; total: number }>();
 
@@ -148,6 +166,8 @@ type BreakdownGroup = {
   label: string;
   count: number;
   total: number;
+  entries: CashFlowEntry[];
+  references: CashFlowReferenceList;
   categories: Array<{ label: string; count: number; total: number }>;
 };
 
@@ -161,11 +181,14 @@ const buildSourceBreakdown = (entries: CashFlowEntry[]): BreakdownGroup[] => {
       label: getSourceLabel(entry),
       count: 0,
       total: 0,
+      entries: [],
+      references: [],
       categories: [],
     };
 
     group.count += 1;
     group.total += entry.amount;
+    group.entries.push(entry);
 
     if (entry.source === 'bank_statement_pattern') {
       const categoryLabel = entry.description || entry.category || 'Bank statement category';
@@ -184,6 +207,7 @@ const buildSourceBreakdown = (entries: CashFlowEntry[]): BreakdownGroup[] => {
   return Array.from(groups.values())
     .map((group) => ({
       ...group,
+      references: uniqueReferences(group.entries),
       categories: group.categories.sort((a, b) => b.total - a.total),
     }))
     .sort((a, b) => b.total - a.total);
@@ -224,6 +248,12 @@ const SourceBreakdownPanel: React.FC<{
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                   <div className={`h-full rounded-full ${accentClass}`} style={{ width: `${Math.min(percentage, 100)}%` }} />
                 </div>
+                {group.references.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Related records</p>
+                    <ReferenceLinks references={group.references} limit={5} />
+                  </div>
+                )}
                 {group.categories.length > 0 && (
                   <div className="ml-3 space-y-1 border-l pl-3">
                     {group.categories.map((category) => (
