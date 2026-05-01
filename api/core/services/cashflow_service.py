@@ -7,9 +7,9 @@ and scenario modeling based on invoices, expenses, and historical patterns.
 
 import logging
 from datetime import date, datetime, timedelta, timezone
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
-from sqlalchemy import func, and_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.models.models_per_tenant import (
@@ -50,12 +50,16 @@ class CashFlowService:
     def get_current_balance(self) -> float:
         """
         Calculate current cash position based on:
-        - Total payments received (inflows)
-        - Total expenses paid (outflows)
+        - Payments received as of now (inflows)
+        - Expenses dated as of now (outflows)
         """
+        now = datetime.now(timezone.utc)
+
         # Total payments received
         total_payments = (
             self.db.query(func.coalesce(func.sum(Payment.amount), 0.0))
+            .filter(Payment.payment_date != None)  # noqa: E711
+            .filter(Payment.payment_date <= now)
             .scalar()
         ) or 0.0
 
@@ -64,6 +68,8 @@ class CashFlowService:
             self.db.query(func.coalesce(func.sum(Expense.amount), 0.0))
             .filter(Expense.is_deleted == False)  # noqa: E712
             .filter(Expense.status != "cancelled")
+            .filter(Expense.expense_date != None)  # noqa: E711
+            .filter(Expense.expense_date <= now)
             .scalar()
         ) or 0.0
 
@@ -130,13 +136,15 @@ class CashFlowService:
             current_balance = self.get_current_balance()
 
         # Calculate averages from last 90 days
-        ninety_days_ago = datetime.now(timezone.utc) - timedelta(days=90)
+        now = datetime.now(timezone.utc)
+        ninety_days_ago = now - timedelta(days=90)
 
         # Average daily income (payments received)
         total_income_90d = (
             self.db.query(func.coalesce(func.sum(Payment.amount), 0.0))
             .filter(Payment.payment_date != None)  # noqa: E711
             .filter(Payment.payment_date >= ninety_days_ago)
+            .filter(Payment.payment_date <= now)
             .scalar()
         ) or 0.0
 
@@ -147,6 +155,7 @@ class CashFlowService:
             .filter(Expense.status != "cancelled")
             .filter(Expense.expense_date != None)  # noqa: E711
             .filter(Expense.expense_date >= ninety_days_ago)
+            .filter(Expense.expense_date <= now)
             .scalar()
         ) or 0.0
 
@@ -202,7 +211,7 @@ class CashFlowService:
 
         # Apply delayed invoices
         if scenario.delayed_invoice_ids:
-            delay_days = scenario.delay_days or 30
+            delay_days = scenario.delay_days if scenario.delay_days is not None else 30
             scenario_inflows = self._apply_invoice_delays(
                 scenario_inflows, scenario.delayed_invoice_ids, delay_days, end_date
             )
@@ -372,13 +381,15 @@ class CashFlowService:
             "warning_threshold": warning_threshold if warning_threshold is not None else current.warning_threshold,
             "currency": currency if currency is not None else current.currency,
         }
+        validated_settings = CashFlowThresholdSettings(**new_values)
+        persisted_values = validated_settings.model_dump()
 
         if settings_row:
-            settings_row.value = new_values
+            settings_row.value = persisted_values
         else:
             settings_row = Settings(
                 key=CASHFLOW_SETTINGS_KEY,
-                value=new_values,
+                value=persisted_values,
                 description="Cash flow alert threshold settings",
                 category="cashflow",
                 is_public=True,
@@ -387,7 +398,7 @@ class CashFlowService:
 
         self.db.commit()
 
-        return CashFlowThresholdSettings(**new_values)
+        return validated_settings
 
     # -------------------------------------------------------------------------
     # Private helper methods
@@ -419,8 +430,8 @@ class CashFlowService:
             self.db.query(Invoice)
             .filter(Invoice.is_deleted == False)  # noqa: E712
             .filter(Invoice.status.in_(["sent", "pending", "overdue", "partially_paid"]))
-            .filter(Invoice.due_date >= datetime.combine(start_date, datetime.min.time()))
-            .filter(Invoice.due_date <= datetime.combine(end_date, datetime.max.time()))
+            .filter(Invoice.due_date >= datetime.combine(start_date, datetime.min.time(), tzinfo=timezone.utc))
+            .filter(Invoice.due_date <= datetime.combine(end_date, datetime.max.time(), tzinfo=timezone.utc))
             .all()
         )
 
@@ -452,7 +463,7 @@ class CashFlowService:
 
         for inv in recurring_invoices:
             predicted_dates = self._predict_recurring_dates(
-                inv.recurring_frequency, inv.created_at, start_date, end_date
+                inv.recurring_frequency, inv.due_date, start_date, end_date
             )
             for pred_date in predicted_dates:
                 entries.append(
@@ -476,10 +487,11 @@ class CashFlowService:
                 while current <= end_date:
                     # Only add for days without existing entries
                     if not any(e.date == current for e in entries):
+                        interval_days = self._historical_pattern_interval_days(current, end_date)
                         entries.append(
                             CashFlowEntry(
                                 date=current,
-                                amount=avg_daily,
+                                amount=avg_daily * interval_days,
                                 type="inflow",
                                 category="historical_pattern",
                                 description="Based on historical average",
@@ -498,14 +510,15 @@ class CashFlowService:
         3. Historical average spending
         """
         entries = []
+        now = datetime.now(timezone.utc)
 
-        # 1. Known upcoming expenses (future-dated or pending)
+        # 1. Known upcoming expenses that have not already affected current balance.
         upcoming_expenses = (
             self.db.query(Expense)
             .filter(Expense.is_deleted == False)  # noqa: E712
             .filter(Expense.status.in_(["pending", "approved", "recorded"]))
-            .filter(Expense.expense_date >= datetime.combine(start_date, datetime.min.time()))
-            .filter(Expense.expense_date <= datetime.combine(end_date, datetime.max.time()))
+            .filter(Expense.expense_date > now)
+            .filter(Expense.expense_date <= datetime.combine(end_date, datetime.max.time(), tzinfo=timezone.utc))
             .all()
         )
 
@@ -533,10 +546,11 @@ class CashFlowService:
             while current <= end_date:
                 day_total = sum(e.amount for e in entries if e.date == current)
                 if day_total == 0:
+                    interval_days = self._historical_pattern_interval_days(current, end_date)
                     entries.append(
                         CashFlowEntry(
                             date=current,
-                            amount=avg_daily_expense,
+                            amount=avg_daily_expense * interval_days,
                             type="outflow",
                             category="historical_pattern",
                             description="Based on historical average",
@@ -608,14 +622,21 @@ class CashFlowService:
 
         return dates
 
+    def _historical_pattern_interval_days(self, current: date, end_date: date) -> int:
+        """Return how many days a weekly historical pattern entry represents."""
+        remaining_days = (end_date - current).days + 1
+        return max(1, min(HISTORICAL_PATTERN_INTERVAL_DAYS, remaining_days))
+
     def _get_historical_average_daily_income(self) -> float:
         """Calculate average daily income from the last 90 days."""
-        ninety_days_ago = datetime.now(timezone.utc) - timedelta(days=90)
+        now = datetime.now(timezone.utc)
+        ninety_days_ago = now - timedelta(days=90)
 
         total = (
             self.db.query(func.coalesce(func.sum(Payment.amount), 0.0))
             .filter(Payment.payment_date != None)  # noqa: E711
             .filter(Payment.payment_date >= ninety_days_ago)
+            .filter(Payment.payment_date <= now)
             .scalar()
         ) or 0.0
 
@@ -623,7 +644,8 @@ class CashFlowService:
 
     def _get_historical_average_daily_expense(self) -> float:
         """Calculate average daily expense from the last 90 days."""
-        ninety_days_ago = datetime.now(timezone.utc) - timedelta(days=90)
+        now = datetime.now(timezone.utc)
+        ninety_days_ago = now - timedelta(days=90)
 
         total = (
             self.db.query(func.coalesce(func.sum(Expense.amount), 0.0))
@@ -631,6 +653,7 @@ class CashFlowService:
             .filter(Expense.status != "cancelled")
             .filter(Expense.expense_date != None)  # noqa: E711
             .filter(Expense.expense_date >= ninety_days_ago)
+            .filter(Expense.expense_date <= now)
             .scalar()
         ) or 0.0
 

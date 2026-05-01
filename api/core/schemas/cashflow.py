@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List
-from datetime import date, datetime
+from datetime import date
 from enum import Enum
 
 
@@ -63,11 +63,18 @@ class ScenarioInput(BaseModel):
     """Input for what-if scenario modeling."""
     description: str = Field(..., description="Description of the scenario")
     delayed_invoice_ids: Optional[List[int]] = Field(default=None, description="Invoice IDs that would be delayed")
-    delay_days: Optional[int] = Field(default=30, description="Number of days to delay")
-    additional_expense: Optional[float] = Field(default=None, description="Additional one-time expense")
+    delay_days: Optional[int] = Field(default=30, ge=0, description="Number of days to delay")
+    additional_expense: Optional[float] = Field(default=None, ge=0, description="Additional one-time expense")
     additional_expense_date: Optional[date] = Field(default=None, description="Date of additional expense")
-    revenue_change_percent: Optional[float] = Field(default=None, description="Percentage change in projected revenue (-50 to +100)")
-    expense_change_percent: Optional[float] = Field(default=None, description="Percentage change in projected expenses (-50 to +100)")
+    revenue_change_percent: Optional[float] = Field(default=None, ge=-100, description="Percentage change in projected revenue")
+    expense_change_percent: Optional[float] = Field(default=None, ge=-100, description="Percentage change in projected expenses")
+
+    @field_validator("description")
+    @classmethod
+    def description_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("description must not be blank")
+        return value
 
 
 class ScenarioResult(BaseModel):
@@ -85,15 +92,21 @@ class ScenarioResult(BaseModel):
 
 class CashFlowThresholdSettings(BaseModel):
     """Settings for cash flow alert thresholds."""
-    safety_threshold: float = Field(default=10000.0, description="Alert when balance drops below this amount")
-    warning_threshold: float = Field(default=25000.0, description="Warning when balance approaches this amount")
+    safety_threshold: float = Field(default=10000.0, ge=0, description="Alert when balance drops below this amount")
+    warning_threshold: float = Field(default=25000.0, ge=0, description="Warning when balance approaches this amount")
     currency: str = Field(default="USD", description="Currency for thresholds")
+
+    @model_validator(mode="after")
+    def warning_must_not_be_below_safety(self) -> "CashFlowThresholdSettings":
+        if self.warning_threshold < self.safety_threshold:
+            raise ValueError("warning_threshold must be greater than or equal to safety_threshold")
+        return self
 
 
 class CashFlowThresholdUpdate(BaseModel):
     """Update request for cash flow thresholds."""
-    safety_threshold: Optional[float] = None
-    warning_threshold: Optional[float] = None
+    safety_threshold: Optional[float] = Field(default=None, ge=0)
+    warning_threshold: Optional[float] = Field(default=None, ge=0)
     currency: Optional[str] = None
 
 

@@ -56,6 +56,17 @@ import {
 // Milliseconds per day constant
 const MS_PER_DAY = 86_400_000;
 
+const parseOptionalScenarioNumber = (value: string, label: string): number | null => {
+  if (!value.trim()) return null;
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`${label} must be a valid number`);
+  }
+
+  return parsed;
+};
+
 // Format currency
 const formatCurrency = (amount: number, currency = 'USD'): string => {
   return new Intl.NumberFormat(undefined, {
@@ -355,12 +366,40 @@ const ScenarioBuilder: React.FC = () => {
       return;
     }
 
+    let parsedRevenueChange: number | null;
+    let parsedExpenseChange: number | null;
+    let parsedAdditionalExpense: number | null;
+
+    try {
+      parsedRevenueChange = parseOptionalScenarioNumber(revenueChange, 'Revenue change');
+      parsedExpenseChange = parseOptionalScenarioNumber(expenseChange, 'Expense change');
+      parsedAdditionalExpense = parseOptionalScenarioNumber(additionalExpense, 'Additional expense');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Please enter valid scenario values');
+      return;
+    }
+
+    if (parsedRevenueChange != null && parsedRevenueChange < -100) {
+      toast.error('Revenue change cannot reduce revenue below zero');
+      return;
+    }
+
+    if (parsedExpenseChange != null && parsedExpenseChange < -100) {
+      toast.error('Expense change cannot reduce expenses below zero');
+      return;
+    }
+
+    if (parsedAdditionalExpense != null && parsedAdditionalExpense < 0) {
+      toast.error('Additional expense cannot be negative');
+      return;
+    }
+
     const scenario: ScenarioInput = {
       description: description.trim(),
-      revenue_change_percent: revenueChange ? parseFloat(revenueChange) : null,
-      expense_change_percent: expenseChange ? parseFloat(expenseChange) : null,
-      additional_expense: additionalExpense ? parseFloat(additionalExpense) : null,
-      additional_expense_date: additionalExpense
+      revenue_change_percent: parsedRevenueChange,
+      expense_change_percent: parsedExpenseChange,
+      additional_expense: parsedAdditionalExpense,
+      additional_expense_date: parsedAdditionalExpense != null
         ? new Date(Date.now() + 7 * MS_PER_DAY).toISOString().split('T')[0]
         : null,
     };

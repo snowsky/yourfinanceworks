@@ -10,13 +10,12 @@ Tests cover:
 
 import pytest
 from datetime import datetime, date, timedelta, timezone
-from unittest.mock import patch, MagicMock
+from pydantic import ValidationError
 
 from core.services.cashflow_service import CashFlowService
 from core.schemas.cashflow import (
     ScenarioInput,
     CashFlowThresholdSettings,
-    ForecastPeriod,
 )
 
 
@@ -134,8 +133,8 @@ class TestCashFlowService:
         """Test current balance calculation from payments minus expenses."""
         balance = service.get_current_balance()
         # 10 payments of 1000 = 10000
-        # 10 expenses of 500 + 1 of 2000 = 7000
-        assert balance == 10000.0 - 7000.0  # 3000.0
+        # 10 historical/current expenses of 500 = 5000; future expenses are not current cash.
+        assert balance == 10000.0 - 5000.0  # 5000.0
 
     def test_get_forecast_30d(self, service, seed_data):
         """Test 30-day forecast includes outstanding invoices and expenses."""
@@ -148,6 +147,10 @@ class TestCashFlowService:
         assert len(forecast.daily_balances) == 31  # Including today
         assert forecast.total_projected_inflows > 0
         assert forecast.total_projected_outflows > 0
+        assert not any(
+            entry.category == "expense" and entry.description == "operations: Unknown"
+            for entry in forecast.outflow_entries
+        )
 
     def test_get_forecast_7d(self, service, seed_data):
         """Test 7-day forecast."""
@@ -270,6 +273,18 @@ class TestCashFlowService:
         assert reloaded.safety_threshold == 5000.0
         assert reloaded.warning_threshold == 15000.0
 
+    def test_update_threshold_settings_rejects_invalid_order(self, service):
+        """Invalid threshold updates should not be persisted."""
+        with pytest.raises(ValidationError):
+            service.update_threshold_settings(
+                safety_threshold=20000.0,
+                warning_threshold=10000.0,
+            )
+
+        reloaded = service.get_threshold_settings()
+        assert reloaded.safety_threshold == 10000.0
+        assert reloaded.warning_threshold == 25000.0
+
     def test_forecast_daily_balances_continuity(self, service, seed_data):
         """Test that daily balances are continuous (no gaps)."""
         forecast = service.get_forecast(period="30d")
@@ -294,3 +309,92 @@ class TestCashFlowService:
         assert forecast.current_balance == 0.0
         assert len(forecast.daily_balances) == 8
         assert forecast.period == "7d"
+
+    def test_current_balance_excludes_future_payments(self, db_session):
+        """Future-dated payments should not affect current cash."""
+        from core.models.models_per_tenant import Payment
+
+        now = datetime.now(timezone.utc)
+        db_session.add(
+            Payment(
+                amount=5000.0,
+                currency="USD",
+                payment_date=now + timedelta(days=3),
+                payment_method="bank_transfer",
+            )
+        )
+        db_session.commit()
+
+        service = CashFlowService(db_session)
+        assert service.get_current_balance() == 0.0
+
+    def test_historical_pattern_entries_are_scaled_by_interval(self, db_session):
+        """Weekly historical pattern entries should represent the whole interval."""
+        from core.models.models_per_tenant import Payment
+
+        now = datetime.now(timezone.utc)
+        db_session.add(
+            Payment(
+                amount=9000.0,
+                currency="USD",
+                payment_date=now - timedelta(days=10),
+                payment_method="bank_transfer",
+            )
+        )
+        db_session.commit()
+
+        service = CashFlowService(db_session)
+        entries = service._get_projected_inflows(date.today(), date.today() + timedelta(days=13))
+        pattern_entries = [entry for entry in entries if entry.category == "historical_pattern"]
+
+        assert len(pattern_entries) == 2
+        assert pattern_entries[0].amount == pytest.approx(700.0)
+        assert pattern_entries[1].amount == pytest.approx(600.0)
+
+    def test_recurring_invoice_projection_uses_due_date_anchor(self, db_session):
+        """Recurring invoice cash timing should follow due dates."""
+        from core.models.models_per_tenant import Client, Invoice
+
+        now = datetime.now(timezone.utc)
+        client = Client(name="Recurring Client", email="recurring@test.com")
+        db_session.add(client)
+        db_session.commit()
+        db_session.refresh(client)
+
+        invoice = Invoice(
+            number="INV-RECUR-DUE",
+            amount=1200.0,
+            currency="USD",
+            due_date=now - timedelta(days=15),
+            status="paid",
+            client_id=client.id,
+            subtotal=1200.0,
+            is_recurring=True,
+            recurring_frequency="monthly",
+            created_at=now - timedelta(days=3),
+        )
+        db_session.add(invoice)
+        db_session.commit()
+
+        service = CashFlowService(db_session)
+        entries = service._get_projected_inflows(date.today(), date.today() + timedelta(days=30))
+        recurring_entries = [entry for entry in entries if entry.category == "recurring_invoice"]
+
+        assert len(recurring_entries) == 1
+        assert recurring_entries[0].date == (now - timedelta(days=15)).date() + timedelta(days=30)
+
+    def test_scenario_input_rejects_invalid_values(self):
+        """Scenario values should not create negative cash flow entries."""
+        with pytest.raises(ValidationError):
+            ScenarioInput(description="Bad expense", additional_expense=-1)
+
+        with pytest.raises(ValidationError):
+            ScenarioInput(description="Bad delay", delay_days=-1)
+
+        with pytest.raises(ValidationError):
+            ScenarioInput(description="Bad revenue", revenue_change_percent=-101)
+
+    def test_threshold_settings_reject_invalid_order(self):
+        """Warning threshold must be at least the safety threshold."""
+        with pytest.raises(ValidationError):
+            CashFlowThresholdSettings(safety_threshold=10000.0, warning_threshold=5000.0)
