@@ -48,14 +48,6 @@ const Settings = () => {
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const tab = urlParams.get('tab');
-    if (tab && tab !== activeTab) {
-      setActiveTab(tab);
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
     const currentTab = urlParams.get('tab');
     if (activeTab !== currentTab) {
       if (activeTab) {
