@@ -102,6 +102,106 @@ const buildSourceSummary = (entries: CashFlowEntry[]) => {
   return Array.from(summary.values()).sort((a, b) => b.total - a.total);
 };
 
+type BreakdownGroup = {
+  key: string;
+  label: string;
+  count: number;
+  total: number;
+  categories: Array<{ label: string; count: number; total: number }>;
+};
+
+const buildSourceBreakdown = (entries: CashFlowEntry[]): BreakdownGroup[] => {
+  const groups = new Map<string, BreakdownGroup>();
+
+  entries.forEach((entry) => {
+    const key = entry.source || entry.category;
+    const group = groups.get(key) || {
+      key,
+      label: getSourceLabel(entry),
+      count: 0,
+      total: 0,
+      categories: [],
+    };
+
+    group.count += 1;
+    group.total += entry.amount;
+
+    if (entry.source === 'bank_statement_pattern') {
+      const categoryLabel = entry.description || entry.category || 'Bank statement category';
+      const existingCategory = group.categories.find((item) => item.label === categoryLabel);
+      if (existingCategory) {
+        existingCategory.count += 1;
+        existingCategory.total += entry.amount;
+      } else {
+        group.categories.push({ label: categoryLabel, count: 1, total: entry.amount });
+      }
+    }
+
+    groups.set(key, group);
+  });
+
+  return Array.from(groups.values())
+    .map((group) => ({
+      ...group,
+      categories: group.categories.sort((a, b) => b.total - a.total),
+    }))
+    .sort((a, b) => b.total - a.total);
+};
+
+const SourceBreakdownPanel: React.FC<{
+  title: string;
+  entries: CashFlowEntry[];
+  total: number;
+  tone: 'income' | 'expense';
+}> = ({ title, entries, total, tone }) => {
+  const groups = buildSourceBreakdown(entries);
+  const accentClass = tone === 'income' ? 'bg-green-600' : 'bg-red-600';
+  const amountClass = tone === 'income' ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400';
+
+  return (
+    <div className="rounded border bg-muted/20 p-4">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <p className="font-semibold">{title}</p>
+        <p className={`text-sm font-semibold ${amountClass}`}>{formatCurrency(total)}</p>
+      </div>
+      {groups.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No projected entries</p>
+      ) : (
+        <div className="space-y-3">
+          {groups.map((group) => {
+            const percentage = total > 0 ? Math.round((group.total / total) * 100) : 0;
+
+            return (
+              <div key={group.key} className="space-y-2">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{group.label}</p>
+                    <p className="text-xs text-muted-foreground">{group.count} projected item{group.count === 1 ? '' : 's'} · {percentage}%</p>
+                  </div>
+                  <p className={`font-semibold tabular-nums ${amountClass}`}>{formatCurrency(group.total)}</p>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div className={`h-full rounded-full ${accentClass}`} style={{ width: `${Math.min(percentage, 100)}%` }} />
+                </div>
+                {group.categories.length > 0 && (
+                  <div className="ml-3 space-y-1 border-l pl-3">
+                    {group.categories.map((category) => (
+                      <div key={category.label} className="flex items-center justify-between gap-3 text-xs">
+                        <span className="text-muted-foreground truncate">{category.label} · {category.count}</span>
+                        <span className={`font-medium tabular-nums ${amountClass}`}>{formatCurrency(category.total)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ---- Alerts Banner ----
 const AlertsBanner: React.FC<{ alerts: CashFlowAlertResponse | undefined }> = ({ alerts }) => {
   if (!alerts?.has_alerts) return null;
@@ -330,6 +430,21 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
               ))}
             </div>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <SourceBreakdownPanel
+            title="Income breakdown"
+            entries={inflows}
+            total={forecast.total_projected_inflows}
+            tone="income"
+          />
+          <SourceBreakdownPanel
+            title="Expense breakdown"
+            entries={outflows}
+            total={forecast.total_projected_outflows}
+            tone="expense"
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
