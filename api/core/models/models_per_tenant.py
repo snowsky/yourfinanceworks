@@ -716,6 +716,56 @@ class ReportHistory(Base):
     user = relationship("User")
 
 
+# --- Scheduled Job Alert Models ---
+
+class ScheduledJobAlert(Base):
+    """Alert rules that trigger notifications based on scheduled job outputs."""
+    __tablename__ = "scheduled_job_alerts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    scheduled_report_id = Column(Integer, ForeignKey("scheduled_reports.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+
+    # Condition configuration (e.g., {"field": "total_amount", "operator": "gt", "threshold": 10000})
+    condition = Column(JSON, nullable=False)
+
+    # Notification channels and recipients
+    notification_channels = Column(JSON, nullable=False, default=["email"])  # email, slack, webhook
+    recipients = Column(JSON, nullable=False)  # email addresses or channel identifiers
+
+    # Severity and status
+    severity = Column(String, nullable=False, default="medium")  # low, medium, high, critical
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    # Cooldown to avoid alert storms (in minutes)
+    cooldown_minutes = Column(Integer, default=60, nullable=False)
+    last_triggered_at = Column(DateTime(timezone=True), nullable=True)
+
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    scheduled_report = relationship("ScheduledReport", backref="alerts")
+    user = relationship("User")
+
+
+class ScheduledJobAlertHistory(Base):
+    """History of triggered alerts."""
+    __tablename__ = "scheduled_job_alert_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    alert_id = Column(Integer, ForeignKey("scheduled_job_alerts.id", ondelete="CASCADE"), nullable=False)
+    triggered_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    condition_result = Column(JSON, nullable=True)  # Snapshot of the evaluation result
+    notification_sent = Column(Boolean, default=False, nullable=False)
+    notification_error = Column(Text, nullable=True)
+
+    # Relationships
+    alert = relationship("ScheduledJobAlert", backref="history")
+
+
 # --- Inventory Management Models ---
 
 class InventoryCategory(Base):

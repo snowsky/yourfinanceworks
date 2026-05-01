@@ -154,6 +154,18 @@ class ReportSchedulerBackgroundService:
                     schedule_id
                 )
                 
+                # Evaluate alerts for this schedule execution
+                try:
+                    await loop.run_in_executor(
+                        None,
+                        self._evaluate_alerts_for_execution,
+                        scheduler.db,
+                        schedule_id,
+                        result,
+                    )
+                except Exception as alert_err:
+                    logger.error(f"Alert evaluation failed for schedule {schedule_id}: {alert_err}")
+                
                 return {
                     "schedule_id": schedule_id,
                     "success": result.success,
@@ -196,6 +208,15 @@ class ReportSchedulerBackgroundService:
         
         logger.warning("No email provider configured for scheduled reports")
         return None
+
+    def _evaluate_alerts_for_execution(self, db: 'Session', schedule_id: int, report_result) -> None:
+        """Evaluate alert rules after a scheduled report execution."""
+        from core.services.scheduled_job_alerting_service import ScheduledJobAlertingService
+
+        alerting_service = ScheduledJobAlertingService(db)
+        triggered = alerting_service.evaluate_alerts_for_schedule(schedule_id, report_result)
+        if triggered:
+            logger.info(f"Triggered {len(triggered)} alert(s) for schedule {schedule_id}")
     
     def get_status(self) -> Dict[str, Any]:
         """Get the current status of the background service."""
