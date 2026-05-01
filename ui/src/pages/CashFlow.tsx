@@ -158,7 +158,7 @@ const RunwayCard: React.FC<{ runway: CashRunwayResponse | undefined; isLoading: 
           </div>
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Runway</p>
-            <p className="text-2xl font-bold">
+            <div className="text-2xl font-bold">
               {runway.is_sustainable ? (
                 <Badge variant="default" className="bg-green-600 text-lg px-3 py-1" aria-label="Cash flow is sustainable">Sustainable ✓</Badge>
               ) : runway.runway_days != null ? (
@@ -166,7 +166,7 @@ const RunwayCard: React.FC<{ runway: CashRunwayResponse | undefined; isLoading: 
               ) : (
                 <Badge variant="secondary">N/A</Badge>
               )}
-            </p>
+            </div>
           </div>
         </div>
       </ProfessionalCardContent>
