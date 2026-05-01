@@ -19,6 +19,9 @@ class CashFlowEntry(BaseModel):
     description: Optional[str] = None
     reference_id: Optional[int] = None
     confidence: float = Field(default=1.0, description="Confidence level 0.0-1.0 for predicted entries")
+    source: str = Field(default="unknown", description="Machine-readable projection source")
+    source_label: str = Field(default="Unknown source", description="Human-readable projection source")
+    source_details: Optional[str] = Field(default=None, description="Short explanation of how this entry was derived")
 
 
 class DailyBalance(BaseModel):
@@ -95,6 +98,16 @@ class CashFlowThresholdSettings(BaseModel):
     safety_threshold: float = Field(default=10000.0, ge=0, description="Alert when balance drops below this amount")
     warning_threshold: float = Field(default=25000.0, ge=0, description="Warning when balance approaches this amount")
     currency: str = Field(default="USD", description="Currency for thresholds")
+    include_outstanding_invoices: bool = True
+    include_recurring_invoices: bool = True
+    include_upcoming_expenses: bool = True
+    include_historical_averages: bool = True
+    include_bank_statement_patterns: bool = True
+    bank_statement_lookback_days: int = Field(default=120, ge=30, le=365)
+    bank_statement_min_occurrences: int = Field(default=2, ge=2, le=12)
+    bank_statement_intervals: List[int] = Field(default_factory=lambda: [7, 14, 30, 90])
+    bank_statement_inflow_categories: List[str] = Field(default_factory=list)
+    bank_statement_outflow_categories: List[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def warning_must_not_be_below_safety(self) -> "CashFlowThresholdSettings":
@@ -102,12 +115,46 @@ class CashFlowThresholdSettings(BaseModel):
             raise ValueError("warning_threshold must be greater than or equal to safety_threshold")
         return self
 
+    @field_validator("bank_statement_intervals")
+    @classmethod
+    def intervals_must_be_supported(cls, value: List[int]) -> List[int]:
+        supported = {7, 14, 30, 90}
+        cleaned = sorted(set(value))
+        if not cleaned:
+            raise ValueError("at least one bank statement interval must be selected")
+        if any(interval not in supported for interval in cleaned):
+            raise ValueError("bank statement intervals must be one of 7, 14, 30, or 90 days")
+        return cleaned
+
+    @field_validator("bank_statement_inflow_categories", "bank_statement_outflow_categories")
+    @classmethod
+    def normalize_categories(cls, value: List[str]) -> List[str]:
+        seen = set()
+        normalized = []
+        for item in value:
+            cleaned = item.strip()
+            key = cleaned.lower()
+            if cleaned and key not in seen:
+                seen.add(key)
+                normalized.append(cleaned)
+        return normalized
+
 
 class CashFlowThresholdUpdate(BaseModel):
     """Update request for cash flow thresholds."""
     safety_threshold: Optional[float] = Field(default=None, ge=0)
     warning_threshold: Optional[float] = Field(default=None, ge=0)
     currency: Optional[str] = None
+    include_outstanding_invoices: Optional[bool] = None
+    include_recurring_invoices: Optional[bool] = None
+    include_upcoming_expenses: Optional[bool] = None
+    include_historical_averages: Optional[bool] = None
+    include_bank_statement_patterns: Optional[bool] = None
+    bank_statement_lookback_days: Optional[int] = Field(default=None, ge=30, le=365)
+    bank_statement_min_occurrences: Optional[int] = Field(default=None, ge=2, le=12)
+    bank_statement_intervals: Optional[List[int]] = None
+    bank_statement_inflow_categories: Optional[List[str]] = None
+    bank_statement_outflow_categories: Optional[List[str]] = None
 
 
 class CashFlowAlertResponse(BaseModel):

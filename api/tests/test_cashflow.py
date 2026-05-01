@@ -382,6 +382,158 @@ class TestCashFlowService:
 
         assert len(recurring_entries) == 1
         assert recurring_entries[0].date == (now - timedelta(days=15)).date() + timedelta(days=30)
+        assert recurring_entries[0].source_label == "Recurring invoice"
+
+    def test_bank_statement_recurring_patterns_create_forecast_entries(self, db_session):
+        """Recurring bank statement transactions should be projected into cash flow."""
+        from core.models.models_per_tenant import BankStatement, BankStatementTransaction
+
+        statement = BankStatement(
+            tenant_id=1,
+            original_filename="bank.csv",
+            stored_filename="bank.csv",
+            file_path="/tmp/bank.csv",
+            status="processed",
+        )
+        db_session.add(statement)
+        db_session.commit()
+        db_session.refresh(statement)
+
+        for days_ago in (60, 30):
+            db_session.add(
+                BankStatementTransaction(
+                    statement_id=statement.id,
+                    date=date.today() - timedelta(days=days_ago),
+                    description="Mortgage Payment",
+                    amount=1800.0,
+                    transaction_type="debit",
+                    category="Mortgage",
+                )
+            )
+
+        for days_ago in (60, 30):
+            db_session.add(
+                BankStatementTransaction(
+                    statement_id=statement.id,
+                    date=date.today() - timedelta(days=days_ago),
+                    description="Salary Deposit",
+                    amount=4500.0,
+                    transaction_type="credit",
+                    category="Salary",
+                )
+            )
+        db_session.commit()
+
+        service = CashFlowService(db_session)
+        forecast = service.get_forecast(period="30d", current_balance=0.0)
+
+        bank_outflows = [
+            entry for entry in forecast.outflow_entries
+            if entry.source == "bank_statement_pattern" and entry.description == "Mortgage"
+        ]
+        bank_inflows = [
+            entry for entry in forecast.inflow_entries
+            if entry.source == "bank_statement_pattern" and entry.description == "Salary"
+        ]
+
+        assert len(bank_outflows) == 2
+        assert bank_outflows[0].amount == pytest.approx(1800.0)
+        assert bank_outflows[0].source_label == "Bank statement pattern"
+        assert "2 debit transactions" in bank_outflows[0].source_details
+        assert len(bank_inflows) == 2
+        assert bank_inflows[0].amount == pytest.approx(4500.0)
+
+    def test_cashflow_settings_can_disable_bank_statement_patterns(self, db_session):
+        """Bank statement patterns should be excluded when disabled in settings."""
+        from core.models.models_per_tenant import BankStatement, BankStatementTransaction
+
+        statement = BankStatement(
+            tenant_id=1,
+            original_filename="bank.csv",
+            stored_filename="bank.csv",
+            file_path="/tmp/bank.csv",
+            status="processed",
+        )
+        db_session.add(statement)
+        db_session.commit()
+        db_session.refresh(statement)
+
+        for days_ago in (60, 30):
+            db_session.add(
+                BankStatementTransaction(
+                    statement_id=statement.id,
+                    date=date.today() - timedelta(days=days_ago),
+                    description="Utility Bill",
+                    amount=120.0,
+                    transaction_type="debit",
+                    category="Utilities",
+                )
+            )
+        db_session.commit()
+
+        service = CashFlowService(db_session)
+        service.update_threshold_settings(include_bank_statement_patterns=False)
+        forecast = service.get_forecast(period="30d", current_balance=0.0)
+
+        assert not any(entry.source == "bank_statement_pattern" for entry in forecast.outflow_entries)
+
+    def test_cashflow_settings_filter_bank_statement_categories(self, db_session):
+        """Configured debit categories should control which statement patterns are counted."""
+        from core.models.models_per_tenant import BankStatement, BankStatementTransaction
+
+        statement = BankStatement(
+            tenant_id=1,
+            original_filename="bank.csv",
+            stored_filename="bank.csv",
+            file_path="/tmp/bank.csv",
+            status="processed",
+        )
+        db_session.add(statement)
+        db_session.commit()
+        db_session.refresh(statement)
+
+        for category, amount in (("Mortgage", 1800.0), ("Dining", 75.0)):
+            for days_ago in (60, 30):
+                db_session.add(
+                    BankStatementTransaction(
+                        statement_id=statement.id,
+                        date=date.today() - timedelta(days=days_ago),
+                        description=f"{category} debit",
+                        amount=amount,
+                        transaction_type="debit",
+                        category=category,
+                    )
+                )
+        db_session.commit()
+
+        service = CashFlowService(db_session)
+        service.update_threshold_settings(bank_statement_outflow_categories=["Mortgage"])
+        forecast = service.get_forecast(period="30d", current_balance=0.0)
+        bank_outflows = [entry for entry in forecast.outflow_entries if entry.source == "bank_statement_pattern"]
+
+        assert bank_outflows
+        assert all(entry.description == "Mortgage" for entry in bank_outflows)
+
+    def test_cashflow_settings_can_disable_historical_averages(self, db_session):
+        """Historical average projections should be optional."""
+        from core.models.models_per_tenant import Payment
+
+        now = datetime.now(timezone.utc)
+        db_session.add(
+            Payment(
+                amount=9000.0,
+                currency="USD",
+                payment_date=now - timedelta(days=10),
+                payment_method="bank_transfer",
+            )
+        )
+        db_session.commit()
+
+        service = CashFlowService(db_session)
+        service.update_threshold_settings(include_historical_averages=False)
+        forecast = service.get_forecast(period="30d", current_balance=0.0)
+
+        assert not any(entry.source == "historical_average" for entry in forecast.inflow_entries)
 
     def test_scenario_input_rejects_invalid_values(self):
         """Scenario values should not create negative cash flow entries."""

@@ -21,6 +21,7 @@ import {
   type CashFlowAlertResponse,
   type ScenarioInput,
   type ScenarioResult,
+  type CashFlowEntry,
 } from '@/lib/api/cashflow';
 import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
 import {
@@ -80,6 +81,25 @@ const formatCurrency = (amount: number, currency = 'USD'): string => {
 // Format date for display
 const formatDate = (dateStr: string): string => {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const getSourceLabel = (entry: CashFlowEntry): string => {
+  if (entry.source_label) return entry.source_label;
+  return entry.category.replace(/_/g, ' ');
+};
+
+const buildSourceSummary = (entries: CashFlowEntry[]) => {
+  const summary = new Map<string, { label: string; count: number; total: number }>();
+
+  entries.forEach((entry) => {
+    const key = entry.source || entry.category;
+    const current = summary.get(key) || { label: getSourceLabel(entry), count: 0, total: 0 };
+    current.count += 1;
+    current.total += entry.amount;
+    summary.set(key, current);
+  });
+
+  return Array.from(summary.values()).sort((a, b) => b.total - a.total);
 };
 
 // ---- Alerts Banner ----
@@ -257,6 +277,8 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
 
   const inflows = forecast.inflow_entries || [];
   const outflows = forecast.outflow_entries || [];
+  const inflowSources = buildSourceSummary(inflows);
+  const outflowSources = buildSourceSummary(outflows);
 
   if (inflows.length === 0 && outflows.length === 0) {
     return (
@@ -283,6 +305,33 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
         </ProfessionalCardTitle>
       </ProfessionalCardHeader>
       <ProfessionalCardContent>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="rounded border p-3 bg-muted/30">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Income sources</p>
+            <div className="flex flex-wrap gap-2">
+              {inflowSources.length === 0 ? (
+                <span className="text-xs text-muted-foreground">No projected income sources</span>
+              ) : inflowSources.map((source) => (
+                <Badge key={source.label} variant="secondary" className="font-normal">
+                  {source.label}: {source.count} · {formatCurrency(source.total)}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          <div className="rounded border p-3 bg-muted/30">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Expense sources</p>
+            <div className="flex flex-wrap gap-2">
+              {outflowSources.length === 0 ? (
+                <span className="text-xs text-muted-foreground">No projected expense sources</span>
+              ) : outflowSources.map((source) => (
+                <Badge key={source.label} variant="secondary" className="font-normal">
+                  {source.label}: {source.count} · {formatCurrency(source.total)}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Inflows / Income */}
           <div>
@@ -298,7 +347,10 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
                   <div key={i} className="flex items-center justify-between p-2 rounded border bg-green-50/50 dark:bg-green-950/30">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{entry.description || entry.category}</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(entry.date)} • {entry.category}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(entry.date)} • {getSourceLabel(entry)}
+                        {entry.source_details ? ` • ${entry.source_details}` : ''}
+                      </p>
                     </div>
                     <div className="text-right ml-2">
                       <p className="text-sm font-semibold text-green-700 dark:text-green-400">+{formatCurrency(entry.amount)}</p>
@@ -324,7 +376,10 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
                   <div key={i} className="flex items-center justify-between p-2 rounded border bg-red-50/50 dark:bg-red-950/30">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{entry.description || entry.category}</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(entry.date)} • {entry.category}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(entry.date)} • {getSourceLabel(entry)}
+                        {entry.source_details ? ` • ${entry.source_details}` : ''}
+                      </p>
                     </div>
                     <div className="text-right ml-2">
                       <p className="text-sm font-semibold text-red-700 dark:text-red-400">-{formatCurrency(entry.amount)}</p>

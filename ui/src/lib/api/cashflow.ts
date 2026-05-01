@@ -9,6 +9,9 @@ export interface CashFlowEntry {
   description?: string | null;
   reference_id?: number | null;
   confidence: number;
+  source: string;
+  source_label: string;
+  source_details?: string | null;
 }
 
 export interface DailyBalance {
@@ -72,6 +75,16 @@ export interface CashFlowThresholdSettings {
   safety_threshold: number;
   warning_threshold: number;
   currency: string;
+  include_outstanding_invoices: boolean;
+  include_recurring_invoices: boolean;
+  include_upcoming_expenses: boolean;
+  include_historical_averages: boolean;
+  include_bank_statement_patterns: boolean;
+  bank_statement_lookback_days: number;
+  bank_statement_min_occurrences: number;
+  bank_statement_intervals: number[];
+  bank_statement_inflow_categories: string[];
+  bank_statement_outflow_categories: string[];
 }
 
 export interface CashFlowAlertResponse {
