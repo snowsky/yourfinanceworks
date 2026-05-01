@@ -10,6 +10,14 @@ class ForecastPeriod(str, Enum):
     NINETY_DAYS = "90d"
 
 
+class CashFlowReference(BaseModel):
+    """Source record used to derive a projected cash flow entry."""
+    type: str
+    id: int
+    label: str
+    url: Optional[str] = None
+
+
 class CashFlowEntry(BaseModel):
     """A single projected cash flow entry (inflow or outflow)."""
     date: date
@@ -22,6 +30,10 @@ class CashFlowEntry(BaseModel):
     source: str = Field(default="unknown", description="Machine-readable projection source")
     source_label: str = Field(default="Unknown source", description="Human-readable projection source")
     source_details: Optional[str] = Field(default=None, description="Short explanation of how this entry was derived")
+    references: List[CashFlowReference] = Field(
+        default_factory=list,
+        description="Source records that explain or support this projection",
+    )
 
 
 class DailyBalance(BaseModel):

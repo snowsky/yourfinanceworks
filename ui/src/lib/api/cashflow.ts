@@ -1,6 +1,13 @@
 import { apiRequest } from './_base';
 
 // Types
+export interface CashFlowReference {
+  type: string;
+  id: number;
+  label: string;
+  url?: string | null;
+}
+
 export interface CashFlowEntry {
   date: string;
   amount: number;
@@ -12,6 +19,7 @@ export interface CashFlowEntry {
   source: string;
   source_label: string;
   source_details?: string | null;
+  references?: CashFlowReference[];
 }
 
 export interface DailyBalance {

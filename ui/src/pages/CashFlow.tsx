@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -11,6 +12,7 @@ import {
   Activity,
   Shield,
   Zap,
+  FileText,
 } from 'lucide-react';
 
 import {
@@ -86,6 +88,45 @@ const formatDate = (dateStr: string): string => {
 const getSourceLabel = (entry: CashFlowEntry): string => {
   if (entry.source_label) return entry.source_label;
   return entry.category.replace(/_/g, ' ');
+};
+
+const EntryReferences: React.FC<{ entry: CashFlowEntry }> = ({ entry }) => {
+  const references = entry.references || [];
+  if (references.length === 0) return null;
+
+  const visibleReferences = references.slice(0, 3);
+  const remainingCount = references.length - visibleReferences.length;
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+      {visibleReferences.map((reference, index) => {
+        const className = "inline-flex max-w-full items-center gap-1 rounded border bg-background/80 px-1.5 py-0.5 text-xs font-medium text-muted-foreground hover:text-foreground";
+        const content = (
+          <>
+            <FileText className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{reference.label}</span>
+          </>
+        );
+
+        if (reference.url) {
+          return (
+            <RouterLink key={`${reference.type}-${reference.id}-${index}`} to={reference.url} className={className}>
+              {content}
+            </RouterLink>
+          );
+        }
+
+        return (
+          <span key={`${reference.type}-${reference.id}-${index}`} className={className}>
+            {content}
+          </span>
+        );
+      })}
+      {remainingCount > 0 && (
+        <span className="text-xs text-muted-foreground">+{remainingCount} more</span>
+      )}
+    </div>
+  );
 };
 
 const buildSourceSummary = (entries: CashFlowEntry[]) => {
@@ -466,6 +507,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
                         {formatDate(entry.date)} • {getSourceLabel(entry)}
                         {entry.source_details ? ` • ${entry.source_details}` : ''}
                       </p>
+                      <EntryReferences entry={entry} />
                     </div>
                     <div className="text-right ml-2">
                       <p className="text-sm font-semibold text-green-700 dark:text-green-400">+{formatCurrency(entry.amount)}</p>
@@ -495,6 +537,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
                         {formatDate(entry.date)} • {getSourceLabel(entry)}
                         {entry.source_details ? ` • ${entry.source_details}` : ''}
                       </p>
+                      <EntryReferences entry={entry} />
                     </div>
                     <div className="text-right ml-2">
                       <p className="text-sm font-semibold text-red-700 dark:text-red-400">-{formatCurrency(entry.amount)}</p>

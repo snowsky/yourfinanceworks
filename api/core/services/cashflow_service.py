@@ -13,7 +13,7 @@ from statistics import median
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from core.models.models_per_tenant import (
     Invoice,
@@ -25,6 +25,7 @@ from core.models.models_per_tenant import (
 )
 from core.schemas.cashflow import (
     CashFlowEntry,
+    CashFlowReference,
     CashFlowForecastResponse,
     CashRunwayResponse,
     DailyBalance,
@@ -527,6 +528,7 @@ class CashFlowService:
                             source="invoice",
                             source_label="Outstanding invoice",
                             source_details="Open invoice due in the selected forecast window.",
+                            references=[self._invoice_reference(inv)],
                         )
                     )
 
@@ -557,6 +559,7 @@ class CashFlowService:
                             source="recurring_invoice",
                             source_label="Recurring invoice",
                             source_details="Predicted from a recurring invoice schedule.",
+                            references=[self._invoice_reference(inv)],
                         )
                     )
 
@@ -568,6 +571,7 @@ class CashFlowService:
         if settings.include_historical_averages and len(entries) < MIN_CONCRETE_ENTRIES_FOR_PATTERN:
             avg_daily = self._get_historical_average_daily_income()
             if avg_daily > 0:
+                references, reference_count = self._get_historical_payment_references()
                 current = start_date + timedelta(days=1)
                 while current <= end_date:
                     # Only add for days without existing entries
@@ -584,9 +588,10 @@ class CashFlowService:
                                 source="historical_average",
                                 source_label="Historical payment average",
                                 source_details=(
-                                    f"Average payments over the last 90 days, "
+                                    f"Average payments from {reference_count} records over the last 90 days, "
                                     f"grouped into {interval_days}-day forecast blocks."
                                 ),
+                                references=references,
                             )
                         )
                     current += timedelta(days=HISTORICAL_PATTERN_INTERVAL_DAYS)
@@ -636,6 +641,7 @@ class CashFlowService:
                             source="expense",
                             source_label="Upcoming expense",
                             source_details="Future-dated expense already recorded in the app.",
+                            references=[self._expense_reference(exp)],
                         )
                     )
 
@@ -645,6 +651,7 @@ class CashFlowService:
         # 2. Historical expense pattern - predict recurring expenses
         avg_daily_expense = self._get_historical_average_daily_expense()
         if settings.include_historical_averages and avg_daily_expense > 0:
+            references, reference_count = self._get_historical_expense_references()
             # Fill in with weekly averages for days without concrete entries
             current = start_date + timedelta(days=1)
             while current <= end_date:
@@ -662,9 +669,10 @@ class CashFlowService:
                             source="historical_average",
                             source_label="Historical expense average",
                             source_details=(
-                                f"Average expenses over the last 90 days, "
+                                f"Average expenses from {reference_count} records over the last 90 days, "
                                 f"grouped into {interval_days}-day forecast blocks."
                             ),
+                            references=references,
                         )
                     )
                 current += timedelta(days=HISTORICAL_PATTERN_INTERVAL_DAYS)
@@ -684,6 +692,7 @@ class CashFlowService:
 
         transactions = (
             self.db.query(BankStatementTransaction)
+            .options(joinedload(BankStatementTransaction.statement))
             .join(BankStatement, BankStatement.id == BankStatementTransaction.statement_id)
             .filter(BankStatement.is_deleted == False)  # noqa: E712
             .filter(BankStatement.status.in_(["processed", "uploaded"]))
@@ -712,7 +721,7 @@ class CashFlowService:
             if not pattern:
                 continue
 
-            amount, interval_days, label, last_date, sample_count, reference_id = pattern
+            amount, interval_days, label, last_date, sample_count, reference_id, references = pattern
             current = last_date + timedelta(days=interval_days)
             while current <= end_date:
                 if current >= start_date:
@@ -732,6 +741,7 @@ class CashFlowService:
                                 f"Projected from {sample_count} {transaction_type} transactions "
                                 f"about every {interval_days} days."
                             ),
+                            references=references,
                         )
                     )
                 current += timedelta(days=interval_days)
@@ -782,7 +792,7 @@ class CashFlowService:
         self,
         transactions: List[BankStatementTransaction],
         settings: CashFlowThresholdSettings,
-    ) -> Optional[Tuple[float, int, str, date, int, int]]:
+    ) -> Optional[Tuple[float, int, str, date, int, int, List[CashFlowReference]]]:
         """Return amount/interval metadata if transactions look recurring enough."""
         ordered = sorted(transactions, key=lambda txn: txn.date)
         unique_dates = sorted({txn.date for txn in ordered})
@@ -810,7 +820,8 @@ class CashFlowService:
             return None
 
         label = self._bank_statement_pattern_label(ordered[-1])
-        return avg_amount, interval_days, label, unique_dates[-1], len(ordered), ordered[-1].id
+        references = [self._bank_statement_transaction_reference(txn) for txn in ordered[-5:]]
+        return avg_amount, interval_days, label, unique_dates[-1], len(ordered), ordered[-1].id, references
 
     def _classify_bank_statement_interval(
         self,
@@ -895,6 +906,88 @@ class CashFlowService:
         remaining_days = (end_date - current).days + 1
         return max(1, min(HISTORICAL_PATTERN_INTERVAL_DAYS, remaining_days))
 
+    def _invoice_reference(self, invoice: Invoice) -> CashFlowReference:
+        return CashFlowReference(
+            type="invoice",
+            id=invoice.id,
+            label=f"Invoice {invoice.number}",
+            url=f"/invoices/view/{invoice.id}",
+        )
+
+    def _expense_reference(self, expense: Expense) -> CashFlowReference:
+        vendor = (expense.vendor or "").strip() or "Unknown vendor"
+        category = (expense.category or "").strip() or "Expense"
+        return CashFlowReference(
+            type="expense",
+            id=expense.id,
+            label=f"{category}: {vendor}",
+            url=f"/expenses/view/{expense.id}",
+        )
+
+    def _payment_reference(self, payment: Payment) -> CashFlowReference:
+        invoice = getattr(payment, "invoice", None)
+        if invoice:
+            return CashFlowReference(
+                type="invoice",
+                id=invoice.id,
+                label=f"Payment for invoice {invoice.number}",
+                url=f"/invoices/view/{invoice.id}",
+            )
+
+        return CashFlowReference(
+            type="payment",
+            id=payment.id,
+            label=f"Payment #{payment.id}",
+            url="/payments",
+        )
+
+    def _bank_statement_transaction_reference(
+        self,
+        transaction: BankStatementTransaction,
+    ) -> CashFlowReference:
+        statement = getattr(transaction, "statement", None)
+        date_label = transaction.date.isoformat() if transaction.date else "unknown date"
+        description = (transaction.description or "").strip() or "Bank transaction"
+        statement_label = (
+            getattr(statement, "original_filename", None)
+            or f"Statement #{transaction.statement_id}"
+        )
+        return CashFlowReference(
+            type="bank_statement_transaction",
+            id=transaction.id,
+            label=f"{statement_label} - {date_label} - {description[:60]}",
+            url=f"/statements?id={transaction.statement_id}&txn={transaction.id}",
+        )
+
+    def _get_historical_payment_references(self) -> Tuple[List[CashFlowReference], int]:
+        now = datetime.now(timezone.utc)
+        ninety_days_ago = now - timedelta(days=90)
+        query = (
+            self.db.query(Payment)
+            .options(joinedload(Payment.invoice))
+            .filter(Payment.payment_date != None)  # noqa: E711
+            .filter(Payment.payment_date >= ninety_days_ago)
+            .filter(Payment.payment_date <= now)
+        )
+        count = query.count()
+        payments = query.order_by(Payment.payment_date.desc()).limit(5).all()
+        return [self._payment_reference(payment) for payment in payments], count
+
+    def _get_historical_expense_references(self) -> Tuple[List[CashFlowReference], int]:
+        now = datetime.now(timezone.utc)
+        ninety_days_ago = now - timedelta(days=90)
+        query = (
+            self.db.query(Expense)
+            .filter(Expense.is_deleted == False)  # noqa: E712
+            .filter(Expense.status != "cancelled")
+            .filter(Expense.expense_date != None)  # noqa: E711
+            .filter(Expense.expense_date >= ninety_days_ago)
+            .filter(Expense.expense_date <= now)
+        )
+        count = query.count()
+        expenses = query.order_by(Expense.expense_date.desc()).limit(5).all()
+        return [self._expense_reference(expense) for expense in expenses], count
+
     def _get_historical_average_daily_income(self) -> float:
         """Calculate average daily income from the last 90 days."""
         now = datetime.now(timezone.utc)
@@ -948,6 +1041,7 @@ class CashFlowService:
                             source=entry.source,
                             source_label=entry.source_label,
                             source_details=f"{entry.source_details or 'Projected invoice payment.'} Delayed by scenario.",
+                            references=entry.references,
                         )
                     )
                 # If delayed beyond period, it effectively disappears from forecast
