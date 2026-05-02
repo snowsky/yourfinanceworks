@@ -320,11 +320,11 @@ const RunwayCard: React.FC<{ runway: CashRunwayResponse | undefined; isLoading: 
             <p className="text-2xl font-bold">{formatCurrency(runway.current_balance)}</p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-muted-foreground">Monthly Burn</p>
+            <p className="text-sm text-muted-foreground">Monthly Outflow</p>
             <p className="text-2xl font-bold text-red-600">{formatCurrency(runway.monthly_burn_rate)}</p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-muted-foreground">Monthly Income</p>
+            <p className="text-sm text-muted-foreground">Monthly Inflow</p>
             <p className="text-2xl font-bold text-green-600">{formatCurrency(runway.monthly_income_rate)}</p>
           </div>
           <div className="text-center">
@@ -421,7 +421,7 @@ const ForecastChart: React.FC<{ forecast: CashFlowForecastResponse | undefined; 
                 stroke="#16a34a"
                 fill="#16a34a30"
                 strokeWidth={1.5}
-                name="Inflows (Income)"
+                name="Inflows"
               />
               <Area
                 type="monotone"
@@ -429,7 +429,7 @@ const ForecastChart: React.FC<{ forecast: CashFlowForecastResponse | undefined; 
                 stroke="#dc2626"
                 fill="#dc262630"
                 strokeWidth={1.5}
-                name="Outflows (Expenses)"
+                name="Outflows"
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -439,7 +439,7 @@ const ForecastChart: React.FC<{ forecast: CashFlowForecastResponse | undefined; 
   );
 };
 
-// ---- Income & Expenses Breakdown ----
+// ---- Inflow & Outflow Breakdown ----
 const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | undefined; isLoading: boolean }> = ({
   forecast,
   isLoading,
@@ -457,11 +457,11 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
         <ProfessionalCardHeader>
           <ProfessionalCardTitle className="flex items-center gap-2">
             <DollarSign className="w-5 h-5" />
-            Income &amp; Expenses Breakdown
+            Inflow &amp; Outflow Breakdown
           </ProfessionalCardTitle>
         </ProfessionalCardHeader>
         <ProfessionalCardContent>
-          <p className="text-muted-foreground text-sm">No projected income or expenses found for this period. Add invoices and expenses to see projections here.</p>
+          <p className="text-muted-foreground text-sm">No projected inflows or outflows found for this period. Add invoices, expenses, or bank statements to see projections here.</p>
         </ProfessionalCardContent>
       </ProfessionalCard>
     );
@@ -472,16 +472,16 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
       <ProfessionalCardHeader>
         <ProfessionalCardTitle className="flex items-center gap-2">
           <DollarSign className="w-5 h-5" />
-          Income &amp; Expenses Breakdown
+          Inflow &amp; Outflow Breakdown
         </ProfessionalCardTitle>
       </ProfessionalCardHeader>
       <ProfessionalCardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="rounded border p-3 bg-muted/30">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Income sources</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Inflow sources</p>
             <div className="flex flex-wrap gap-2">
               {inflowSources.length === 0 ? (
-                <span className="text-xs text-muted-foreground">No projected income sources</span>
+                <span className="text-xs text-muted-foreground">No projected inflow sources</span>
               ) : inflowSources.map((source) => (
                 <Badge key={source.label} variant="secondary" className="font-normal">
                   {source.label}: {source.count} · {formatCurrency(source.total)}
@@ -490,10 +490,10 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
             </div>
           </div>
           <div className="rounded border p-3 bg-muted/30">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Expense sources</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Outflow sources</p>
             <div className="flex flex-wrap gap-2">
               {outflowSources.length === 0 ? (
-                <span className="text-xs text-muted-foreground">No projected expense sources</span>
+                <span className="text-xs text-muted-foreground">No projected outflow sources</span>
               ) : outflowSources.map((source) => (
                 <Badge key={source.label} variant="secondary" className="font-normal">
                   {source.label}: {source.count} · {formatCurrency(source.total)}
@@ -505,13 +505,13 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <SourceBreakdownPanel
-            title="Income breakdown"
+            title="Inflow breakdown"
             entries={inflows}
             total={forecast.total_projected_inflows}
             tone="income"
           />
           <SourceBreakdownPanel
-            title="Expense breakdown"
+            title="Outflow breakdown"
             entries={outflows}
             total={forecast.total_projected_outflows}
             tone="expense"
@@ -519,14 +519,14 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Inflows / Income */}
+          {/* Inflows */}
           <div>
             <h4 className="flex items-center gap-2 font-semibold text-green-700 dark:text-green-400 mb-3">
               <TrendingUp className="w-4 h-4" />
-              Income ({inflows.length} items) — {formatCurrency(forecast.total_projected_inflows)}
+              Inflows ({inflows.length} items) — {formatCurrency(forecast.total_projected_inflows)}
             </h4>
             {inflows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No projected income</p>
+              <p className="text-sm text-muted-foreground">No projected inflows</p>
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {inflows.map((entry, i) => (
@@ -549,14 +549,14 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
             )}
           </div>
 
-          {/* Outflows / Expenses */}
+          {/* Outflows */}
           <div>
             <h4 className="flex items-center gap-2 font-semibold text-red-700 dark:text-red-400 mb-3">
               <TrendingDown className="w-4 h-4" />
-              Expenses ({outflows.length} items) — {formatCurrency(forecast.total_projected_outflows)}
+              Outflows ({outflows.length} items) — {formatCurrency(forecast.total_projected_outflows)}
             </h4>
             {outflows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No projected expenses</p>
+              <p className="text-sm text-muted-foreground">No projected outflows</p>
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {outflows.map((entry, i) => (
@@ -628,7 +628,7 @@ const ScenarioBuilder: React.FC = () => {
     }
 
     if (parsedExpenseChange != null && parsedExpenseChange < -100) {
-      toast.error('Expense change cannot reduce expenses below zero');
+      toast.error('Expense change cannot reduce outflows below zero');
       return;
     }
 
@@ -678,7 +678,7 @@ const ScenarioBuilder: React.FC = () => {
             />
           </div>
           <div>
-            <label className="text-sm font-medium">Expense Change (%)</label>
+            <label className="text-sm font-medium">Outflow Change (%)</label>
             <ProfessionalInput
               type="number"
               placeholder="15 for 15% increase"
@@ -687,7 +687,7 @@ const ScenarioBuilder: React.FC = () => {
             />
           </div>
           <div>
-            <label className="text-sm font-medium">Additional One-Time Expense ($)</label>
+            <label className="text-sm font-medium">Additional One-Time Outflow ($)</label>
             <ProfessionalInput
               type="number"
               placeholder="10000"
@@ -794,7 +794,7 @@ const CashFlow: React.FC = () => {
       {/* Forecast chart */}
       <ForecastChart forecast={forecast} isLoading={forecastLoading} />
 
-      {/* Income & Expenses breakdown */}
+      {/* Inflow & Outflow breakdown */}
       <InflowOutflowBreakdown forecast={forecast} isLoading={forecastLoading} />
 
       {/* Scenario builder */}
