@@ -555,7 +555,44 @@ class TestCashFlowService:
         assert bank_outflows
         assert all(entry.description == "Mortgage" for entry in bank_outflows)
 
-    def test_cashflow_settings_can_disable_historical_averages(self, db_session):
+    def test_cashflow_settings_filter_bank_statement_categories_substring(self, db_session):
+        """Configured categories should match via substring so 'Mortgage' matches 'Mortgage Payment'."""
+        from core.models.models_per_tenant import BankStatement, BankStatementTransaction
+
+        statement = BankStatement(
+            tenant_id=1,
+            original_filename="bank.csv",
+            stored_filename="bank.csv",
+            file_path="/tmp/bank.csv",
+            status="processed",
+        )
+        db_session.add(statement)
+        db_session.commit()
+        db_session.refresh(statement)
+
+        for category, amount in (("Mortgage Payment", 2000.0), ("Home Insurance Premium", 150.0), ("Coffee Shop", 5.0)):
+            for days_ago in (60, 30):
+                db_session.add(
+                    BankStatementTransaction(
+                        statement_id=statement.id,
+                        date=date.today() - timedelta(days=days_ago),
+                        description=f"{category} debit",
+                        amount=amount,
+                        transaction_type="debit",
+                        category=category,
+                    )
+                )
+        db_session.commit()
+
+        service = CashFlowService(db_session)
+        service.update_threshold_settings(bank_statement_outflow_categories=["Mortgage", "Insurance"])
+        forecast = service.get_forecast(period="30d", current_balance=0.0)
+        bank_outflows = [entry for entry in forecast.outflow_entries if entry.source == "bank_statement_pattern"]
+
+        descriptions = {entry.description for entry in bank_outflows}
+        assert "Mortgage Payment" in descriptions
+        assert "Home Insurance Premium" in descriptions
+        assert "Coffee Shop" not in descriptions
         """Historical average projections should be optional."""
         from core.models.models_per_tenant import Payment
 

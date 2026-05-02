@@ -817,7 +817,11 @@ class CashFlowService:
         )
         if not configured:
             return True
-        return label.lower() in {item.lower() for item in configured}
+        label_lower = label.lower()
+        return any(
+            item_lower in label_lower or label_lower in item_lower
+            for item_lower in (item.lower() for item in configured)
+        )
 
     def _normalize_transaction_description(self, description: Optional[str]) -> str:
         """Collapse noisy transaction descriptions into a recurring-pattern key."""
