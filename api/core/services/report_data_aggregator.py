@@ -20,7 +20,7 @@ from core.models.models_per_tenant import (
 )
 from core.schemas.report import (
     ClientReportFilters, InvoiceReportFilters, PaymentReportFilters,
-    ExpenseReportFilters, StatementReportFilters
+    ExpenseReportFilters, StatementReportFilters, CashFlowReportFilters
 )
 
 
@@ -119,6 +119,19 @@ class TransactionData:
         self.net_flow: float = 0.0
         self.type_breakdown: Dict[str, float] = {}
         self.monthly_trends: Dict[str, float] = {}
+
+
+class CashFlowData:
+    """Data structure for unified cash flow aggregation results"""
+    def __init__(self):
+        self.inflows: List[Dict[str, Any]] = []
+        self.outflows: List[Dict[str, Any]] = []
+        self.total_income: float = 0.0
+        self.total_expenses: float = 0.0
+        self.net_cash_flow: float = 0.0
+        self.monthly_trends: Dict[str, Dict[str, float]] = {}
+        self.unreconciled_count: int = 0
+        self.currency_breakdown: Dict[str, Dict[str, float]] = {}
 
 
 class ReportDataAggregator:
@@ -681,6 +694,180 @@ class ReportDataAggregator:
                 'updated_at': statement.updated_at
             }
             result.statements.append(statement_data)
+
+        return result
+
+    def aggregate_cash_flow(
+        self,
+        filters: Optional[CashFlowReportFilters] = None
+    ) -> CashFlowData:
+        """
+        Aggregate unified cash flow data combining payments (income), expenses (outflows),
+        and unlinked bank transactions (credits as income, debits as expenses).
+
+        Only bank transactions that are NOT already linked to a payment (via invoice_id)
+        or an expense (via expense_id) are included to avoid double-counting.
+
+        Args:
+            filters: Cash flow-specific filters
+
+        Returns:
+            CashFlowData object with aggregated cash flow information
+        """
+        result = CashFlowData()
+
+        # Build base payment filters from cash flow filters
+        payment_filters = None
+        expense_filters = None
+        if filters:
+            payment_filter_kwargs = {
+                'date_from': filters.date_from,
+                'date_to': filters.date_to,
+                'client_ids': filters.client_ids,
+                'currency': filters.currency,
+                'amount_min': filters.amount_min,
+                'amount_max': filters.amount_max,
+            }
+            if filters.payment_methods:
+                payment_filter_kwargs['payment_methods'] = filters.payment_methods
+            payment_filters = PaymentReportFilters(**payment_filter_kwargs)
+
+            expense_filter_kwargs = {
+                'date_from': filters.date_from,
+                'date_to': filters.date_to,
+                'client_ids': filters.client_ids,
+                'currency': filters.currency,
+            }
+            if filters.categories:
+                expense_filter_kwargs['categories'] = filters.categories
+            expense_filters = ExpenseReportFilters(**expense_filter_kwargs)
+
+        # 1. Payments received (income from invoices)
+        payment_data = self.aggregate_payment_flows(payment_filters)
+        for p in payment_data.payments:
+            item = {**p, 'source': 'payment', 'flow_type': 'income'}
+            result.inflows.append(item)
+            amount = abs(p.get('amount', 0.0))
+            result.total_income += amount
+
+            # Monthly trends
+            date_val = p.get('payment_date')
+            if date_val:
+                month_key = date_val.strftime('%Y-%m') if hasattr(date_val, 'strftime') else str(date_val)[:7]
+                if month_key not in result.monthly_trends:
+                    result.monthly_trends[month_key] = {'income': 0.0, 'expense': 0.0, 'net': 0.0}
+                result.monthly_trends[month_key]['income'] += amount
+
+            # Currency breakdown
+            currency = p.get('currency', 'USD')
+            if currency not in result.currency_breakdown:
+                result.currency_breakdown[currency] = {'income': 0.0, 'expense': 0.0, 'net': 0.0}
+            result.currency_breakdown[currency]['income'] += amount
+
+        # 2. Recorded expenses (outflows)
+        expense_data = self.aggregate_expense_categories(expense_filters)
+        for e in expense_data.expenses:
+            item = {**e, 'source': 'expense', 'flow_type': 'expense'}
+            result.outflows.append(item)
+            amount = abs(e.get('amount', 0.0))
+            result.total_expenses += amount
+
+            # Monthly trends
+            date_val = e.get('expense_date')
+            if date_val:
+                month_key = date_val.strftime('%Y-%m') if hasattr(date_val, 'strftime') else str(date_val)[:7]
+                if month_key not in result.monthly_trends:
+                    result.monthly_trends[month_key] = {'income': 0.0, 'expense': 0.0, 'net': 0.0}
+                result.monthly_trends[month_key]['expense'] += amount
+
+            # Currency breakdown
+            currency = e.get('currency', 'USD')
+            if currency not in result.currency_breakdown:
+                result.currency_breakdown[currency] = {'income': 0.0, 'expense': 0.0, 'net': 0.0}
+            result.currency_breakdown[currency]['expense'] += amount
+
+        # 3. Unlinked bank transactions (only when include_unreconciled is True or not set)
+        include_unreconciled = filters.include_unreconciled if filters else True
+        if include_unreconciled:
+            # Query unlinked bank transactions directly (invoice_id IS NULL AND expense_id IS NULL)
+            txn_query = self.db.query(BankStatementTransaction).filter(
+                BankStatementTransaction.invoice_id.is_(None),
+                BankStatementTransaction.expense_id.is_(None)
+            )
+
+            if filters:
+                date_range = DateRange(filters.date_from, filters.date_to)
+
+                if date_range.start_date or date_range.end_date:
+                    txn_query = txn_query.join(BankStatementTransaction.statement)
+                    txn_query = self._apply_date_filter(txn_query, BankStatement.created_at, date_range)
+
+                if filters.account_ids:
+                    if not (date_range.start_date or date_range.end_date):
+                        txn_query = txn_query.join(BankStatementTransaction.statement)
+                    txn_query = txn_query.filter(BankStatement.id.in_(filters.account_ids))
+
+                if filters.amount_min is not None:
+                    txn_query = txn_query.filter(
+                        func.abs(BankStatementTransaction.amount) >= filters.amount_min
+                    )
+                if filters.amount_max is not None:
+                    txn_query = txn_query.filter(
+                        func.abs(BankStatementTransaction.amount) <= filters.amount_max
+                    )
+
+            unlinked_transactions = txn_query.all()
+
+            for txn in unlinked_transactions:
+                result.unreconciled_count += 1
+                amount = abs(txn.amount)
+                txn_data = {
+                    'id': txn.id,
+                    'statement_id': txn.statement_id,
+                    'date': txn.date,
+                    'description': txn.description,
+                    'amount': amount,
+                    'transaction_type': txn.transaction_type,
+                    'balance': txn.balance,
+                    'category': txn.category,
+                    'invoice_id': txn.invoice_id,
+                    'expense_id': txn.expense_id,
+                    'created_at': txn.created_at,
+                    'updated_at': txn.updated_at,
+                    'source': 'bank_transaction',
+                }
+
+                # Monthly trends
+                date_val = txn.date
+                if date_val:
+                    month_key = date_val.strftime('%Y-%m') if hasattr(date_val, 'strftime') else str(date_val)[:7]
+                    if month_key not in result.monthly_trends:
+                        result.monthly_trends[month_key] = {'income': 0.0, 'expense': 0.0, 'net': 0.0}
+
+                if txn.transaction_type == 'credit':
+                    txn_data['flow_type'] = 'income'
+                    result.inflows.append(txn_data)
+                    result.total_income += amount
+                    if date_val:
+                        result.monthly_trends[month_key]['income'] += amount
+                else:
+                    txn_data['flow_type'] = 'expense'
+                    result.outflows.append(txn_data)
+                    result.total_expenses += amount
+                    if date_val:
+                        result.monthly_trends[month_key]['expense'] += amount
+
+        # Compute net values for monthly trends and currency breakdown
+        for month_key in result.monthly_trends:
+            result.monthly_trends[month_key]['net'] = (
+                result.monthly_trends[month_key]['income'] - result.monthly_trends[month_key]['expense']
+            )
+        for currency in result.currency_breakdown:
+            result.currency_breakdown[currency]['net'] = (
+                result.currency_breakdown[currency]['income'] - result.currency_breakdown[currency]['expense']
+            )
+
+        result.net_cash_flow = result.total_income - result.total_expenses
 
         return result
 

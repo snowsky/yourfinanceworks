@@ -200,6 +200,26 @@ async def get_report_types(
                     "current_stock", "minimum_stock", "total_value", "last_movement",
                     "item_type", "currency", "is_active"
                 ]
+            },
+            {
+                "type": ReportType.CASH_FLOW,
+                "name": "Cash Flow Reports",
+                "description": "Unified income and expense view combining payments, expenses, and unlinked bank transactions",
+                "filters": [
+                    {"name": "date_from", "type": "datetime", "required": False},
+                    {"name": "date_to", "type": "datetime", "required": False},
+                    {"name": "client_ids", "type": "list[int]", "required": False},
+                    {"name": "currency", "type": "str", "required": False},
+                    {"name": "include_unreconciled", "type": "boolean", "required": False},
+                    {"name": "account_ids", "type": "list[int]", "required": False},
+                    {"name": "categories", "type": "list[str]", "required": False},
+                    {"name": "payment_methods", "type": "list[str]", "required": False},
+                    {"name": "amount_min", "type": "float", "required": False},
+                    {"name": "amount_max", "type": "float", "required": False}
+                ],
+                "columns": [
+                    "date", "description", "amount", "flow_type", "source", "category", "currency"
+                ]
             }
         ]
 

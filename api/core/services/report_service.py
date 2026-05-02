@@ -14,7 +14,7 @@ import logging
 logger = logging.getLogger(__name__)
 from .report_data_aggregator import (
     ReportDataAggregator, DateRange, ClientData, InvoiceMetrics,
-    PaymentFlows, ExpenseBreakdown, TransactionData
+    PaymentFlows, ExpenseBreakdown, TransactionData, CashFlowData
 )
 from .report_exporter import ReportExportService, ExportError
 from .report_validation_service import ReportValidationService
@@ -36,7 +36,7 @@ from core.schemas.report import (
     ReportType, ReportFilters, ReportData, ReportSummary, ReportMetadata,
     ReportResult, ExportFormat, ClientReportFilters, InvoiceReportFilters,
     PaymentReportFilters, ExpenseReportFilters, StatementReportFilters,
-    InventoryReportFilters, ReportTemplate as ReportTemplateSchema
+    InventoryReportFilters, CashFlowReportFilters, ReportTemplate as ReportTemplateSchema
 )
 from core.models.models_per_tenant import InventoryItem, InventoryCategory, StockMovement
 from core.schemas.inventory import InventoryItem as InventoryItemSchema, InventoryAnalytics
@@ -78,7 +78,8 @@ class ReportService:
             ReportType.PAYMENT: PaymentReportFilters,
             ReportType.EXPENSE: ExpenseReportFilters,
             ReportType.STATEMENT: StatementReportFilters,
-            ReportType.INVENTORY: InventoryReportFilters
+            ReportType.INVENTORY: InventoryReportFilters,
+            ReportType.CASH_FLOW: CashFlowReportFilters
         }
 
         # Map report types to their aggregation methods
@@ -88,7 +89,8 @@ class ReportService:
             ReportType.PAYMENT: self._generate_payment_report,
             ReportType.EXPENSE: self._generate_expense_report,
             ReportType.STATEMENT: self._generate_statement_report,
-            ReportType.INVENTORY: self._generate_inventory_report
+            ReportType.INVENTORY: self._generate_inventory_report,
+            ReportType.CASH_FLOW: self._generate_cash_flow_report
         }
 
     def generate_report(
@@ -856,6 +858,50 @@ class ReportService:
                 error_code=ReportErrorCode.REPORT_GENERATION_FAILED
             )
 
+    def _generate_cash_flow_report(self, filters: CashFlowReportFilters, progress_callback: Optional[callable] = None) -> Dict[str, Any]:
+        """Generate unified cash flow report combining payments, expenses, and unlinked bank transactions"""
+        if progress_callback:
+            progress_callback(20, "Aggregating cash flow data")
+
+        cash_flow_data = self.data_aggregator.aggregate_cash_flow(filters)
+
+        if progress_callback:
+            progress_callback(80, "Processing cash flow metrics")
+
+        total_records = len(cash_flow_data.inflows) + len(cash_flow_data.outflows)
+
+        summary = ReportSummary(
+            total_records=total_records,
+            total_amount=cash_flow_data.net_cash_flow,
+            currency=filters.currency or "USD",
+            date_range={
+                "start_date": filters.date_from,
+                "end_date": filters.date_to
+            } if filters.date_from or filters.date_to else None,
+            key_metrics={
+                "total_income": cash_flow_data.total_income,
+                "total_expenses": cash_flow_data.total_expenses,
+                "net_cash_flow": cash_flow_data.net_cash_flow,
+                "unreconciled_count": cash_flow_data.unreconciled_count,
+                "monthly_trends": cash_flow_data.monthly_trends,
+                "currency_breakdown": cash_flow_data.currency_breakdown,
+                "inflow_count": len(cash_flow_data.inflows),
+                "outflow_count": len(cash_flow_data.outflows)
+            }
+        )
+
+        if progress_callback:
+            progress_callback(100, "Cash flow report completed")
+
+        # Combine inflows and outflows into a single sorted list
+        all_items = cash_flow_data.inflows + cash_flow_data.outflows
+        all_items.sort(key=lambda x: x.get('payment_date') or x.get('expense_date') or x.get('date') or '', reverse=True)
+
+        return {
+            "summary": summary,
+            "data": all_items
+        }
+
     def get_available_report_types(self) -> List[Dict[str, Any]]:
         """
         Get list of available report types with their configurations.
@@ -934,6 +980,18 @@ class ReportService:
                 ],
                 "default_columns": [
                     "item_name", "sku", "category", "current_stock", "unit_price", "total_value"
+                ]
+            },
+            {
+                "type": ReportType.CASH_FLOW,
+                "name": "Cash Flow Report",
+                "description": "Unified income and expense view combining payments, expenses, and unlinked bank transactions",
+                "available_filters": [
+                    "date_from", "date_to", "client_ids", "currency", "include_unreconciled",
+                    "account_ids", "categories", "payment_methods", "amount_min", "amount_max"
+                ],
+                "default_columns": [
+                    "date", "description", "amount", "flow_type", "source", "category", "currency"
                 ]
             }
         ]

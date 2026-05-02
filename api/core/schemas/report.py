@@ -11,6 +11,7 @@ class ReportType(str, Enum):
     EXPENSE = "expense"
     STATEMENT = "statement"
     INVENTORY = "inventory"
+    CASH_FLOW = "cash_flow"
 
 class ReportStatus(str, Enum):
     PENDING = "pending"
@@ -84,6 +85,14 @@ class InventoryReportFilters(InventoryBaseFilters):
     include_inactive: Optional[bool] = Field(False, description="Include inactive items")
     date_filter_type: Optional[str] = Field("both", description="Type of date filtering: 'created', 'updated', or 'both'")
 
+class CashFlowReportFilters(BaseReportFilters):
+    include_unreconciled: Optional[bool] = Field(True, description="Include unlinked bank transactions")
+    account_ids: Optional[List[int]] = Field(None, description="Bank statement IDs to filter by")
+    categories: Optional[List[str]] = Field(None, description="Expense categories to filter by")
+    payment_methods: Optional[List[str]] = Field(None, description="Payment methods to filter by")
+    amount_min: Optional[float] = Field(None, description="Minimum transaction amount")
+    amount_max: Optional[float] = Field(None, description="Maximum transaction amount")
+
 # Union type for all filter types
 ReportFilters = Union[
     ClientReportFilters,
@@ -91,7 +100,8 @@ ReportFilters = Union[
     PaymentReportFilters,
     ExpenseReportFilters,
     StatementReportFilters,
-    InventoryReportFilters
+    InventoryReportFilters,
+    CashFlowReportFilters
 ]
 
 # Report generation request models

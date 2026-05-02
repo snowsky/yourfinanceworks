@@ -122,6 +122,7 @@ export const TemplateGenerateDialog: React.FC<TemplateGenerateDialogProps> = ({
       payment: 'Payment Report',
       expense: 'Expense Report',
       statement: 'Statement Report',
+      cash_flow: 'Cash Flow Report',
     };
     return labels[type] || type;
   };
@@ -133,6 +134,7 @@ export const TemplateGenerateDialog: React.FC<TemplateGenerateDialogProps> = ({
       payment: 'bg-purple-100 text-purple-800',
       expense: 'bg-orange-100 text-orange-800',
       statement: 'bg-gray-100 text-gray-800',
+      cash_flow: 'bg-teal-100 text-teal-800',
     };
     return colors[type] || 'bg-gray-100 text-gray-800';
   };

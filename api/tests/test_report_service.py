@@ -420,7 +420,7 @@ class TestReportTypes:
         """Test getting available report types"""
         report_types = report_service.get_available_report_types()
         
-        assert len(report_types) == 5
+        assert len(report_types) == 7
         
         # Check that all expected report types are present
         type_names = [rt['type'] for rt in report_types]
@@ -429,6 +429,7 @@ class TestReportTypes:
         assert ReportType.PAYMENT in type_names
         assert ReportType.EXPENSE in type_names
         assert ReportType.STATEMENT in type_names
+        assert ReportType.CASH_FLOW in type_names
         
         # Check structure of first report type
         client_report = next(rt for rt in report_types if rt['type'] == ReportType.CLIENT)
@@ -440,6 +441,15 @@ class TestReportTypes:
         # Verify some expected filters
         assert 'date_from' in client_report['available_filters']
         assert 'balance_min' in client_report['available_filters']
+        
+        # Check cash flow report type configuration
+        cash_flow_report = next(rt for rt in report_types if rt['type'] == ReportType.CASH_FLOW)
+        assert 'name' in cash_flow_report
+        assert 'description' in cash_flow_report
+        assert 'available_filters' in cash_flow_report
+        assert 'default_columns' in cash_flow_report
+        assert 'include_unreconciled' in cash_flow_report['available_filters']
+        assert 'flow_type' in cash_flow_report['default_columns']
 
 
 class TestReportPreview:

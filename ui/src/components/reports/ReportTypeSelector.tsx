@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { FileText, Users, CreditCard, Receipt, Building, Package, FileSpreadsheet, ArrowRight, Eye } from 'lucide-react';
+import { FileText, Users, CreditCard, Receipt, Building, Package, FileSpreadsheet, TrendingUp, ArrowRight, Eye } from 'lucide-react';
 import { ReportType } from '@/lib/api';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +26,8 @@ const getReportIcon = (type: string) => {
       return <Building className="h-6 w-6" />;
     case 'inventory':
       return <Package className="h-6 w-6" />;
+    case 'cash_flow':
+      return <TrendingUp className="h-6 w-6" />;
     default:
       return <FileText className="h-6 w-6" />;
   }

@@ -18,7 +18,8 @@ from core.exceptions.report_exceptions import (
 )
 from core.schemas.report import (
     ReportType, ExportFormat, ClientReportFilters, InvoiceReportFilters,
-    PaymentReportFilters, ExpenseReportFilters, StatementReportFilters
+    PaymentReportFilters, ExpenseReportFilters, StatementReportFilters,
+    CashFlowReportFilters
 )
 from core.models.models_per_tenant import Client
 
@@ -159,6 +160,8 @@ class ReportValidationService:
                 validated_filters.update(self._validate_expense_filters(filters))
             elif report_type == ReportType.STATEMENT:
                 validated_filters.update(self._validate_statement_filters(filters))
+            elif report_type == ReportType.CASH_FLOW:
+                validated_filters.update(self._validate_cash_flow_filters(filters))
         
         return validated_filters
     
@@ -472,6 +475,38 @@ class ReportValidationService:
                         field="include_inactive"
                     )
                 validated['include_inactive'] = include_inactive
+
+        return validated
+
+    def _validate_cash_flow_filters(self, filters: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate cash flow-specific filters"""
+        validated = {}
+
+        # Validate include_unreconciled flag
+        include_unreconciled = filters.get("include_unreconciled")
+        if include_unreconciled is not None:
+            validated["include_unreconciled"] = self._validate_boolean_flag(include_unreconciled, "include_unreconciled")
+
+        # Validate account IDs
+        account_ids = filters.get("account_ids")
+        if account_ids:
+            validated["account_ids"] = self._validate_integer_list(account_ids, "account_ids")
+
+        # Validate categories
+        categories = filters.get("categories")
+        if categories:
+            validated["categories"] = self._validate_string_list(categories, "categories")
+
+        # Validate payment methods
+        payment_methods = filters.get("payment_methods")
+        if payment_methods:
+            validated["payment_methods"] = self._validate_payment_methods(payment_methods)
+
+        # Validate amount range
+        amount_min = filters.get("amount_min")
+        amount_max = filters.get("amount_max")
+        if amount_min is not None or amount_max is not None:
+            validated.update(self._validate_amount_range(amount_min, amount_max))
 
         return validated
 

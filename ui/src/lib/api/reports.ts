@@ -35,6 +35,7 @@ export interface ReportFilters {
   include_attachments?: boolean;
   include_unmatched?: boolean;
   include_reconciliation?: boolean;
+  include_unreconciled?: boolean;
   account_ids?: number[];
   transaction_types?: string[];
   vendor?: string;
@@ -52,7 +53,7 @@ export interface ReportFilters {
 }
 
 export interface ReportGenerateRequest {
-  report_type: 'client' | 'invoice' | 'payment' | 'expense' | 'statement' | 'inventory';
+  report_type: 'client' | 'invoice' | 'payment' | 'expense' | 'statement' | 'inventory' | 'cash_flow';
   filters: ReportFilters;
   columns?: string[];
   export_format: 'pdf' | 'csv' | 'excel' | 'json';
@@ -60,13 +61,13 @@ export interface ReportGenerateRequest {
 }
 
 export interface ReportPreviewRequest {
-  report_type: 'client' | 'invoice' | 'payment' | 'expense' | 'statement' | 'inventory';
+  report_type: 'client' | 'invoice' | 'payment' | 'expense' | 'statement' | 'inventory' | 'cash_flow';
   filters: ReportFilters;
   limit?: number;
 }
 
 export interface RelationshipCloudRequest {
-  report_type: 'client' | 'invoice' | 'payment' | 'expense' | 'statement' | 'inventory';
+  report_type: 'client' | 'invoice' | 'payment' | 'expense' | 'statement' | 'inventory' | 'cash_flow';
   filters: ReportFilters;
   limit?: number;
 }
@@ -103,7 +104,7 @@ export interface RelationshipCloudResponse {
 export interface ReportTemplate {
   id: number;
   name: string;
-  report_type: 'client' | 'invoice' | 'payment' | 'expense' | 'statement' | 'inventory';
+  report_type: 'client' | 'invoice' | 'payment' | 'expense' | 'statement' | 'inventory' | 'cash_flow';
   filters: ReportFilters;
   columns?: string[];
   formatting?: Record<string, any>;
@@ -115,7 +116,7 @@ export interface ReportTemplate {
 
 export interface ReportTemplateCreate {
   name: string;
-  report_type: 'client' | 'invoice' | 'payment' | 'expense' | 'statement' | 'inventory';
+  report_type: 'client' | 'invoice' | 'payment' | 'expense' | 'statement' | 'inventory' | 'cash_flow';
   filters: ReportFilters;
   columns?: string[];
   formatting?: Record<string, any>;
