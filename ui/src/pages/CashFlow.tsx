@@ -628,12 +628,12 @@ const ScenarioBuilder: React.FC = () => {
     }
 
     if (parsedExpenseChange != null && parsedExpenseChange < -100) {
-      toast.error('Expense change cannot reduce outflows below zero');
+      toast.error('Outflow change cannot reduce outflows below zero');
       return;
     }
 
     if (parsedAdditionalExpense != null && parsedAdditionalExpense < 0) {
-      toast.error('Additional expense cannot be negative');
+      toast.error('Additional outflow cannot be negative');
       return;
     }
 
