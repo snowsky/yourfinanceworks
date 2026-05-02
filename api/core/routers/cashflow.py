@@ -26,10 +26,20 @@ from core.schemas.cashflow import (
     ForecastPeriod,
 )
 from core.services.cashflow_service import CashFlowService
+from core.utils.feature_gate import check_feature
+
+
+def require_cash_flow_feature(db: Session = Depends(get_db)) -> None:
+    check_feature(
+        "cash_flow",
+        db,
+        "Cash flow forecasting requires a commercial license. Please upgrade your license to access this feature.",
+    )
 
 router = APIRouter(
     prefix="/cashflow",
     tags=["cashflow"],
+    dependencies=[Depends(require_cash_flow_feature)],
 )
 
 

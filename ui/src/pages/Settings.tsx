@@ -16,6 +16,8 @@ import {
   AppearanceTab, PaymentSettingsTab, ExpensesSettingsTab, CashFlowSettingsTab
 } from "@/components/settings";
 import PromptManagement from "./PromptManagement";
+import { FeatureGate } from "@/components/FeatureGate";
+import { useFeatures } from "@/contexts/FeatureContext";
 
 const NavItem = ({ value, icon: Icon, label, activeTab, onClick }: {
   value: string; icon: React.ElementType; label: string; activeTab: string; onClick: (v: string) => void;
@@ -39,6 +41,8 @@ const Settings = () => {
 
   const currentUser = getCurrentUser();
   const isAdmin = currentUser?.role === 'admin';
+  const { isFeatureEnabled } = useFeatures();
+  const isCashFlowEnabled = isFeatureEnabled('cash_flow');
 
   const [activeTab, setActiveTab] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -142,7 +146,9 @@ const Settings = () => {
                   <NavItem value="company" icon={Building2} label={t('settings.tabs.company', 'Company')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="invoices" icon={FileText} label={t('settings.tabs.invoices', 'Invoices')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="expenses" icon={FileText} label={t('settings.tabs.expenses', 'Expenses')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="cashflow" icon={Landmark} label={t('settings.tabs.cashflow', 'Cash Flow')} activeTab={activeTab} onClick={setActiveTab} />
+                  {isCashFlowEnabled && (
+                    <NavItem value="cashflow" icon={Landmark} label={t('settings.tabs.cashflow', 'Cash Flow')} activeTab={activeTab} onClick={setActiveTab} />
+                  )}
                   <NavItem value="discount-rules" icon={Percent} label={t('settings.tabs.discount_rules', 'Discounts')} activeTab={activeTab} onClick={setActiveTab} />
 
                   {/* Features */}
@@ -213,7 +219,13 @@ const Settings = () => {
                 </TabsContent>
 
                 <TabsContent value="cashflow" className="m-0 focus-visible:outline-none">
-                  <CashFlowSettingsTab />
+                  <FeatureGate
+                    feature="cash_flow"
+                    showUpgradePrompt
+                    upgradeMessage="Cash flow settings require a commercial license."
+                  >
+                    <CashFlowSettingsTab />
+                  </FeatureGate>
                 </TabsContent>
 
                 <TabsContent value="discount-rules" className="m-0 focus-visible:outline-none">

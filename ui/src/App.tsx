@@ -23,6 +23,7 @@ import { useQuery } from "@tanstack/react-query";
 import { settingsApi } from "@/lib/api";
 import { isAdmin } from "@/utils/auth";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { FeatureGate } from "@/components/FeatureGate";
 import { PageContextProvider } from "@/contexts/PageContext";
 import { I18nextProvider } from "react-i18next";
 import i18n from "./i18n";
@@ -279,7 +280,17 @@ const AppContent = () => {
                     <Route path="/payments" element={<Payments />} />
                     <Route path="/reminders" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Reminders /></RoleProtectedRoute>} />
                     <Route path="/workflows" element={<RoleProtectedRoute allowedRoles={['admin']}><Workflows /></RoleProtectedRoute>} />
-                    <Route path="/cashflow" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><CashFlow /></RoleProtectedRoute>} />
+                    <Route path="/cashflow" element={
+                      <RoleProtectedRoute allowedRoles={['admin', 'user']}>
+                        <FeatureGate
+                          feature="cash_flow"
+                          showUpgradePrompt
+                          upgradeMessage="Cash flow forecasting requires a commercial license."
+                        >
+                          <CashFlow />
+                        </FeatureGate>
+                      </RoleProtectedRoute>
+                    } />
                     <Route path="/approvals" element={<ApprovalDashboard />} />
                     <Route path="/approvals/reports" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ApprovalReportsPage /></RoleProtectedRoute>} />
 

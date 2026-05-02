@@ -200,6 +200,14 @@ class FeatureConfigService:
             'default': False,
             'license_tier': 'commercial'
         },
+        'cash_flow': {
+            'name': 'Cash Flow Forecasting',
+            'description': 'Cash runway, source-aware projections, and scenario planning',
+            'category': 'advanced',
+            'env_var': 'FEATURE_CASH_FLOW_ENABLED',
+            'default': False,
+            'license_tier': 'commercial'
+        },
     }
     
     @classmethod
