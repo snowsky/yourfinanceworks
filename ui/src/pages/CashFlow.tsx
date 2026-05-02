@@ -29,6 +29,8 @@ import {
   type CashFlowThresholdSettings,
 } from '@/lib/api/cashflow';
 import { getErrorMessage } from '@/lib/api';
+import { FeatureGate } from '@/components/FeatureGate';
+import { useFeatures } from '@/contexts/FeatureContext';
 import { PageHeader } from '@/components/ui/professional-layout';
 import {
   ProfessionalCard,
@@ -833,25 +835,36 @@ const StatementPatternSidebar: React.FC<{ period: ForecastPeriod }> = ({ period 
 // ---- Main Page ----
 const CashFlow: React.FC = () => {
   const { t } = useTranslation();
+  const { isFeatureEnabled } = useFeatures();
+  const cashflowEnabled = isFeatureEnabled('cash_flow');
   const [period, setPeriod] = useState<ForecastPeriod>('30d');
 
   const { data: forecast, isLoading: forecastLoading } = useQuery({
     queryKey: ['cashflow-forecast', period],
     queryFn: () => cashflowApi.getForecast(period),
+    enabled: cashflowEnabled,
   });
 
   const { data: runway, isLoading: runwayLoading } = useQuery({
     queryKey: ['cashflow-runway'],
     queryFn: () => cashflowApi.getRunway(),
+    enabled: cashflowEnabled,
   });
 
   const { data: alerts } = useQuery({
     queryKey: ['cashflow-alerts'],
     queryFn: () => cashflowApi.getAlerts(),
+    enabled: cashflowEnabled,
   });
 
   return (
-    <div className="space-y-6">
+    <FeatureGate
+      feature="cash_flow"
+      showUpgradePrompt={true}
+      upgradeMessage="Cash Flow forecasting requires a commercial license."
+      showExpiredContent={false}
+    >
+      <div className="space-y-6">
       <PageHeader
         title={t('cashflow.title', { defaultValue: 'Cash Flow' })}
         subtitle={t('cashflow.subtitle', { defaultValue: 'Forecast, runway analysis, and scenario planning' })}
@@ -895,7 +908,8 @@ const CashFlow: React.FC = () => {
           <StatementPatternSidebar period={period} />
         </aside>
       </div>
-    </div>
+      </div>
+    </FeatureGate>
   );
 };
 

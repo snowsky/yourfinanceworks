@@ -18,6 +18,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { cashflowApi, type CashFlowThresholdSettings } from "@/lib/api/cashflow";
 import { getErrorMessage } from "@/lib/api";
+import { FeatureGate } from "@/components/FeatureGate";
+import { useFeatures } from "@/contexts/FeatureContext";
 
 const defaultCashFlowSettings: CashFlowThresholdSettings = {
   safety_threshold: 10000,
@@ -61,6 +63,8 @@ const formatCategoryList = (value: string[]): string => value.join(", ");
 
 export const CashFlowSettingsTab: React.FC = () => {
   const queryClient = useQueryClient();
+  const { isFeatureEnabled } = useFeatures();
+  const cashflowEnabled = isFeatureEnabled("cash_flow");
   const [settings, setSettings] = useState<CashFlowThresholdSettings>(defaultCashFlowSettings);
   const [inflowCategories, setInflowCategories] = useState("");
   const [outflowCategories, setOutflowCategories] = useState("");
@@ -68,6 +72,7 @@ export const CashFlowSettingsTab: React.FC = () => {
   const { data, isLoading } = useQuery({
     queryKey: ["cashflow-settings"],
     queryFn: () => cashflowApi.getThresholds(),
+    enabled: cashflowEnabled,
   });
 
   useEffect(() => {
@@ -128,7 +133,13 @@ export const CashFlowSettingsTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5">
+    <FeatureGate
+      feature="cash_flow"
+      showUpgradePrompt={true}
+      upgradeMessage="Cash Flow settings require a commercial license."
+      showExpiredContent={false}
+    >
+      <div className="space-y-5">
       <ProfessionalCard variant="elevated">
         <ProfessionalCardHeader>
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -292,7 +303,8 @@ export const CashFlowSettingsTab: React.FC = () => {
           </div>
         </ProfessionalCardContent>
       </ProfessionalCard>
-    </div>
+      </div>
+    </FeatureGate>
   );
 };
 

@@ -17,6 +17,7 @@ interface FeatureFlags {
   approval_analytics: boolean;
   batch_processing: boolean;
   reporting: boolean;
+  cash_flow: boolean;
   approvals: boolean;
   advanced_search: boolean;
   email_integration: boolean;
@@ -104,6 +105,7 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         approval_analytics: hasAllFeatures || enabledFeatures.includes('approval_analytics'),
         batch_processing: hasAllFeatures || enabledFeatures.includes('batch_processing'),
         reporting: hasAllFeatures || enabledFeatures.includes('reporting'),
+        cash_flow: hasAllFeatures || enabledFeatures.includes('cash_flow'),
         approvals: hasAllFeatures || enabledFeatures.includes('approvals'),
         advanced_search: hasAllFeatures || enabledFeatures.includes('advanced_search'),
         email_integration: hasAllFeatures || enabledFeatures.includes('email_integration'),
@@ -218,6 +220,7 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
           approval_analytics: false,
           batch_processing: false,
           reporting: false,
+          cash_flow: false,
           inventory: true,
           approvals: false,
           advanced_search: false,

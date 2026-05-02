@@ -15,6 +15,7 @@ from typing import Optional
 from core.models.database import get_db
 from core.models.models import MasterUser
 from core.routers.auth import get_current_user
+from core.utils.feature_gate import require_feature
 from core.schemas.cashflow import (
     CashFlowForecastResponse,
     CashRunwayResponse,
@@ -34,6 +35,7 @@ router = APIRouter(
 
 
 @router.get("/forecast", response_model=CashFlowForecastResponse)
+@require_feature("cash_flow")
 async def get_cash_flow_forecast(
     period: ForecastPeriod = ForecastPeriod.THIRTY_DAYS,
     current_balance: Optional[float] = None,
@@ -51,6 +53,7 @@ async def get_cash_flow_forecast(
 
 
 @router.get("/runway", response_model=CashRunwayResponse)
+@require_feature("cash_flow")
 async def get_cash_runway(
     current_balance: Optional[float] = None,
     db: Session = Depends(get_db),
@@ -66,6 +69,7 @@ async def get_cash_runway(
 
 
 @router.post("/scenario", response_model=ScenarioResult)
+@require_feature("cash_flow")
 async def run_scenario(
     scenario: ScenarioInput,
     period: ForecastPeriod = ForecastPeriod.THIRTY_DAYS,
@@ -88,6 +92,7 @@ async def run_scenario(
 
 
 @router.get("/alerts", response_model=CashFlowAlertResponse)
+@require_feature("cash_flow")
 async def get_cash_flow_alerts(
     current_balance: Optional[float] = None,
     db: Session = Depends(get_db),
@@ -104,6 +109,7 @@ async def get_cash_flow_alerts(
 
 
 @router.get("/settings/thresholds", response_model=CashFlowThresholdSettings)
+@require_feature("cash_flow")
 async def get_threshold_settings(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
@@ -114,6 +120,7 @@ async def get_threshold_settings(
 
 
 @router.put("/settings/thresholds", response_model=CashFlowThresholdSettings)
+@require_feature("cash_flow")
 async def update_threshold_settings(
     update: CashFlowThresholdUpdate,
     db: Session = Depends(get_db),
