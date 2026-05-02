@@ -46,6 +46,9 @@ MIN_CONCRETE_ENTRIES_FOR_PATTERN = 5
 # Interval (in days) between historical pattern-based prediction entries
 HISTORICAL_PATTERN_INTERVAL_DAYS = 7
 
+# Statement statuses whose transactions are usable for cash flow projection.
+BANK_STATEMENT_READY_STATUSES = ("processed", "uploaded", "done")
+
 
 class CashFlowService:
     """Service for cash flow forecasting and analysis."""
@@ -141,6 +144,7 @@ class CashFlowService:
         """
         if current_balance is None:
             current_balance = self.get_current_balance()
+        settings = self._get_threshold_settings()
 
         # Calculate averages from last 90 days
         now = datetime.now(timezone.utc)
@@ -154,6 +158,16 @@ class CashFlowService:
             .filter(Payment.payment_date <= now)
             .scalar()
         ) or 0.0
+        if settings.include_bank_statement_patterns:
+            total_income_90d += sum(
+                abs(float(txn.amount or 0.0))
+                for txn in self._get_matching_bank_statement_transactions(
+                    "credit",
+                    settings,
+                    ninety_days_ago.date(),
+                    now.date(),
+                )
+            )
 
         # Average daily expenses
         total_expenses_90d = (
@@ -165,6 +179,16 @@ class CashFlowService:
             .filter(Expense.expense_date <= now)
             .scalar()
         ) or 0.0
+        if settings.include_bank_statement_patterns:
+            total_expenses_90d += sum(
+                abs(float(txn.amount or 0.0))
+                for txn in self._get_matching_bank_statement_transactions(
+                    "debit",
+                    settings,
+                    ninety_days_ago.date(),
+                    now.date(),
+                )
+            )
 
         avg_daily_income = float(total_income_90d) / 90.0
         avg_daily_burn = float(total_expenses_90d) / 90.0
@@ -569,9 +593,9 @@ class CashFlowService:
         # 3. Historical pattern-based prediction (average daily income from last 90 days)
         # Only add if we have few concrete entries to fill gaps
         if settings.include_historical_averages and len(entries) < MIN_CONCRETE_ENTRIES_FOR_PATTERN:
-            avg_daily = self._get_historical_average_daily_income()
+            avg_daily = self._get_historical_average_daily_income(settings)
             if avg_daily > 0:
-                references, reference_count = self._get_historical_payment_references()
+                references, payment_count, bank_transaction_count = self._get_historical_payment_references(settings)
                 current = start_date + timedelta(days=1)
                 while current <= end_date:
                     # Only add for days without existing entries
@@ -588,7 +612,8 @@ class CashFlowService:
                                 source="historical_average",
                                 source_label="Historical payment average",
                                 source_details=(
-                                    f"Average payments from {reference_count} records over the last 90 days, "
+                                    f"Average income from {payment_count} payments and "
+                                    f"{bank_transaction_count} matching bank statement credits over the last 90 days, "
                                     f"grouped into {interval_days}-day forecast blocks."
                                 ),
                                 references=references,
@@ -649,9 +674,9 @@ class CashFlowService:
             entries.extend(self._get_bank_statement_pattern_entries("debit", start_date, end_date, settings))
 
         # 2. Historical expense pattern - predict recurring expenses
-        avg_daily_expense = self._get_historical_average_daily_expense()
+        avg_daily_expense = self._get_historical_average_daily_expense(settings)
         if settings.include_historical_averages and avg_daily_expense > 0:
-            references, reference_count = self._get_historical_expense_references()
+            references, expense_count, bank_transaction_count = self._get_historical_expense_references(settings)
             # Fill in with weekly averages for days without concrete entries
             current = start_date + timedelta(days=1)
             while current <= end_date:
@@ -669,7 +694,8 @@ class CashFlowService:
                             source="historical_average",
                             source_label="Historical expense average",
                             source_details=(
-                                f"Average expenses from {reference_count} records over the last 90 days, "
+                                f"Average expenses from {expense_count} expenses and "
+                                f"{bank_transaction_count} matching bank statement debits over the last 90 days, "
                                 f"grouped into {interval_days}-day forecast blocks."
                             ),
                             references=references,
@@ -691,15 +717,7 @@ class CashFlowService:
         lookback_start = today - timedelta(days=settings.bank_statement_lookback_days)
 
         transactions = (
-            self.db.query(BankStatementTransaction)
-            .options(joinedload(BankStatementTransaction.statement))
-            .join(BankStatement, BankStatement.id == BankStatementTransaction.statement_id)
-            .filter(BankStatement.is_deleted == False)  # noqa: E712
-            .filter(BankStatement.status.in_(["processed", "uploaded"]))
-            .filter(BankStatementTransaction.transaction_type == transaction_type)
-            .filter(BankStatementTransaction.date >= lookback_start)
-            .filter(BankStatementTransaction.date <= today)
-            .all()
+            self._get_matching_bank_statement_transactions(transaction_type, settings, lookback_start, today)
         )
 
         grouped: Dict[Tuple[str, str], List[BankStatementTransaction]] = defaultdict(list)
@@ -754,6 +772,37 @@ class CashFlowService:
         if category and category.lower() not in {"other", "uncategorized", "unknown"}:
             return category
         return self._normalize_transaction_description(txn.description)
+
+    def _get_matching_bank_statement_transactions(
+        self,
+        transaction_type: str,
+        settings: CashFlowThresholdSettings,
+        start_date: date,
+        end_date: date,
+    ) -> List[BankStatementTransaction]:
+        """Return statement transactions that match cash flow bank statement rules."""
+        transactions = (
+            self.db.query(BankStatementTransaction)
+            .options(joinedload(BankStatementTransaction.statement))
+            .join(BankStatement, BankStatement.id == BankStatementTransaction.statement_id)
+            .filter(BankStatement.is_deleted == False)  # noqa: E712
+            .filter(BankStatement.status.in_(BANK_STATEMENT_READY_STATUSES))
+            .filter(BankStatementTransaction.transaction_type == transaction_type)
+            .filter(BankStatementTransaction.date >= start_date)
+            .filter(BankStatementTransaction.date <= end_date)
+            .all()
+        )
+
+        return [
+            txn
+            for txn in transactions
+            if abs(float(txn.amount or 0.0)) > 0
+            and self._is_bank_statement_category_enabled(
+                transaction_type,
+                self._bank_statement_pattern_label(txn),
+                settings,
+            )
+        ]
 
     def _is_bank_statement_category_enabled(
         self,
@@ -959,7 +1008,10 @@ class CashFlowService:
             url=f"/statements?id={transaction.statement_id}&txn={transaction.id}",
         )
 
-    def _get_historical_payment_references(self) -> Tuple[List[CashFlowReference], int]:
+    def _get_historical_payment_references(
+        self,
+        settings: CashFlowThresholdSettings,
+    ) -> Tuple[List[CashFlowReference], int, int]:
         now = datetime.now(timezone.utc)
         ninety_days_ago = now - timedelta(days=90)
         query = (
@@ -971,9 +1023,27 @@ class CashFlowService:
         )
         count = query.count()
         payments = query.order_by(Payment.payment_date.desc()).limit(5).all()
-        return [self._payment_reference(payment) for payment in payments], count
+        bank_transactions = (
+            self._get_matching_bank_statement_transactions(
+                "credit",
+                settings,
+                ninety_days_ago.date(),
+                now.date(),
+            )
+            if settings.include_bank_statement_patterns
+            else []
+        )
+        references = [self._payment_reference(payment) for payment in payments]
+        references.extend(
+            self._bank_statement_transaction_reference(txn)
+            for txn in sorted(bank_transactions, key=lambda txn: txn.date, reverse=True)[:5]
+        )
+        return references, count, len(bank_transactions)
 
-    def _get_historical_expense_references(self) -> Tuple[List[CashFlowReference], int]:
+    def _get_historical_expense_references(
+        self,
+        settings: CashFlowThresholdSettings,
+    ) -> Tuple[List[CashFlowReference], int, int]:
         now = datetime.now(timezone.utc)
         ninety_days_ago = now - timedelta(days=90)
         query = (
@@ -986,10 +1056,29 @@ class CashFlowService:
         )
         count = query.count()
         expenses = query.order_by(Expense.expense_date.desc()).limit(5).all()
-        return [self._expense_reference(expense) for expense in expenses], count
+        bank_transactions = (
+            self._get_matching_bank_statement_transactions(
+                "debit",
+                settings,
+                ninety_days_ago.date(),
+                now.date(),
+            )
+            if settings.include_bank_statement_patterns
+            else []
+        )
+        references = [self._expense_reference(expense) for expense in expenses]
+        references.extend(
+            self._bank_statement_transaction_reference(txn)
+            for txn in sorted(bank_transactions, key=lambda txn: txn.date, reverse=True)[:5]
+        )
+        return references, count, len(bank_transactions)
 
-    def _get_historical_average_daily_income(self) -> float:
+    def _get_historical_average_daily_income(
+        self,
+        settings: Optional[CashFlowThresholdSettings] = None,
+    ) -> float:
         """Calculate average daily income from the last 90 days."""
+        settings = settings or self._get_threshold_settings()
         now = datetime.now(timezone.utc)
         ninety_days_ago = now - timedelta(days=90)
 
@@ -1000,11 +1089,25 @@ class CashFlowService:
             .filter(Payment.payment_date <= now)
             .scalar()
         ) or 0.0
+        if settings.include_bank_statement_patterns:
+            total += sum(
+                abs(float(txn.amount or 0.0))
+                for txn in self._get_matching_bank_statement_transactions(
+                    "credit",
+                    settings,
+                    ninety_days_ago.date(),
+                    now.date(),
+                )
+            )
 
         return float(total) / 90.0
 
-    def _get_historical_average_daily_expense(self) -> float:
+    def _get_historical_average_daily_expense(
+        self,
+        settings: Optional[CashFlowThresholdSettings] = None,
+    ) -> float:
         """Calculate average daily expense from the last 90 days."""
+        settings = settings or self._get_threshold_settings()
         now = datetime.now(timezone.utc)
         ninety_days_ago = now - timedelta(days=90)
 
@@ -1017,6 +1120,16 @@ class CashFlowService:
             .filter(Expense.expense_date <= now)
             .scalar()
         ) or 0.0
+        if settings.include_bank_statement_patterns:
+            total += sum(
+                abs(float(txn.amount or 0.0))
+                for txn in self._get_matching_bank_statement_transactions(
+                    "debit",
+                    settings,
+                    ninety_days_ago.date(),
+                    now.date(),
+                )
+            )
 
         return float(total) / 90.0
 

@@ -440,8 +440,49 @@ class TestCashFlowService:
         assert bank_outflows[0].amount == pytest.approx(1800.0)
         assert bank_outflows[0].source_label == "Bank statement pattern"
         assert "2 debit transactions" in bank_outflows[0].source_details
+        assert bank_outflows[0].references
+        assert bank_outflows[0].references[0].type == "bank_statement_transaction"
         assert len(bank_inflows) == 2
         assert bank_inflows[0].amount == pytest.approx(4500.0)
+        assert bank_inflows[0].references
+        assert bank_inflows[0].references[0].url.startswith("/statements?id=")
+
+    def test_historical_average_references_matching_bank_statement_transactions(self, db_session):
+        """Historical averages should show matching bank statement transaction source records."""
+        from core.models.models_per_tenant import BankStatement, BankStatementTransaction
+
+        statement = BankStatement(
+            tenant_id=1,
+            original_filename="payroll.csv",
+            stored_filename="payroll.csv",
+            file_path="/tmp/payroll.csv",
+            status="done",
+        )
+        db_session.add(statement)
+        db_session.commit()
+        db_session.refresh(statement)
+
+        db_session.add(
+            BankStatementTransaction(
+                statement_id=statement.id,
+                date=date.today() - timedelta(days=10),
+                description="Salary Deposit",
+                amount=4500.0,
+                transaction_type="credit",
+                category="Salary",
+            )
+        )
+        db_session.commit()
+
+        service = CashFlowService(db_session)
+        service.update_threshold_settings(bank_statement_inflow_categories=["Salary"])
+        forecast = service.get_forecast(period="7d", current_balance=0.0)
+        historical_inflows = [entry for entry in forecast.inflow_entries if entry.source == "historical_average"]
+
+        assert historical_inflows
+        assert historical_inflows[0].amount > 0
+        assert "1 matching bank statement credits" in historical_inflows[0].source_details
+        assert any(ref.type == "bank_statement_transaction" for ref in historical_inflows[0].references)
 
     def test_cashflow_settings_can_disable_bank_statement_patterns(self, db_session):
         """Bank statement patterns should be excluded when disabled in settings."""
