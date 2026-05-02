@@ -90,6 +90,7 @@ const NewInventoryInvoice = React.lazy(() => import("./pages/NewInventoryInvoice
 const ApprovalReportsPage = React.lazy(() => import("./pages/ApprovalReportsPage"));
 const Reminders = React.lazy(() => import("./pages/Reminders"));
 const Workflows = React.lazy(() => import("./pages/Workflows"));
+const CashFlow = React.lazy(() => import("./pages/CashFlow"));
 const OrganizationJoinRequests = React.lazy(() => import("./pages/OrganizationJoinRequests"));
 const PromptManagement = React.lazy(() => import("./pages/PromptManagement"));
 
@@ -278,6 +279,7 @@ const AppContent = () => {
                     <Route path="/payments" element={<Payments />} />
                     <Route path="/reminders" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Reminders /></RoleProtectedRoute>} />
                     <Route path="/workflows" element={<RoleProtectedRoute allowedRoles={['admin']}><Workflows /></RoleProtectedRoute>} />
+                    <Route path="/cashflow" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><CashFlow /></RoleProtectedRoute>} />
                     <Route path="/approvals" element={<ApprovalDashboard />} />
                     <Route path="/approvals/reports" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ApprovalReportsPage /></RoleProtectedRoute>} />
 

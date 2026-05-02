@@ -66,6 +66,7 @@ from core.routers import (
     timeline,  # Add the client timeline router
     share_tokens,  # Add the record sharing router
     workflows,
+    cashflow,  # Add the cash flow forecasting router
 )
 
 # Configure logging early so we can use it in imports
@@ -597,6 +598,7 @@ app.include_router(sync.router, prefix="/api/v1")            # Add the sync rout
 app.include_router(timeline.router, prefix="/api/v1")        # Add the client timeline router
 app.include_router(share_tokens.router, prefix="/api/v1")   # Add the record sharing router
 app.include_router(workflows.router, prefix="/api/v1")      # Add the workflows router
+app.include_router(cashflow.router, prefix="/api/v1")       # Add the cash flow forecasting router
 
 
 # ------------------------------------------------------------------------------

@@ -27,3 +27,4 @@ from .files import *
 from .license import *
 from .gamification import *
 from .timeline import *
+from .cashflow import *
