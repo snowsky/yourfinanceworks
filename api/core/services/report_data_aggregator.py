@@ -799,12 +799,10 @@ class ReportDataAggregator:
                 date_range = DateRange(filters.date_from, filters.date_to)
 
                 if date_range.start_date or date_range.end_date:
-                    txn_query = txn_query.join(BankStatementTransaction.statement)
-                    txn_query = self._apply_date_filter(txn_query, BankStatement.created_at, date_range)
+                    txn_query = self._apply_date_filter(txn_query, BankStatementTransaction.date, date_range)
 
                 if filters.account_ids:
-                    if not (date_range.start_date or date_range.end_date):
-                        txn_query = txn_query.join(BankStatementTransaction.statement)
+                    txn_query = txn_query.join(BankStatementTransaction.statement)
                     txn_query = txn_query.filter(BankStatement.id.in_(filters.account_ids))
 
                 if filters.amount_min is not None:

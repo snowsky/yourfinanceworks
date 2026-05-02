@@ -429,6 +429,7 @@ class TestReportTypes:
         assert ReportType.PAYMENT in type_names
         assert ReportType.EXPENSE in type_names
         assert ReportType.STATEMENT in type_names
+        assert ReportType.INVENTORY in type_names
         assert ReportType.CASH_FLOW in type_names
         
         # Check structure of first report type

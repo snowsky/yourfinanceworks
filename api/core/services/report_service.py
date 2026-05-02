@@ -895,7 +895,18 @@ class ReportService:
 
         # Combine inflows and outflows into a single sorted list
         all_items = cash_flow_data.inflows + cash_flow_data.outflows
-        all_items.sort(key=lambda x: x.get('payment_date') or x.get('expense_date') or x.get('date') or '', reverse=True)
+
+        def _sort_key(x):
+            date_val = x.get('payment_date') or x.get('expense_date') or x.get('date')
+            if date_val is None:
+                from datetime import datetime as _dt
+                return _dt.min.replace(tzinfo=None)
+            if hasattr(date_val, 'replace'):
+                # normalize datetime to naive for comparison
+                return date_val.replace(tzinfo=None) if hasattr(date_val, 'tzinfo') else date_val
+            return date_val
+
+        all_items.sort(key=_sort_key, reverse=True)
 
         return {
             "summary": summary,
