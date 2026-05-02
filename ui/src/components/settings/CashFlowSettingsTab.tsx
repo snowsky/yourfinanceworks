@@ -228,18 +228,6 @@ export const CashFlowSettingsTab: React.FC = () => {
         <ProfessionalCardContent className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="cashflow-lookback">Lookback window days</Label>
-              <ProfessionalInput
-                id="cashflow-lookback"
-                type="number"
-                min={30}
-                max={365}
-                value={settings.bank_statement_lookback_days}
-                onChange={(event) => updateSetting("bank_statement_lookback_days", Number(event.target.value))}
-                disabled={isLoading || saveMutation.isPending || !settings.include_bank_statement_patterns}
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="cashflow-min-occurrences">Minimum matching transactions</Label>
               <ProfessionalInput
                 id="cashflow-min-occurrences"

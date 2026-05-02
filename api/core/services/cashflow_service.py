@@ -49,6 +49,26 @@ HISTORICAL_PATTERN_INTERVAL_DAYS = 7
 # Statement statuses whose transactions are usable for cash flow projection.
 BANK_STATEMENT_READY_STATUSES = ("processed", "uploaded", "done")
 
+# Labels that are usually scheduled household or operating bills even when the
+# lookback window only contains one statement.
+LIKELY_MONTHLY_BILL_KEYWORDS = (
+    "mortgage",
+    "mtge",
+    "rent",
+    "lease",
+    "insurance",
+    "ins",
+    "hydro",
+    "utility",
+    "utilities",
+    "electric",
+    "water",
+    "gas",
+    "internet",
+    "telecom",
+    "phone",
+)
+
 
 class CashFlowService:
     """Service for cash flow forecasting and analysis."""
@@ -89,10 +109,10 @@ class CashFlowService:
         Generate cash flow forecast for the specified period.
 
         Args:
-            period: One of '7d', '30d', '90d'
+            period: One of '7d', '30d', '90d', '365d'
             current_balance: Optional override for current balance
         """
-        days_map = {"7d": 7, "30d": 30, "90d": 90}
+        days_map = {"7d": 7, "30d": 30, "90d": 90, "365d": 365}
         num_days = days_map.get(period, 30)
 
         today = date.today()
@@ -223,7 +243,7 @@ class CashFlowService:
         """
         Run a what-if scenario analysis.
         """
-        days_map = {"7d": 7, "30d": 30, "90d": 90}
+        days_map = {"7d": 7, "30d": 30, "90d": 90, "365d": 365}
         num_days = days_map.get(period, 30)
 
         today = date.today()
@@ -714,13 +734,13 @@ class CashFlowService:
     ) -> List[CashFlowEntry]:
         """Project recurring cash flow patterns found in bank statement transactions."""
         today = date.today()
-        lookback_start = today - timedelta(days=settings.bank_statement_lookback_days)
+        forecast_days = max(0, (end_date - start_date).days)
+        lookback_days = max(settings.bank_statement_lookback_days, min(forecast_days, 365))
+        lookback_start = today - timedelta(days=lookback_days)
 
-        transactions = (
-            self._get_matching_bank_statement_transactions(transaction_type, settings, lookback_start, today)
-        )
+        transactions = self._get_matching_bank_statement_transactions(transaction_type, settings, lookback_start, today)
 
-        grouped: Dict[Tuple[str, str], List[BankStatementTransaction]] = defaultdict(list)
+        grouped: Dict[Tuple[str, str, int], List[BankStatementTransaction]] = defaultdict(list)
         for txn in transactions:
             amount = abs(float(txn.amount or 0.0))
             if amount <= 0:
@@ -728,14 +748,15 @@ class CashFlowService:
             label = self._bank_statement_pattern_label(txn)
             if not self._is_bank_statement_category_enabled(transaction_type, label, settings):
                 continue
-            grouped[(transaction_type, label.lower())].append(txn)
+            grouped[(transaction_type, label.lower(), int(round(amount * 100)))].append(txn)
 
         entries: List[CashFlowEntry] = []
-        for (_, _), group in grouped.items():
+        for group in grouped.values():
             if len(group) < settings.bank_statement_min_occurrences:
-                continue
+                pattern = self._build_single_observation_bank_statement_pattern(group, settings)
+            else:
+                pattern = self._build_bank_statement_pattern(group, settings)
 
-            pattern = self._build_bank_statement_pattern(group, settings)
             if not pattern:
                 continue
 
@@ -875,6 +896,32 @@ class CashFlowService:
         label = self._bank_statement_pattern_label(ordered[-1])
         references = [self._bank_statement_transaction_reference(txn) for txn in ordered[-5:]]
         return avg_amount, interval_days, label, unique_dates[-1], len(ordered), ordered[-1].id, references
+
+    def _build_single_observation_bank_statement_pattern(
+        self,
+        transactions: List[BankStatementTransaction],
+        settings: CashFlowThresholdSettings,
+    ) -> Optional[Tuple[float, int, str, date, int, int, List[CashFlowReference]]]:
+        """Project obvious monthly bills from a single statement observation."""
+        if 30 not in set(settings.bank_statement_intervals or []):
+            return None
+
+        ordered = sorted(transactions, key=lambda txn: (txn.date, txn.id or 0))
+        if not ordered:
+            return None
+
+        txn = ordered[-1]
+        label = self._bank_statement_pattern_label(txn)
+        text = f"{label} {txn.description or ''}".lower()
+        if not any(keyword in text for keyword in LIKELY_MONTHLY_BILL_KEYWORDS):
+            return None
+
+        amount = abs(float(txn.amount or 0.0))
+        if amount <= 0:
+            return None
+
+        references = [self._bank_statement_transaction_reference(txn)]
+        return amount, 30, label, txn.date, 1, txn.id, references
 
     def _classify_bank_statement_interval(
         self,

@@ -43,7 +43,7 @@ async def get_cash_flow_forecast(
     """
     Get cash flow forecast for the specified period.
 
-    - **period**: Forecast period - '7d', '30d', or '90d'
+    - **period**: Forecast period - '7d', '30d', '90d', or '365d'
     - **current_balance**: Optional override for starting balance
     """
     service = CashFlowService(db)

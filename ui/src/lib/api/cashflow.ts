@@ -105,7 +105,7 @@ export interface CashFlowAlertResponse {
   breach_date: string | null;
 }
 
-export type ForecastPeriod = '7d' | '30d' | '90d';
+export type ForecastPeriod = '7d' | '30d' | '90d' | '365d';
 
 // API client
 export const cashflowApi = {

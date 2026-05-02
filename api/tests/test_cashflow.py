@@ -164,6 +164,13 @@ class TestCashFlowService:
         assert forecast.period == "90d"
         assert len(forecast.daily_balances) == 91
 
+    def test_get_forecast_365d(self, service, seed_data):
+        """Test 365-day forecast."""
+        forecast = service.get_forecast(period="365d")
+        assert forecast.period == "365d"
+        assert forecast.end_date == date.today() + timedelta(days=365)
+        assert len(forecast.daily_balances) == 366
+
     def test_get_forecast_with_custom_balance(self, service, seed_data):
         """Test forecast with overridden starting balance."""
         forecast = service.get_forecast(period="30d", current_balance=50000.0)
@@ -446,6 +453,125 @@ class TestCashFlowService:
         assert bank_inflows[0].amount == pytest.approx(4500.0)
         assert bank_inflows[0].references
         assert bank_inflows[0].references[0].url.startswith("/statements?id=")
+
+    def test_bank_statement_patterns_group_recurring_bills_by_amount(self, db_session):
+        """Different payment streams with the same label should not hide each other."""
+        from core.models.models_per_tenant import BankStatement, BankStatementTransaction
+
+        statement = BankStatement(
+            tenant_id=1,
+            original_filename="bank_statement_2.pdf",
+            stored_filename="bank_statement_2.pdf",
+            file_path="/tmp/bank_statement_2.pdf",
+            status="processed",
+        )
+        db_session.add(statement)
+        db_session.commit()
+        db_session.refresh(statement)
+
+        for txn_date, amount in (
+            (date.today() - timedelta(days=42), 937.58),
+            (date.today() - timedelta(days=28), 709.99),
+            (date.today() - timedelta(days=14), 937.58),
+            (date.today() - timedelta(days=1), 709.99),
+        ):
+            db_session.add(
+                BankStatementTransaction(
+                    statement_id=statement.id,
+                    date=txn_date,
+                    description="Mortgage BNS MTGE DEPT",
+                    amount=amount,
+                    transaction_type="debit",
+                    category="Mortgage",
+                )
+            )
+        db_session.commit()
+
+        service = CashFlowService(db_session)
+        forecast = service.get_forecast(period="30d", current_balance=0.0)
+        mortgage_outflows = [
+            entry
+            for entry in forecast.outflow_entries
+            if entry.source == "bank_statement_pattern" and entry.description == "Mortgage"
+        ]
+
+        projected_amounts = {round(entry.amount, 2) for entry in mortgage_outflows}
+        assert 937.58 in projected_amounts
+        assert 709.99 in projected_amounts
+
+    def test_bank_statement_single_obvious_monthly_bills_create_sources(self, db_session):
+        """One-statement utility and insurance rows should still appear as projected sources."""
+        from core.models.models_per_tenant import BankStatement, BankStatementTransaction
+
+        statement = BankStatement(
+            tenant_id=1,
+            original_filename="bank_statement_2.pdf",
+            stored_filename="bank_statement_2.pdf",
+            file_path="/tmp/bank_statement_2.pdf",
+            status="processed",
+        )
+        db_session.add(statement)
+        db_session.commit()
+        db_session.refresh(statement)
+
+        for category, description, amount in (
+            ("Insurance", "Insurance CERTAS H&A INS", 331.51),
+            ("Hydro", "Misc Payment Hydro Ottawa", 204.53),
+            ("Dining", "Coffee Shop", 8.75),
+        ):
+            db_session.add(
+                BankStatementTransaction(
+                    statement_id=statement.id,
+                    date=date.today() - timedelta(days=15),
+                    description=description,
+                    amount=amount,
+                    transaction_type="debit",
+                    category=category,
+                )
+            )
+        db_session.commit()
+
+        service = CashFlowService(db_session)
+        forecast = service.get_forecast(period="30d", current_balance=0.0)
+        bank_outflows = [entry for entry in forecast.outflow_entries if entry.source == "bank_statement_pattern"]
+        descriptions = {entry.description for entry in bank_outflows}
+
+        assert "Insurance" in descriptions
+        assert "Hydro" in descriptions
+        assert "Dining" not in descriptions
+
+    def test_bank_statement_365d_forecast_uses_year_lookback(self, db_session):
+        """A yearly forecast should use up to a year of statement history for sources."""
+        from core.models.models_per_tenant import BankStatement, BankStatementTransaction
+
+        statement = BankStatement(
+            tenant_id=1,
+            original_filename="bank_statement_2.pdf",
+            stored_filename="bank_statement_2.pdf",
+            file_path="/tmp/bank_statement_2.pdf",
+            status="processed",
+        )
+        db_session.add(statement)
+        db_session.commit()
+        db_session.refresh(statement)
+
+        db_session.add(
+            BankStatementTransaction(
+                statement_id=statement.id,
+                date=date.today() - timedelta(days=300),
+                description="Misc Payment Hydro Ottawa",
+                amount=204.53,
+                transaction_type="debit",
+                category="Hydro",
+            )
+        )
+        db_session.commit()
+
+        service = CashFlowService(db_session)
+        forecast = service.get_forecast(period="365d", current_balance=0.0)
+        bank_outflows = [entry for entry in forecast.outflow_entries if entry.source == "bank_statement_pattern"]
+
+        assert any(entry.description == "Hydro" for entry in bank_outflows)
 
     def test_historical_average_references_matching_bank_statement_transactions(self, db_session):
         """Historical averages should show matching bank statement transaction source records."""

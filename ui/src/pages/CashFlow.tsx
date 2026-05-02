@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,8 @@ import {
   Shield,
   Zap,
   FileText,
+  Landmark,
+  Save,
 } from 'lucide-react';
 
 import {
@@ -24,8 +26,10 @@ import {
   type ScenarioInput,
   type ScenarioResult,
   type CashFlowEntry,
+  type CashFlowThresholdSettings,
 } from '@/lib/api/cashflow';
-import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
+import { getErrorMessage } from '@/lib/api';
+import { PageHeader } from '@/components/ui/professional-layout';
 import {
   ProfessionalCard,
   ProfessionalCardContent,
@@ -68,6 +72,11 @@ const parseOptionalScenarioNumber = (value: string, label: string): number | nul
   }
 
   return parsed;
+};
+
+const clampStatementLookbackDays = (value: number): number => {
+  if (!Number.isFinite(value)) return 120;
+  return Math.max(30, Math.min(365, Math.round(value)));
 };
 
 // Format currency
@@ -743,6 +752,84 @@ const ScenarioBuilder: React.FC = () => {
   );
 };
 
+const StatementPatternSidebar: React.FC<{ period: ForecastPeriod }> = ({ period }) => {
+  const queryClient = useQueryClient();
+  const [lookbackDays, setLookbackDays] = useState(120);
+
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ['cashflow-settings'],
+    queryFn: () => cashflowApi.getThresholds(),
+  });
+
+  useEffect(() => {
+    if (!settings) return;
+    setLookbackDays(clampStatementLookbackDays(settings.bank_statement_lookback_days));
+  }, [settings]);
+
+  const saveMutation = useMutation({
+    mutationFn: (nextLookbackDays: number) =>
+      cashflowApi.updateThresholds({
+        bank_statement_lookback_days: clampStatementLookbackDays(nextLookbackDays),
+      } satisfies Partial<CashFlowThresholdSettings>),
+    onSuccess: (saved) => {
+      setLookbackDays(clampStatementLookbackDays(saved.bank_statement_lookback_days));
+      queryClient.invalidateQueries({ queryKey: ['cashflow-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['cashflow-forecast'] });
+      toast.success('Statement pattern history saved');
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+
+  const effectiveLookbackDays = Math.max(lookbackDays, period === '365d' ? 365 : 0);
+  const isDisabled = isLoading || saveMutation.isPending || settings?.include_bank_statement_patterns === false;
+
+  return (
+    <ProfessionalCard>
+      <ProfessionalCardHeader>
+        <ProfessionalCardTitle className="flex items-center gap-2 text-base">
+          <Landmark className="h-4 w-4" />
+          Statement Pattern History
+        </ProfessionalCardTitle>
+      </ProfessionalCardHeader>
+      <ProfessionalCardContent className="space-y-4">
+        <div className="space-y-2">
+          <label htmlFor="cashflow-sidebar-lookback" className="text-sm font-medium">
+            History used for pattern detection
+          </label>
+          <ProfessionalInput
+            id="cashflow-sidebar-lookback"
+            type="number"
+            min={30}
+            max={365}
+            value={lookbackDays}
+            onChange={(event) => setLookbackDays(clampStatementLookbackDays(Number(event.target.value)))}
+            disabled={isDisabled}
+          />
+        </div>
+        <div className="rounded border bg-muted/30 p-3 text-xs text-muted-foreground">
+          Using {effectiveLookbackDays} days for this forecast. Yearly forecasts use up to 365 days so older statement
+          sources can be detected.
+        </div>
+        {settings?.include_bank_statement_patterns === false && (
+          <p className="text-xs text-muted-foreground">
+            Bank statement patterns are disabled in Cash Flow settings.
+          </p>
+        )}
+        <ProfessionalButton
+          onClick={() => saveMutation.mutate(lookbackDays)}
+          disabled={isDisabled}
+          className="w-full gap-2"
+        >
+          <Save className="h-4 w-4" />
+          {saveMutation.isPending ? 'Saving...' : 'Save History Window'}
+        </ProfessionalButton>
+      </ProfessionalCardContent>
+    </ProfessionalCard>
+  );
+};
+
 // ---- Main Page ----
 const CashFlow: React.FC = () => {
   const { t } = useTranslation();
@@ -770,35 +857,44 @@ const CashFlow: React.FC = () => {
         subtitle={t('cashflow.subtitle', { defaultValue: 'Forecast, runway analysis, and scenario planning' })}
       />
 
-      {/* Period selector */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-muted-foreground">Forecast Period:</span>
-        <Select value={period} onValueChange={(v) => setPeriod(v as ForecastPeriod)}>
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7d">7 Days</SelectItem>
-            <SelectItem value="30d">30 Days</SelectItem>
-            <SelectItem value="90d">90 Days</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="space-y-6">
+          {/* Period selector */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-muted-foreground">Forecast Period:</span>
+            <Select value={period} onValueChange={(v) => setPeriod(v as ForecastPeriod)}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7d">7 Days</SelectItem>
+                <SelectItem value="30d">30 Days</SelectItem>
+                <SelectItem value="90d">90 Days</SelectItem>
+                <SelectItem value="365d">365 Days</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Alerts */}
+          <AlertsBanner alerts={alerts} />
+
+          {/* Runway */}
+          <RunwayCard runway={runway} isLoading={runwayLoading} />
+
+          {/* Forecast chart */}
+          <ForecastChart forecast={forecast} isLoading={forecastLoading} />
+
+          {/* Inflow & Outflow breakdown */}
+          <InflowOutflowBreakdown forecast={forecast} isLoading={forecastLoading} />
+
+          {/* Scenario builder */}
+          <ScenarioBuilder />
+        </div>
+
+        <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+          <StatementPatternSidebar period={period} />
+        </aside>
       </div>
-
-      {/* Alerts */}
-      <AlertsBanner alerts={alerts} />
-
-      {/* Runway */}
-      <RunwayCard runway={runway} isLoading={runwayLoading} />
-
-      {/* Forecast chart */}
-      <ForecastChart forecast={forecast} isLoading={forecastLoading} />
-
-      {/* Inflow & Outflow breakdown */}
-      <InflowOutflowBreakdown forecast={forecast} isLoading={forecastLoading} />
-
-      {/* Scenario builder */}
-      <ScenarioBuilder />
     </div>
   );
 };
