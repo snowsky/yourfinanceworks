@@ -49,6 +49,23 @@ const INVOICE_COLUMNS: ColumnDef[] = [
   { key: 'actions', label: 'Actions', essential: true },
 ];
 
+const addOneCalendarMonth = (date: Date) => {
+  const next = new Date(date);
+  const originalDay = next.getDate();
+  next.setMonth(next.getMonth() + 1);
+  if (next.getDate() !== originalDay) {
+    next.setDate(0);
+  }
+  return next;
+};
+
+const toDateInputValue = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 interface DeletedInvoice {
   id: number;
   number: string;
@@ -415,6 +432,10 @@ const Invoices = () => {
   const handleCloneInvoice = async (invoiceId: number) => {
     try {
       const newInvoice = await invoiceApi.cloneInvoice(invoiceId);
+      const clonedAt = newInvoice.created_at ? new Date(newInvoice.created_at) : new Date();
+      await invoiceApi.updateInvoice(newInvoice.id, {
+        due_date: toDateInputValue(addOneCalendarMonth(clonedAt)),
+      });
       toast.success(t('invoices.clone_success', { number: newInvoice.number, defaultValue: 'Cloned as {{number}}' }));
       invalidateInvoices();
       // Redirect to edit

@@ -44,6 +44,20 @@ const formatCurrency = (amount: number, currency: string = 'USD'): string => {
   return `${amount.toFixed(2)} ${upperCurrency}`;
 };
 
+const formatInvoiceDate = (value?: string | Date | null): string => {
+  if (!value) return 'N/A';
+
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return 'N/A';
+
+  return date.toLocaleDateString('en-US', {
+    timeZone: 'UTC',
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+  });
+};
+
 // Create styles
 const styles = StyleSheet.create({
   page: {
@@ -190,17 +204,17 @@ export const InvoicePDF = ({ invoice, companyName, clientCompany, showDiscount, 
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Date:</Text>
-          <Text style={styles.value}>{invoice.date}</Text>
+          <Text style={styles.value}>{formatInvoiceDate(invoice.date)}</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Due Date:</Text>
-          <Text style={styles.value}>{invoice.due_date}</Text>
+          <Text style={styles.value}>{formatInvoiceDate(invoice.due_date)}</Text>
         </View>
       </View>
 
       <View style={styles.section}>
         <Text style={[styles.label, { marginBottom: 8 }]}>Bill To:</Text>
-        {clientCompany && (
+        {clientCompany && clientCompany !== invoice.client_name && (
           <View style={styles.row}>
             <Text style={styles.label}></Text>
             <Text style={styles.value}>{clientCompany}</Text>
@@ -210,10 +224,12 @@ export const InvoicePDF = ({ invoice, companyName, clientCompany, showDiscount, 
           <Text style={styles.label}></Text>
           <Text style={styles.value}>{invoice.client_name}</Text>
         </View>
-        <View style={styles.row}>
-          <Text style={styles.label}></Text>
-          <Text style={styles.value}>{invoice.client_email}</Text>
-        </View>
+        {invoice.client_email && (
+          <View style={styles.row}>
+            <Text style={styles.label}></Text>
+            <Text style={styles.value}>{invoice.client_email}</Text>
+          </View>
+        )}
       </View>
 
       {invoice.custom_fields && Object.keys(invoice.custom_fields).length > 0 && (

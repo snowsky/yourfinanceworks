@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { parseISO, isValid } from "date-fns";
+import { addMonths, parseISO, isValid } from "date-fns";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { Invoice, Client, Settings, DiscountRule, Expense } from "@/lib/api";
@@ -84,6 +84,8 @@ const defaultItem = {
   inventory_item_id: undefined,
   unit_of_measure: undefined
 };
+
+const defaultDueDate = () => addMonths(new Date(), 1);
 
 const TAX_AMOUNT_KEYS = ["tax_amount", "output_tax", "vat_amount"];
 const TAX_RATE_KEYS = ["tax_rate", "output_tax_rate", "vat_rate"];
@@ -192,7 +194,7 @@ export function useInvoiceForm({
     invoiceNumber: initialData?.invoiceNumber || (invoice ? invoice.number : ""),
     currency: initialData?.currency || invoice?.currency || tenantInfo?.default_currency || "USD",
     date: initialData?.date || (invoice ? safeParseDateString(invoice.date || invoice.created_at) : new Date()),
-    dueDate: initialData?.dueDate || (invoice ? safeParseDateString(invoice.due_date) : new Date(new Date().setDate(new Date().getDate() + 30))),
+    dueDate: initialData?.dueDate || (invoice ? safeParseDateString(invoice.due_date) : defaultDueDate()),
     status: initialData?.status || (invoice ? (invoice.status as any) : "pending"),
     paidAmount: initialData?.paidAmount ?? (invoice?.paid_amount || 0),
     items: initialData?.items || safeItems,
@@ -223,7 +225,7 @@ export function useInvoiceForm({
         invoiceNumber: initialData.invoiceNumber || "",
         currency: initialData.currency || tenantInfo?.default_currency || "USD",
         date: initialData.date || new Date(),
-        dueDate: initialData.dueDate || new Date(new Date().setDate(new Date().getDate() + 30)),
+        dueDate: initialData.dueDate || defaultDueDate(),
         status: initialData.status || "pending",
         paidAmount: initialData.paidAmount ?? 0,
         items: initialData.items || [{ ...defaultItem }],
@@ -375,8 +377,8 @@ export function useInvoiceForm({
     return subtotal;
   }, [form]);
 
-  const calculateDiscount = useCallback(() => {
-    const subtotal = calculateSubtotal();
+  const calculateDiscount = useCallback((itemsToUse?: any[]) => {
+    const subtotal = calculateSubtotal(itemsToUse);
     const discountType = form.watch("discountType");
     const discountValue = form.watch("discountValue") || 0;
 
@@ -394,7 +396,7 @@ export function useInvoiceForm({
 
   const calculateTotal = useCallback((itemsToUse?: any[]) => {
     const subtotal = calculateSubtotal(itemsToUse);
-    const discount = calculateDiscount();
+    const discount = calculateDiscount(itemsToUse);
     return Math.max(0, subtotal - discount);
   }, [calculateSubtotal, calculateDiscount]);
 

@@ -29,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 import { invoiceApi, Invoice, approvalApi, apiRequest } from "@/lib/api";
 import { canEditInvoice } from "@/utils/auth";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface InvoiceFormProps {
   invoice?: Invoice;
@@ -68,6 +69,7 @@ export function InvoiceForm({
   canEditPayment = false
 }: InvoiceFormProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { t } = useTranslation();
 
   // Form state
@@ -182,14 +184,25 @@ export function InvoiceForm({
             onInvoiceUpdate(updatedInvoice);
           }
 
+          await queryClient.invalidateQueries({ queryKey: ['invoices'] });
           navigate("/invoices");
           return;
         }
 
         // Update existing invoice (full update)
+        const submittedItems = data.items.map((item: any) => ({
+          description: item.description || '',
+          quantity: Number(item.quantity) || 1,
+          price: Number(item.price) || 0,
+          amount: (Number(item.quantity) || 1) * (Number(item.price) || 0),
+          id: item.id,
+          inventory_item_id: item.inventory_item_id,
+          unit_of_measure: item.unit_of_measure
+        }));
+
         const updateData = {
-          amount: invoiceForm.calculateTotal(),
-          subtotal: invoiceForm.calculateSubtotal(),
+          amount: invoiceForm.calculateTotal(submittedItems),
+          subtotal: invoiceForm.calculateSubtotal(submittedItems),
           discount_type: data.discountType === "rule" && invoiceForm.appliedDiscountRule ?
             invoiceForm.appliedDiscountRule.discount_type : data.discountType,
           discount_value: data.discountType === "rule" && invoiceForm.appliedDiscountRule ?
@@ -200,15 +213,7 @@ export function InvoiceForm({
           status: data.status,
           client_id: Number(data.client),
           paid_amount: data.paidAmount || 0,
-          items: data.items.map((item: any) => ({
-            description: item.description || '',
-            quantity: Number(item.quantity) || 1,
-            price: Number(item.price) || 0,
-            amount: (Number(item.quantity) || 1) * (Number(item.price) || 0),
-            id: item.id,
-            inventory_item_id: item.inventory_item_id,
-            unit_of_measure: item.unit_of_measure
-          })),
+          items: submittedItems,
           is_recurring: data.isRecurring,
           recurring_frequency: data.recurringFrequency,
           custom_fields: customFields,
@@ -250,6 +255,7 @@ export function InvoiceForm({
           }
         }
 
+        await queryClient.invalidateQueries({ queryKey: ['invoices'] });
         navigate("/invoices");
       } else {
         const customFields = (data.customFields || []).reduce((acc: Record<string, any>, { key, value }: any) => {
@@ -264,13 +270,21 @@ export function InvoiceForm({
         }
 
         // Create new invoice
+        const submittedItems = data.items.map((item: any) => ({
+          description: item.description || '',
+          quantity: Number(item.quantity) || 1,
+          price: Number(item.price) || 0,
+          inventory_item_id: item.inventory_item_id,
+          unit_of_measure: item.unit_of_measure
+        }));
+
         const invoiceData = {
           number: data.invoiceNumber || undefined,
           client_id: Number(data.client),
           date: data.date ? data.date.toISOString().split('T')[0] : '',
           due_date: data.dueDate ? data.dueDate.toISOString().split('T')[0] : '',
-          amount: invoiceForm.calculateTotal(),
-          subtotal: invoiceForm.calculateSubtotal(),
+          amount: invoiceForm.calculateTotal(submittedItems),
+          subtotal: invoiceForm.calculateSubtotal(submittedItems),
           discount_type: data.discountType === "rule" && invoiceForm.appliedDiscountRule ?
             invoiceForm.appliedDiscountRule.discount_type : data.discountType,
           discount_value: data.discountType === "rule" && invoiceForm.appliedDiscountRule ?
@@ -279,13 +293,7 @@ export function InvoiceForm({
           paid_amount: data.paidAmount || 0,
           status: data.status,
           notes: data.notes || "",
-          items: data.items.map((item: any) => ({
-            description: item.description || '',
-            quantity: Number(item.quantity) || 1,
-            price: Number(item.price) || 0,
-            inventory_item_id: item.inventory_item_id,
-            unit_of_measure: item.unit_of_measure
-          })),
+          items: submittedItems,
           is_recurring: data.isRecurring,
           recurring_frequency: data.recurringFrequency,
           custom_fields: customFields,
@@ -322,6 +330,7 @@ export function InvoiceForm({
           }
         }
 
+        await queryClient.invalidateQueries({ queryKey: ['invoices'] });
         navigate("/invoices");
       }
     } catch (error) {

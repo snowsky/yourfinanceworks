@@ -245,7 +245,7 @@ const EditInvoice = () => {
         <InvoicePDF
           invoice={invoice}
           companyName={settings?.company_info?.name || 'Your Company Name'}
-          clientCompany={invoice.client_name}
+          clientCompany={invoice.client_company}
           showDiscount={invoice.show_discount_in_pdf || false}
           template="modern"
         />

@@ -110,6 +110,7 @@ class InvoiceAttachmentSchema(BaseModel):
 
 class InvoiceWithClient(Invoice):
     client_name: str
+    client_email: Optional[str] = None
     client_company: Optional[str] = None
     total_paid: float = 0.0
     items: List[InvoiceItemWithInventory] = []

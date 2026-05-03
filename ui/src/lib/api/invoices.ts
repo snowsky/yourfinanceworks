@@ -225,7 +225,8 @@ export const invoiceApi = {
         number: apiResponse.number || '',
         client_id: apiResponse.client_id,
         client_name: apiResponse.client_name || '',
-        client_email: '', // API doesn't return this, we'll need to fetch it separately or leave empty
+        client_email: apiResponse.client_email || '',
+        client_company: apiResponse.client_company || undefined,
         date: apiResponse.created_at || apiResponse.date || '', // Use created_at as fallback for date
         due_date: apiResponse.due_date || '',
         amount: apiResponse.amount || 0,

@@ -7,6 +7,7 @@ vi.mock('@/utils/auth', () => ({ canPerformActions: () => true }))
 
 const mockGetInvoices = vi.fn()
 const mockCloneInvoice = vi.fn()
+const mockUpdateInvoice = vi.fn()
 
 vi.mock('@/lib/api', async (orig) => {
   const actual = await (orig() as Promise<any>)
@@ -16,6 +17,7 @@ vi.mock('@/lib/api', async (orig) => {
       ...actual.invoiceApi,
       getInvoices: (...args: any[]) => mockGetInvoices(...args),
       cloneInvoice: (...args: any[]) => mockCloneInvoice(...args),
+      updateInvoice: (...args: any[]) => mockUpdateInvoice(...args),
     },
   }
 })
@@ -39,6 +41,7 @@ describe('Invoices clone action', () => {
   beforeEach(() => {
     mockGetInvoices.mockReset()
     mockCloneInvoice.mockReset()
+    mockUpdateInvoice.mockReset()
     mockNavigate.mockReset()
   })
 
@@ -46,7 +49,8 @@ describe('Invoices clone action', () => {
     mockGetInvoices.mockResolvedValueOnce([
       { id: 10, number: 'INV-0010', client_id: 1, client_name: 'Acme Co', created_at: new Date().toISOString(), due_date: new Date().toISOString(), amount: 100, currency: 'USD', paid_amount: 0, status: 'draft', notes: '', items: [], updated_at: new Date().toISOString(), is_recurring: false },
     ])
-    mockCloneInvoice.mockResolvedValueOnce({ id: 99, number: 'INV-0099' })
+    mockCloneInvoice.mockResolvedValueOnce({ id: 99, number: 'INV-0099', created_at: '2026-05-02T23:39:47Z' })
+    mockUpdateInvoice.mockResolvedValueOnce({})
 
     render(<Invoices />)
 
@@ -59,6 +63,7 @@ describe('Invoices clone action', () => {
 
     await waitFor(() => {
       expect(mockCloneInvoice).toHaveBeenCalledWith(10)
+      expect(mockUpdateInvoice).toHaveBeenCalledWith(99, { due_date: '2026-06-02' })
       expect(mockNavigate).toHaveBeenCalledWith('/invoices/edit/99')
     })
   })

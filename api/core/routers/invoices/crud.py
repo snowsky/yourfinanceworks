@@ -8,7 +8,8 @@ from typing import List, Optional, Dict, Any
 import logging
 import traceback
 import os
-from datetime import datetime, timezone, timedelta
+import calendar
+from datetime import datetime, timezone
 
 from core.models.database import get_db
 from core.models.models_per_tenant import Invoice, Client, User, InvoiceItem, DiscountRule, Settings, InvoiceAttachment, BankStatementTransaction
@@ -34,6 +35,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def add_one_calendar_month(value: datetime) -> datetime:
+    month = value.month + 1
+    year = value.year
+    if month > 12:
+        month = 1
+        year += 1
+    day = min(value.day, calendar.monthrange(year, month)[1])
+    return value.replace(year=year, month=month, day=day)
 
 
 @router.post("/", response_model=InvoiceWithClient, status_code=status.HTTP_201_CREATED)
@@ -152,7 +163,7 @@ async def create_invoice(
 
         # Ensure due_date default if not provided
         if db_invoice.due_date is None:
-            default_due = datetime.now(timezone.utc) + timedelta(days=30)
+            default_due = add_one_calendar_month(datetime.now(timezone.utc))
             # Store as naive midnight to avoid timezone shifts
             db_invoice.due_date = normalize_to_midnight_naive(default_due)
 
@@ -318,6 +329,7 @@ async def create_invoice(
         invoice_tuple = db.query(
             Invoice,
             Client.name.label('client_name'),
+            Client.email.label('client_email'),
             Client.company.label('client_company'),
             func.coalesce(func.sum(Payment.amount), 0).label('total_paid')
         ).join(
@@ -330,7 +342,7 @@ async def create_invoice(
             Invoice.id == db_invoice.id,
             Invoice.is_deleted == False
         ).group_by(
-            Invoice.id, Client.name, Client.company
+            Invoice.id, Client.name, Client.email, Client.company
         ).first()
 
         if invoice_tuple is None:
@@ -339,7 +351,7 @@ async def create_invoice(
                 detail="Failed to retrieve created invoice"
             )
 
-        invoice, client_name, client_company, total_paid = invoice_tuple
+        invoice, client_name, client_email, client_company, total_paid = invoice_tuple
 
         # Force refresh of database session to ensure we get latest data
         db.expire_all()
@@ -443,6 +455,7 @@ async def create_invoice(
             "description": invoice.notes,
             "client_id": invoice.client_id,
             "client_name": client_name,
+            "client_email": client_email,
             "client_company": client_company,
             "created_at": invoice.created_at.isoformat() if invoice.created_at else None,
             "updated_at": invoice.updated_at.isoformat() if invoice.updated_at else None,
@@ -517,17 +530,20 @@ async def clone_invoice(
         # Always generate new invoice number for cloned invoices
         new_number = generate_invoice_number(db)
 
-        # Build new invoice (reset status to draft, keep due_date as-is)
+        cloned_at = get_tenant_timezone_aware_datetime(db)
+        cloned_due_date = normalize_to_midnight_naive(add_one_calendar_month(cloned_at))
+
+        # Build new invoice with fresh invoice and due dates
         cloned_invoice = Invoice(
             number=new_number,
             amount=float(source_invoice.amount),
             currency=source_invoice.currency,
-            due_date=source_invoice.due_date,
+            due_date=cloned_due_date,
             status="draft",
             notes=source_invoice.notes,
             client_id=source_invoice.client_id,
-            created_at=get_tenant_timezone_aware_datetime(db),
-            updated_at=get_tenant_timezone_aware_datetime(db),
+            created_at=cloned_at,
+            updated_at=cloned_at,
             is_recurring=source_invoice.is_recurring,
             recurring_frequency=source_invoice.recurring_frequency,
             custom_fields=source_invoice.custom_fields,
@@ -558,10 +574,6 @@ async def clone_invoice(
                 cloned_invoice.amount = calculated_subtotal
         else:
             cloned_invoice.amount = float(source_invoice.amount)
-
-        # Default due_date if None
-        if cloned_invoice.due_date is None:
-            cloned_invoice.due_date = (datetime.now(timezone.utc) + timedelta(days=30))
 
         # Persist invoice
         db.add(cloned_invoice)
@@ -1265,6 +1277,7 @@ async def read_invoice(
         invoice_tuple = db.query(
             Invoice,
             Client.name.label('client_name'),
+            Client.email.label('client_email'),
             Client.company.label('client_company'),
             func.coalesce(func.sum(Payment.amount), 0).label('total_paid')
         ).join(
@@ -1275,7 +1288,7 @@ async def read_invoice(
             Invoice.id == invoice_id,
             Invoice.is_deleted == False
         ).group_by(
-            Invoice.id, Client.name, Client.company
+            Invoice.id, Client.name, Client.email, Client.company
         ).first()
 
         if invoice_tuple is None:
@@ -1285,7 +1298,7 @@ async def read_invoice(
                 detail="Invoice not found"
             )
 
-        invoice, client_name, client_company, total_paid = invoice_tuple
+        invoice, client_name, client_email, client_company, total_paid = invoice_tuple
 
         logger.info(f"[DEBUG] Invoice from DB - custom_fields: {invoice.custom_fields}")
         logger.info(f"[DEBUG] Invoice from DB - type of custom_fields: {type(invoice.custom_fields)}")
@@ -1371,6 +1384,7 @@ async def read_invoice(
             "notes": invoice.notes,
             "client_id": invoice.client_id,
             "client_name": client_name,
+            "client_email": client_email,
             "client_company": client_company,
             "created_at": invoice.created_at.isoformat() if invoice.created_at else None,
             "updated_at": invoice.updated_at.isoformat() if invoice.updated_at else None,
@@ -1657,6 +1671,8 @@ async def update_invoice(
 
         logger.info(f"[DEBUG] After setting fields, custom_fields in DB: {db_invoice.custom_fields}")
 
+        items_were_updated = invoice.items is not None
+
         # Handle items update if provided
         if invoice.items is not None:
             logger.info(f"Processing {len(invoice.items)} items for invoice {invoice_id}")
@@ -1720,6 +1736,28 @@ async def update_invoice(
         updated_items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
         logger.info(f"Verified {len(updated_items)} items in database after commit: {[(item.id, item.description[:30] + '...' if len(item.description) > 30 else item.description) for item in updated_items]}")
 
+        if items_were_updated:
+            recalculated_subtotal = db.query(
+                sa.func.coalesce(sa.func.sum(InvoiceItem.quantity * InvoiceItem.price), 0)
+            ).filter(InvoiceItem.invoice_id == invoice_id).scalar()
+            db_invoice.subtotal = float(recalculated_subtotal or 0)
+
+            db_invoice.discount_type = invoice.discount_type or db_invoice.discount_type or "percentage"
+            db_invoice.discount_value = float(invoice.discount_value) if invoice.discount_value is not None else float(db_invoice.discount_value or 0)
+
+            if db_invoice.discount_value > 0:
+                if db_invoice.discount_type == "percentage":
+                    discount_amount = (db_invoice.subtotal * db_invoice.discount_value) / 100
+                else:
+                    discount_amount = db_invoice.discount_value
+                db_invoice.amount = max(0, db_invoice.subtotal - discount_amount)
+            else:
+                db_invoice.amount = db_invoice.subtotal
+
+            db_invoice.updated_at = get_tenant_timezone_aware_datetime(db)
+            db.commit()
+            db.refresh(db_invoice)
+
         # Create history entry for the update only if there are actual changes
         from core.models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
         changes = []
@@ -1748,6 +1786,8 @@ async def update_invoice(
                 logger.info(f"[DEBUG] Custom fields changed from {old_custom_fields} to {invoice.custom_fields}")
         if invoice.show_discount_in_pdf is not None and old_show_discount_in_pdf != invoice.show_discount_in_pdf:
             changes.append(f"Show discount in PDF changed from {old_show_discount_in_pdf} to {invoice.show_discount_in_pdf}")
+        if old_amount != db_invoice.amount:
+            changes.append(f"Amount changed from {old_amount} to {db_invoice.amount}")
 
         # Track client change
         if invoice.client_id is not None and old_client_id != invoice.client_id:
@@ -1839,24 +1879,6 @@ async def update_invoice(
                 current_values=sanitize_history_values(current_values)
             )
             db.add(history_entry)
-            # Recalculate subtotal and amount based on updated items and discount
-            recalculated_subtotal = db.query(
-                sa.func.coalesce(sa.func.sum(InvoiceItem.quantity * InvoiceItem.price), 0)
-            ).filter(InvoiceItem.invoice_id == invoice_id).scalar()
-            db_invoice.subtotal = recalculated_subtotal
-
-            # Apply discount if provided in update or use existing
-            db_invoice.discount_type = invoice.discount_type or db_invoice.discount_type or "percentage"
-            db_invoice.discount_value = float(invoice.discount_value) if invoice.discount_value is not None else float(db_invoice.discount_value or 0)
-
-            if db_invoice.discount_value > 0:
-                if db_invoice.discount_type == "percentage":
-                    discount_amount = (recalculated_subtotal * db_invoice.discount_value) / 100
-                else: # fixed
-                    discount_amount = db_invoice.discount_value
-                db_invoice.amount = recalculated_subtotal - discount_amount
-            else:
-                db_invoice.amount = recalculated_subtotal
 
             db_invoice.updated_at = get_tenant_timezone_aware_datetime(db)
             db.commit()
@@ -2375,4 +2397,3 @@ async def calculate_discount(
             status_code=500,
             detail=f"Failed to calculate discount: {str(e)}"
         )
-

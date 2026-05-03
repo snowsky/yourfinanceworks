@@ -122,7 +122,7 @@ export default function ViewInvoice() {
         <InvoicePDF
           invoice={invoice}
           companyName={settings.company_info?.name || 'Your Company'}
-          clientCompany={invoice.client_name}
+          clientCompany={invoice.client_company}
           showDiscount={true}
           template="modern"
         />
