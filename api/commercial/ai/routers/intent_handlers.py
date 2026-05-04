@@ -97,6 +97,110 @@ This information was retrieved from your investment management plugin via advanc
             print(f"MCP Integration: Exception during investments tool execution: {e}")
             # Fallback
 
+    if intent == "cashflow":
+        print(f"MCP Integration: Detected cashflow intent in message: '{message}'")
+        try:
+            from core.utils.feature_gate import feature_enabled
+
+            if not feature_enabled("cash_flow", db):
+                mcp_response = "The Cash Flow Forecasting feature is not enabled for your account. Please contact your administrator or upgrade your license to access forecasts, runway analysis, and scenario planning."
+                return {
+                    "success": True,
+                    "data": {
+                        "response": mcp_response,
+                        "provider": ai_config.provider_name,
+                        "model": ai_config.model_name,
+                        "source": "mcp_tools"
+                    }
+                }
+
+            if "runway" in lower_message or "burn rate" in lower_message:
+                result = await tools.get_cashflow_runway()
+                if result.get("success"):
+                    data = result.get("data", {})
+                    runway_days = data.get("runway_days")
+                    runway_text = "net positive" if runway_days is None else f"{runway_days} days"
+                    mcp_response = f"""
+💵 **Cash Runway**
+
+• **Current Balance:** ${data.get('current_balance', 0):,.2f}
+• **Average Daily Burn:** ${data.get('average_daily_burn', 0):,.2f}
+• **Average Daily Income:** ${data.get('average_daily_income', 0):,.2f}
+• **Net Daily Burn:** ${data.get('net_daily_burn', 0):,.2f}
+• **Runway:** {runway_text}
+• **Monthly Burn Rate:** ${data.get('monthly_burn_rate', 0):,.2f}
+• **Monthly Income Rate:** ${data.get('monthly_income_rate', 0):,.2f}
+                    """.strip()
+                    return {
+                        "success": True,
+                        "data": {
+                            "response": mcp_response,
+                            "provider": ai_config.provider_name,
+                            "model": ai_config.model_name,
+                            "source": "mcp_tools"
+                        }
+                    }
+
+            if "alert" in lower_message or "threshold" in lower_message or "low cash" in lower_message:
+                result = await tools.get_cashflow_alerts()
+                if result.get("success"):
+                    data = result.get("data", {})
+                    alerts = data.get("alerts", [])
+                    alert_lines = "\n".join([f"• {alert}" for alert in alerts]) if alerts else "No cash flow alerts are active."
+                    mcp_response = f"""
+💵 **Cash Flow Alerts**
+
+• **Current Balance:** ${data.get('current_balance', 0):,.2f}
+• **Safety Threshold:** ${data.get('safety_threshold', 0):,.2f}
+• **Warning Threshold:** ${data.get('warning_threshold', 0):,.2f}
+
+{alert_lines}
+                    """.strip()
+                    return {
+                        "success": True,
+                        "data": {
+                            "response": mcp_response,
+                            "provider": ai_config.provider_name,
+                            "model": ai_config.model_name,
+                            "source": "mcp_tools"
+                        }
+                    }
+
+            period = (
+                "90d" if any(token in lower_message for token in ["90", "quarter"])
+                else "7d" if "7" in lower_message or "week" in lower_message
+                else "365d" if any(token in lower_message for token in ["year", "annual", "365"])
+                else "30d"
+            )
+            result = await tools.get_cashflow_forecast(period=period)
+            if result.get("success"):
+                data = result.get("data", {})
+                alerts = data.get("alerts", [])
+                alert_lines = "\n".join([f"• {alert}" for alert in alerts]) if alerts else "No forecast alerts."
+                mcp_response = f"""
+💵 **Cash Flow Forecast ({data.get('period', period)})**
+
+• **Current Balance:** ${data.get('current_balance', 0):,.2f}
+• **Projected End Balance:** ${data.get('projected_end_balance', 0):,.2f}
+• **Projected Inflows:** ${data.get('total_projected_inflows', 0):,.2f}
+• **Projected Outflows:** ${data.get('total_projected_outflows', 0):,.2f}
+• **Net Change:** ${data.get('net_change', 0):,.2f}
+
+{alert_lines}
+                """.strip()
+                return {
+                    "success": True,
+                    "data": {
+                        "response": mcp_response,
+                        "provider": ai_config.provider_name,
+                        "model": ai_config.model_name,
+                        "source": "mcp_tools"
+                    }
+                }
+        except Exception as e:
+            print(f"MCP Integration: Exception during cashflow tool execution: {e}")
+            # Fallback
+
     if intent == "analyze_patterns":
         print(f"MCP Integration: Detected analyze pattern in message: '{message}'")
         try:

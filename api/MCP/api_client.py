@@ -279,6 +279,70 @@ class InvoiceAPIClient:
         """Get a specific payment by ID"""
         return await self._make_request("GET", f"/payments/{payment_id}")
 
+    # Cash Flow Forecasting Methods
+    async def get_cashflow_forecast(
+        self,
+        period: str = "30d",
+        current_balance: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Get a cash flow forecast for the requested period"""
+        params: Dict[str, Any] = {"period": period}
+        if current_balance is not None:
+            params["current_balance"] = current_balance
+        return await self._make_request("GET", "/cashflow/forecast", params=params)
+
+    async def get_cashflow_runway(
+        self,
+        current_balance: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Get cash runway analysis"""
+        params: Dict[str, Any] = {}
+        if current_balance is not None:
+            params["current_balance"] = current_balance
+        return await self._make_request("GET", "/cashflow/runway", params=params)
+
+    async def run_cashflow_scenario(
+        self,
+        scenario: Dict[str, Any],
+        period: str = "30d",
+        current_balance: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Run a cash flow what-if scenario"""
+        params: Dict[str, Any] = {"period": period}
+        if current_balance is not None:
+            params["current_balance"] = current_balance
+        return await self._make_request(
+            "POST",
+            "/cashflow/scenario",
+            params=params,
+            json=scenario,
+        )
+
+    async def get_cashflow_alerts(
+        self,
+        current_balance: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Get cash flow threshold alerts"""
+        params: Dict[str, Any] = {}
+        if current_balance is not None:
+            params["current_balance"] = current_balance
+        return await self._make_request("GET", "/cashflow/alerts", params=params)
+
+    async def get_cashflow_thresholds(self) -> Dict[str, Any]:
+        """Get cash flow threshold settings"""
+        return await self._make_request("GET", "/cashflow/settings/thresholds")
+
+    async def update_cashflow_thresholds(
+        self,
+        settings: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Update cash flow threshold settings"""
+        return await self._make_request(
+            "PUT",
+            "/cashflow/settings/thresholds",
+            json=settings,
+        )
+
     # Expense Management Methods
     async def list_expenses(
         self,

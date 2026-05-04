@@ -9,6 +9,7 @@ Split from the original monolithic server.py (2,450 lines) into focused modules:
   - inventory.py    — Inventory: categories, items, stock, analytics, import/export,
                       barcode, integration, bulk ops, search, attachments
   - bank_statements.py — Bank Statement Management tools
+  - cashflow.py    — Cash flow forecast, runway, scenarios, alerts, settings
   - expenses.py     — Expense Management tools
   - statements.py   — Statement view/update + recycle bin, approval workflow,
                       report generation, advanced search, enhanced reports
@@ -23,6 +24,7 @@ Split from the original monolithic server.py (2,450 lines) into focused modules:
 from . import (
     audit,
     bank_statements,
+    cashflow,
     clients,
     currencies,
     documents,

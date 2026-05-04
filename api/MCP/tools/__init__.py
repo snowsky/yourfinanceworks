@@ -12,6 +12,7 @@ from .approvals import ApprovalToolsMixin
 from .reporting import ReportingToolsMixin
 from .search import SearchToolsMixin
 from .payments import PaymentToolsMixin
+from .cashflow import CashFlowToolsMixin
 from .currencies import CurrencyToolsMixin
 from .settings import SettingsToolsMixin
 from .ai import AIToolsMixin
@@ -33,6 +34,7 @@ class InvoiceTools(
     ReportingToolsMixin,
     SearchToolsMixin,
     PaymentToolsMixin,
+    CashFlowToolsMixin,
     CurrencyToolsMixin,
     SettingsToolsMixin,
     AIToolsMixin,

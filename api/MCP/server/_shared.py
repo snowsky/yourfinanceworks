@@ -109,6 +109,12 @@ Available Tools:
   - search_invoices: Search invoices by various fields
   - get_invoice: Get detailed invoice information by ID
   - create_invoice: Create a new invoice
+  - get_cashflow_forecast: Get projected inflows, outflows, balances, and alerts
+  - get_cashflow_runway: Calculate cash runway from recent burn rate
+  - run_cashflow_scenario: Run a cash flow what-if scenario
+  - get_cashflow_alerts: Get cash flow threshold alerts
+  - get_cashflow_thresholds: Get cash flow projection settings
+  - update_cashflow_thresholds: Update cash flow projection settings
   - list_expenses: List expenses with optional filters
   - get_expense: Get expense by ID
   - create_expense: Create a new expense

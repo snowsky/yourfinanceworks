@@ -134,6 +134,7 @@ Categories:
 - overdue: overdue invoices, late payments
 - statistics: statistics, summaries, totals, counts
 - investments: investment portfolios, holdings, performance, dividends, trade history
+- cashflow: cash flow forecasts, runway, burn rate, cash projections, scenario planning, low cash alerts
 - general: general questions not related to business data
 
 {page_context_block}
@@ -203,6 +204,8 @@ Category:"""
                     intent = "statistics"
                 elif any(word in msg_lower for word in ["investment", "investments", "portfolio", "portfolios", "holding", "holdings", "dividend", "dividends"]):
                     intent = "investments"
+                elif any(word in msg_lower for word in ["cash flow", "cashflow", "runway", "burn rate", "cash forecast", "cash projection"]):
+                    intent = "cashflow"
                 else:
                     intent = "general"
 

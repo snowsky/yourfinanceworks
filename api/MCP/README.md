@@ -45,6 +45,7 @@ The server exposes several tools for AI interaction:
 - `list_expenses`, `create_expense`, `upload_expense_receipt`
 - `list_bank_statements`, `reprocess_bank_statement`
 - `list_inventory_items`, `adjust_stock`
+- `get_cashflow_forecast`, `get_cashflow_runway`, `run_cashflow_scenario`
 - `get_overdue_invoices`, `get_invoice_stats`
 
 ## 🖥️ Claude Desktop Integration
@@ -1022,6 +1023,76 @@ Create a new payment for an invoice.
   }
 }
 ```
+
+### Cash Flow Tools
+
+#### `get_cashflow_forecast`
+
+Get projected cash inflows, outflows, daily balances, and alerts.
+
+**Parameters:**
+
+- `period` (string, optional): Forecast period, one of `7d`, `30d`, `90d`, or `365d` (default: `30d`)
+- `current_balance` (float, optional): Override for starting cash balance
+
+#### `get_cashflow_runway`
+
+Calculate cash runway using recent income and burn rate.
+
+**Parameters:**
+
+- `current_balance` (float, optional): Override for starting cash balance
+
+#### `run_cashflow_scenario`
+
+Run a what-if scenario against a forecast.
+
+**Parameters:**
+
+- `description` (string): Scenario description
+- `period` (string, optional): Forecast period, one of `7d`, `30d`, `90d`, or `365d`
+- `delayed_invoice_ids` (array of int, optional): Invoice IDs to delay
+- `delay_days` (int, optional): Number of days to delay selected invoices
+- `additional_expense` (float, optional): Added one-time expense amount
+- `additional_expense_date` (string, optional): ISO date for added expense (`YYYY-MM-DD`)
+- `revenue_change_percent` (float, optional): Percent change to projected revenue
+- `expense_change_percent` (float, optional): Percent change to projected expenses
+- `current_balance` (float, optional): Override for starting cash balance
+
+**Example:**
+
+```json
+{
+  "name": "run_cashflow_scenario",
+  "arguments": {
+    "description": "Client pays two weeks late and expenses rise",
+    "period": "90d",
+    "delayed_invoice_ids": [123, 456],
+    "delay_days": 14,
+    "expense_change_percent": 10
+  }
+}
+```
+
+#### `get_cashflow_alerts`
+
+Get cash flow alerts based on configured thresholds.
+
+**Parameters:**
+
+- `current_balance` (float, optional): Override for starting cash balance
+
+#### `get_cashflow_thresholds`
+
+Get cash flow alert threshold and projection settings.
+
+#### `update_cashflow_thresholds`
+
+Update cash flow alert threshold and projection settings.
+
+**Parameters:**
+
+- `settings` (object): Partial settings object, such as `safety_threshold`, `warning_threshold`, `currency`, `include_bank_statement_patterns`, `bank_statement_lookback_days`, `bank_statement_intervals`, `bank_statement_inflow_categories`, or `bank_statement_outflow_categories`
 
 ### Settings Tools
 

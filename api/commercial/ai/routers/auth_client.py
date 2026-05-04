@@ -141,6 +141,61 @@ class AuthenticatedAPIClient:
             params={"skip": skip, "limit": limit}
         )
 
+    # Cash Flow Methods
+    async def get_cashflow_forecast(
+        self,
+        period: str = "30d",
+        current_balance: float | None = None,
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {"period": period}
+        if current_balance is not None:
+            params["current_balance"] = current_balance
+        return await self._make_request("GET", "/cashflow/forecast", params=params)
+
+    async def get_cashflow_runway(
+        self,
+        current_balance: float | None = None,
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {}
+        if current_balance is not None:
+            params["current_balance"] = current_balance
+        return await self._make_request("GET", "/cashflow/runway", params=params)
+
+    async def run_cashflow_scenario(
+        self,
+        scenario: Dict[str, Any],
+        period: str = "30d",
+        current_balance: float | None = None,
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {"period": period}
+        if current_balance is not None:
+            params["current_balance"] = current_balance
+        return await self._make_request(
+            "POST",
+            "/cashflow/scenario",
+            params=params,
+            json=scenario,
+        )
+
+    async def get_cashflow_alerts(
+        self,
+        current_balance: float | None = None,
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {}
+        if current_balance is not None:
+            params["current_balance"] = current_balance
+        return await self._make_request("GET", "/cashflow/alerts", params=params)
+
+    async def get_cashflow_thresholds(self) -> Dict[str, Any]:
+        return await self._make_request("GET", "/cashflow/settings/thresholds")
+
+    async def update_cashflow_thresholds(self, settings: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._make_request(
+            "PUT",
+            "/cashflow/settings/thresholds",
+            json=settings,
+        )
+
     # Currency Management Methods
     async def list_currencies(self, active_only: bool = True) -> List[Dict[str, Any]]:
         return await self._make_request(
