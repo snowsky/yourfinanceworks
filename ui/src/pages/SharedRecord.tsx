@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { shareTokenApi } from '@/lib/api/share-tokens';
-import { AlertCircle, FileText, Receipt, CreditCard, Users, Landmark, TrendingUp, Download } from 'lucide-react';
+import { ShareAccessRequiredError, shareTokenApi, type ShareAccessRequirement } from '@/lib/api/share-tokens';
+import { AlertCircle, FileText, Receipt, CreditCard, Users, Landmark, TrendingUp, Download, LockKeyhole } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const RECORD_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   invoice: FileText,
@@ -254,14 +256,49 @@ export default function SharedRecord() {
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accessRequirement, setAccessRequirement] = useState<ShareAccessRequirement | null>(null);
+  const [verificationValue, setVerificationValue] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     if (!token) return;
+    setLoading(true);
     shareTokenApi.getPublicRecord(token)
-      .then(setData)
-      .catch((e: Error) => setError(e.message))
+      .then((record) => {
+        setData(record);
+        setError(null);
+        setAccessRequirement(null);
+      })
+      .catch((e: Error) => {
+        if (e instanceof ShareAccessRequiredError) {
+          setAccessRequirement(e.requirement);
+          setError(null);
+          return;
+        }
+        setError(e.message);
+      })
       .finally(() => setLoading(false));
   }, [token]);
+
+  const handleVerify = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!token || !accessRequirement) return;
+    setVerifying(true);
+    setError(null);
+    try {
+      const record = await shareTokenApi.getPublicRecord(token, {
+        password: accessRequirement.access_type === 'password' ? verificationValue : undefined,
+        security_answer: accessRequirement.access_type === 'question' ? verificationValue : undefined,
+      });
+      setData(record);
+      setAccessRequirement(null);
+      setVerificationValue('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to verify this shared link');
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const recordType = (data?.record_type as string) ?? '';
   const Icon = RECORD_ICONS[recordType] ?? FileText;
@@ -286,6 +323,38 @@ export default function SharedRecord() {
                 <p className="font-medium">{error}</p>
                 <p className="text-sm text-muted-foreground">This link may have been revoked or may have expired.</p>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {accessRequirement && !data && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <LockKeyhole className="h-5 w-5" />
+                Verification Required
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4" onSubmit={handleVerify}>
+                <div className="space-y-2">
+                  <Label htmlFor="share-verification">
+                    {accessRequirement.access_type === 'question'
+                      ? accessRequirement.security_question || 'Answer the security question'
+                      : 'Password'}
+                  </Label>
+                  <Input
+                    id="share-verification"
+                    type="password"
+                    value={verificationValue}
+                    onChange={(event) => setVerificationValue(event.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <Button type="submit" disabled={verifying || !verificationValue.trim()}>
+                  {verifying ? 'Verifying...' : 'View Record'}
+                </Button>
+              </form>
             </CardContent>
           </Card>
         )}

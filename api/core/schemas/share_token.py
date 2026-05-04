@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List
 from datetime import datetime, date
 
@@ -8,6 +8,26 @@ ALLOWED_RECORD_TYPES = {"invoice", "expense", "payment", "client", "bank_stateme
 class ShareTokenCreate(BaseModel):
     record_type: str
     record_id: int
+    access_type: str = Field("public", pattern="^(public|password|question)$")
+    expires_in_hours: Optional[int] = Field(1, ge=0, le=8760)
+    one_time: bool = False
+    password: Optional[str] = None
+    security_question: Optional[str] = None
+    security_answer: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_access_controls(self):
+        if self.access_type == "password" and not self.password:
+            raise ValueError("Password is required for password-protected shares")
+        if self.access_type == "question":
+            if not self.security_question or not self.security_answer:
+                raise ValueError("Question and answer are required for question-protected shares")
+        return self
+
+
+class ShareTokenAccessRequest(BaseModel):
+    password: Optional[str] = None
+    security_answer: Optional[str] = None
 
 
 class ShareTokenResponse(BaseModel):
@@ -18,6 +38,11 @@ class ShareTokenResponse(BaseModel):
     created_at: datetime
     expires_at: Optional[datetime] = None
     is_active: bool
+    access_type: str = "public"
+    security_question: Optional[str] = None
+    one_time: bool = False
+    access_count: int = 0
+    max_access_count: Optional[int] = None
 
     class Config:
         from_attributes = True

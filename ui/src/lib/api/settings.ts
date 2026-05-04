@@ -19,6 +19,18 @@ export interface InvoiceSettings {
   auto_reminders: boolean;
 }
 
+export type ShareAccessType = 'public' | 'password' | 'question';
+
+export interface SharingSettings {
+  default_access_type: ShareAccessType;
+  default_expiration_hours: number;
+  allow_public_links: boolean;
+  allow_password_links: boolean;
+  allow_question_links: boolean;
+  default_one_time: boolean;
+  require_expiration: boolean;
+}
+
 export interface Settings {
   company_info: CompanyInfo;
   invoice_settings: InvoiceSettings;
@@ -28,6 +40,7 @@ export interface Settings {
   allow_join_lookup?: boolean;
   join_lookup_exact_match?: boolean;
   expense_mobile?: ExpenseMobileServiceSettings;
+  sharing_settings?: SharingSettings;
 }
 
 export interface StripePaymentSettings {
@@ -203,6 +216,7 @@ export const promptImprovementApi = {
 // Settings API methods
 export const settingsApi = {
   getSettings: () => apiRequest<Settings>("/settings/"),
+  getSharingSettings: () => apiRequest<SharingSettings>("/settings/sharing"),
   updateSettings: (settings: Partial<Settings>) =>
     apiRequest<Settings>("/settings/", {
       method: 'PUT',

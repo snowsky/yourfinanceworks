@@ -109,6 +109,12 @@ class ShareToken(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     expires_at = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    access_type = Column(String(32), default="public", nullable=False)  # public|password|question
+    password_hash = Column(String, nullable=True)
+    security_question = Column(String, nullable=True)
+    security_answer_hash = Column(String, nullable=True)
+    max_access_count = Column(Integer, nullable=True)
+    access_count = Column(Integer, default=0, nullable=False)
 
     tenant = relationship("Tenant")
 

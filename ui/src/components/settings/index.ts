@@ -18,3 +18,4 @@ export * from './AppearanceTab';
 export * from './PaymentSettingsTab';
 export * from './ExpensesSettingsTab';
 export * from './CashFlowSettingsTab';
+export * from './SharingSettingsTab';

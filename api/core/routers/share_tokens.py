@@ -18,13 +18,15 @@ from core.models.database import (
 )
 from core.models.models import MasterUser, ShareToken
 from core.models.models_per_tenant import (
-    AuditLog,
+    AuditLog, Settings,
     Invoice, InvoiceItem, Expense, Payment, Client,
     BankStatement, BankStatementTransaction,
 )
 from core.routers.auth import get_current_user
+from core.utils.auth import get_password_hash, verify_password
 from core.schemas.share_token import (
     ALLOWED_RECORD_TYPES,
+    ShareTokenAccessRequest,
     ShareTokenCreate,
     ShareTokenResponse,
     PublicInvoiceView,
@@ -67,6 +69,11 @@ def _token_to_response(share: ShareToken) -> ShareTokenResponse:
         created_at=share.created_at,
         expires_at=share.expires_at,
         is_active=share.is_active,
+        access_type=share.access_type,
+        security_question=share.security_question,
+        one_time=share.max_access_count == 1,
+        access_count=share.access_count or 0,
+        max_access_count=share.max_access_count,
     )
 
 
@@ -78,6 +85,74 @@ def _safe_float(value: Optional[float], default: Optional[float] = None) -> Opti
     except (TypeError, ValueError):
         return default
     return number if math.isfinite(number) else default
+
+
+def _get_sharing_settings(db: Session) -> dict:
+    defaults = {
+        "allow_public_links": True,
+        "allow_password_links": True,
+        "allow_question_links": True,
+        "require_expiration": True,
+    }
+    record = db.query(Settings).filter(Settings.key == "sharing_settings").first()
+    if record and record.value:
+        return {**defaults, **record.value}
+    return defaults
+
+
+def _enforce_sharing_settings(payload: ShareTokenCreate, db: Session) -> None:
+    settings = _get_sharing_settings(db)
+    if payload.access_type == "public" and not settings.get("allow_public_links", True):
+        raise HTTPException(status_code=403, detail="Public share links are disabled")
+    if payload.access_type == "password" and not settings.get("allow_password_links", True):
+        raise HTTPException(status_code=403, detail="Password share links are disabled")
+    if payload.access_type == "question" and not settings.get("allow_question_links", True):
+        raise HTTPException(status_code=403, detail="Question and answer share links are disabled")
+    if settings.get("require_expiration", True) and payload.expires_in_hours == 0:
+        raise HTTPException(status_code=400, detail="Share links must expire")
+
+
+def _normalize_answer(answer: Optional[str]) -> str:
+    return (answer or "").strip().casefold()
+
+
+def _access_required_response(share: ShareToken):
+    raise HTTPException(
+        status_code=401,
+        detail={
+            "code": "share_access_required",
+            "access_type": share.access_type,
+            "security_question": share.security_question,
+        },
+    )
+
+
+def _validate_share_access(share: ShareToken, payload: Optional[ShareTokenAccessRequest]) -> None:
+    if share.max_access_count is not None and (share.access_count or 0) >= share.max_access_count:
+        raise HTTPException(status_code=410, detail="This link has already been used")
+
+    if share.access_type == "public":
+        return
+
+    if not payload:
+        _access_required_response(share)
+
+    if share.access_type == "password":
+        if not share.password_hash or not payload.password:
+            _access_required_response(share)
+        if not verify_password(payload.password, share.password_hash):
+            raise HTTPException(status_code=403, detail="Incorrect password")
+        return
+
+    if share.access_type == "question":
+        answer = _normalize_answer(payload.security_answer)
+        if not share.security_answer_hash or not answer:
+            _access_required_response(share)
+        if not verify_password(answer, share.security_answer_hash):
+            raise HTTPException(status_code=403, detail="Incorrect answer")
+        return
+
+    raise HTTPException(status_code=400, detail="Unsupported share access type")
 
 
 # ---------------------------------------------------------------------------
@@ -92,31 +167,24 @@ def create_share_token(
     db: Session = Depends(get_db),
     master_db: Session = Depends(get_master_db),
 ):
-    """Generate a shareable link token for a record. Idempotent — returns existing token if one is active."""
+    """Generate a shareable link token for a record."""
     if payload.record_type not in ALLOWED_RECORD_TYPES:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid record_type. Must be one of: {', '.join(sorted(ALLOWED_RECORD_TYPES))}",
         )
+    _enforce_sharing_settings(payload, db)
 
     now = datetime.now(timezone.utc)
-    expires_at = now + timedelta(hours=1)
+    expires_at = None if payload.expires_in_hours == 0 else now + timedelta(hours=payload.expires_in_hours or 1)
     tenant_id = _active_tenant_id(current_user)
 
-    # Idempotency: return existing active non-expired token for this record
-    existing = (
-        master_db.query(ShareToken)
-        .filter(
-            ShareToken.tenant_id == tenant_id,
-            ShareToken.record_type == payload.record_type,
-            ShareToken.record_id == payload.record_id,
-            ShareToken.is_active == True,
-            ShareToken.expires_at > now,
-        )
-        .first()
+    password_hash = get_password_hash(payload.password) if payload.access_type == "password" and payload.password else None
+    security_answer_hash = (
+        get_password_hash(_normalize_answer(payload.security_answer))
+        if payload.access_type == "question" and payload.security_answer
+        else None
     )
-    if existing:
-        return _token_to_response(existing)
 
     share = ShareToken(
         token=uuid.uuid4().hex,
@@ -125,6 +193,12 @@ def create_share_token(
         record_id=payload.record_id,
         created_by_user_id=current_user.id,
         expires_at=expires_at,
+        access_type=payload.access_type,
+        password_hash=password_hash,
+        security_question=payload.security_question.strip() if payload.security_question else None,
+        security_answer_hash=security_answer_hash,
+        max_access_count=1 if payload.one_time else None,
+        access_count=0,
     )
     master_db.add(share)
     master_db.commit()
@@ -141,7 +215,9 @@ def create_share_token(
                 "token": share.token,
                 "record_type": payload.record_type,
                 "record_id": payload.record_id,
-                "expires_at": expires_at.isoformat(),
+                "expires_at": expires_at.isoformat() if expires_at else None,
+                "access_type": payload.access_type,
+                "one_time": payload.one_time,
             },
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
@@ -410,9 +486,8 @@ def _fetch_public_record(
     raise HTTPException(status_code=400, detail="Unknown record type")
 
 
-@router.get("/shared/{token}")
-def get_shared_record(token: str, request: Request):
-    """Public endpoint — no authentication required. Returns a sanitized view of a shared record."""
+def _get_shared_record_response(token: str, request: Request, access_payload: Optional[ShareTokenAccessRequest] = None):
+    """Public endpoint helper. Returns a sanitized view after optional link-level access checks."""
     master_db = SessionLocal()
     try:
         share = (
@@ -467,7 +542,10 @@ def get_shared_record(token: str, request: Request):
                         pass
                 raise HTTPException(status_code=410, detail="This link has expired")
 
+            _validate_share_access(share, access_payload)
             result = _fetch_public_record(tenant_db, share.record_type, share.record_id)
+            share.access_count = (share.access_count or 0) + 1
+            master_db.commit()
 
             try:
                 tenant_db.add(AuditLog(
@@ -481,6 +559,7 @@ def get_shared_record(token: str, request: Request):
                         "record_type": share.record_type,
                         "record_id": share.record_id,
                         "accessed_from": ip_address,
+                        "access_count": share.access_count,
                     },
                     ip_address=ip_address,
                     user_agent=user_agent,
@@ -501,3 +580,15 @@ def get_shared_record(token: str, request: Request):
             tenant_db.close()
     finally:
         master_db.close()
+
+
+@router.get("/shared/{token}")
+def get_shared_record(token: str, request: Request):
+    """Public endpoint. Open links return immediately; protected links describe required access."""
+    return _get_shared_record_response(token, request)
+
+
+@router.post("/shared/{token}/access")
+def get_protected_shared_record(token: str, payload: ShareTokenAccessRequest, request: Request):
+    """Public endpoint for password or question-protected shared records."""
+    return _get_shared_record_response(token, request, payload)

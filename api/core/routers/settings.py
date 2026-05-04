@@ -25,6 +25,24 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
+DEFAULT_SHARING_SETTINGS = {
+    "default_access_type": "public",
+    "default_expiration_hours": 24,
+    "allow_public_links": True,
+    "allow_password_links": True,
+    "allow_question_links": True,
+    "default_one_time": False,
+    "require_expiration": True,
+}
+
+
+def _get_sharing_settings(db: Session) -> Dict[str, Any]:
+    sharing_settings_record = db.query(Settings).filter(Settings.key == "sharing_settings").first()
+    if sharing_settings_record and sharing_settings_record.value:
+        return {**DEFAULT_SHARING_SETTINGS, **sharing_settings_record.value}
+    return DEFAULT_SHARING_SETTINGS
+
+
 @router.get("/")
 async def get_settings(
     current_user: MasterUser = Depends(get_current_user),
@@ -44,7 +62,7 @@ async def get_settings(
             raise HTTPException(status_code=404, detail="Tenant not found")
 
         # Fetch all needed settings in a single query
-        _setting_keys = {"invoice_settings", "ai_chat_history_retention_days", "timezone"}
+        _setting_keys = {"invoice_settings", "ai_chat_history_retention_days", "timezone", "sharing_settings"}
         _settings_map = {
             s.key: s
             for s in db.query(Settings).filter(Settings.key.in_(_setting_keys)).all()
@@ -80,6 +98,12 @@ async def get_settings(
             except (ValueError, TypeError):
                 timezone = "UTC"
 
+        sharing_settings_record = _settings_map.get("sharing_settings")
+        if sharing_settings_record and sharing_settings_record.value:
+            sharing_settings = {**DEFAULT_SHARING_SETTINGS, **sharing_settings_record.value}
+        else:
+            sharing_settings = DEFAULT_SHARING_SETTINGS
+
         # Return tenant info formatted as settings
         settings_data = {
             "company_info": {
@@ -97,6 +121,7 @@ async def get_settings(
             "allow_join_lookup": tenant.allow_join_lookup if tenant.allow_join_lookup is not None else True,
             "join_lookup_exact_match": tenant.join_lookup_exact_match if tenant.join_lookup_exact_match is not None else False,
             "expense_mobile": get_expense_mobile_config(master_db, tenant),
+            "sharing_settings": sharing_settings,
         }
 
         # If AI assistant is enabled, validate license status
@@ -113,6 +138,17 @@ async def get_settings(
         return settings_data
     finally:
         master_db.close()
+
+
+@router.get("/sharing")
+async def get_sharing_settings(
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get record sharing defaults and allowed methods for the active tenant."""
+    if not current_user.is_active:
+        raise HTTPException(status_code=403, detail="Inactive user")
+    return _get_sharing_settings(db)
 
 @router.put("/")
 async def update_settings(
@@ -250,6 +286,44 @@ async def update_settings(
                 db.add(timezone_setting)
 
             db.commit()
+
+    if "sharing_settings" in settings:
+        sharing_settings = settings.get("sharing_settings") or {}
+        allowed_access_types = {"public", "password", "question"}
+        default_access_type = sharing_settings.get("default_access_type", "public")
+        if default_access_type not in allowed_access_types:
+            raise HTTPException(status_code=400, detail="Invalid default sharing access type")
+
+        expiration_hours = sharing_settings.get("default_expiration_hours", 24)
+        if not isinstance(expiration_hours, int) or expiration_hours < 0 or expiration_hours > 8760:
+            raise HTTPException(status_code=400, detail="Default sharing expiration must be between 0 and 8760 hours")
+
+        if sharing_settings.get("require_expiration") and expiration_hours == 0:
+            raise HTTPException(status_code=400, detail="Expiration is required when require_expiration is enabled")
+
+        if default_access_type == "public" and not sharing_settings.get("allow_public_links", True):
+            raise HTTPException(status_code=400, detail="Default access type cannot be disabled")
+        if default_access_type == "password" and not sharing_settings.get("allow_password_links", True):
+            raise HTTPException(status_code=400, detail="Default access type cannot be disabled")
+        if default_access_type == "question" and not sharing_settings.get("allow_question_links", True):
+            raise HTTPException(status_code=400, detail="Default access type cannot be disabled")
+
+        sharing_settings_record = db.query(Settings).filter(Settings.key == "sharing_settings").first()
+        if sharing_settings_record:
+            current_value = sharing_settings_record.value or {}
+            sharing_settings_record.value = {**current_value, **sharing_settings}
+            sharing_settings_record.updated_at = datetime.now(timezone.utc)
+        else:
+            sharing_settings_record = Settings(
+                key="sharing_settings",
+                value=sharing_settings,
+                category="sharing",
+                description="Default record sharing controls",
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+            )
+            db.add(sharing_settings_record)
+        db.commit()
 
     if "expense_mobile" in settings:
         save_expense_mobile_config(master_db, tenant, settings.get("expense_mobile"))

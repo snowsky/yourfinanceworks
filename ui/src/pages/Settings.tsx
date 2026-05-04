@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   Building2, FileText, Percent, Cpu, Bell, Activity, Search,
-  Database, User, Lock, Mail, Shield, ExternalLink, ShieldCheck, Terminal, Trophy, Puzzle, Settings2, Palette, CreditCard, Landmark
+  Database, User, Lock, Mail, Shield, ExternalLink, ShieldCheck, Terminal, Trophy, Puzzle, Settings2, Palette, CreditCard, Landmark, Share2
 } from "lucide-react";
 import { getCurrentUser } from "@/utils/auth";
 import {
@@ -13,7 +13,8 @@ import {
   NotificationsTab, DataManagementTab, CurrenciesTab, SearchSettingsTab,
   CookieSettingsTab, ExportDestinationsTab, EmailIntegrationSettingsTab,
   APIClientManagementTab, LicenseManagementTab, GamificationTab, PluginsTab,
-  AppearanceTab, PaymentSettingsTab, ExpensesSettingsTab, CashFlowSettingsTab
+  AppearanceTab, PaymentSettingsTab, ExpensesSettingsTab, CashFlowSettingsTab,
+  SharingSettingsTab
 } from "@/components/settings";
 import PromptManagement from "./PromptManagement";
 
@@ -76,6 +77,7 @@ const Settings = () => {
     invoices: t('settings.tabs.invoices', 'Invoices'),
     expenses: t('settings.tabs.expenses', 'Expenses'),
     cashflow: t('settings.tabs.cashflow', 'Cash Flow'),
+    sharing: t('settings.tabs.sharing', 'Sharing'),
     'discount-rules': t('settings.tabs.discount_rules', 'Discounts'),
     'ai-config': t('settings.tabs.ai_config', 'AI Config'),
     gamification: t('settings.tabs.gamification', 'Gamification'),
@@ -151,6 +153,7 @@ const Settings = () => {
                   <NavItem value="invoices" icon={FileText} label={t('settings.tabs.invoices', 'Invoices')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="expenses" icon={FileText} label={t('settings.tabs.expenses', 'Expenses')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="cashflow" icon={Landmark} label={t('settings.tabs.cashflow', 'Cash Flow')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="sharing" icon={Share2} label={t('settings.tabs.sharing', 'Sharing')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="discount-rules" icon={Percent} label={t('settings.tabs.discount_rules', 'Discounts')} activeTab={activeTab} onClick={setActiveTab} />
 
                   {/* Features */}
@@ -222,6 +225,10 @@ const Settings = () => {
 
                 <TabsContent value="cashflow" className="m-0 focus-visible:outline-none">
                   <CashFlowSettingsTab />
+                </TabsContent>
+
+                <TabsContent value="sharing" className="m-0 focus-visible:outline-none">
+                  <SharingSettingsTab isAdmin={isAdmin} />
                 </TabsContent>
 
                 <TabsContent value="discount-rules" className="m-0 focus-visible:outline-none">
