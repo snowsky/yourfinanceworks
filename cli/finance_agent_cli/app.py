@@ -19,6 +19,7 @@ from .document_classifier import DocumentClassifier
 from .document_router import DocumentIngestionAgent
 from .models import Portfolio, PortfolioAnalysis
 from .render import (
+    print_chat_response,
     print_json,
     print_portfolio_analysis,
     print_portfolios,
@@ -390,13 +391,15 @@ def _handle_agent(args, client: InvestmentAPIClient, profile) -> int:
     chat_agent = CliChatAgent(client, profile)
     page_context = _parse_page_context(args.page_context)
     if args.message:
-        print_json(
-            chat_agent.handle(
-                " ".join(args.message),
-                config_id=args.config_id,
-                page_context=page_context,
-            )
+        result = chat_agent.handle(
+            " ".join(args.message),
+            config_id=args.config_id,
+            page_context=page_context,
         )
+        if args.json:
+            print_json(result)
+        else:
+            print_chat_response(result)
         return 0
     try:
         while True:
@@ -404,13 +407,15 @@ def _handle_agent(args, client: InvestmentAPIClient, profile) -> int:
             if message.lower() in {"exit", "quit"}:
                 return 0
             if message:
-                print_json(
-                    chat_agent.handle(
-                        message,
-                        config_id=args.config_id,
-                        page_context=page_context,
-                    )
+                result = chat_agent.handle(
+                    message,
+                    config_id=args.config_id,
+                    page_context=page_context,
                 )
+                if args.json:
+                    print_json(result)
+                else:
+                    print_chat_response(result)
     except (EOFError, KeyboardInterrupt):
         return 0
 

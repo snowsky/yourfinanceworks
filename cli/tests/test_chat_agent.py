@@ -1,3 +1,6 @@
+from types import SimpleNamespace
+
+from cli.finance_agent_cli.app import _handle_agent
 from cli.finance_agent_cli.chat_agent import CliChatAgent
 from cli.tests.test_api_client import _profile
 
@@ -22,3 +25,35 @@ def test_chat_agent_uses_ai_assistant_chat_endpoint(tmp_path):
     assert result["success"] is True
     assert result["data"]["source"] == "mcp_tools"
     assert client.called == [("ai_chat", "list statements", 3, {"route": "/statements"})]
+
+
+def test_agent_chat_prints_response_text_by_default(tmp_path, capsys):
+    client = StubClient()
+    args = SimpleNamespace(
+        action="chat",
+        message=["how", "much"],
+        config_id=0,
+        page_context=None,
+        json=False,
+    )
+
+    assert _handle_agent(args, client, _profile(tmp_path)) == 0
+
+    assert capsys.readouterr().out == "ok\n"
+
+
+def test_agent_chat_can_still_emit_json(tmp_path, capsys):
+    client = StubClient()
+    args = SimpleNamespace(
+        action="chat",
+        message=["how", "much"],
+        config_id=0,
+        page_context=None,
+        json=True,
+    )
+
+    assert _handle_agent(args, client, _profile(tmp_path)) == 0
+
+    output = capsys.readouterr().out
+    assert '"response": "ok"' in output
+    assert '"source": "mcp_tools"' in output

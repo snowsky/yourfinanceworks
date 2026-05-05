@@ -10,7 +10,16 @@ from .models import Portfolio, PortfolioAnalysis, Recommendation
 
 
 def print_json(payload: Any) -> None:
-    print(json.dumps(payload, indent=2, sort_keys=True, default=_json_default))
+    print(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False, default=_json_default))
+
+
+def print_chat_response(payload: dict[str, Any]) -> None:
+    data = payload.get("data") if isinstance(payload, dict) else None
+    response = data.get("response") if isinstance(data, dict) else None
+    if isinstance(response, str):
+        print(response)
+        return
+    print_json(payload)
 
 
 def print_portfolios(portfolios: list[Portfolio]) -> None:
