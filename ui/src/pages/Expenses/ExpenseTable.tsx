@@ -164,6 +164,80 @@ export function ExpenseTable({
     );
   };
 
+  const renderReceiptCell = (e: Expense) => {
+    const fileCount = Array.isArray(attachments[e.id]) ? attachments[e.id].length : e.attachments_count || 0;
+    const hasKnownFileCount = Array.isArray(attachments[e.id]) || typeof e.attachments_count === 'number';
+    const isUploading = uploadingId === e.id;
+    const fileSummary = fileCount > 0
+      ? `${fileCount} ${t('expenses.file_count', { defaultValue: 'file(s)', count: fileCount })}`
+      : t('expenses.no_receipt', { defaultValue: 'No receipt' });
+    const canPreview = !hasKnownFileCount || fileCount > 0;
+
+    const openPreview = async () => {
+      const list = await expenseApi.listAttachments(e.id);
+      setAttachments(prev => ({ ...prev, [e.id]: list }));
+      setAttachmentPreviewOpen({ expenseId: e.id });
+    };
+
+    return (
+      <div className="flex min-w-[150px] items-center justify-start gap-1.5">
+        <div className="min-w-0 space-y-1">
+          <Badge
+            variant="outline"
+            className={`h-6 gap-1.5 whitespace-nowrap px-2 font-medium shadow-none ${
+              fileCount > 0
+                ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800'
+                : 'bg-muted/50 text-muted-foreground border-transparent'
+            }`}
+          >
+            <Receipt className="h-3 w-3" />
+            {fileSummary}
+          </Badge>
+          <div className="max-w-[130px] truncate text-[11px] leading-none text-muted-foreground">
+            {isUploading ? t('expenses.uploading') : t('expenses.receipt_attachments', { defaultValue: 'Receipt attachments' })}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            className={`h-7 w-7 ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
+            title={t('expenses.upload')}
+            aria-label={t('expenses.upload')}
+          >
+            <label>
+              {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+              <input
+                type="file"
+                accept="application/pdf,image/jpeg,image/png"
+                className="hidden"
+                onChange={async (ev) => {
+                  const file = ev.target.files?.[0];
+                  if (!file) return;
+                  await onUpload(e.id, file);
+                  await openPreview();
+                  ev.currentTarget.value = '';
+                }}
+              />
+            </label>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={openPreview}
+            disabled={!canPreview}
+            title={t('common.view')}
+            aria-label={t('common.view')}
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="rounded-xl border border-border/50 overflow-x-auto shadow-sm">
       <Table className="min-w-[1100px]">
@@ -343,41 +417,7 @@ export function ExpenseTable({
                     }}
                   />
                 </TableCell>}
-                {isVisible('receipt') && <TableCell>
-                  <div className="flex flex-col gap-2">
-                    <label className="inline-flex items-center gap-2 cursor-pointer w-fit">
-                      <Upload className="w-4 h-4" />
-                      <input
-                        type="file"
-                        accept="application/pdf,image/jpeg,image/png"
-                        className="hidden"
-                        onChange={async (ev) => {
-                          const file = ev.target.files?.[0];
-                          if (file) await onUpload(e.id, file);
-                          // refresh attachment list and auto-open preview
-                          const list = await expenseApi.listAttachments(e.id);
-                          setAttachments(prev => ({ ...prev, [e.id]: list }));
-                          setAttachmentPreviewOpen({ expenseId: e.id });
-                        }}
-                      />
-                      <span className="text-sm">{uploadingId === e.id ? t('expenses.uploading') : t('expenses.upload')}</span>
-                    </label>
-                    <Button variant="ghost" size="sm" className="w-fit justify-start px-0" onClick={async () => {
-                      const list = await expenseApi.listAttachments(e.id);
-                      setAttachments(prev => ({ ...prev, [e.id]: list }));
-                      setAttachmentPreviewOpen({ expenseId: e.id });
-                    }}>
-                      {Array.isArray(attachments[e.id]) || typeof e.attachments_count === 'number' ? (
-                        <span className="text-sm">{Array.isArray(attachments[e.id]) ? attachments[e.id].length : e.attachments_count} {t('expenses.file_count', { defaultValue: 'file(s)', count: Array.isArray(attachments[e.id]) ? attachments[e.id].length : e.attachments_count })}</span>
-                      ) : (
-                        <>
-                          <Eye className="w-4 h-4 mr-2" />
-                          <span className="text-sm">{t('common.view')}</span>
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </TableCell>}
+                {isVisible('receipt') && <TableCell>{renderReceiptCell(e)}</TableCell>}
                 <TableCell className="text-right">
                   {canPerformActions() && (
                     <DropdownMenu>
