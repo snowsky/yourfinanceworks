@@ -25,6 +25,7 @@ import { ProfessionalButton } from "@/components/ui/professional-button";
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { settingsApi } from '@/lib/api';
 import { ReviewDiffModal } from "@/components/ReviewDiffModal";
+import { ReviewStatusCell } from "@/components/ReviewStatusCell";
 import { Wand } from "lucide-react";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/useColumnVisibility";
@@ -1140,79 +1141,20 @@ const Invoices = () => {
                             </Badge>
                           </TableCell>
                           {isVisible('review') && <TableCell>
-                            {invoice.review_status === 'diff_found' ? (
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="h-7 text-xs border-amber-500/50 text-amber-600 hover:bg-amber-50"
-                                onClick={() => handleReviewClick(invoice)}
-                              >
-                                <Wand className="h-3 w-3 mr-1" />
-                                Review Diff
-                              </Button>
-                            ) : (invoice.review_status === 'reviewed' || invoice.review_status === 'no_diff') ? (
-                              <div className="flex flex-col gap-1 items-start">
-                                <Badge variant="outline" className={cn(
-                                  "font-medium shadow-none",
-                                  invoice.review_status === 'reviewed' ? "bg-green-50 text-green-700 border-green-200" : "bg-blue-50 text-blue-700 border-blue-200"
-                                )}>
-                                  {invoice.review_status === 'reviewed'
-                                    ? t('invoices.review.reviewed', { defaultValue: 'Reviewed' })
-                                    : t('invoices.review.verified', { defaultValue: 'Verified' })}
-                                </Badge>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground"
-                                  onClick={() => handleReviewClick(invoice)}
-                                >
-                                  <Eye className="w-3 h-3 mr-1" />
-                                  {t('invoices.review.view_report', { defaultValue: 'View Report' })}
-                                </Button>
-                              </div>
-                            ) : (
-                                <div className="flex flex-col gap-1 items-start">
-                                <Badge variant="outline" className={cn(
-                                  "font-medium shadow-none",
-                                  invoice.review_status === 'pending'
-                                    ? "bg-blue-50 text-blue-700 border-blue-200"
-                                    : invoice.review_status === 'rejected'
-                                    ? "bg-amber-50 text-amber-700 border-amber-200"
-                                    : invoice.review_status === 'failed'
-                                    ? "bg-red-50 text-red-700 border-red-200"
-                                    : "bg-muted/50 text-muted-foreground border-transparent"
-                                )}>
-                                  {invoice.review_status === 'pending' ? t('invoices.review.pending', { defaultValue: 'Review Pending' }) :
-                                   invoice.review_status === 'rejected' ? t('invoices.review.dismissed', { defaultValue: 'Review Dismissed' }) :
-                                   invoice.review_status === 'failed' ? t('invoices.review.failed', { defaultValue: 'Review Failed' }) :
-                                   t('common.not_started', { defaultValue: 'Not Started' })}
-                                </Badge>
-                                {(!invoice.review_status || invoice.review_status === 'not_started' || invoice.review_status === 'failed' || invoice.review_status === 'rejected') && (
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    className="h-6 text-[10px] text-primary hover:bg-primary/5 p-0 px-1"
-                                    onClick={() => handleRunReview(invoice.id)}
-                                  >
-                                    <RotateCcw className="h-2.5 w-2.5 mr-1" />
-                                    {t('invoices.review.trigger', { defaultValue: 'Trigger Review' })}
-                                  </Button>
-                                )}
-                                {(invoice.review_status === 'pending' || invoice.review_status === 'rejected' || invoice.review_status === 'failed') && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 text-[10px] text-destructive hover:bg-destructive/5 p-0 px-1"
-                                    onClick={() => handleCancelReview(invoice.id)}
-                                  >
-                                    <X className="h-2.5 w-2.5 mr-1" />
-                                    {invoice.review_status === 'pending'
-                                      ? t('invoices.review.cancel', { defaultValue: 'Cancel Review' })
-                                      : t('invoices.review.clear_status', { defaultValue: 'Clear Status' })}
-                                  </Button>
-                                )}
-                                </div>
-                            )}
+                            <ReviewStatusCell
+                              status={invoice.review_status}
+                              reviewedAt={invoice.reviewed_at}
+                              hasReport={Boolean(invoice.review_result)}
+                              onView={() => handleReviewClick(invoice)}
+                              onRun={() => handleRunReview(invoice.id)}
+                              onCancel={() => handleCancelReview(invoice.id)}
+                              labels={{
+                                view: t('invoices.review.view_report', { defaultValue: 'View review report' }),
+                                run: t('invoices.review.trigger', { defaultValue: 'Run review' }),
+                                cancel: t('invoices.review.cancel', { defaultValue: 'Cancel review' }),
+                                clear: t('invoices.review.clear_status', { defaultValue: 'Clear review status' }),
+                              }}
+                            />
                           </TableCell>}
                           {isVisible('statement') && <TableCell>
                             {typeof invoice.statement_id === 'number' && typeof invoice.statement_transaction_id === 'number' ? (

@@ -1,12 +1,11 @@
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { Input } from '@/components/ui/input';
 import {
-  AlertCircle, Loader2, X, Eye, Upload,
+  Loader2, Eye, Upload,
   MoreHorizontal, Edit, RotateCcw, Receipt,
   Trash2
 } from 'lucide-react';
@@ -17,6 +16,7 @@ import { expenseApi, type Expense, type ExpenseAttachmentMeta } from '@/lib/api'
 import { Badge } from '@/components/ui/badge';
 import { canPerformActions, canEditExpense, canDeleteExpense } from '@/utils/auth';
 import { ExpenseApprovalStatus } from '@/components/approvals/ExpenseApprovalStatus';
+import { ReviewStatusCell } from '@/components/ReviewStatusCell';
 import { toast } from 'sonner';
 
 interface ExpenseTableProps {
@@ -285,71 +285,20 @@ export function ExpenseTable({
                   </div>
                 </TableCell>}
                 {isVisible('review') && <TableCell>
-                  {/* Review Status Column */}
-                  {e.review_status === 'diff_found' ? (
-                    <Button size="sm" variant="outline" className="border-amber-500 text-amber-600 hover:bg-amber-50" onClick={() => onReviewClick(e)}>
-                      <AlertCircle className="w-3 h-3 mr-1" />
-                      Review Diff
-                    </Button>
-                  ) : (e.review_status === 'reviewed' || e.review_status === 'no_diff') ? (
-                    <div className="flex flex-col gap-1 items-start">
-                      <Badge variant="outline" className={cn(
-                        "font-medium shadow-none",
-                        e.review_status === 'reviewed' ? "text-green-600 border-green-200 bg-green-50" : "text-blue-600 border-blue-200 bg-blue-50"
-                      )}>
-                        {e.review_status === 'reviewed' ? 'Reviewed' : 'Verified'}
-                      </Badge>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground"
-                        onClick={() => onReviewClick(e)}
-                      >
-                        <Eye className="w-3 h-3 mr-1" />
-                        View Report
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-1 items-start">
-                      <Badge variant="outline" className={cn(
-                        "font-medium shadow-none",
-                        e.review_status === 'pending'
-                          ? "bg-blue-50 text-blue-700 border-blue-200"
-                          : e.review_status === 'rejected'
-                          ? "bg-amber-50 text-amber-700 border-amber-200"
-                          : e.review_status === 'failed'
-                          ? "bg-red-50 text-red-700 border-red-200"
-                          : "bg-muted/50 text-muted-foreground border-transparent"
-                      )}>
-                        {e.review_status === 'pending' ? 'Review Pending' :
-                         e.review_status === 'rejected' ? 'Review Dismissed' :
-                         e.review_status === 'failed' ? 'Review Failed' :
-                         t('common.not_started', { defaultValue: 'Not Started' })}
-                      </Badge>
-                      {(!e.review_status || e.review_status === 'not_started' || e.review_status === 'failed' || e.review_status === 'rejected') && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 text-[10px] text-primary hover:bg-primary/5 p-0 px-1"
-                          onClick={() => onRunReview(e.id)}
-                        >
-                          <RotateCcw className="h-2.5 w-2.5 mr-1" />
-                          Trigger Review
-                        </Button>
-                      )}
-                      {(e.review_status === 'pending' || e.review_status === 'rejected' || e.review_status === 'failed') && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 text-[10px] text-destructive hover:bg-destructive/5 p-0 px-1"
-                          onClick={() => onCancelReview(e.id)}
-                        >
-                          <X className="h-2.5 w-2.5 mr-1" />
-                          {e.review_status === 'pending' ? 'Cancel Review' : 'Clear Status'}
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                  <ReviewStatusCell
+                    status={e.review_status}
+                    reviewedAt={e.reviewed_at}
+                    hasReport={Boolean(e.review_result)}
+                    onView={() => onReviewClick(e)}
+                    onRun={() => onRunReview(e.id)}
+                    onCancel={() => onCancelReview(e.id)}
+                    labels={{
+                      view: t('expenses.review.view_report', { defaultValue: 'View review report' }),
+                      run: t('expenses.review.trigger', { defaultValue: 'Run review' }),
+                      cancel: t('expenses.review.cancel', { defaultValue: 'Cancel review' }),
+                      clear: t('expenses.review.clear_status', { defaultValue: 'Clear review status' }),
+                    }}
+                  />
                 </TableCell>}
                 {isVisible('receipt') && <TableCell>
                   <div className="flex flex-col gap-2">

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,6 +16,7 @@ import { ProfessionalCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { ShareButton } from '@/components/sharing/ShareButton';
 import { ColumnPicker } from '@/components/ui/column-picker';
+import { ReviewStatusCell } from '@/components/ReviewStatusCell';
 import { bankStatementApi, BankStatementSummary, formatStatus } from '@/lib/api';
 import { toast } from 'sonner';
 import { StatusBadge } from './StatusBadge';
@@ -469,75 +469,20 @@ export function StatementsListView({
                   </TableCell>
                   {isVisible('review_status') && (
                     <TableCell>
-                      {s.review_status === 'diff_found' ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs border-amber-500/50 text-amber-600 hover:bg-amber-50"
-                          onClick={() => handleReviewClick(s)}
-                        >
-                          <Wand className="h-3 w-3 mr-1" />
-                          Review Diff
-                        </Button>
-                      ) : (s.review_status === 'reviewed' || s.review_status === 'no_diff') ? (
-                        <div className="flex flex-col gap-1 items-start">
-                          <Badge variant="outline" className={cn(
-                            "font-medium shadow-none",
-                            s.review_status === 'reviewed' ? "bg-green-50 text-green-700 border-green-200" : "bg-blue-50 text-blue-700 border-blue-200"
-                          )}>
-                            {s.review_status === 'reviewed' ? t('statements.review_status.reviewed') : 'Verified'}
-                          </Badge>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground"
-                            onClick={() => handleReviewClick(s)}
-                          >
-                            <Eye className="w-3 h-3 mr-1" />
-                            View Report
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-1 items-start">
-                          <Badge variant="outline" className={cn(
-                            "font-medium shadow-none",
-                            s.review_status === 'pending'
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                              : s.review_status === 'rejected'
-                              ? "bg-amber-50 text-amber-700 border-amber-200"
-                              : s.review_status === 'failed'
-                              ? "bg-red-50 text-red-700 border-red-200"
-                              : "bg-muted/50 text-muted-foreground border-transparent"
-                          )}>
-                            {s.review_status === 'pending' ? t('statements.review_status.pending', { defaultValue: 'Review Pending' }) :
-                             s.review_status === 'rejected' ? 'Review Dismissed' :
-                             s.review_status === 'failed' ? 'Review Failed' :
-                             t('common.not_started', { defaultValue: 'Not Started' })}
-                          </Badge>
-                          {(!s.review_status || s.review_status === 'not_started' || s.review_status === 'failed' || s.review_status === 'rejected') && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 text-[10px] text-primary hover:bg-primary/5 p-0 px-1"
-                              onClick={() => handleRunReview(s.id)}
-                            >
-                              <RotateCcw className="h-2.5 w-2.5 mr-1" />
-                              Trigger Review
-                            </Button>
-                          )}
-                          {(s.review_status === 'pending' || s.review_status === 'rejected' || s.review_status === 'failed') && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 text-[10px] text-destructive hover:bg-destructive/5 p-0 px-1"
-                              onClick={() => handleCancelReview(s.id)}
-                            >
-                              <X className="h-2.5 w-2.5 mr-1" />
-                              {s.review_status === 'pending' ? 'Cancel Review' : 'Clear Status'}
-                            </Button>
-                          )}
-                        </div>
-                      )}
+                      <ReviewStatusCell
+                        status={s.review_status}
+                        reviewedAt={s.reviewed_at}
+                        hasReport={Boolean(s.review_result)}
+                        onView={() => handleReviewClick(s)}
+                        onRun={() => handleRunReview(s.id)}
+                        onCancel={() => handleCancelReview(s.id)}
+                        labels={{
+                          view: t('statements.review_status.view_report', { defaultValue: 'View review report' }),
+                          run: t('statements.review_status.trigger', { defaultValue: 'Run review' }),
+                          cancel: t('statements.review_status.cancel', { defaultValue: 'Cancel review' }),
+                          clear: t('statements.review_status.clear_status', { defaultValue: 'Clear review status' }),
+                        }}
+                      />
                     </TableCell>
                   )}
                   {isVisible('transactions') && <TableCell className="text-center font-medium">{s.extracted_count}</TableCell>}
