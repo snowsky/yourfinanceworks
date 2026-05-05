@@ -26,12 +26,23 @@ def test_model_none_answer_does_not_force_tool_routing():
 
 
 def test_agent_tool_plan_parses_json_tools():
-    assert parse_agent_tool_plan('{"tools":["payments"],"reason":"payment total"}') == ["payments"]
+    assert parse_agent_tool_plan('{"tools":[{"intent":"payments"}],"reason":"payment total"}') == [
+        {"intent": "payments", "options": {}}
+    ]
 
 
 def test_agent_tool_plan_parses_multiple_tools():
-    assert parse_agent_tool_plan('{"tools":["payments","expenses"],"reason":"net income"}') == ["payments", "expenses"]
+    assert parse_agent_tool_plan('{"tools":[{"intent":"payments"},{"intent":"expenses"}],"reason":"net income"}') == [
+        {"intent": "payments", "options": {}},
+        {"intent": "expenses", "options": {}},
+    ]
 
 
 def test_agent_tool_plan_empty_tools_means_no_mcp_tool():
     assert parse_agent_tool_plan('{"tools":[],"reason":"no business data"}') == []
+
+
+def test_agent_tool_plan_parses_limit_argument():
+    assert parse_agent_tool_plan('{"tools":[{"intent":"expenses","limit":4}],"reason":"last four"}') == [
+        {"intent": "expenses", "options": {"limit": 4}}
+    ]

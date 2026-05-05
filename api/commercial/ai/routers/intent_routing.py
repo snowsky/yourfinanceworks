@@ -21,8 +21,8 @@ TOOL_INTENTS = {
 }
 
 
-def parse_agent_tool_plan(raw_plan: str | None, *, max_tools: int = 3) -> list[str]:
-    """Parse the model's JSON-ish tool plan into known MCP intents."""
+def parse_agent_tool_plan(raw_plan: str | None, *, max_tools: int = 3) -> list[dict]:
+    """Parse the model's JSON-ish tool plan into known MCP intents and args."""
     if not raw_plan:
         return []
 
@@ -54,14 +54,27 @@ def parse_agent_tool_plan(raw_plan: str | None, *, max_tools: int = 3) -> list[s
     if not raw_tools:
         raw_tools = [raw_plan]
 
-    intents = []
+    tools = []
     for raw_tool in raw_tools:
-        intent = normalize_tool_intent(str(raw_tool))
-        if intent and intent not in intents:
-            intents.append(intent)
-        if len(intents) >= max_tools:
+        options = {}
+        if isinstance(raw_tool, dict):
+            intent = normalize_tool_intent(
+                str(raw_tool.get("intent") or raw_tool.get("name") or raw_tool.get("tool") or "")
+            )
+            raw_limit = raw_tool.get("limit")
+            if raw_limit is not None:
+                try:
+                    options["limit"] = max(1, min(100, int(raw_limit)))
+                except (TypeError, ValueError):
+                    pass
+        else:
+            intent = normalize_tool_intent(str(raw_tool))
+
+        if intent and not any(tool["intent"] == intent for tool in tools):
+            tools.append({"intent": intent, "options": options})
+        if len(tools) >= max_tools:
             break
-    return intents
+    return tools
 
 
 def normalize_tool_intent(raw_intent: str | None) -> str | None:

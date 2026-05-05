@@ -13,38 +13,14 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 
-def _extract_requested_limit(message: str, *, default: int, maximum: int = 100) -> int:
-    """Extract simple "last N" / "recent N" limits from a user message."""
-    lower_message = message.lower()
-    match = re.search(
-        r"\b(?:last|latest|recent|recently|top)\s+(\d+)\b|\b(\d+)\s+(?:last|latest|recent)\b",
-        lower_message,
-    )
-    if match:
-        return max(1, min(maximum, int(match.group(1) or match.group(2))))
-
-    number_words = {
-        "one": 1,
-        "two": 2,
-        "three": 3,
-        "four": 4,
-        "five": 5,
-        "six": 6,
-        "seven": 7,
-        "eight": 8,
-        "nine": 9,
-        "ten": 10,
-    }
-    word_match = re.search(
-        r"\b(?:last|latest|recent|recently|top)\s+("
-        + "|".join(number_words)
-        + r")\b",
-        lower_message,
-    )
-    if word_match:
-        return max(1, min(maximum, number_words[word_match.group(1)]))
-
-    return default
+def _requested_limit_from_options(tool_options: Optional[Dict[str, Any]], *, default: int, maximum: int = 100) -> int:
+    """Read planned result limits from the agent tool plan."""
+    if not tool_options or tool_options.get("limit") is None:
+        return default
+    try:
+        return max(1, min(maximum, int(tool_options["limit"])))
+    except (TypeError, ValueError):
+        return default
 
 
 async def dispatch_intent(
@@ -55,6 +31,7 @@ async def dispatch_intent(
     ai_config: Any,
     page_context: Optional[Dict[str, Any]],
     db: Session,
+    tool_options: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     # Execute MCP tool based on AI-classified intent
     if intent == "investments":
@@ -794,7 +771,7 @@ This comprehensive invoice information was retrieved using your actual invoice d
 
     elif intent == "expenses":
         lower_message = message.lower()
-        requested_limit = _extract_requested_limit(message, default=20)
+        requested_limit = _requested_limit_from_options(tool_options, default=20)
         print(f"MCP Integration: Detected expense management pattern in message: '{message}'")
         try:
             if "search" in lower_message or "find" in lower_message:

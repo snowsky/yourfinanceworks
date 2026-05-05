@@ -165,7 +165,7 @@ Category:"""
             ai_config=ai_config,
         )
         if tool_plan:
-            intent = tool_plan[0]
+            intent = tool_plan[0]["intent"]
             logger.info(f"MCP Integration: AI agent tool plan selected intents: {tool_plan}")
         else:
             # Get intent classification
@@ -221,7 +221,8 @@ Category:"""
 
         if tool_plan:
             planned_results = []
-            for planned_intent in tool_plan:
+            for planned_tool in tool_plan:
+                planned_intent = planned_tool["intent"]
                 planned_result = await dispatch_intent(
                     intent=planned_intent,
                     tools=tools,
@@ -230,6 +231,7 @@ Category:"""
                     ai_config=ai_config,
                     page_context=page_context,
                     db=db,
+                    tool_options=planned_tool.get("options") or {},
                 )
                 if planned_result is not None:
                     planned_results.append((planned_intent, planned_result))
@@ -369,29 +371,31 @@ async def _plan_mcp_tool_intents(
     prompt = f"""You are the tool-planning step for a YourFinanceWORKS assistant.
 Decide which MCP tool intents are required to answer the user using their business/accounting data.
 Return ONLY compact JSON with this exact shape:
-{{"tools":["payments"],"reason":"brief"}}
+{{"tools":[{{"intent":"payments"}}],"reason":"brief"}}
 
 Rules:
 - If no YourFinanceWORKS data is needed, return {{"tools":[],"reason":"no business data needed"}}.
 - Choose one tool when one is enough.
 - Choose multiple tools only when the answer requires combining domains.
+- Include "limit" when the user asks for a specific number of records, such as last 4 expenses.
 - Do not answer the user. Only plan tool intents.
 
 Allowed tool intents:
 analyze_patterns, suggest_actions, payments, clients, invoices, expenses, statements, currencies, outstanding, overdue, statistics, investments, cashflow
 
 Examples:
-- "can you analyze my invoice patterns?" -> analyze_patterns
-- "what actions should I take?" -> suggest_actions
-- "how many clients?" -> clients
-- "show my invoices" -> invoices
-- "what expenses did I have?" -> expenses
-- "how much did I get paid?" -> payments
-- "how much have I collected?" -> payments
-- "do I have overdue invoices?" -> overdue
-- "what is my cash runway?" -> cashflow
-- "what was my net income?" -> ["payments","expenses"]
-- "write a generic email" -> []
+- "can you analyze my invoice patterns?" -> {{"tools":[{{"intent":"analyze_patterns"}}],"reason":"invoice pattern analysis"}}
+- "what actions should I take?" -> {{"tools":[{{"intent":"suggest_actions"}}],"reason":"recommendations from business data"}}
+- "how many clients?" -> {{"tools":[{{"intent":"clients"}}],"reason":"client count"}}
+- "show my invoices" -> {{"tools":[{{"intent":"invoices"}}],"reason":"invoice list"}}
+- "what expenses did I have?" -> {{"tools":[{{"intent":"expenses"}}],"reason":"expense list"}}
+- "how much did I spend in last 4 expenses?" -> {{"tools":[{{"intent":"expenses","limit":4}}],"reason":"last four expenses"}}
+- "how much did I get paid?" -> {{"tools":[{{"intent":"payments"}}],"reason":"payment total"}}
+- "how much have I collected?" -> {{"tools":[{{"intent":"payments"}}],"reason":"payment total"}}
+- "do I have overdue invoices?" -> {{"tools":[{{"intent":"overdue"}}],"reason":"overdue invoice check"}}
+- "what is my cash runway?" -> {{"tools":[{{"intent":"cashflow"}}],"reason":"cash runway"}}
+- "what was my net income?" -> {{"tools":[{{"intent":"payments"}},{{"intent":"expenses"}}],"reason":"payments minus expenses"}}
+- "write a generic email" -> {{"tools":[],"reason":"no business data needed"}}
 
 {page_context_block}
 User message: "{message}"
