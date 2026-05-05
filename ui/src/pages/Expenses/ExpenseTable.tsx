@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { Input } from '@/components/ui/input';
 import {
-  Loader2, Eye, Upload,
+  AlertCircle, CheckCircle2, Clock3, FileSearch, Loader2, Eye, Upload,
   MoreHorizontal, Edit, RotateCcw, Receipt,
   Trash2, X
 } from 'lucide-react';
@@ -69,6 +69,99 @@ export function ExpenseTable({
   setExpenses,
 }: ExpenseTableProps) {
   const { t } = useTranslation();
+
+  const renderAnalysisCell = (e: Expense) => {
+    const status = e.analysis_status || (e.imported_from_attachment ? 'not_started' : undefined);
+    const fileCount = Array.isArray(attachments[e.id]) ? attachments[e.id].length : e.attachments_count || 0;
+    const canShowAction = Boolean(status || fileCount > 0 || e.imported_from_attachment) && canPerformActions() && e.status !== 'pending_approval' && e.status !== 'approved';
+    const isActionDisabled = (!e.imported_from_attachment && fileCount === 0) || processingLocks.has(e.id) || uploadingId === e.id;
+    const fileSummary = fileCount > 0
+      ? `${fileCount} ${t('expenses.file_count', { defaultValue: 'file(s)', count: fileCount })}`
+      : e.imported_from_attachment
+        ? t('expenses.imported_receipt', { defaultValue: 'Imported receipt' })
+        : t('expenses.no_receipt', { defaultValue: 'No receipt' });
+
+    const statusMeta = (() => {
+      switch (status) {
+        case 'done':
+          return {
+            label: t('expenses.status_done'),
+            icon: CheckCircle2,
+            className: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800',
+          };
+        case 'processing':
+          return {
+            label: t('expenses.status_processing'),
+            icon: Loader2,
+            className: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800',
+          };
+        case 'queued':
+          return {
+            label: t('expenses.status_queued'),
+            icon: Clock3,
+            className: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800',
+          };
+        case 'failed':
+          return {
+            label: t('common.failed', { defaultValue: 'Failed' }),
+            icon: AlertCircle,
+            className: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800',
+          };
+        case 'cancelled':
+          return {
+            label: t('common.cancelled', { defaultValue: 'Cancelled' }),
+            icon: X,
+            className: 'bg-muted/60 text-muted-foreground border-border',
+          };
+        case 'not_started':
+          return {
+            label: t('common.not_started', { defaultValue: 'Not Started' }),
+            icon: FileSearch,
+            className: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/50 dark:text-slate-300 dark:border-slate-700',
+          };
+        default:
+          return {
+            label: t('common.not_available', { defaultValue: 'N/A' }),
+            icon: FileSearch,
+            className: 'bg-muted/50 text-muted-foreground border-transparent',
+          };
+      }
+    })();
+
+    const StatusIcon = statusMeta.icon;
+    const isStatusSpinning = status === 'processing';
+
+    return (
+      <div className="flex min-w-[150px] items-center justify-start gap-1.5">
+        <div className="min-w-0 space-y-1">
+          <Badge variant="outline" className={`h-6 gap-1.5 whitespace-nowrap px-2 font-medium shadow-none ${statusMeta.className}`}>
+            <StatusIcon className={`h-3 w-3 ${isStatusSpinning ? 'animate-spin' : ''}`} />
+            {statusMeta.label}
+          </Badge>
+          <div className="max-w-[130px] truncate text-[11px] leading-none text-muted-foreground">
+            {fileSummary}
+          </div>
+        </div>
+        {canShowAction && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            onClick={() => onRequeue(e.id)}
+            disabled={isActionDisabled}
+            title={t('expenses.process_again', { defaultValue: 'Process Again' })}
+            aria-label={t('expenses.process_again', { defaultValue: 'Process Again' })}
+          >
+            {processingLocks.has(e.id) || uploadingId === e.id ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RotateCcw className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="rounded-xl border border-border/50 overflow-x-auto shadow-sm">
@@ -239,51 +332,7 @@ export function ExpenseTable({
                     </div>
                   </div>
                 </TableCell>}
-                {isVisible('analyzed') && <TableCell>
-                  <div className="flex flex-col gap-2">
-                    <div>
-                      {e.analysis_status === 'done' ? (
-                        <div className="text-xs px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded">{t('expenses.status_done')}</div>
-                      ) : e.analysis_status === 'processing' || e.analysis_status === 'queued' ? (
-                        <div className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded capitalize">{e.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}</div>
-                      ) : e.analysis_status === 'failed' ? (
-                        <div className="text-xs px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded">{t('common.failed', { defaultValue: 'Failed' })}</div>
-                      ) : e.analysis_status === 'cancelled' ? (
-                        <div className="text-xs px-2 py-1 bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 rounded">{t('common.cancelled', { defaultValue: 'Cancelled' })}</div>
-                      ) : e.imported_from_attachment ? (
-                        <div className="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">{t('common.not_started', { defaultValue: 'Not Started' })}</div>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </div>
-                    {(e.analysis_status || (e.attachments_count && e.attachments_count > 0) || e.imported_from_attachment) && canPerformActions() && e.status !== 'pending_approval' && e.status !== 'approved' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-fit"
-                        onClick={() => onRequeue(e.id)}
-                        disabled={
-                          !e.imported_from_attachment &&
-                          (!e.attachments_count || e.attachments_count === 0) ||
-                          processingLocks.has(e.id) ||
-                          uploadingId === e.id
-                        }
-                        title="Process Again"
-                      >
-                        {processingLocks.has(e.id) ? (
-                          <div className="flex items-center gap-1">
-                            <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                            <span className="animate-pulse">...</span>
-                          </div>
-                        ) : uploadingId === e.id ? (
-                          'Uploading...'
-                        ) : (
-                          <RotateCcw className="w-4 h-4" />
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>}
+                {isVisible('analyzed') && <TableCell>{renderAnalysisCell(e)}</TableCell>}
                 {isVisible('review') && <TableCell>
                   <ReviewStatusCell
                     status={e.review_status}
