@@ -11,6 +11,33 @@ def test_build_parser_supports_monitor_command():
     assert args.interval == 60
 
 
+def test_build_parser_supports_auth_login_command():
+    parser = build_parser()
+    args = parser.parse_args(["auth", "login", "--email", "user@example.com"])
+
+    assert args.resource == "auth"
+    assert args.action == "login"
+    assert args.email == "user@example.com"
+
+
+def test_build_parser_supports_auth_status_command():
+    parser = build_parser()
+    args = parser.parse_args(["auth", "status"])
+
+    assert args.resource == "auth"
+    assert args.action == "status"
+
+
+def test_build_parser_supports_browser_login_command():
+    parser = build_parser()
+    args = parser.parse_args(["auth", "browser-login", "--no-open", "--timeout", "30"])
+
+    assert args.resource == "auth"
+    assert args.action == "browser-login"
+    assert args.no_open is True
+    assert args.timeout == 30
+
+
 def test_build_parser_supports_snapshot_flags():
     parser = build_parser()
     args = parser.parse_args(

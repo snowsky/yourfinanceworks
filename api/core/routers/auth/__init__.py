@@ -5,7 +5,7 @@
 
 from fastapi import APIRouter
 
-from core.routers.auth import login_register, password, invites, sso
+from core.routers.auth import login_register, password, invites, sso, device
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -13,6 +13,7 @@ router.include_router(login_register.router)
 router.include_router(password.router)
 router.include_router(invites.router)
 router.include_router(sso.router)
+router.include_router(device.router)
 
 # Re-export public symbols consumed by other modules
 from core.routers.auth._shared import (  # noqa: F401

@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
+import getpass
+from dataclasses import replace
 from decimal import Decimal
+from pathlib import Path
 from typing import Sequence
 
 from .agent import PortfolioMonitorAgent
 from .analyzers import normalize_allocation
-from .api_client import InvestmentAPIClient
+from .api_client import APIError, InvestmentAPIClient
 from .chat_agent import CliChatAgent
 from .config import load_profile
 from .document_classifier import DocumentClassifier
@@ -32,6 +34,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--json", action="store_true", help="Emit JSON instead of formatted output")
 
     subparsers = parser.add_subparsers(dest="resource", required=True)
+
+    auth = subparsers.add_parser("auth", help="Authentication commands")
+    auth_sub = auth.add_subparsers(dest="action", required=True)
+    login = auth_sub.add_parser("login", help="Log in and cache a bearer token")
+    login.add_argument("--email", default=None, help="YFW account email")
+    login.add_argument("--password", default=None, help="YFW account password. Omit to prompt.")
+    browser_login = auth_sub.add_parser("browser-login", help="Log in by approving a browser/device code")
+    browser_login.add_argument("--no-open", action="store_true", help="Print the URL instead of opening a browser")
+    browser_login.add_argument("--timeout", type=int, default=600, help="Seconds to wait for browser approval")
+    device_login = auth_sub.add_parser("device-login", help="Alias for browser-login")
+    device_login.add_argument("--no-open", action="store_true", help="Print the URL instead of opening a browser")
+    device_login.add_argument("--timeout", type=int, default=600, help="Seconds to wait for browser approval")
+    auth_sub.add_parser("status", help="Show cached login status")
+    auth_sub.add_parser("logout", help="Remove the cached bearer token")
 
     portfolio = subparsers.add_parser("portfolio", help="Portfolio operations")
     portfolio_sub = portfolio.add_subparsers(dest="action", required=True)
@@ -102,15 +118,65 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     profile = load_profile(profile_name=args.profile)
 
-    with InvestmentAPIClient(profile) as client:
-        if args.resource == "portfolio":
-            return _handle_portfolio(args, client, profile)
-        if args.resource == "prices":
-            return _handle_prices(args, client)
-        if args.resource == "documents":
-            return _handle_documents(args, client, profile)
-        if args.resource == "agent":
-            return _handle_agent(args, client, profile)
+    try:
+        with InvestmentAPIClient(profile) as client:
+            if args.resource == "auth":
+                return _handle_auth(args, client, profile)
+            if args.resource == "portfolio":
+                return _handle_portfolio(args, client, profile)
+            if args.resource == "prices":
+                return _handle_prices(args, client)
+            if args.resource == "documents":
+                return _handle_documents(args, client, profile)
+            if args.resource == "agent":
+                return _handle_agent(args, client, profile)
+    except APIError as exc:
+        print_json(
+            {
+                "error": str(exc),
+                "status_code": exc.status_code,
+                "payload": exc.payload,
+            }
+        )
+        return 1
+    return 0
+
+
+def _handle_auth(args, client: InvestmentAPIClient, profile) -> int:
+    if args.action == "status":
+        print_json(client.auth_status())
+        return 0
+    if args.action == "logout":
+        print_json(client.logout())
+        return 0
+    if args.action == "login":
+        email = args.email or profile.email
+        password = args.password or profile.password
+        if not email:
+            email = input("Email: ").strip()
+        if not password:
+            password = getpass.getpass("Password: ")
+        login_profile = replace(
+            profile,
+            auth_type="password",
+            email=email,
+            password=password,
+        )
+        with InvestmentAPIClient(login_profile) as login_client:
+            print_json(login_client.authenticate())
+        return 0
+    if args.action in {"browser-login", "device-login"}:
+        device = client.start_device_login()
+        if args.no_open:
+            print(f"Open this URL to approve CLI login: {device['verification_uri_complete']}")
+        else:
+            import webbrowser
+            webbrowser.open(device["verification_uri_complete"])
+            print(f"Opened browser for CLI login. If it did not open, visit: {device['verification_uri_complete']}")
+        print(f"Device code: {device['user_code']}")
+        result = client.poll_device_login(device, timeout_seconds=args.timeout)
+        print_json(result)
+        return 0
     return 0
 
 

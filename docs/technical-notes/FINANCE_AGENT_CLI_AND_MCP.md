@@ -50,6 +50,9 @@ Base URLs are normalized to the backend API path automatically:
 Examples:
 
 ```bash
+finance-agent auth login --email user@example.com
+finance-agent auth browser-login
+finance-agent auth status
 finance-agent portfolio list
 finance-agent portfolio analyze 12
 finance-agent portfolio rebalance 12
@@ -81,6 +84,35 @@ finance-agent agent chat
 ```
 
 The chat bridge currently exposes a narrow MCP-style tool set: create tenant/organization, get current tenant info, list tenant users, and list portfolios. If an LLM is configured, it plans the tool call from natural language; otherwise it uses deterministic command parsing.
+
+## CLI Auth
+
+Use explicit login when you want to cache a bearer token before running the agent:
+
+```bash
+finance-agent auth login --email user@example.com
+```
+
+The command prompts for a password if `--password` is omitted. The token is cached at `.finance-agent/token.json` by default. You can inspect or clear it with:
+
+```bash
+finance-agent auth status
+finance-agent auth logout
+```
+
+The older env/profile flow still works: commands authenticate on demand when `FINANCE_AGENT_AUTH_TYPE=password`, `FINANCE_AGENT_EMAIL`, and `FINANCE_AGENT_PASSWORD` are configured.
+
+For SSO or passwordless browser approval, use the device/browser flow:
+
+```bash
+finance-agent auth browser-login
+```
+
+This opens a browser verification URL, asks the browser session to approve the CLI device code, then caches the returned bearer token. On a headless machine:
+
+```bash
+finance-agent auth device-login --no-open
+```
 
 Single monitor cycle:
 

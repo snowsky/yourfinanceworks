@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import time
+import webbrowser
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -39,6 +41,105 @@ class InvestmentAPIClient:
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.close()
+
+    def authenticate(self) -> dict[str, Any]:
+        """Authenticate now and persist the token for later CLI commands."""
+        self._authenticate()
+        return {
+            "authenticated": bool(self._token),
+            "token_path": str(self.profile.token_path),
+            "expires": self._token_expires.isoformat() if self._token_expires else None,
+        }
+
+    def authenticate_with_device(
+        self,
+        *,
+        open_browser: bool = True,
+        timeout_seconds: int = 600,
+    ) -> dict[str, Any]:
+        """Authenticate through a browser-approved device code flow."""
+        start = self._client.post(f"{self.profile.api_base_url}/auth/device/start")
+        if start.status_code >= 400:
+            raise APIError(
+                f"Device login start failed: {start.status_code}",
+                status_code=start.status_code,
+                payload=_safe_json(start),
+            )
+        device_payload = start.json()
+        verification_url = device_payload["verification_uri_complete"]
+        if open_browser:
+            webbrowser.open(verification_url)
+        return self.poll_device_login(device_payload, timeout_seconds=timeout_seconds)
+
+    def poll_device_login(self, device_payload: dict[str, Any], *, timeout_seconds: int = 600) -> dict[str, Any]:
+        """Poll an existing device login until the browser approves it."""
+        verification_url = device_payload["verification_uri_complete"]
+        deadline = time.monotonic() + min(timeout_seconds, int(device_payload.get("expires_in", timeout_seconds)))
+        interval = int(device_payload.get("interval", 5))
+        while time.monotonic() < deadline:
+            response = self._client.post(
+                f"{self.profile.api_base_url}/auth/device/token",
+                json={"device_code": device_payload["device_code"]},
+            )
+            if response.status_code == 428:
+                time.sleep(interval)
+                continue
+            if response.status_code >= 400:
+                raise APIError(
+                    f"Device login failed: {response.status_code}",
+                    status_code=response.status_code,
+                    payload=_safe_json(response),
+                )
+            token_payload = response.json()
+            self._save_token_payload(token_payload)
+            return {
+                "authenticated": True,
+                "token_path": str(self.profile.token_path),
+                "verification_url": verification_url,
+                "expires": self._token_expires.isoformat() if self._token_expires else None,
+            }
+
+        raise APIError("Device login timed out before browser approval.")
+
+    def start_device_login(self) -> dict[str, Any]:
+        """Start device login without polling; useful for tests and manual flows."""
+        response = self._client.post(f"{self.profile.api_base_url}/auth/device/start")
+        if response.status_code >= 400:
+            raise APIError(
+                f"Device login start failed: {response.status_code}",
+                status_code=response.status_code,
+                payload=_safe_json(response),
+            )
+        return response.json()
+
+    def _save_token_payload(self, payload: dict[str, Any]) -> None:
+        self._token = payload["access_token"]
+        expires_in = int(payload.get("expires_in", 25 * 60))
+        self._token_expires = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        self._save_token_to_disk()
+
+    def auth_status(self) -> dict[str, Any]:
+        """Return cached auth status without forcing a new login."""
+        has_cached_token = bool(self._token) or self._load_token_from_disk()
+        return {
+            "auth_type": self.profile.auth_type,
+            "authenticated": has_cached_token,
+            "token_path": str(self.profile.token_path),
+            "expires": self._token_expires.isoformat() if self._token_expires else None,
+        }
+
+    def logout(self) -> dict[str, Any]:
+        """Clear the cached auth token."""
+        removed = False
+        try:
+            if self.profile.token_path.exists():
+                self.profile.token_path.unlink()
+                removed = True
+        except OSError as exc:
+            raise APIError(f"Failed to remove token file: {exc}") from exc
+        self._token = None
+        self._token_expires = None
+        return {"logged_out": True, "token_removed": removed, "token_path": str(self.profile.token_path)}
 
     def _load_token_from_disk(self) -> bool:
         token_path = self.profile.token_path
@@ -97,9 +198,7 @@ class InvestmentAPIClient:
                 payload=_safe_json(response),
             )
         payload = response.json()
-        self._token = payload["access_token"]
-        self._token_expires = datetime.now(timezone.utc) + timedelta(minutes=25)
-        self._save_token_to_disk()
+        self._save_token_payload({**payload, "expires_in": 25 * 60})
 
     def _get_headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
