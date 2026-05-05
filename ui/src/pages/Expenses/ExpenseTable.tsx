@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import {
   Loader2, Eye, Upload,
   MoreHorizontal, Edit, RotateCcw, Receipt,
-  Trash2
+  Trash2, X
 } from 'lucide-react';
 import { Share2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
