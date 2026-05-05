@@ -154,7 +154,7 @@ export function ReviewStatusCell({
 
   return (
     <TooltipProvider delayDuration={150}>
-      <div className={cn('flex min-w-[180px] items-center justify-between gap-2', className)}>
+      <div className={cn('flex min-w-[150px] items-center justify-start gap-1.5', className)}>
         <div className="min-w-0 space-y-1">
           <Badge
             variant="outline"
