@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageCircle, Send, Sparkles, Zap, CheckCircle, AlertCircle, BarChart3, Lightbulb, Target, Loader, Wrench } from 'lucide-react';
+import { MessageCircle, Send, Sparkles, Zap, CheckCircle, AlertCircle, BarChart3, Lightbulb, Target, Loader, Wrench, Maximize2, Minimize2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -1262,9 +1262,15 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                     variant="ghost"
                     size="icon"
                     onClick={toggleFullscreen}
+                    aria-label={isFullscreen ? t('aiAssistant.exitFullscreen') : t('aiAssistant.enterFullscreen')}
+                    title={isFullscreen ? t('aiAssistant.exitFullscreen') : t('aiAssistant.enterFullscreen')}
                     className="text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
                   >
-                    {isFullscreen ? 'Exit' : 'Full'}
+                    {isFullscreen ? (
+                      <Minimize2 className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Maximize2 className="h-4 w-4" aria-hidden="true" />
+                    )}
                   </Button>
 
                   <Button
