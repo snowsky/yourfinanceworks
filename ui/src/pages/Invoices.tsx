@@ -1037,7 +1037,7 @@ const Invoices = () => {
                         {isVisible('review') && <TableHead className="font-bold text-foreground">{t('invoices.review.title', { defaultValue: 'Review' })}</TableHead>}
                         {isVisible('statement') && <TableHead className="font-bold text-foreground">{t('invoices.table.statement', { defaultValue: 'Statement' })}</TableHead>}
                         {isVisible('created_at_by') && <TableHead className="font-bold text-foreground">{t('invoices.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>}
-                        <TableHead className="sticky right-0 z-30 w-[88px] bg-muted/80 text-right font-bold text-foreground shadow-[-6px_0_10px_-6px_hsl(var(--foreground)/0.35)]">{t('invoices.table.actions')}</TableHead>
+                        <TableHead className="sticky right-0 z-30 w-[88px] bg-muted/80 text-center font-bold text-foreground shadow-[-6px_0_10px_-6px_hsl(var(--foreground)/0.35)]">{t('invoices.table.actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1180,7 +1180,7 @@ const Invoices = () => {
                               </div>
                             </div>
                           </TableCell>}
-                          <TableCell className="sticky right-0 z-20 bg-background text-right shadow-[-6px_0_10px_-6px_hsl(var(--foreground)/0.25)]">
+                          <TableCell className="sticky right-0 z-20 bg-background text-center shadow-[-6px_0_10px_-6px_hsl(var(--foreground)/0.25)]">
                             {canPerformAction && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>

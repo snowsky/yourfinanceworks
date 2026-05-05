@@ -267,7 +267,7 @@ export function ExpenseTable({
             {isVisible('analyzed') && <TableHead className="font-bold text-foreground">{t('expenses.table.analyzed')}</TableHead>}
             {isVisible('review') && <TableHead className="font-bold text-foreground">{t('expenses.review.title', { defaultValue: 'Review' })}</TableHead>}
             {isVisible('receipt') && <TableHead className="font-bold text-foreground">{t('expenses.table.receipt')}</TableHead>}
-            <TableHead className="sticky right-0 z-30 w-[88px] bg-muted/80 text-right font-bold text-foreground shadow-[-6px_0_10px_-6px_hsl(var(--foreground)/0.35)]">{t('expenses.table.actions')}</TableHead>
+            <TableHead className="sticky right-0 z-30 w-[88px] bg-muted/80 text-center font-bold text-foreground shadow-[-6px_0_10px_-6px_hsl(var(--foreground)/0.35)]">{t('expenses.table.actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -418,7 +418,7 @@ export function ExpenseTable({
                   />
                 </TableCell>}
                 {isVisible('receipt') && <TableCell>{renderReceiptCell(e)}</TableCell>}
-                <TableCell className="sticky right-0 z-20 bg-background text-right shadow-[-6px_0_10px_-6px_hsl(var(--foreground)/0.25)]">
+                <TableCell className="sticky right-0 z-20 bg-background text-center shadow-[-6px_0_10px_-6px_hsl(var(--foreground)/0.25)]">
                   {canPerformActions() && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
