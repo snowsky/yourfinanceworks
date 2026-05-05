@@ -144,6 +144,9 @@ Category:"""
 
         # Pre-classification check for precise intents (skip LLM for specific patterns)
         lower_message = request.message.lower()
+        preclassified_intent = None
+        if any(word in lower_message for word in ["client", "clients", "customer", "customers"]):
+            preclassified_intent = "clients"
 
         # Handle early actions (statement context actions + client/expense creation fast paths)
         result = await handle_early_actions(
@@ -157,62 +160,76 @@ Category:"""
         if result is not None:
             return result
 
-        # Get intent classification
-        model_name = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
+        if preclassified_intent:
+            intent = preclassified_intent
+            logger.info(f"MCP Integration: Keyword preclassified intent as: '{intent}'")
+        else:
+            # Get intent classification
+            model_name = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
 
-        # Standardize model parameters
-        model_params = AIConfigService.get_model_parameters(model_name, max_tokens=50, temperature=0.1)
+            # Standardize model parameters
+            model_params = AIConfigService.get_model_parameters(model_name, max_tokens=50, temperature=0.1)
 
-        kwargs = {
-            "model": model_name,
-            "messages": [{"role": "user", "content": intent_prompt}],
-            "timeout": 30,  # 30 second timeout for intent classification
-            **model_params
-        }
+            kwargs = {
+                "model": model_name,
+                "messages": [{"role": "user", "content": intent_prompt}],
+                "timeout": 30,  # 30 second timeout for intent classification
+                **model_params
+            }
 
-        if ai_config.provider_name == "ollama" and ai_config.provider_url:
-            kwargs["api_base"] = ai_config.provider_url
-        elif ai_config.api_key:
-            kwargs["api_key"] = ai_config.api_key
+            if ai_config.provider_name == "ollama" and ai_config.provider_url:
+                kwargs["api_base"] = ai_config.provider_url
+            elif ai_config.api_key:
+                kwargs["api_key"] = ai_config.api_key
 
-        try:
-            intent_response = await completion(**kwargs)
-            intent = intent_response.choices[0].message.content.strip().lower()
-            # Handle empty or invalid responses
-            if not intent or intent == "" or len(intent) > 50:
-                intent = "general"
-            # Simple keyword fallback for common patterns
-            if intent == "general":
-                msg_lower = request.message.lower()
-                if any(word in msg_lower for word in ["invoice", "invoices", "show invoice", "list invoice"]):
-                    intent = "invoices"
-                elif any(word in msg_lower for word in ["client", "clients", "customer", "customers"]):
-                    intent = "clients"
-                elif any(word in msg_lower for word in ["payment", "payments"]):
-                    intent = "payments"
-                elif any(word in msg_lower for word in ["expense", "expenses"]):
-                    intent = "expenses"
-                elif any(word in msg_lower for word in ["bank", "statements", "show statements", "list statements"]):
-                    intent = "statements"
-                elif any(word in msg_lower for word in ["currency", "currencies", "exchange rate", "exchange rates", "show currencies", "list currencies"]):
-                    intent = "currencies"
-                elif any(word in msg_lower for word in ["outstanding", "outstanding balance", "unpaid", "unpaid amount", "show outstanding", "list outstanding"]):
-                    intent = "outstanding"
-                elif any(word in msg_lower for word in ["overdue", "late payment", "show overdue", "list overdue"]):
-                    intent = "overdue"
-                elif any(word in msg_lower for word in ["statistics", "summary", "total", "count", "show statistics", "list statistics"]):
-                    intent = "statistics"
-                elif any(word in msg_lower for word in ["investment", "investments", "portfolio", "portfolios", "holding", "holdings", "dividend", "dividends"]):
-                    intent = "investments"
-                elif any(word in msg_lower for word in ["cash flow", "cashflow", "runway", "burn rate", "cash forecast", "cash projection"]):
-                    intent = "cashflow"
-                else:
+            try:
+                intent_response = await completion(**kwargs)
+                intent = intent_response.choices[0].message.content.strip().lower()
+                # Handle empty or invalid responses
+                if not intent or intent == "" or len(intent) > 50:
                     intent = "general"
+                # Simple keyword fallback for common patterns
+                if intent == "general":
+                    msg_lower = request.message.lower()
+                    if any(word in msg_lower for word in ["invoice", "invoices", "show invoice", "list invoice"]):
+                        intent = "invoices"
+                    elif any(word in msg_lower for word in ["client", "clients", "customer", "customers"]):
+                        intent = "clients"
+                    elif any(word in msg_lower for word in ["payment", "payments"]):
+                        intent = "payments"
+                    elif any(word in msg_lower for word in ["expense", "expenses"]):
+                        intent = "expenses"
+                    elif any(word in msg_lower for word in ["bank", "statements", "show statements", "list statements"]):
+                        intent = "statements"
+                    elif any(word in msg_lower for word in ["currency", "currencies", "exchange rate", "exchange rates", "show currencies", "list currencies"]):
+                        intent = "currencies"
+                    elif any(word in msg_lower for word in ["outstanding", "outstanding balance", "unpaid", "unpaid amount", "show outstanding", "list outstanding"]):
+                        intent = "outstanding"
+                    elif any(word in msg_lower for word in ["overdue", "late payment", "show overdue", "list overdue"]):
+                        intent = "overdue"
+                    elif any(word in msg_lower for word in ["statistics", "summary", "total", "count", "show statistics", "list statistics"]):
+                        intent = "statistics"
+                    elif any(word in msg_lower for word in ["investment", "investments", "portfolio", "portfolios", "holding", "holdings", "dividend", "dividends"]):
+                        intent = "investments"
+                    elif any(word in msg_lower for word in ["cash flow", "cashflow", "runway", "burn rate", "cash forecast", "cash projection"]):
+                        intent = "cashflow"
+                    else:
+                        intent = "general"
 
-            logger.info(f"MCP Integration: AI classified intent as: '{intent}'")
-        except Exception as e:
-            print(f"MCP Integration: Intent classification failed: {e}")
-            intent = "general"
+                logger.info(f"MCP Integration: AI classified intent as: '{intent}'")
+            except Exception as e:
+                print(f"MCP Integration: Intent classification failed: {e}")
+                intent = "general"
+
+        if intent == "general":
+            tool_intent = await _classify_tool_required_intent(
+                message=request.message,
+                page_context_block=page_context_block,
+                ai_config=ai_config,
+            )
+            if tool_intent:
+                intent = tool_intent
+                logger.info(f"MCP Integration: Tool-required fallback selected intent: '{intent}'")
 
         # Initialize MCP tools using current user's session
         from MCP.tools import InvoiceTools
@@ -332,3 +349,79 @@ Category:"""
             "success": False,
             "error": f"Failed to get AI response: {str(e)}"
         }
+
+
+async def _classify_tool_required_intent(
+    *,
+    message: str,
+    page_context_block: str,
+    ai_config,
+) -> str | None:
+    """Second-pass guard before plain LLM fallback.
+
+    The first classifier sometimes marks business-data questions as "general".
+    This check only answers whether the message needs YFW data/tools, and if so
+    which existing MCP intent should handle it.
+    """
+    try:
+        from litellm import acompletion as completion
+    except ImportError:
+        return None
+
+    model_name = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
+    model_params = AIConfigService.get_model_parameters(model_name, max_tokens=20, temperature=0.0)
+    prompt = f"""You are routing a user message for YourFinanceWORKS.
+If the message asks for the user's business/accounting data, choose exactly one tool intent.
+If it does not need YourFinanceWORKS data, respond with none.
+
+Allowed tool intents:
+clients, invoices, expenses, statements, payments, currencies, outstanding, overdue, statistics, investments, cashflow
+
+Examples:
+- "how many clients?" -> clients
+- "show my invoices" -> invoices
+- "what expenses did I have?" -> expenses
+- "do I have overdue invoices?" -> overdue
+- "what is my cash runway?" -> cashflow
+- "write a generic email" -> none
+
+{page_context_block}
+User message: "{message}"
+
+Intent:"""
+
+    kwargs = {
+        "model": model_name,
+        "messages": [{"role": "user", "content": prompt}],
+        "timeout": 20,
+        **model_params,
+    }
+    if ai_config.provider_name == "ollama" and ai_config.provider_url:
+        kwargs["api_base"] = ai_config.provider_url
+    elif ai_config.api_key:
+        kwargs["api_key"] = ai_config.api_key
+
+    try:
+        response = await completion(**kwargs)
+        raw_intent = response.choices[0].message.content.strip().lower()
+    except Exception as exc:
+        logger.info(f"MCP Integration: tool-required fallback failed: {exc}")
+        return None
+
+    valid_intents = {
+        "clients",
+        "invoices",
+        "expenses",
+        "statements",
+        "payments",
+        "currencies",
+        "outstanding",
+        "overdue",
+        "statistics",
+        "investments",
+        "cashflow",
+    }
+    for candidate in valid_intents:
+        if candidate in raw_intent:
+            return candidate
+    return None

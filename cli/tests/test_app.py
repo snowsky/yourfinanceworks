@@ -28,6 +28,14 @@ def test_build_parser_supports_auth_status_command():
     assert args.action == "status"
 
 
+def test_build_parser_supports_config_path():
+    parser = build_parser()
+    args = parser.parse_args(["--config", "tmp/config.json", "auth", "status"])
+
+    assert args.config == "tmp/config.json"
+    assert args.resource == "auth"
+
+
 def test_build_parser_supports_browser_login_command():
     parser = build_parser()
     args = parser.parse_args(["auth", "browser-login", "--no-open", "--timeout", "30"])
@@ -94,8 +102,21 @@ def test_build_parser_supports_document_scan_send():
 
 def test_build_parser_supports_agent_chat_message():
     parser = build_parser()
-    args = parser.parse_args(["agent", "chat", "create", "organization", "Acme"])
+    args = parser.parse_args(
+        [
+            "agent",
+            "chat",
+            "--config-id",
+            "4",
+            "--page-context",
+            '{"route":"/expenses"}',
+            "list",
+            "expenses",
+        ]
+    )
 
     assert args.resource == "agent"
     assert args.action == "chat"
-    assert args.message == ["create", "organization", "Acme"]
+    assert args.config_id == 4
+    assert args.page_context == '{"route":"/expenses"}'
+    assert args.message == ["list", "expenses"]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import json
 from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
@@ -31,6 +32,7 @@ from .state import AgentState
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Investment portfolio monitoring and optimization CLI")
     parser.add_argument("--profile", default=None, help="Profile name from .finance-agent/config.json")
+    parser.add_argument("--config", default=None, help="Path to config JSON. Defaults to .finance-agent/config.json")
     parser.add_argument("--json", action="store_true", help="Emit JSON instead of formatted output")
 
     subparsers = parser.add_subparsers(dest="resource", required=True)
@@ -109,6 +111,8 @@ def build_parser() -> argparse.ArgumentParser:
     agent_sub = agent.add_subparsers(dest="action", required=True)
     chat = agent_sub.add_parser("chat", help="Talk to the CLI agent")
     chat.add_argument("message", nargs="*", help="One-shot message. Omit for interactive chat.")
+    chat.add_argument("--config-id", type=int, default=0, help="AI provider config ID. Defaults to backend default.")
+    chat.add_argument("--page-context", default=None, help="Optional JSON page context, matching the web AI Assistant payload.")
 
     return parser
 
@@ -116,7 +120,15 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    profile = load_profile(profile_name=args.profile)
+    config_path = Path(args.config) if args.config else None
+    profile_name = args.profile
+    if args.profile and Path(args.profile).suffix == ".json":
+        config_path = Path(args.profile)
+        profile_name = None
+    profile = load_profile(
+        config_path=config_path or Path(".finance-agent/config.json"),
+        profile_name=profile_name,
+    )
 
     try:
         with InvestmentAPIClient(profile) as client:
@@ -376,8 +388,15 @@ def _handle_agent(args, client: InvestmentAPIClient, profile) -> int:
     if args.action != "chat":
         return 0
     chat_agent = CliChatAgent(client, profile)
+    page_context = _parse_page_context(args.page_context)
     if args.message:
-        print_json(chat_agent.handle(" ".join(args.message)))
+        print_json(
+            chat_agent.handle(
+                " ".join(args.message),
+                config_id=args.config_id,
+                page_context=page_context,
+            )
+        )
         return 0
     try:
         while True:
@@ -385,9 +404,27 @@ def _handle_agent(args, client: InvestmentAPIClient, profile) -> int:
             if message.lower() in {"exit", "quit"}:
                 return 0
             if message:
-                print_json(chat_agent.handle(message))
+                print_json(
+                    chat_agent.handle(
+                        message,
+                        config_id=args.config_id,
+                        page_context=page_context,
+                    )
+                )
     except (EOFError, KeyboardInterrupt):
         return 0
+
+
+def _parse_page_context(raw: str | None) -> dict | None:
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise APIError(f"Invalid --page-context JSON: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise APIError("--page-context must be a JSON object.")
+    return parsed
 
 
 def _load_analysis(client: InvestmentAPIClient, portfolio_id: int) -> PortfolioAnalysis:

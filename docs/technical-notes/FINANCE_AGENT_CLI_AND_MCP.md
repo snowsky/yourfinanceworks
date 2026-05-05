@@ -79,11 +79,15 @@ Expenses, invoices, and statements are sent to the authenticated batch-processin
 Talk to the CLI agent in one-shot or interactive mode:
 
 ```bash
-finance-agent agent chat create organization "Acme Holdings" domain acme.example
+finance-agent agent chat "list expenses"
 finance-agent agent chat
 ```
 
-The chat bridge currently exposes a narrow MCP-style tool set: create tenant/organization, get current tenant info, list tenant users, and list portfolios. If an LLM is configured, it plans the tool call from natural language; otherwise it uses deterministic command parsing.
+The chat bridge calls the same `/api/v1/ai/chat` endpoint as the web AI Assistant. Intent classification and MCP dispatch happen in the backend through the existing `MCP.tools.InvoiceTools` integration, so CLI behavior stays aligned with the in-app assistant. You can pass the same optional context payload used by the web UI:
+
+```bash
+finance-agent agent chat --page-context '{"route":"/statements","entity":{"type":"bank_statement","id":12}}' "reprocess this statement"
+```
 
 ## CLI Auth
 

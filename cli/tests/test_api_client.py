@@ -13,9 +13,26 @@ class FakeResponse:
 class FakeHttpClient:
     def __init__(self):
         self.post_calls = []
+        self.request_calls = []
 
     def post(self, url, **kwargs):
         self.post_calls.append((url, kwargs))
+        return FakeResponse()
+
+    def request(self, method, url, **kwargs):
+        self.request_calls.append((method, url, kwargs))
+        return FakeResponse()
+
+    def close(self):
+        pass
+
+
+class FakeRequestHttpClient:
+    def __init__(self):
+        self.request_calls = []
+
+    def request(self, method, url, **kwargs):
+        self.request_calls.append((method, url, kwargs))
         return FakeResponse()
 
     def close(self):
@@ -59,3 +76,53 @@ def test_upload_batch_files_uses_authenticated_endpoint_without_yfw_api_key(tmp_
     url, kwargs = fake_http.post_calls[0]
     assert url == "http://localhost:8000/api/v1/external-transactions/batch-processing/upload-authenticated"
     assert "X-API-Key" not in kwargs["headers"]
+
+
+def test_ai_chat_uses_web_assistant_endpoint(tmp_path):
+    client = InvestmentAPIClient(_profile(tmp_path))
+    fake_http = FakeHttpClient()
+    client._client = fake_http
+
+    client.ai_chat("list expenses", config_id=9, page_context={"route": "/expenses"})
+
+    method, url, kwargs = fake_http.request_calls[0]
+    assert method == "POST"
+    assert url == "http://localhost:8000/api/v1/ai/chat"
+    assert kwargs["json"] == {
+        "message": "list expenses",
+        "config_id": 9,
+        "page_context": {"route": "/expenses"},
+    }
+
+
+def test_cached_token_is_sent_when_auth_type_is_none(tmp_path):
+    profile = _profile(tmp_path)
+    profile.token_path.write_text(
+        """
+        {
+          "token": "cached-token",
+          "expires": "2999-01-01T00:00:00+00:00"
+        }
+        """
+    )
+    client = InvestmentAPIClient(profile)
+    fake_http = FakeRequestHttpClient()
+    client._client = fake_http
+
+    client.list_portfolios()
+
+    _method, _url, kwargs = fake_http.request_calls[0]
+    assert kwargs["headers"]["Authorization"] == "Bearer cached-token"
+
+
+def test_list_document_resources_use_expected_paths(tmp_path):
+    client = InvestmentAPIClient(_profile(tmp_path))
+    fake_http = FakeRequestHttpClient()
+    client._client = fake_http
+
+    client.list_expenses()
+    client.list_invoices()
+    client.list_statements()
+
+    paths = [url.removeprefix("http://localhost:8000/api/v1") for _method, url, _kwargs in fake_http.request_calls]
+    assert paths == ["/expenses/", "/invoices/", "/statements/"]

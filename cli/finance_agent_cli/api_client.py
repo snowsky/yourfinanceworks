@@ -202,12 +202,14 @@ class InvestmentAPIClient:
 
     def _get_headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
-        if self.profile.auth_type in {"none", ""}:
-            return headers
-        if not self._token and not self._load_token_from_disk():
+        if not self._token:
+            self._load_token_from_disk()
+        if not self._token and self.profile.auth_type not in {"none", ""}:
             self._authenticate()
         if self._token_expires and self._token_expires <= datetime.now(timezone.utc):
-            self._authenticate()
+            self._token = None
+            if self.profile.auth_type not in {"none", ""}:
+                self._authenticate()
         if self._token:
             headers["Authorization"] = f"Bearer {self._token}"
         return headers
@@ -218,12 +220,18 @@ class InvestmentAPIClient:
         return {"Accept": "application/json", "X-API-Key": self.profile.yfw_api_key}
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
-        response = self._client.request(
-            method=method,
-            url=f"{self.profile.api_base_url}{path}",
-            headers={**self._get_headers(), **kwargs.pop("headers", {})},
-            **kwargs,
-        )
+        try:
+            response = self._client.request(
+                method=method,
+                url=f"{self.profile.api_base_url}{path}",
+                headers={**self._get_headers(), **kwargs.pop("headers", {})},
+                **kwargs,
+            )
+        except httpx.RequestError as exc:
+            raise APIError(
+                f"API request failed before response: {exc}",
+                payload={"url": str(exc.request.url) if exc.request else f"{self.profile.api_base_url}{path}"},
+            ) from exc
         if response.status_code >= 400:
             raise APIError(
                 f"API request failed: {response.status_code} {path}",
@@ -236,6 +244,32 @@ class InvestmentAPIClient:
 
     def list_portfolios(self, *, skip: int = 0, limit: int = 50) -> dict[str, Any]:
         return self._request("GET", "/investments/portfolios", params={"skip": skip, "limit": limit})
+
+    def list_expenses(self, *, skip: int = 0, limit: int = 50) -> dict[str, Any]:
+        return self._request("GET", "/expenses/", params={"skip": skip, "limit": limit, "include_total": True})
+
+    def list_invoices(self, *, skip: int = 0, limit: int = 50) -> dict[str, Any]:
+        return self._request("GET", "/invoices/", params={"skip": skip, "limit": limit})
+
+    def list_statements(self, *, skip: int = 0, limit: int = 50) -> dict[str, Any]:
+        return self._request("GET", "/statements/", params={"skip": skip, "limit": limit})
+
+    def ai_chat(
+        self,
+        message: str,
+        *,
+        config_id: int = 0,
+        page_context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            "/ai/chat",
+            json={
+                "message": message,
+                "config_id": config_id,
+                "page_context": page_context,
+            },
+        )
 
     def get_portfolio(self, portfolio_id: int) -> dict[str, Any]:
         return self._request("GET", f"/investments/portfolios/{portfolio_id}")
