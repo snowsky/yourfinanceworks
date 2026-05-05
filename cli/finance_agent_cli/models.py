@@ -83,3 +83,23 @@ class MonitorCycle:
     overlap: dict[str, Any]
     exposure: dict[str, Any]
     sentiment_reports: dict[int, dict[str, Any]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ClassifiedDocument:
+    """A local file classified for YFW routing."""
+
+    path: str
+    filename: str
+    document_type: str
+    confidence: Decimal
+    reason: str
+
+
+@dataclass(frozen=True)
+class RoutedDocument:
+    """Result of sending a classified document to YFW."""
+
+    document: ClassifiedDocument
+    destination: str
+    response: dict[str, Any] | list[dict[str, Any]] | None

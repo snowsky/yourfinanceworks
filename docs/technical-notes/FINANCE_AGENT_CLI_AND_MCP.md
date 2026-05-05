@@ -35,6 +35,8 @@ Supported runtime inputs:
 
 - profile selection via `--profile`
 - env overrides such as `FINANCE_AGENT_BASE_URL`, `FINANCE_AGENT_EMAIL`, `FINANCE_AGENT_PASSWORD`, `FINANCE_AGENT_TOKEN`
+- optional legacy YFW batch API key via `FINANCE_AGENT_YFW_API_KEY`, `YFW_API_KEY`, or `INVOICE_API_KEY`
+- optional classifier/chat LLM settings via `FINANCE_AGENT_LLM_PROVIDER`, `FINANCE_AGENT_LLM_MODEL`, `FINANCE_AGENT_LLM_API_KEY`, `FINANCE_AGENT_LLM_BASE_URL`
 - monitor settings via `FINANCE_AGENT_INTERVAL`, `FINANCE_AGENT_DRIFT_THRESHOLD`, `FINANCE_AGENT_REFRESH_PRICES`
 
 Base URLs are normalized to the backend API path automatically:
@@ -56,6 +58,29 @@ finance-agent portfolio cross-summary
 finance-agent prices status
 finance-agent prices refresh
 ```
+
+Scan a local folder and classify PDF/image/CSV files as `expense`, `invoice`, `statement`, or `portfolio`:
+
+```bash
+finance-agent documents scan ./incoming
+```
+
+Send classified files to YourFinanceWORKS:
+
+```bash
+finance-agent documents scan ./incoming --send --portfolio-id 12
+```
+
+Expenses, invoices, and statements are sent to the authenticated batch-processing API using the same CLI login/token as other first-party operations. Portfolio files are sent to the investments holdings-file upload endpoint and require a portfolio ID plus normal CLI auth.
+
+Talk to the CLI agent in one-shot or interactive mode:
+
+```bash
+finance-agent agent chat create organization "Acme Holdings" domain acme.example
+finance-agent agent chat
+```
+
+The chat bridge currently exposes a narrow MCP-style tool set: create tenant/organization, get current tenant info, list tenant users, and list portfolios. If an LLM is configured, it plans the tool call from natural language; otherwise it uses deterministic command parsing.
 
 Single monitor cycle:
 

@@ -35,6 +35,11 @@ class Profile:
     email: str | None
     password: str | None
     token: str | None
+    yfw_api_key: str | None
+    llm_provider: str | None
+    llm_model: str | None
+    llm_api_key: str | None
+    llm_base_url: str | None
     interval_seconds: int
     drift_threshold: float
     refresh_prices_on_monitor: bool
@@ -79,6 +84,17 @@ def load_profile(
     email = os.getenv("FINANCE_AGENT_EMAIL") or os.getenv("INVOICE_API_EMAIL") or file_profile.get("email")
     password = os.getenv("FINANCE_AGENT_PASSWORD") or os.getenv("INVOICE_API_PASSWORD") or file_profile.get("password")
     token = os.getenv("FINANCE_AGENT_TOKEN") or file_profile.get("token")
+    yfw_api_key = (
+        os.getenv("FINANCE_AGENT_YFW_API_KEY")
+        or os.getenv("YFW_API_KEY")
+        or os.getenv("INVOICE_API_KEY")
+        or file_profile.get("yfw_api_key")
+        or file_profile.get("api_key")
+    )
+    llm_provider = os.getenv("FINANCE_AGENT_LLM_PROVIDER") or file_profile.get("llm_provider")
+    llm_model = os.getenv("FINANCE_AGENT_LLM_MODEL") or file_profile.get("llm_model")
+    llm_api_key = os.getenv("FINANCE_AGENT_LLM_API_KEY") or os.getenv("OPENAI_API_KEY") or file_profile.get("llm_api_key")
+    llm_base_url = os.getenv("FINANCE_AGENT_LLM_BASE_URL") or file_profile.get("llm_base_url")
 
     interval_seconds = int(os.getenv("FINANCE_AGENT_INTERVAL", file_profile.get("interval_seconds", 300)))
     drift_threshold = float(os.getenv("FINANCE_AGENT_DRIFT_THRESHOLD", file_profile.get("drift_threshold", 1.0)))
@@ -102,6 +118,11 @@ def load_profile(
         email=str(email) if email else None,
         password=str(password) if password else None,
         token=str(token) if token else None,
+        yfw_api_key=str(yfw_api_key) if yfw_api_key else None,
+        llm_provider=str(llm_provider) if llm_provider else None,
+        llm_model=str(llm_model) if llm_model else None,
+        llm_api_key=str(llm_api_key) if llm_api_key else None,
+        llm_base_url=str(llm_base_url) if llm_base_url else None,
         interval_seconds=interval_seconds,
         drift_threshold=drift_threshold,
         refresh_prices_on_monitor=refresh_prices,

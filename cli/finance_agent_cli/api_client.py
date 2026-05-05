@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -112,6 +113,11 @@ class InvestmentAPIClient:
             headers["Authorization"] = f"Bearer {self._token}"
         return headers
 
+    def _get_yfw_api_key_headers(self) -> dict[str, str]:
+        if not self.profile.yfw_api_key:
+            raise APIError("YFW API key is required. Set FINANCE_AGENT_YFW_API_KEY, YFW_API_KEY, or profile.yfw_api_key.")
+        return {"Accept": "application/json", "X-API-Key": self.profile.yfw_api_key}
+
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         response = self._client.request(
             method=method,
@@ -193,6 +199,99 @@ class InvestmentAPIClient:
 
     def refresh_prices(self) -> dict[str, Any]:
         return self._request("POST", "/investments/holdings/update-prices")
+
+    def upload_batch_files(
+        self,
+        files: list[Path],
+        *,
+        document_types: list[str] | None = None,
+        export_destination_id: int | None = None,
+        client_id: int | None = None,
+        webhook_url: str | None = None,
+        card_type: str = "auto",
+    ) -> dict[str, Any]:
+        data: dict[str, Any] = {"card_type": card_type}
+        if document_types:
+            data["document_types"] = ",".join(document_types)
+        if export_destination_id is not None:
+            data["export_destination_id"] = str(export_destination_id)
+        if client_id is not None:
+            data["client_id"] = str(client_id)
+        if webhook_url:
+            data["webhook_url"] = webhook_url
+
+        handles = []
+        try:
+            multipart = []
+            for path in files:
+                handle = path.open("rb")
+                handles.append(handle)
+                content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+                multipart.append(("files", (path.name, handle, content_type)))
+
+            response = self._client.post(
+                f"{self.profile.api_base_url}/external-transactions/batch-processing/upload-authenticated",
+                headers=self._get_headers(),
+                data=data,
+                files=multipart,
+            )
+            if response.status_code >= 400:
+                raise APIError(
+                    f"Batch upload failed: {response.status_code}",
+                    status_code=response.status_code,
+                    payload=_safe_json(response),
+                )
+            return response.json()
+        finally:
+            for handle in handles:
+                handle.close()
+
+    def get_batch_job_status(self, job_id: str) -> dict[str, Any]:
+        response = self._client.get(
+            f"{self.profile.api_base_url}/external-transactions/batch-processing/jobs/{job_id}",
+            headers=self._get_yfw_api_key_headers(),
+        )
+        if response.status_code >= 400:
+            raise APIError(
+                f"Batch job status failed: {response.status_code}",
+                status_code=response.status_code,
+                payload=_safe_json(response),
+            )
+        return response.json()
+
+    def upload_portfolio_files(self, portfolio_id: int, files: list[Path]) -> list[dict[str, Any]]:
+        handles = []
+        try:
+            multipart = []
+            for path in files:
+                handle = path.open("rb")
+                handles.append(handle)
+                content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+                multipart.append(("files", (path.name, handle, content_type)))
+            response = self._client.post(
+                f"{self.profile.api_base_url}/investments/portfolios/{portfolio_id}/holdings-files",
+                headers=self._get_headers(),
+                files=multipart,
+            )
+            if response.status_code >= 400:
+                raise APIError(
+                    f"Portfolio upload failed: {response.status_code}",
+                    status_code=response.status_code,
+                    payload=_safe_json(response),
+                )
+            return response.json()
+        finally:
+            for handle in handles:
+                handle.close()
+
+    def create_tenant(self, tenant_data: dict[str, Any]) -> dict[str, Any]:
+        return self._request("POST", "/super-admin/tenants", json=tenant_data)
+
+    def get_tenant_info(self) -> dict[str, Any]:
+        return self._request("GET", "/tenants/me")
+
+    def list_tenant_users(self, tenant_id: int, *, skip: int = 0, limit: int = 100) -> list[dict[str, Any]]:
+        return self._request("GET", f"/super-admin/tenants/{tenant_id}/users", params={"skip": skip, "limit": limit})
 
 
 def _safe_json(response: httpx.Response) -> Any:

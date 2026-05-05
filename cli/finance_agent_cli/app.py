@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 from decimal import Decimal
 from typing import Sequence
 
 from .agent import PortfolioMonitorAgent
 from .analyzers import normalize_allocation
 from .api_client import InvestmentAPIClient
+from .chat_agent import CliChatAgent
 from .config import load_profile
+from .document_classifier import DocumentClassifier
+from .document_router import DocumentIngestionAgent
 from .models import Portfolio, PortfolioAnalysis
 from .render import (
     print_json,
@@ -72,6 +76,24 @@ def build_parser() -> argparse.ArgumentParser:
     prices_sub.add_parser("status", help="Show price freshness status")
     prices_sub.add_parser("refresh", help="Refresh holding prices")
 
+    documents = subparsers.add_parser("documents", help="Document scan and YFW ingestion")
+    documents_sub = documents.add_subparsers(dest="action", required=True)
+
+    scan = documents_sub.add_parser("scan", help="Scan and classify local PDF/image/CSV files")
+    scan.add_argument("folder", help="Folder to scan")
+    scan.add_argument("--no-recursive", action="store_true", help="Scan only the top-level folder")
+    scan.add_argument("--send", action="store_true", help="Send classified files to YFW")
+    scan.add_argument("--portfolio-id", type=int, default=None, help="Portfolio ID for portfolio/holdings files")
+    scan.add_argument("--export-destination-id", type=int, default=None, help="Batch export destination ID")
+    scan.add_argument("--client-id", type=int, default=None, help="Client ID for invoice files")
+    scan.add_argument("--webhook-url", default=None, help="Webhook URL for YFW batch completion")
+    scan.add_argument("--card-type", default="auto", choices=["auto", "debit", "credit"], help="Card type for statements")
+
+    agent = subparsers.add_parser("agent", help="Conversational CLI agent")
+    agent_sub = agent.add_subparsers(dest="action", required=True)
+    chat = agent_sub.add_parser("chat", help="Talk to the CLI agent")
+    chat.add_argument("message", nargs="*", help="One-shot message. Omit for interactive chat.")
+
     return parser
 
 
@@ -85,6 +107,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _handle_portfolio(args, client, profile)
         if args.resource == "prices":
             return _handle_prices(args, client)
+        if args.resource == "documents":
+            return _handle_documents(args, client, profile)
+        if args.resource == "agent":
+            return _handle_agent(args, client, profile)
     return 0
 
 
@@ -238,6 +264,64 @@ def _handle_prices(args, client: InvestmentAPIClient) -> int:
         print_json(client.refresh_prices())
         return 0
     return 0
+
+
+def _handle_documents(args, client: InvestmentAPIClient, profile) -> int:
+    if args.action != "scan":
+        return 0
+    classifier = DocumentClassifier(profile)
+    agent = DocumentIngestionAgent(client, classifier)
+    documents = agent.scan_and_classify(Path(args.folder), recursive=not args.no_recursive)
+    payload = {
+        "documents": [
+            {
+                "path": document.path,
+                "filename": document.filename,
+                "document_type": document.document_type,
+                "confidence": float(document.confidence),
+                "reason": document.reason,
+            }
+            for document in documents
+        ]
+    }
+    if args.send:
+        routed = agent.send_to_yfw(
+            documents,
+            portfolio_id=args.portfolio_id,
+            export_destination_id=args.export_destination_id,
+            client_id=args.client_id,
+            webhook_url=args.webhook_url,
+            card_type=args.card_type,
+        )
+        payload["sent"] = [
+            {
+                "filename": item.document.filename,
+                "document_type": item.document.document_type,
+                "destination": item.destination,
+                "response": item.response,
+            }
+            for item in routed
+        ]
+    print_json(payload)
+    return 0
+
+
+def _handle_agent(args, client: InvestmentAPIClient, profile) -> int:
+    if args.action != "chat":
+        return 0
+    chat_agent = CliChatAgent(client, profile)
+    if args.message:
+        print_json(chat_agent.handle(" ".join(args.message)))
+        return 0
+    try:
+        while True:
+            message = input("finance-agent> ").strip()
+            if message.lower() in {"exit", "quit"}:
+                return 0
+            if message:
+                print_json(chat_agent.handle(message))
+    except (EOFError, KeyboardInterrupt):
+        return 0
 
 
 def _load_analysis(client: InvestmentAPIClient, portfolio_id: int) -> PortfolioAnalysis:

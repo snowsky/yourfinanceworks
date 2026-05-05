@@ -40,3 +40,35 @@ def test_build_parser_supports_research_command():
     assert args.portfolio_id == 12
     assert args.lookback_days == 5
     assert args.max_holdings == 4
+
+
+def test_build_parser_supports_document_scan_send():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "documents",
+            "scan",
+            "incoming",
+            "--send",
+            "--portfolio-id",
+            "7",
+            "--export-destination-id",
+            "3",
+        ]
+    )
+
+    assert args.resource == "documents"
+    assert args.action == "scan"
+    assert args.folder == "incoming"
+    assert args.send is True
+    assert args.portfolio_id == 7
+    assert args.export_destination_id == 3
+
+
+def test_build_parser_supports_agent_chat_message():
+    parser = build_parser()
+    args = parser.parse_args(["agent", "chat", "create", "organization", "Acme"])
+
+    assert args.resource == "agent"
+    assert args.action == "chat"
+    assert args.message == ["create", "organization", "Acme"]
