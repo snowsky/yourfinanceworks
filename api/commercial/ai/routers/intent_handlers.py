@@ -13,6 +13,40 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 
+def _extract_requested_limit(message: str, *, default: int, maximum: int = 100) -> int:
+    """Extract simple "last N" / "recent N" limits from a user message."""
+    lower_message = message.lower()
+    match = re.search(
+        r"\b(?:last|latest|recent|recently|top)\s+(\d+)\b|\b(\d+)\s+(?:last|latest|recent)\b",
+        lower_message,
+    )
+    if match:
+        return max(1, min(maximum, int(match.group(1) or match.group(2))))
+
+    number_words = {
+        "one": 1,
+        "two": 2,
+        "three": 3,
+        "four": 4,
+        "five": 5,
+        "six": 6,
+        "seven": 7,
+        "eight": 8,
+        "nine": 9,
+        "ten": 10,
+    }
+    word_match = re.search(
+        r"\b(?:last|latest|recent|recently|top)\s+("
+        + "|".join(number_words)
+        + r")\b",
+        lower_message,
+    )
+    if word_match:
+        return max(1, min(maximum, number_words[word_match.group(1)]))
+
+    return default
+
+
 async def dispatch_intent(
     intent: str,
     tools: Any,
@@ -760,6 +794,7 @@ This comprehensive invoice information was retrieved using your actual invoice d
 
     elif intent == "expenses":
         lower_message = message.lower()
+        requested_limit = _extract_requested_limit(message, default=20)
         print(f"MCP Integration: Detected expense management pattern in message: '{message}'")
         try:
             if "search" in lower_message or "find" in lower_message:
@@ -768,14 +803,14 @@ This comprehensive invoice information was retrieved using your actual invoice d
                 if search_match:
                     search_query = search_match.group(1)
                     print(f"MCP Integration: Searching expenses with query: '{search_query}'")
-                    result = await tools.search_expenses(query=search_query)
+                    result = await tools.search_expenses(query=search_query, limit=requested_limit)
                 else:
                     # Default search
-                    result = await tools.list_expenses(limit=10)
+                    result = await tools.list_expenses(limit=min(requested_limit, 10))
             else:
                 # List all expenses
-                print("MCP Integration: Listing expenses...")
-                result = await tools.list_expenses(limit=20)
+                print(f"MCP Integration: Listing expenses with limit={requested_limit}...")
+                result = await tools.list_expenses(limit=requested_limit)
 
             if result.get("success"):
                 expenses = result.get("data", [])
