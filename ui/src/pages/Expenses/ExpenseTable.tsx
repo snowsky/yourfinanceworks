@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { canPerformActions, canEditExpense, canDeleteExpense } from '@/utils/auth';
 import { ExpenseApprovalStatus } from '@/components/approvals/ExpenseApprovalStatus';
 import { ReviewStatusCell } from '@/components/ReviewStatusCell';
+import { CreatedAtByCell } from '@/components/CreatedAtByCell';
 import { toast } from 'sonner';
 
 interface ExpenseTableProps {
@@ -316,21 +317,14 @@ export function ExpenseTable({
                   />
                 </TableCell>}
                 {isVisible('created_at_by') && <TableCell>
-                  <div className="text-sm">
-                    <div className="text-muted-foreground">
-                      {e.created_at ? new Date(e.created_at).toLocaleString(getLocale(), {
-                        timeZone: timezone,
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      }) : 'N/A'}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {e.created_by_username || e.created_by_email || t('common.unknown')}
-                    </div>
-                  </div>
+                  <CreatedAtByCell
+                    createdAt={e.created_at}
+                    createdByUsername={e.created_by_username}
+                    createdByEmail={e.created_by_email}
+                    locale={getLocale()}
+                    timezone={timezone}
+                    unknownLabel={t('common.unknown')}
+                  />
                 </TableCell>}
                 {isVisible('analyzed') && <TableCell>{renderAnalysisCell(e)}</TableCell>}
                 {isVisible('review') && <TableCell>

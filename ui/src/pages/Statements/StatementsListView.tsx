@@ -17,6 +17,7 @@ import { ProfessionalButton } from '@/components/ui/professional-button';
 import { ShareButton } from '@/components/sharing/ShareButton';
 import { ColumnPicker } from '@/components/ui/column-picker';
 import { ReviewStatusCell } from '@/components/ReviewStatusCell';
+import { CreatedAtByCell } from '@/components/CreatedAtByCell';
 import { bankStatementApi, BankStatementSummary, formatStatus } from '@/lib/api';
 import { toast } from 'sonner';
 import { StatusBadge } from './StatusBadge';
@@ -488,21 +489,14 @@ export function StatementsListView({
                   {isVisible('transactions') && <TableCell className="text-center font-medium">{s.extracted_count}</TableCell>}
                   {isVisible('created_at_by') && (
                     <TableCell>
-                      <div className="text-sm">
-                        <div className="text-muted-foreground">
-                          {s.created_at ? new Date(s.created_at).toLocaleString(getLocale, {
-                            timeZone: timezone,
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          }) : ''}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {s.created_by_username || s.created_by_email || t('common.unknown')}
-                        </div>
-                      </div>
+                      <CreatedAtByCell
+                        createdAt={s.created_at}
+                        createdByUsername={s.created_by_username}
+                        createdByEmail={s.created_by_email}
+                        locale={getLocale}
+                        timezone={timezone}
+                        unknownLabel={t('common.unknown')}
+                      />
                     </TableCell>
                   )}
                   <TableCell className="text-right">
