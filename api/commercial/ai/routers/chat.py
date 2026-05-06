@@ -20,6 +20,7 @@ from commercial.ai.services.ai_config_service import AIConfigService
 from commercial.ai.routers.chat_models import ChatRequest
 from commercial.ai.routers.action_handlers import handle_early_actions
 from commercial.ai.routers.intent_handlers import dispatch_intent
+from commercial.ai.routers.intent_routing import TOOL_INTENTS, parse_agent_tool_plan
 from commercial.ai.routers.auth_client import AuthenticatedAPIClient
 
 logger = logging.getLogger(__name__)
@@ -142,7 +143,8 @@ User message: "{request.message}"
 
 Category:"""
 
-        # Pre-classification check for precise intents (skip LLM for specific patterns)
+        # Let the model decide natural-language intent first. Deterministic handlers
+        # still exist for explicit actions, but phrase-level routing stays AI based.
         lower_message = request.message.lower()
 
         # Handle early actions (statement context actions + client/expense creation fast paths)
@@ -157,62 +159,42 @@ Category:"""
         if result is not None:
             return result
 
-        # Get intent classification
-        model_name = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
+        tool_plan = await _plan_mcp_tool_intents(
+            message=request.message,
+            page_context_block=page_context_block,
+            ai_config=ai_config,
+        )
+        if tool_plan:
+            intent = tool_plan[0]["intent"]
+            logger.info(f"MCP Integration: AI agent tool plan selected intents: {tool_plan}")
+        else:
+            # Get intent classification
+            model_name = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
 
-        # Standardize model parameters
-        model_params = AIConfigService.get_model_parameters(model_name, max_tokens=50, temperature=0.1)
+            # Standardize model parameters
+            model_params = AIConfigService.get_model_parameters(model_name, max_tokens=50, temperature=0.1)
 
-        kwargs = {
-            "model": model_name,
-            "messages": [{"role": "user", "content": intent_prompt}],
-            "timeout": 30,  # 30 second timeout for intent classification
-            **model_params
-        }
+            kwargs = {
+                "model": model_name,
+                "messages": [{"role": "user", "content": intent_prompt}],
+                "timeout": 30,  # 30 second timeout for intent classification
+                **model_params
+            }
 
-        if ai_config.provider_name == "ollama" and ai_config.provider_url:
-            kwargs["api_base"] = ai_config.provider_url
-        elif ai_config.api_key:
-            kwargs["api_key"] = ai_config.api_key
+            if ai_config.provider_name == "ollama" and ai_config.provider_url:
+                kwargs["api_base"] = ai_config.provider_url
+            elif ai_config.api_key:
+                kwargs["api_key"] = ai_config.api_key
 
-        try:
-            intent_response = await completion(**kwargs)
-            intent = intent_response.choices[0].message.content.strip().lower()
-            # Handle empty or invalid responses
-            if not intent or intent == "" or len(intent) > 50:
-                intent = "general"
-            # Simple keyword fallback for common patterns
-            if intent == "general":
-                msg_lower = request.message.lower()
-                if any(word in msg_lower for word in ["invoice", "invoices", "show invoice", "list invoice"]):
-                    intent = "invoices"
-                elif any(word in msg_lower for word in ["client", "clients", "customer", "customers"]):
-                    intent = "clients"
-                elif any(word in msg_lower for word in ["payment", "payments"]):
-                    intent = "payments"
-                elif any(word in msg_lower for word in ["expense", "expenses"]):
-                    intent = "expenses"
-                elif any(word in msg_lower for word in ["bank", "statements", "show statements", "list statements"]):
-                    intent = "statements"
-                elif any(word in msg_lower for word in ["currency", "currencies", "exchange rate", "exchange rates", "show currencies", "list currencies"]):
-                    intent = "currencies"
-                elif any(word in msg_lower for word in ["outstanding", "outstanding balance", "unpaid", "unpaid amount", "show outstanding", "list outstanding"]):
-                    intent = "outstanding"
-                elif any(word in msg_lower for word in ["overdue", "late payment", "show overdue", "list overdue"]):
-                    intent = "overdue"
-                elif any(word in msg_lower for word in ["statistics", "summary", "total", "count", "show statistics", "list statistics"]):
-                    intent = "statistics"
-                elif any(word in msg_lower for word in ["investment", "investments", "portfolio", "portfolios", "holding", "holdings", "dividend", "dividends"]):
-                    intent = "investments"
-                elif any(word in msg_lower for word in ["cash flow", "cashflow", "runway", "burn rate", "cash forecast", "cash projection"]):
-                    intent = "cashflow"
-                else:
+            try:
+                intent_response = await completion(**kwargs)
+                intent = intent_response.choices[0].message.content.strip().lower()
+                if intent not in {*TOOL_INTENTS, "general"}:
                     intent = "general"
-
-            logger.info(f"MCP Integration: AI classified intent as: '{intent}'")
-        except Exception as e:
-            print(f"MCP Integration: Intent classification failed: {e}")
-            intent = "general"
+                logger.info(f"MCP Integration: AI classified intent as: '{intent}'")
+            except Exception as e:
+                print(f"MCP Integration: Intent classification failed: {e}")
+                intent = "general"
 
         # Initialize MCP tools using current user's session
         from MCP.tools import InvoiceTools
@@ -236,6 +218,44 @@ Category:"""
         )
         tools = InvoiceTools(api_client)
         print("MCP Integration: API client and tools initialized successfully")
+
+        if tool_plan:
+            planned_results = []
+            for planned_tool in tool_plan:
+                planned_intent = planned_tool["intent"]
+                planned_result = await dispatch_intent(
+                    intent=planned_intent,
+                    tools=tools,
+                    message=request.message,
+                    lower_message=lower_message,
+                    ai_config=ai_config,
+                    page_context=page_context,
+                    db=db,
+                    tool_options=planned_tool.get("options") or {},
+                )
+                if planned_result is not None:
+                    planned_results.append((planned_intent, planned_result))
+
+            if len(planned_results) == 1:
+                return planned_results[0][1]
+
+            if planned_results:
+                synthesized = await _synthesize_tool_results(
+                    message=request.message,
+                    planned_results=planned_results,
+                    page_context_block=page_context_block,
+                    ai_config=ai_config,
+                )
+                return {
+                    "success": True,
+                    "data": {
+                        "response": synthesized,
+                        "provider": ai_config.provider_name,
+                        "model": ai_config.model_name,
+                        "source": "mcp_tools",
+                        "tool_plan": [intent for intent, _ in planned_results],
+                    }
+                }
 
         # Dispatch to intent handlers
         result = await dispatch_intent(
@@ -332,3 +352,130 @@ Category:"""
             "success": False,
             "error": f"Failed to get AI response: {str(e)}"
         }
+
+
+async def _plan_mcp_tool_intents(
+    *,
+    message: str,
+    page_context_block: str,
+    ai_config,
+) -> list[str]:
+    """Ask the AI model to choose the MCP tool intents needed to answer."""
+    try:
+        from litellm import acompletion as completion
+    except ImportError:
+        return []
+
+    model_name = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
+    model_params = AIConfigService.get_model_parameters(model_name, max_tokens=120, temperature=0.0)
+    prompt = f"""You are the tool-planning step for a YourFinanceWORKS assistant.
+Decide which MCP tool intents are required to answer the user using their business/accounting data.
+Return ONLY compact JSON with this exact shape:
+{{"tools":[{{"intent":"payments"}}],"reason":"brief"}}
+
+Rules:
+- If no YourFinanceWORKS data is needed, return {{"tools":[],"reason":"no business data needed"}}.
+- Choose one tool when one is enough.
+- Choose multiple tools only when the answer requires combining domains.
+- Include "limit" when the user asks for a specific number of records, such as last 4 expenses.
+- Do not answer the user. Only plan tool intents.
+
+Allowed tool intents:
+analyze_patterns, suggest_actions, payments, clients, invoices, expenses, statements, currencies, outstanding, overdue, statistics, investments, cashflow
+
+Examples:
+- "can you analyze my invoice patterns?" -> {{"tools":[{{"intent":"analyze_patterns"}}],"reason":"invoice pattern analysis"}}
+- "what actions should I take?" -> {{"tools":[{{"intent":"suggest_actions"}}],"reason":"recommendations from business data"}}
+- "how many clients?" -> {{"tools":[{{"intent":"clients"}}],"reason":"client count"}}
+- "show my invoices" -> {{"tools":[{{"intent":"invoices"}}],"reason":"invoice list"}}
+- "what expenses did I have?" -> {{"tools":[{{"intent":"expenses"}}],"reason":"expense list"}}
+- "how much did I spend in last 4 expenses?" -> {{"tools":[{{"intent":"expenses","limit":4}}],"reason":"last four expenses"}}
+- "how much did I get paid?" -> {{"tools":[{{"intent":"payments"}}],"reason":"payment total"}}
+- "how much have I collected?" -> {{"tools":[{{"intent":"payments"}}],"reason":"payment total"}}
+- "do I have overdue invoices?" -> {{"tools":[{{"intent":"overdue"}}],"reason":"overdue invoice check"}}
+- "what is my cash runway?" -> {{"tools":[{{"intent":"cashflow"}}],"reason":"cash runway"}}
+- "what was my net income?" -> {{"tools":[{{"intent":"payments"}},{{"intent":"expenses"}}],"reason":"payments minus expenses"}}
+- "write a generic email" -> {{"tools":[],"reason":"no business data needed"}}
+
+{page_context_block}
+User message: "{message}"
+
+JSON:"""
+
+    kwargs = {
+        "model": model_name,
+        "messages": [{"role": "user", "content": prompt}],
+        "timeout": 20,
+        **model_params,
+    }
+    if ai_config.provider_name == "ollama" and ai_config.provider_url:
+        kwargs["api_base"] = ai_config.provider_url
+    elif ai_config.api_key:
+        kwargs["api_key"] = ai_config.api_key
+
+    try:
+        response = await completion(**kwargs)
+        raw_plan = response.choices[0].message.content.strip()
+    except Exception as exc:
+        logger.info(f"MCP Integration: agent tool planning failed: {exc}")
+        return []
+
+    return parse_agent_tool_plan(raw_plan)
+
+
+async def _synthesize_tool_results(
+    *,
+    message: str,
+    planned_results: list[tuple[str, dict]],
+    page_context_block: str,
+    ai_config,
+) -> str:
+    """Use the chat model to combine multiple MCP tool outputs into one answer."""
+    tool_outputs = []
+    for intent, result in planned_results:
+        data = result.get("data", {}) if isinstance(result, dict) else {}
+        tool_outputs.append(
+            {
+                "intent": intent,
+                "response": data.get("response"),
+                "source": data.get("source"),
+            }
+        )
+
+    fallback = "\n\n".join(
+        output["response"] for output in tool_outputs if output.get("response")
+    )
+    try:
+        from litellm import acompletion as completion
+    except ImportError:
+        return fallback
+
+    model_name = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
+    prompt = f"""Answer the user's question using only the MCP tool outputs below.
+If a value is not present in the tool outputs, say it is not available.
+
+{page_context_block}
+User question: {message}
+
+MCP tool outputs JSON:
+{json.dumps(tool_outputs, ensure_ascii=False)}
+
+Answer:"""
+
+    kwargs = {
+        "model": model_name,
+        "messages": [{"role": "user", "content": prompt}],
+        "timeout": 60,
+        **AIConfigService.get_model_parameters(model_name, max_tokens=500, temperature=0.1),
+    }
+    if ai_config.provider_name == "ollama" and ai_config.provider_url:
+        kwargs["api_base"] = ai_config.provider_url
+    elif ai_config.api_key:
+        kwargs["api_key"] = ai_config.api_key
+
+    try:
+        response = await completion(**kwargs)
+        return response.choices[0].message.content if response.choices else fallback
+    except Exception as exc:
+        logger.info(f"MCP Integration: tool result synthesis failed: {exc}")
+        return fallback

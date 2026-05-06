@@ -255,6 +255,196 @@ def get_batch_processing_service(
     return BatchProcessingService(db)
 
 
+def get_authenticated_batch_context(
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Build a tenant-scoped batch service for first-party authenticated users."""
+    from core.models.database import set_tenant_context, get_db
+
+    if not current_user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Authenticated user is not associated with an organization.",
+        )
+
+    set_tenant_context(current_user.tenant_id)
+    db_gen = get_db()
+    db = next(db_gen)
+    try:
+        yield current_user, BatchProcessingService(db)
+    finally:
+        try:
+            next(db_gen, None)
+        except StopIteration:
+            pass
+
+
+async def _create_batch_upload(
+    *,
+    files: List[UploadFile],
+    export_destination_id: Optional[int],
+    document_types: Optional[str],
+    client_id: Optional[int],
+    custom_fields: Optional[str],
+    webhook_url: Optional[str],
+    card_type: str,
+    tenant_id: int,
+    user_id: int,
+    api_client_id: str,
+    service: BatchProcessingService,
+    api_client: Optional[Union[APIClient, AuthContext]] = None,
+) -> dict:
+    """Shared implementation for external API-key and first-party batch uploads."""
+    from core.utils.feature_gate import check_feature
+    check_feature("batch_processing", service.db)
+
+    doc_types_list = None
+    if document_types:
+        doc_types_list = [
+            dt.strip().lower() for dt in document_types.split(",") if dt.strip()
+        ]
+        valid_types = {"invoice", "expense", "statement"}
+        invalid_types = set(doc_types_list) - valid_types
+        if invalid_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid document types: {', '.join(invalid_types)}. Valid types: {', '.join(valid_types)}",
+            )
+
+        if api_client_id in {"internal_trust"} or api_client_id.startswith("user:"):
+            normalized_allowed = ["invoice", "expense", "statement"]
+        else:
+            normalized_allowed = [
+                dt.lower().strip() if isinstance(dt, str) else dt
+                for dt in api_client.allowed_document_types
+            ]
+
+        for doc_type in doc_types_list:
+            if doc_type not in normalized_allowed:
+                detail = f"Document type '{doc_type}' is not allowed."
+                if api_client_id != "internal_trust" and not api_client_id.startswith("user:"):
+                    detail += f" Allowed types: {', '.join(api_client.allowed_document_types)}"
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=detail,
+                )
+
+    if export_destination_id is None:
+        from core.models.models_per_tenant import ExportDestinationConfig
+        from sqlalchemy import and_
+
+        default_dest = (
+            service.db.query(ExportDestinationConfig)
+            .filter(
+                and_(
+                    ExportDestinationConfig.tenant_id == tenant_id,
+                    ExportDestinationConfig.is_active == True,
+                    ExportDestinationConfig.is_default == True,
+                )
+            )
+            .first()
+        )
+
+        if not default_dest:
+            default_dest = ExportDestinationConfig(
+                tenant_id=tenant_id,
+                name="Default Local Export",
+                destination_type="local",
+                is_active=True,
+                is_default=True,
+                config={"path": "/exports", "format": "csv"},
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
+            )
+            service.db.add(default_dest)
+            service.db.commit()
+            service.db.refresh(default_dest)
+
+        export_destination_id = default_dest.id
+
+    if len(files) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one file is required"
+        )
+    if len(files) > 50:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Maximum 50 files allowed per batch. Received {len(files)} files."
+        )
+
+    custom_fields_list = None
+    if custom_fields:
+        custom_fields_list = [
+            cf.strip() for cf in custom_fields.split(",") if cf.strip()
+        ]
+
+    file_infos = []
+    for idx, file in enumerate(files):
+        content = await file.read()
+        file_size = len(content)
+        if file_size == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File '{file.filename}' is empty"
+            )
+        if file_size > 20 * 1024 * 1024:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File '{file.filename}' exceeds maximum size of 20MB",
+            )
+        file_infos.append(
+            {
+                "content": content,
+                "filename": file.filename or f"file_{idx}",
+                "size": file_size,
+                "content_type": file.content_type,
+            }
+        )
+
+    try:
+        batch_job = await service.create_batch_job(
+            files=file_infos,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            api_client_id=api_client_id,
+            export_destination_id=export_destination_id,
+            document_types=doc_types_list,
+            client_id=client_id,
+            custom_fields=custom_fields_list,
+            webhook_url=webhook_url,
+            api_client=api_client,
+            card_type=card_type
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create batch job: {str(e)}"
+        )
+
+    try:
+        enqueue_result = await service.enqueue_files_to_kafka(batch_job.job_id)
+    except Exception as e:
+        batch_job.status = "failed"
+        service.db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to enqueue files for processing: {str(e)}"
+        )
+
+    estimated_completion_minutes = max(1, (batch_job.total_files * 30) // 60)
+    return {
+        "job_id": batch_job.job_id,
+        "status": batch_job.status,
+        "total_files": batch_job.total_files,
+        "estimated_completion_minutes": estimated_completion_minutes,
+        "status_url": f"/api/v1/external-transactions/batch-processing/jobs/{batch_job.job_id}",
+        "message": f"Batch job created successfully. {enqueue_result['enqueued']} files enqueued for processing."
+    }
+
+
 # ============================================================================
 # Batch Processing Endpoints
 # ============================================================================
@@ -262,6 +452,47 @@ def get_batch_processing_service(
 # Note: These endpoints are designed for API key authentication
 # For now, they can be tested with JWT authentication by replacing
 # the get_api_key_auth dependency with get_current_user
+
+
+@router.post(
+    "/upload-authenticated",
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload batch of files as an authenticated YFW user",
+    description="Upload up to 50 files for batch OCR processing and export using the user's normal bearer token."
+)
+async def upload_authenticated_batch(
+    files: List[UploadFile] = File(..., description="Files to process (max 50)"),
+    export_destination_id: Optional[int] = Form(None, description="Export destination configuration ID (uses default if not provided)"),
+    document_types: Optional[str] = Form(
+        None,
+        description="Comma-separated document types (invoice,expense,statement)."
+    ),
+    client_id: Optional[int] = Form(None, description="Client ID for invoice documents"),
+    custom_fields: Optional[str] = Form(None, description="Comma-separated custom fields to include in export"),
+    webhook_url: Optional[str] = Form(None, description="Optional webhook URL for completion notification"),
+    card_type: str = Form("auto", description="Statement card type for bank statements: auto|debit|credit"),
+    batch_context: tuple = Depends(get_authenticated_batch_context),
+):
+    """
+    First-party upload path for the CLI/web app.
+
+    Unlike /upload, this endpoint uses the current user's JWT and does not require
+    an external YFW batch API key.
+    """
+    current_user, service = batch_context
+    return await _create_batch_upload(
+        files=files,
+        export_destination_id=export_destination_id,
+        document_types=document_types,
+        client_id=client_id,
+        custom_fields=custom_fields,
+        webhook_url=webhook_url,
+        card_type=card_type,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        api_client_id=f"user:{current_user.id}",
+        service=service,
+    )
 
 
 @router.post(

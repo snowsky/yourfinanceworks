@@ -11,6 +11,41 @@ def test_build_parser_supports_monitor_command():
     assert args.interval == 60
 
 
+def test_build_parser_supports_auth_login_command():
+    parser = build_parser()
+    args = parser.parse_args(["auth", "login", "--email", "user@example.com"])
+
+    assert args.resource == "auth"
+    assert args.action == "login"
+    assert args.email == "user@example.com"
+
+
+def test_build_parser_supports_auth_status_command():
+    parser = build_parser()
+    args = parser.parse_args(["auth", "status"])
+
+    assert args.resource == "auth"
+    assert args.action == "status"
+
+
+def test_build_parser_supports_config_path():
+    parser = build_parser()
+    args = parser.parse_args(["--config", "tmp/config.json", "auth", "status"])
+
+    assert args.config == "tmp/config.json"
+    assert args.resource == "auth"
+
+
+def test_build_parser_supports_browser_login_command():
+    parser = build_parser()
+    args = parser.parse_args(["auth", "browser-login", "--no-open", "--timeout", "30"])
+
+    assert args.resource == "auth"
+    assert args.action == "browser-login"
+    assert args.no_open is True
+    assert args.timeout == 30
+
+
 def test_build_parser_supports_snapshot_flags():
     parser = build_parser()
     args = parser.parse_args(
@@ -40,3 +75,48 @@ def test_build_parser_supports_research_command():
     assert args.portfolio_id == 12
     assert args.lookback_days == 5
     assert args.max_holdings == 4
+
+
+def test_build_parser_supports_document_scan_send():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "documents",
+            "scan",
+            "incoming",
+            "--send",
+            "--portfolio-id",
+            "7",
+            "--export-destination-id",
+            "3",
+        ]
+    )
+
+    assert args.resource == "documents"
+    assert args.action == "scan"
+    assert args.folder == "incoming"
+    assert args.send is True
+    assert args.portfolio_id == 7
+    assert args.export_destination_id == 3
+
+
+def test_build_parser_supports_agent_chat_message():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "agent",
+            "chat",
+            "--config-id",
+            "4",
+            "--page-context",
+            '{"route":"/expenses"}',
+            "list",
+            "expenses",
+        ]
+    )
+
+    assert args.resource == "agent"
+    assert args.action == "chat"
+    assert args.config_id == 4
+    assert args.page_context == '{"route":"/expenses"}'
+    assert args.message == ["list", "expenses"]

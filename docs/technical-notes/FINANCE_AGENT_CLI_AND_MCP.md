@@ -35,6 +35,8 @@ Supported runtime inputs:
 
 - profile selection via `--profile`
 - env overrides such as `FINANCE_AGENT_BASE_URL`, `FINANCE_AGENT_EMAIL`, `FINANCE_AGENT_PASSWORD`, `FINANCE_AGENT_TOKEN`
+- optional legacy YFW batch API key via `FINANCE_AGENT_YFW_API_KEY`, `YFW_API_KEY`, or `INVOICE_API_KEY`
+- optional classifier/chat LLM settings via `FINANCE_AGENT_LLM_PROVIDER`, `FINANCE_AGENT_LLM_MODEL`, `FINANCE_AGENT_LLM_API_KEY`, `FINANCE_AGENT_LLM_BASE_URL`
 - monitor settings via `FINANCE_AGENT_INTERVAL`, `FINANCE_AGENT_DRIFT_THRESHOLD`, `FINANCE_AGENT_REFRESH_PRICES`
 
 Base URLs are normalized to the backend API path automatically:
@@ -48,6 +50,9 @@ Base URLs are normalized to the backend API path automatically:
 Examples:
 
 ```bash
+finance-agent auth login --email user@example.com
+finance-agent auth browser-login
+finance-agent auth status
 finance-agent portfolio list
 finance-agent portfolio analyze 12
 finance-agent portfolio rebalance 12
@@ -55,6 +60,62 @@ finance-agent portfolio transactions 12
 finance-agent portfolio cross-summary
 finance-agent prices status
 finance-agent prices refresh
+```
+
+Scan a local folder and classify PDF/image/CSV files as `expense`, `invoice`, `statement`, or `portfolio`:
+
+```bash
+finance-agent documents scan ./incoming
+```
+
+Send classified files to YourFinanceWORKS:
+
+```bash
+finance-agent documents scan ./incoming --send --portfolio-id 12
+```
+
+Expenses, invoices, and statements are sent to the authenticated batch-processing API using the same CLI login/token as other first-party operations. Portfolio files are sent to the investments holdings-file upload endpoint and require a portfolio ID plus normal CLI auth.
+
+Talk to the CLI agent in one-shot or interactive mode:
+
+```bash
+finance-agent agent chat "list expenses"
+finance-agent agent chat
+```
+
+The chat bridge calls the same `/api/v1/ai/chat` endpoint as the web AI Assistant. Intent classification and MCP dispatch happen in the backend through the existing `MCP.tools.InvoiceTools` integration, so CLI behavior stays aligned with the in-app assistant. You can pass the same optional context payload used by the web UI:
+
+```bash
+finance-agent agent chat --page-context '{"route":"/statements","entity":{"type":"bank_statement","id":12}}' "reprocess this statement"
+```
+
+## CLI Auth
+
+Use explicit login when you want to cache a bearer token before running the agent:
+
+```bash
+finance-agent auth login --email user@example.com
+```
+
+The command prompts for a password if `--password` is omitted. The token is cached at `.finance-agent/token.json` by default. You can inspect or clear it with:
+
+```bash
+finance-agent auth status
+finance-agent auth logout
+```
+
+The older env/profile flow still works: commands authenticate on demand when `FINANCE_AGENT_AUTH_TYPE=password`, `FINANCE_AGENT_EMAIL`, and `FINANCE_AGENT_PASSWORD` are configured.
+
+For SSO or passwordless browser approval, use the device/browser flow:
+
+```bash
+finance-agent auth browser-login
+```
+
+This opens a browser verification URL, asks the browser session to approve the CLI device code, then caches the returned bearer token. On a headless machine:
+
+```bash
+finance-agent auth device-login --no-open
 ```
 
 Single monitor cycle:

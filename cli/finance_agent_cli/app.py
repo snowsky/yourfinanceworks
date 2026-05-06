@@ -3,15 +3,23 @@
 from __future__ import annotations
 
 import argparse
+import getpass
+import json
+from dataclasses import replace
 from decimal import Decimal
+from pathlib import Path
 from typing import Sequence
 
 from .agent import PortfolioMonitorAgent
 from .analyzers import normalize_allocation
-from .api_client import InvestmentAPIClient
+from .api_client import APIError, InvestmentAPIClient
+from .chat_agent import CliChatAgent
 from .config import load_profile
+from .document_classifier import DocumentClassifier
+from .document_router import DocumentIngestionAgent
 from .models import Portfolio, PortfolioAnalysis
 from .render import (
+    print_chat_response,
     print_json,
     print_portfolio_analysis,
     print_portfolios,
@@ -25,9 +33,24 @@ from .state import AgentState
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Investment portfolio monitoring and optimization CLI")
     parser.add_argument("--profile", default=None, help="Profile name from .finance-agent/config.json")
+    parser.add_argument("--config", default=None, help="Path to config JSON. Defaults to .finance-agent/config.json")
     parser.add_argument("--json", action="store_true", help="Emit JSON instead of formatted output")
 
     subparsers = parser.add_subparsers(dest="resource", required=True)
+
+    auth = subparsers.add_parser("auth", help="Authentication commands")
+    auth_sub = auth.add_subparsers(dest="action", required=True)
+    login = auth_sub.add_parser("login", help="Log in and cache a bearer token")
+    login.add_argument("--email", default=None, help="YFW account email")
+    login.add_argument("--password", default=None, help="YFW account password. Omit to prompt.")
+    browser_login = auth_sub.add_parser("browser-login", help="Log in by approving a browser/device code")
+    browser_login.add_argument("--no-open", action="store_true", help="Print the URL instead of opening a browser")
+    browser_login.add_argument("--timeout", type=int, default=600, help="Seconds to wait for browser approval")
+    device_login = auth_sub.add_parser("device-login", help="Alias for browser-login")
+    device_login.add_argument("--no-open", action="store_true", help="Print the URL instead of opening a browser")
+    device_login.add_argument("--timeout", type=int, default=600, help="Seconds to wait for browser approval")
+    auth_sub.add_parser("status", help="Show cached login status")
+    auth_sub.add_parser("logout", help="Remove the cached bearer token")
 
     portfolio = subparsers.add_parser("portfolio", help="Portfolio operations")
     portfolio_sub = portfolio.add_subparsers(dest="action", required=True)
@@ -72,19 +95,101 @@ def build_parser() -> argparse.ArgumentParser:
     prices_sub.add_parser("status", help="Show price freshness status")
     prices_sub.add_parser("refresh", help="Refresh holding prices")
 
+    documents = subparsers.add_parser("documents", help="Document scan and YFW ingestion")
+    documents_sub = documents.add_subparsers(dest="action", required=True)
+
+    scan = documents_sub.add_parser("scan", help="Scan and classify local PDF/image/CSV files")
+    scan.add_argument("folder", help="Folder to scan")
+    scan.add_argument("--no-recursive", action="store_true", help="Scan only the top-level folder")
+    scan.add_argument("--send", action="store_true", help="Send classified files to YFW")
+    scan.add_argument("--portfolio-id", type=int, default=None, help="Portfolio ID for portfolio/holdings files")
+    scan.add_argument("--export-destination-id", type=int, default=None, help="Batch export destination ID")
+    scan.add_argument("--client-id", type=int, default=None, help="Client ID for invoice files")
+    scan.add_argument("--webhook-url", default=None, help="Webhook URL for YFW batch completion")
+    scan.add_argument("--card-type", default="auto", choices=["auto", "debit", "credit"], help="Card type for statements")
+
+    agent = subparsers.add_parser("agent", help="Conversational CLI agent")
+    agent_sub = agent.add_subparsers(dest="action", required=True)
+    chat = agent_sub.add_parser("chat", help="Talk to the CLI agent")
+    chat.add_argument("message", nargs="*", help="One-shot message. Omit for interactive chat.")
+    chat.add_argument("--config-id", type=int, default=0, help="AI provider config ID. Defaults to backend default.")
+    chat.add_argument("--page-context", default=None, help="Optional JSON page context, matching the web AI Assistant payload.")
+
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    profile = load_profile(profile_name=args.profile)
+    config_path = Path(args.config) if args.config else None
+    profile_name = args.profile
+    if args.profile and Path(args.profile).suffix == ".json":
+        config_path = Path(args.profile)
+        profile_name = None
+    profile = load_profile(
+        config_path=config_path or Path(".finance-agent/config.json"),
+        profile_name=profile_name,
+    )
 
-    with InvestmentAPIClient(profile) as client:
-        if args.resource == "portfolio":
-            return _handle_portfolio(args, client, profile)
-        if args.resource == "prices":
-            return _handle_prices(args, client)
+    try:
+        with InvestmentAPIClient(profile) as client:
+            if args.resource == "auth":
+                return _handle_auth(args, client, profile)
+            if args.resource == "portfolio":
+                return _handle_portfolio(args, client, profile)
+            if args.resource == "prices":
+                return _handle_prices(args, client)
+            if args.resource == "documents":
+                return _handle_documents(args, client, profile)
+            if args.resource == "agent":
+                return _handle_agent(args, client, profile)
+    except APIError as exc:
+        print_json(
+            {
+                "error": str(exc),
+                "status_code": exc.status_code,
+                "payload": exc.payload,
+            }
+        )
+        return 1
+    return 0
+
+
+def _handle_auth(args, client: InvestmentAPIClient, profile) -> int:
+    if args.action == "status":
+        print_json(client.auth_status())
+        return 0
+    if args.action == "logout":
+        print_json(client.logout())
+        return 0
+    if args.action == "login":
+        email = args.email or profile.email
+        password = args.password or profile.password
+        if not email:
+            email = input("Email: ").strip()
+        if not password:
+            password = getpass.getpass("Password: ")
+        login_profile = replace(
+            profile,
+            auth_type="password",
+            email=email,
+            password=password,
+        )
+        with InvestmentAPIClient(login_profile) as login_client:
+            print_json(login_client.authenticate())
+        return 0
+    if args.action in {"browser-login", "device-login"}:
+        device = client.start_device_login()
+        if args.no_open:
+            print(f"Open this URL to approve CLI login: {device['verification_uri_complete']}")
+        else:
+            import webbrowser
+            webbrowser.open(device["verification_uri_complete"])
+            print(f"Opened browser for CLI login. If it did not open, visit: {device['verification_uri_complete']}")
+        print(f"Device code: {device['user_code']}")
+        result = client.poll_device_login(device, timeout_seconds=args.timeout)
+        print_json(result)
+        return 0
     return 0
 
 
@@ -238,6 +343,93 @@ def _handle_prices(args, client: InvestmentAPIClient) -> int:
         print_json(client.refresh_prices())
         return 0
     return 0
+
+
+def _handle_documents(args, client: InvestmentAPIClient, profile) -> int:
+    if args.action != "scan":
+        return 0
+    classifier = DocumentClassifier(profile)
+    agent = DocumentIngestionAgent(client, classifier)
+    documents = agent.scan_and_classify(Path(args.folder), recursive=not args.no_recursive)
+    payload = {
+        "documents": [
+            {
+                "path": document.path,
+                "filename": document.filename,
+                "document_type": document.document_type,
+                "confidence": float(document.confidence),
+                "reason": document.reason,
+            }
+            for document in documents
+        ]
+    }
+    if args.send:
+        routed = agent.send_to_yfw(
+            documents,
+            portfolio_id=args.portfolio_id,
+            export_destination_id=args.export_destination_id,
+            client_id=args.client_id,
+            webhook_url=args.webhook_url,
+            card_type=args.card_type,
+        )
+        payload["sent"] = [
+            {
+                "filename": item.document.filename,
+                "document_type": item.document.document_type,
+                "destination": item.destination,
+                "response": item.response,
+            }
+            for item in routed
+        ]
+    print_json(payload)
+    return 0
+
+
+def _handle_agent(args, client: InvestmentAPIClient, profile) -> int:
+    if args.action != "chat":
+        return 0
+    chat_agent = CliChatAgent(client, profile)
+    page_context = _parse_page_context(args.page_context)
+    if args.message:
+        result = chat_agent.handle(
+            " ".join(args.message),
+            config_id=args.config_id,
+            page_context=page_context,
+        )
+        if args.json:
+            print_json(result)
+        else:
+            print_chat_response(result)
+        return 0
+    try:
+        while True:
+            message = input("finance-agent> ").strip()
+            if message.lower() in {"exit", "quit"}:
+                return 0
+            if message:
+                result = chat_agent.handle(
+                    message,
+                    config_id=args.config_id,
+                    page_context=page_context,
+                )
+                if args.json:
+                    print_json(result)
+                else:
+                    print_chat_response(result)
+    except (EOFError, KeyboardInterrupt):
+        return 0
+
+
+def _parse_page_context(raw: str | None) -> dict | None:
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise APIError(f"Invalid --page-context JSON: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise APIError("--page-context must be a JSON object.")
+    return parsed
 
 
 def _load_analysis(client: InvestmentAPIClient, portfolio_id: int) -> PortfolioAnalysis:

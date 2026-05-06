@@ -53,8 +53,10 @@ class PaymentToolsMixin:
         try:
             from datetime import datetime, date, timedelta
 
-            # Get all payments first
-            payments = await self.api_client.list_payments(skip=0, limit=1000)
+            # Get all payments first. API clients may return either a raw list
+            # or a paginated envelope, so normalize before filtering.
+            response = await self.api_client.list_payments(skip=0, limit=1000)
+            payments = self._extract_items_from_response(response, ["data", "items", "payments"])
 
             # Parse the query for date-related keywords
             query_lower = query.lower()

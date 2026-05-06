@@ -13,6 +13,16 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 
+def _requested_limit_from_options(tool_options: Optional[Dict[str, Any]], *, default: int, maximum: int = 100) -> int:
+    """Read planned result limits from the agent tool plan."""
+    if not tool_options or tool_options.get("limit") is None:
+        return default
+    try:
+        return max(1, min(maximum, int(tool_options["limit"])))
+    except (TypeError, ValueError):
+        return default
+
+
 async def dispatch_intent(
     intent: str,
     tools: Any,
@@ -21,6 +31,7 @@ async def dispatch_intent(
     ai_config: Any,
     page_context: Optional[Dict[str, Any]],
     db: Session,
+    tool_options: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     # Execute MCP tool based on AI-classified intent
     if intent == "investments":
@@ -380,6 +391,7 @@ This comprehensive payment information was retrieved using your actual payment d
 
     elif intent == "clients":
         lower_message = message.lower()
+        is_count_request = any(token in lower_message for token in ["how many", "count", "total number", "number of"])
         print(f"MCP Integration: Detected client management pattern in message: '{message}'")
         print(f"MCP Integration: lower_message: '{lower_message}'")
         print(f"MCP Integration: Checking patterns: {[phrase for phrase in ['client', 'customer', 'list clients', 'search client', 'find client', 'show clients', 'get clients'] if phrase in lower_message]}")
@@ -449,7 +461,7 @@ You can now create invoices for this client.
                 # List all clients
                 print("MCP Integration: Listing clients...")
                 try:
-                    result = await tools.list_clients(limit=20)
+                    result = await tools.list_clients(limit=1000 if is_count_request else 20)
                     print(f"MCP Integration: list_clients result: {result}")
                 except Exception as e:
                     print(f"MCP Integration: Error calling list_clients: {e}")
@@ -460,6 +472,18 @@ You can now create invoices for this client.
                 if result.get("success"):
                     clients = result.get("data", [])
                     if clients:
+                        if is_count_request:
+                            mcp_response = f"You have **{len(clients)} client{'s' if len(clients) != 1 else ''}** managed in YourFinanceWORKS."
+                            return {
+                                "success": True,
+                                "data": {
+                                    "response": mcp_response,
+                                    "provider": ai_config.provider_name,
+                                    "model": ai_config.model_name,
+                                    "source": "mcp_tools"
+                                }
+                            }
+
                         # Calculate total outstanding balance
                         total_balance = sum(client.get('outstanding_balance', 0) for client in clients)
 
@@ -747,6 +771,7 @@ This comprehensive invoice information was retrieved using your actual invoice d
 
     elif intent == "expenses":
         lower_message = message.lower()
+        requested_limit = _requested_limit_from_options(tool_options, default=20)
         print(f"MCP Integration: Detected expense management pattern in message: '{message}'")
         try:
             if "search" in lower_message or "find" in lower_message:
@@ -755,14 +780,14 @@ This comprehensive invoice information was retrieved using your actual invoice d
                 if search_match:
                     search_query = search_match.group(1)
                     print(f"MCP Integration: Searching expenses with query: '{search_query}'")
-                    result = await tools.search_expenses(query=search_query)
+                    result = await tools.search_expenses(query=search_query, limit=requested_limit)
                 else:
                     # Default search
-                    result = await tools.list_expenses(limit=10)
+                    result = await tools.list_expenses(limit=min(requested_limit, 10))
             else:
                 # List all expenses
-                print("MCP Integration: Listing expenses...")
-                result = await tools.list_expenses(limit=20)
+                print(f"MCP Integration: Listing expenses with limit={requested_limit}...")
+                result = await tools.list_expenses(limit=requested_limit)
 
             if result.get("success"):
                 expenses = result.get("data", [])

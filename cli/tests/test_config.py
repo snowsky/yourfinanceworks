@@ -38,3 +38,30 @@ def test_env_overrides_profile(tmp_path: Path, monkeypatch):
 
     assert profile.api_base_url == "http://localhost:8000/api/v1"
     assert profile.drift_threshold == 2.5
+
+
+def test_load_profile_reads_yfw_and_llm_settings(tmp_path: Path, monkeypatch):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        """
+        {
+          "profiles": {
+            "default": {
+              "base_url": "https://demo",
+              "yfw_api_key": "key_123",
+              "llm_provider": "openai",
+              "llm_model": "gpt-4o-mini"
+            }
+          }
+        }
+        """
+    )
+    monkeypatch.delenv("FINANCE_AGENT_YFW_API_KEY", raising=False)
+    monkeypatch.delenv("YFW_API_KEY", raising=False)
+    monkeypatch.delenv("INVOICE_API_KEY", raising=False)
+
+    profile = load_profile(config_path=config_path)
+
+    assert profile.yfw_api_key == "key_123"
+    assert profile.llm_provider == "openai"
+    assert profile.llm_model == "gpt-4o-mini"

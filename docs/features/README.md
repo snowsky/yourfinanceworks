@@ -45,6 +45,7 @@ YourFinanceWORKS is organized into focused capability areas. This overview links
 ## 🤖 AI Services & Prompt Management
 
 - **AI Assistant (MCP-Powered)** - Natural language queries for business insights using Model Context Protocol ([Guide](AI_SERVICES.md))
+- **Agent CLI** - Authenticated terminal agent for AI chat, MCP tool planning, document ingestion, and portfolio monitoring ([Guide](AGENT_CLI.md))
 - **Intelligent Business Queries** - Ask questions like "Who owes me money?" or "Show me overdue invoices"
 - **AI Prompt Management** - Centralized control and customization of AI instructions ([Guide](PROMPT_MANAGEMENT.md))
 - **Template Versioning** - Version control and rollbacks for all AI prompt templates

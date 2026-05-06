@@ -132,6 +132,9 @@ class ExternalAPIAuthMiddleware(BaseHTTPMiddleware):
             "/favicon.ico",
             "/api/v1/auth/login",
             "/api/v1/auth/register",
+            "/api/v1/auth/device/start",
+            "/api/v1/auth/device/verify",
+            "/api/v1/auth/device/token",
             "/api/v1/external-auth/oauth/token"  # OAuth token endpoint
         ]
 

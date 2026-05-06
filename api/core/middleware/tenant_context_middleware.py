@@ -253,6 +253,10 @@ async def tenant_context_middleware(request: Request, call_next):
         "/api/v1/auth/azure/callback",
         # SSO status endpoint must be public (used by login/signup pages)
         "/api/v1/auth/sso-status",
+        # CLI browser/device login endpoints must be public until approval happens in the browser
+        "/api/v1/auth/device/start",
+        "/api/v1/auth/device/verify",
+        "/api/v1/auth/device/token",
         # Password requirements endpoint must be public (used by UI for validation)
         "/api/v1/auth/password-requirements",
         # License features endpoint must be public (used by UI to determine available features)
