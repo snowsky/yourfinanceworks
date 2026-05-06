@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Promote a standalone yfw-* plugin into this repository.
 
-The standalone plugin layout is expected to look like:
+The standalone plugin layout can use either the compact in-process layout:
 
     yfw-example/
       plugin.json
@@ -11,10 +11,21 @@ The standalone plugin layout is expected to look like:
       schemas.py
       plugin/ui/index.ts
 
-This script copies backend files into api/plugins/<plugin_folder>/ and UI
-files into ui/src/plugins/<plugin_folder>/plugin/ui/. By default, copied
-plugin files remain generated local artifacts; pass --track-backend to add
-the .gitignore exception needed to commit the backend copy.
+or the SocialHub-style layout:
+
+    yfw-example/
+      plugin.json
+      backend/
+        __init__.py
+        router.py
+        models.py
+        schemas.py
+      frontend/src/plugin.tsx
+
+This script copies backend files into api/plugins/<plugin_folder>/ and maps
+UI files into ui/src/plugins/<plugin_folder>/plugin/ui/. By default, copied
+plugin files remain generated local artifacts; pass --track-backend to add the
+.gitignore exception needed to commit the backend copy.
 """
 
 from __future__ import annotations
@@ -67,13 +78,20 @@ def _is_backend_path(relative_path: Path) -> bool:
         return False
     if parts[0] == "ui":
         return False
+    if parts[0] == "frontend":
+        return False
+    if parts[0].startswith("docker-compose"):
+        return False
+    if parts[0] in {"Dockerfile", "README.md", "LICENSE"}:
+        return False
     return True
 
 
-def _copy_tree_contents(source: Path, destination: Path, *, force: bool, dry_run: bool) -> list[str]:
+def _copy_backend(source: Path, destination: Path, *, force: bool, dry_run: bool) -> list[str]:
+    backend_source = source / "backend" if (source / "backend").is_dir() else source
     copied: list[str] = []
-    for item in sorted(source.rglob("*")):
-        relative = item.relative_to(source)
+    for item in sorted(backend_source.rglob("*")):
+        relative = item.relative_to(backend_source)
         if item.is_dir() or not _is_backend_path(relative):
             continue
 
@@ -87,12 +105,33 @@ def _copy_tree_contents(source: Path, destination: Path, *, force: bool, dry_run
 
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(item, target)
+
+    manifest_target = destination / "plugin.json"
+    if (source / "plugin.json").exists() and backend_source != source:
+        if manifest_target.exists() and not force:
+            raise FileExistsError(f"{manifest_target} already exists. Re-run with --force to overwrite.")
+        copied.append(str(manifest_target.relative_to(REPO_ROOT)))
+        if not dry_run:
+            manifest_target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source / "plugin.json", manifest_target)
     return copied
 
 
+def _ui_source(source: Path) -> tuple[Path | None, str]:
+    frontend_src = source / "frontend" / "src"
+    if frontend_src.exists():
+        return frontend_src, "frontend"
+
+    plugin_ui = source / "plugin" / "ui"
+    if plugin_ui.exists():
+        return plugin_ui, "plugin-ui"
+
+    return None, ""
+
+
 def _copy_ui(source: Path, destination: Path, *, force: bool, dry_run: bool) -> list[str]:
-    ui_source = source / "plugin" / "ui"
-    if not ui_source.exists():
+    ui_source, ui_layout = _ui_source(source)
+    if not ui_source:
         return []
 
     copied: list[str] = []
@@ -100,6 +139,11 @@ def _copy_ui(source: Path, destination: Path, *, force: bool, dry_run: bool) -> 
         relative = item.relative_to(ui_source)
         if item.is_dir() or any(part in IGNORED_NAMES for part in relative.parts):
             continue
+
+        if ui_layout == "frontend" and relative == Path("plugin.tsx"):
+            relative = Path("index.tsx")
+        elif ui_layout == "frontend" and relative == Path("plugin.ts"):
+            relative = Path("index.ts")
 
         target = destination / relative
         if target.exists() and not force:
@@ -139,7 +183,7 @@ def promote(source: Path, *, plugin_id: str | None, force: bool, dry_run: bool, 
     backend_dest = REPO_ROOT / "api" / "plugins" / folder
     ui_dest = REPO_ROOT / "ui" / "src" / "plugins" / folder / "plugin" / "ui"
 
-    backend_files = _copy_tree_contents(source, backend_dest, force=force, dry_run=dry_run)
+    backend_files = _copy_backend(source, backend_dest, force=force, dry_run=dry_run)
     ui_files = _copy_ui(source, ui_dest, force=force, dry_run=dry_run)
     gitignore_updated = _ensure_gitignore_exception(folder, dry_run=dry_run) if track_backend else False
 

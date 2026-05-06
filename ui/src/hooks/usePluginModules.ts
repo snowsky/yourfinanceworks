@@ -31,7 +31,9 @@ const _pluginGlob = import.meta.glob([
   '../plugins/*/plugin/ui/index.{ts,tsx}',
   '../plugins_dynamic/*/index.{ts,tsx}',
   '../plugins_dynamic/*/plugin/ui/index.{ts,tsx}',
-  '../../../yfw-*/plugin/ui/index.{ts,tsx}'
+  '../plugins_dynamic/*/frontend/src/plugin.{ts,tsx}',
+  '../../../yfw-*/plugin/ui/index.{ts,tsx}',
+  '../../../yfw-*/frontend/src/plugin.{ts,tsx}'
 ]) as Record<
   string,
   () => Promise<LoadedPluginModule>
