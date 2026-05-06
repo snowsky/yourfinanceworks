@@ -72,3 +72,4 @@ api/plugins/*
 !api/plugins/currency_rates/
 !api/plugins/investments/
 !api/plugins/time_tracking/
+!api/plugins/docvault/

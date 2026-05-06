@@ -15,6 +15,8 @@ export interface LoadedPluginModule {
   pluginId: string;
   /** Raw metadata from the plugin manifest. */
   pluginMetadata?: any;
+  /** Vite glob path for deterministic duplicate handling. */
+  sourcePath?: string;
   /**
    * Public portal page for this plugin.
    * Exported by in-process plugins from plugin/ui/index.ts,
@@ -29,7 +31,8 @@ const _pluginGlob = import.meta.glob([
   '../plugins/*/plugin/ui/index.{ts,tsx}',
   '../plugins_dynamic/*/index.{ts,tsx}',
   '../plugins_dynamic/*/plugin/ui/index.{ts,tsx}',
-  '../../../yfw-*/plugin/ui/index.{ts,tsx}'
+  '../../../yfw-*/plugin/ui/index.{ts,tsx}',
+  '!../../../yfw-docvault/plugin/ui/index.{ts,tsx}'
 ]) as Record<
   string,
   () => Promise<LoadedPluginModule>
@@ -69,7 +72,7 @@ function _load() {
   Promise.allSettled([
     // Static plugins discovered via Vite glob at build time
     Promise.allSettled(Object.entries(_pluginGlob).map(([path, load]) =>
-      load().catch((err) => {
+      load().then((module) => ({ ...module, sourcePath: path })).catch((err) => {
         console.warn(`[plugins] Failed to load plugin from ${path}:`, err);
         return null;
       })
@@ -82,7 +85,7 @@ function _load() {
           // Extract pluginId from metadata if not explicitly set
           const metadata = (m as any).pluginMetadata;
           const pluginId = m.pluginId || (m as any).id || metadata?.id || metadata?.name;
-          return { ...m, pluginId };
+          return { ...m, pluginId, sourcePath: (m as any).sourcePath };
         })
         .filter((m): m is LoadedPluginModule => m !== null && !!m.pluginId)
     ),
@@ -91,7 +94,16 @@ function _load() {
   ]).then(([staticResult, sidecarResult]) => {
     const staticModules = staticResult.status === 'fulfilled' ? staticResult.value : [];
     const sidecarModules = sidecarResult.status === 'fulfilled' ? sidecarResult.value : [];
-    _cache = [...staticModules, ...sidecarModules];
+    const modulesById = new Map<string, LoadedPluginModule>();
+    for (const module of [...staticModules, ...sidecarModules]) {
+      const existing = modulesById.get(module.pluginId);
+      const existingIsExternalSymlink = existing?.sourcePath?.startsWith('../../../yfw-') ?? false;
+      const candidateIsPromotedCopy = module.sourcePath ? !module.sourcePath.startsWith('../../../yfw-') : false;
+      if (!existing || (existingIsExternalSymlink && candidateIsPromotedCopy)) {
+        modulesById.set(module.pluginId, module);
+      }
+    }
+    _cache = Array.from(modulesById.values());
     _listeners.forEach((fn) => fn());
   });
 }

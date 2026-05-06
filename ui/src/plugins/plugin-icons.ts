@@ -45,6 +45,7 @@ import {
   Search,
   Star,
   Layers,
+  LockKeyhole,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -83,4 +84,5 @@ export const iconRegistry: Record<string, LucideIcon> = {
   Search,
   Star,
   Layers,
+  LockKeyhole,
 };
