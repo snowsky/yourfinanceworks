@@ -12,8 +12,9 @@ The standalone plugin layout is expected to look like:
       plugin/ui/index.ts
 
 This script copies backend files into api/plugins/<plugin_folder>/ and UI
-files into ui/src/plugins/<plugin_folder>/plugin/ui/. It also adds the
-needed .gitignore exception for the promoted backend plugin path.
+files into ui/src/plugins/<plugin_folder>/plugin/ui/. By default, copied
+plugin files remain generated local artifacts; pass --track-backend to add
+the .gitignore exception needed to commit the backend copy.
 """
 
 from __future__ import annotations
@@ -126,7 +127,7 @@ def _ensure_gitignore_exception(plugin_folder: str, *, dry_run: bool) -> bool:
     return True
 
 
-def promote(source: Path, *, plugin_id: str | None, force: bool, dry_run: bool) -> int:
+def promote(source: Path, *, plugin_id: str | None, force: bool, dry_run: bool, track_backend: bool) -> int:
     source = source.resolve()
     if not source.exists():
         raise FileNotFoundError(f"Plugin source not found: {source}")
@@ -140,7 +141,7 @@ def promote(source: Path, *, plugin_id: str | None, force: bool, dry_run: bool) 
 
     backend_files = _copy_tree_contents(source, backend_dest, force=force, dry_run=dry_run)
     ui_files = _copy_ui(source, ui_dest, force=force, dry_run=dry_run)
-    gitignore_updated = _ensure_gitignore_exception(folder, dry_run=dry_run)
+    gitignore_updated = _ensure_gitignore_exception(folder, dry_run=dry_run) if track_backend else False
 
     print(f"Promoted plugin: {slug}")
     print(f"Source: {source}")
@@ -150,6 +151,8 @@ def promote(source: Path, *, plugin_id: str | None, force: bool, dry_run: bool) 
     print(f"UI files: {len(ui_files)}")
     if gitignore_updated:
         print(f"Updated .gitignore with !api/plugins/{folder}/")
+    elif not track_backend:
+        print("Backend remains ignored by .gitignore; use --track-backend to commit promoted backend files.")
     if dry_run:
         print("Dry run only; no files were written.")
     return 0
@@ -161,6 +164,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--plugin-id", help="Override plugin id from plugin.json")
     parser.add_argument("--force", action="store_true", help="Overwrite existing promoted files")
     parser.add_argument("--dry-run", action="store_true", help="Print what would be copied without writing")
+    parser.add_argument("--track-backend", action="store_true", help="Add .gitignore exception for api/plugins/<plugin>/")
     args = parser.parse_args(argv)
 
     try:
@@ -169,6 +173,7 @@ def main(argv: list[str] | None = None) -> int:
             plugin_id=args.plugin_id,
             force=args.force,
             dry_run=args.dry_run,
+            track_backend=args.track_backend,
         )
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)
