@@ -1,6 +1,6 @@
 """fix tenant mfa factor secrets column type
 
-Revision ID: 022_fix_tenant_mfa_factor_secrets_type
+Revision ID: 022_fix_mfa_factor_secrets
 Revises: 021_share_token_access_controls
 Create Date: 2026-05-07
 """
@@ -15,7 +15,7 @@ from sqlalchemy import inspect
 from sqlalchemy.dialects import postgresql
 
 
-revision = "022_fix_tenant_mfa_factor_secrets_type"
+revision = "022_fix_mfa_factor_secrets"
 down_revision = "021_share_token_access_controls"
 branch_labels = None
 depends_on = None
