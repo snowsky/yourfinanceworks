@@ -6,6 +6,8 @@ Use this index to find developer-facing setup and integration documentation.
 
 - **[Environment Setup](environment_setup.md)**: Environment variable loading model and deployment-specific setup.
 - **[MCP Server Guide](MCP_SERVER_GUIDE.md)**: FastMCP architecture, tool design, and integration details.
+- **[Plugin Development](PLUGIN_DEVELOPMENT.md)**: Plugin layout, install flow, and database mode guidance for standalone, dynamic, and promoted plugins.
+- **[YFW Plugin Development Skill](skills/yfw-plugin-development/SKILL.md)**: Reusable Codex skill reference for creating dual-mode `yfw-*` plugins.
 
 ## Work in Progress
 

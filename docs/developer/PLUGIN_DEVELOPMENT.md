@@ -231,6 +231,39 @@ The `PluginLoader` imports `models.py` automatically before `init_db()` runs, so
 
 For production use, add a proper Alembic migration under `api/alembic/versions/`.
 
+### Database mode: standalone vs promoted/plugin
+
+Use plugin mode or the promotion script when a plugin should share the same tenant database as this repository.
+
+```bash
+# Dynamic plugin mode: mount a sibling yfw-* plugin into invoice_app
+docker compose -f docker-compose.yml -f yfw-my-plugin/docker-compose.plugin.yml up --build
+
+# Promoted plugin mode: copy backend/UI files into invoice_app
+python -B api/scripts/promote_plugin.py yfw-my-plugin --force
+```
+
+In both cases, the plugin backend runs inside the `invoice_app` API process and should import the host database/session helpers, for example:
+
+```python
+from core.models.database import get_db
+from core.models.models_per_tenant import Base
+```
+
+That means plugin tables are registered against the same tenant database path used by the rest of the app.
+
+Do not use a plugin's standalone `docker-compose.yml` if the goal is to share `invoice_app` tenant data. Standalone compose files normally start the plugin with its own app containers and its own Postgres database. That mode is useful for isolated plugin development, demos, or sidecar plugins, but it does not share this repo's tenant DB unless the plugin explicitly points at the same database and uses compatible tenant/session wiring.
+
+For standalone plugins that also support promotion, keep the standalone database fallback separate from the host imports. A common pattern is:
+
+```python
+try:
+    from core.models.database import get_db
+    from core.models.models_per_tenant import Base
+except ModuleNotFoundError:
+    from .database import Base, get_db
+```
+
 ---
 
 ## Cross-Plugin Data Access
