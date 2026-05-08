@@ -1,21 +1,21 @@
 ---
 name: yfw-plugin-development
-description: Use when creating or updating a YourFinanceWORKS yfw-* plugin, especially when it must support both standalone Docker Compose mode and invoice_app plugin/promoted mode with the host tenant database.
+description: Use when creating or updating a YourFinanceWORKS yfw-* plugin, especially when it must support both standalone Docker Compose mode and YourFinanceWORKS plugin/promoted mode with the host tenant database.
 ---
 
 # YFW Plugin Development
 
-Use this workflow when building a new `yfw-*` plugin for `invoice_app`.
+Use this workflow when building a new `yfw-*` plugin for `YourFinanceWORKS`.
 
 ## First Decisions
 
 Decide which modes the plugin needs:
 
 - **Standalone app**: plugin runs by itself with its own `docker-compose.yml`, backend, frontend, and Postgres.
-- **Dynamic plugin**: plugin remains a sibling symlink/folder and is mounted into `invoice_app` with `docker-compose.plugin.yml`.
-- **Promoted plugin**: plugin files are copied into `invoice_app` using `api/scripts/promote_plugin.py`.
+- **Dynamic plugin**: plugin remains a sibling symlink/folder and is mounted into `YourFinanceWORKS` with `docker-compose.plugin.yml`.
+- **Promoted plugin**: plugin files are copied into `YourFinanceWORKS` using `api/scripts/promote_plugin.py`.
 
-If the user wants the plugin to use the same database as `invoice_app`, use dynamic plugin mode or promoted plugin mode. Do not use standalone mode for shared tenant data.
+If the user wants the plugin to use the same database as `YourFinanceWORKS`, use dynamic plugin mode or promoted plugin mode. Do not use standalone mode for shared tenant data.
 
 ## Recommended Folder Layout
 
@@ -39,10 +39,10 @@ yfw-example/
     Dockerfile
     package.json
     vite.config.ts
-  plugin/ui/index.ts        # compatibility re-export for invoice_app discovery
+  plugin/ui/index.ts        # compatibility re-export for YourFinanceWORKS discovery
   plugin.json
   docker-compose.yml        # standalone
-  docker-compose.plugin.yml # invoice_app overlay
+  docker-compose.plugin.yml # YourFinanceWORKS overlay
   docker-compose.promote.yml
   README.md
 ```
@@ -66,7 +66,7 @@ except ModuleNotFoundError:
     from .database import Base, get_db
 ```
 
-This keeps standalone development isolated while allowing the same backend files to use the `invoice_app` tenant database after mounting or promotion.
+This keeps standalone development isolated while allowing the same backend files to use the `YourFinanceWORKS` tenant database after mounting or promotion.
 
 ## Compose Files
 
@@ -96,7 +96,7 @@ python -B api/scripts/promote_plugin.py /workspace/yfw-example --force
 
 ## Promotion
 
-From `invoice_app`:
+From `YourFinanceWORKS`:
 
 ```bash
 python -B api/scripts/promote_plugin.py yfw-example --force
