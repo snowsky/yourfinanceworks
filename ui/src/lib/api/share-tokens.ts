@@ -15,7 +15,7 @@ export interface ShareTokenResponse {
   max_access_count: number | null;
 }
 
-export type RecordType = 'invoice' | 'expense' | 'payment' | 'client' | 'bank_statement' | 'portfolio';
+export type RecordType = 'invoice' | 'expense' | 'payment' | 'client' | 'bank_statement' | 'portfolio' | 'docvault_item';
 export type ShareAccessType = 'public' | 'password' | 'question';
 
 export interface CreateShareTokenPayload {

@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List
 from datetime import datetime, date
 
-ALLOWED_RECORD_TYPES = {"invoice", "expense", "payment", "client", "bank_statement", "portfolio"}
+ALLOWED_RECORD_TYPES = {"invoice", "expense", "payment", "client", "bank_statement", "portfolio", "docvault_item"}
 
 
 class ShareTokenCreate(BaseModel):
@@ -148,3 +148,21 @@ class PublicPortfolioView(BaseModel):
     currency: str
     created_at: datetime
     holdings: List[PublicPortfolioHolding] = []
+
+
+class PublicDocVaultItemView(BaseModel):
+    record_type: str = "docvault_item"
+    id: int
+    category: str
+    title: Optional[str] = None
+    owner_name: Optional[str] = None
+    issuer: Optional[str] = None
+    expiry_date: Optional[date] = None
+    issue_date: Optional[date] = None
+    public_metadata: dict = {}
+    tags: List[str] = []
+    file_name: Optional[str] = None
+    file_mime_type: Optional[str] = None
+    file_size: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
