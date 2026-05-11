@@ -34,7 +34,7 @@ from .schemas import (
 )
 
 # Import models for enums
-from .models import PortfolioType
+from .models import FileAttachment, InvestmentPortfolio, PortfolioType
 
 # Import services
 from .services.portfolio_service import PortfolioService
@@ -1221,6 +1221,51 @@ async def get_portfolio_file_details(
         raise
     except Exception as e:
         raise InvestmentError(f"Failed to retrieve file attachment details: {str(e)}")
+
+
+@investment_router.get("/docvault/import-sources/portfolio-files")
+async def list_docvault_portfolio_file_sources(
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Return portfolio file attachment metadata for DocVault imports.
+
+    This endpoint keeps investment-owned table reads inside the investment
+    plugin, while cross-plugin approval is enforced by require_plugin_access()
+    on the investments router.
+    """
+    try:
+        attachments = (
+            db.query(FileAttachment)
+            .join(InvestmentPortfolio, FileAttachment.portfolio_id == InvestmentPortfolio.id)
+            .filter(
+                FileAttachment.tenant_id == current_user.tenant_id,
+                InvestmentPortfolio.is_archived.is_(False),
+            )
+            .order_by(FileAttachment.created_at.desc())
+            .all()
+        )
+
+        return [
+            {
+                "id": attachment.id,
+                "portfolio_id": attachment.portfolio_id,
+                "original_filename": attachment.original_filename,
+                "stored_filename": attachment.stored_filename,
+                "file_size": attachment.file_size,
+                "file_type": getattr(attachment.file_type, "value", attachment.file_type),
+                "local_path": attachment.local_path,
+                "cloud_url": attachment.cloud_url,
+                "file_hash": attachment.file_hash,
+                "created_at": attachment.created_at.isoformat() if attachment.created_at else None,
+            }
+            for attachment in attachments
+        ]
+    except InvestmentError:
+        raise
+    except Exception as e:
+        raise InvestmentError(f"Failed to retrieve DocVault portfolio import sources: {str(e)}")
 
 
 @investment_router.get("/holdings-files/{attachment_id}/download")

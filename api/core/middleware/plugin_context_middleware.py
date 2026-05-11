@@ -28,9 +28,12 @@ class PluginContextMiddleware(BaseHTTPMiddleware):
                 break
 
         # 2. X-Plugin-Caller Header detection
-        # (This is for cross-plugin internal calls)
+        # This identifies the source plugin for require_plugin_access(), but it
+        # should not replace the route owner for DB isolation. A call from
+        # docvault to /api/v1/investments/... must execute under investments'
+        # table permissions after the access guard approves the caller.
         caller_header = request.headers.get("X-Plugin-Caller")
-        if caller_header:
+        if caller_header and not plugin_id:
             plugin_id = caller_header.strip().lower().replace("_", "-")
 
         if plugin_id:
