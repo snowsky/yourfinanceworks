@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { DndContext, DragEndEvent, useDraggable, useDroppable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import {
-  Archive, Clock, DollarSign, ListChecks,
-  Receipt, BarChart3, Plus, Trash2, Play, FileText, CheckCircle2, AlertCircle, Edit2, Save, X
+  AlertCircle, Archive, CalendarDays, Clock, DollarSign, FileText, GripVertical, ListChecks,
+  Receipt, BarChart3, Plus, Trash2, Play, CheckCircle2, Edit2, Save, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   useProject, useProjectSummary, useProjectTasks,
   useTimeEntries, useUnbilledItems, useCreateInvoiceFromProject,
-  useCreateTask, useDeleteTask, useDeleteTimeEntry, useUpdateTimeEntry, useUpdateProject, useUpdateTask
+  useCreateTask, useDeleteTask, useDeleteTimeEntry, useUpdateTimeEntry, useUpdateProject, useUpdateTask,
+  useProjectKanban, useReorderKanbanTasks, useCreateCustomField
 } from '@/plugins/time_tracking/plugin/ui/hooks';
 import { SearchableClientSelect } from '@/plugins/time_tracking/plugin/ui/components/SearchableClientSelect';
-import { Project, ProjectSummary, TimeEntry, ProjectTask } from '@/plugins/time_tracking/plugin/ui/api';
+import { KanbanColumn, Project, ProjectCustomField, ProjectSummary, TimeEntry, ProjectTask } from '@/plugins/time_tracking/plugin/ui/api';
 import { useTimer } from '@/contexts/TimerContext';
 import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
 import { ProfessionalCard, MetricCard } from '@/components/ui/professional-card';
@@ -20,7 +23,7 @@ import { ProfessionalButton } from '@/components/ui/professional-button';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 
-const TABS = ['Overview', 'Tasks', 'Time Entries', 'Unbilled'] as const;
+const TABS = ['Overview', 'Kanban', 'Tasks', 'Time Entries', 'Unbilled'] as const;
 type TabType = typeof TABS[number];
 
 export default function ProjectDetailInternal() {
@@ -254,6 +257,7 @@ export default function ProjectDetailInternal() {
 
       <ContentSection>
         {tab === 'Overview' && <OverviewTab summary={summary} project={project} />}
+        {tab === 'Kanban' && <KanbanTab projectId={projectId} project={project} />}
         {tab === 'Tasks' && <TasksTab projectId={projectId} tasks={tasks} projectHourlyRate={project.hourly_rate} />}
         {tab === 'Time Entries' && (
           <TimeEntriesTab
@@ -473,6 +477,472 @@ function OverviewTab({ summary, project }: { summary?: ProjectSummary; project: 
           </p>
         </ProfessionalCard>
       )}
+    </div>
+  );
+}
+
+function KanbanTab({ projectId, project }: { projectId: number; project: Project }) {
+  const { data, isLoading } = useProjectKanban(projectId);
+  const createTask = useCreateTask(projectId);
+  const updateTask = useUpdateTask(projectId);
+  const createField = useCreateCustomField(projectId);
+  const reorderTasks = useReorderKanbanTasks(projectId);
+  const { startTimer, active: timerActive } = useTimer();
+  const [selectedTask, setSelectedTask] = useState<ProjectTask | null>(null);
+  const [newTaskNames, setNewTaskNames] = useState<Record<string, string>>({});
+  const [showFieldForm, setShowFieldForm] = useState(false);
+  const [fieldForm, setFieldForm] = useState({ name: '', field_type: 'text' });
+
+  if (isLoading || !data) {
+    return <div className="text-muted-foreground animate-pulse py-8">Loading Kanban board…</div>;
+  }
+
+  const columns = data.columns.filter((column) => !column.hidden).sort((a, b) => a.position - b.position);
+  const tasksByColumn = columns.reduce<Record<string, ProjectTask[]>>((acc, column) => {
+    acc[column.key] = data.tasks
+      .filter((task) => (task.kanban_status || 'todo') === column.key)
+      .sort((a, b) => (a.kanban_position || 0) - (b.kanban_position || 0));
+    return acc;
+  }, {});
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const task = event.active.data.current?.task as ProjectTask | undefined;
+    const destinationColumn = event.over?.id ? String(event.over.id) : undefined;
+    if (!task || !destinationColumn || task.kanban_status === destinationColumn) return;
+
+    const destinationTasks = tasksByColumn[destinationColumn] || [];
+    const nextPosition = destinationTasks.length
+      ? Math.max(...destinationTasks.map((item) => item.kanban_position || 0)) + 1
+      : 1;
+
+    await reorderTasks.mutateAsync([
+      { task_id: task.id, kanban_status: destinationColumn, kanban_position: nextPosition },
+    ]);
+  };
+
+  const handleCreateTask = async (columnKey: string) => {
+    const name = (newTaskNames[columnKey] || '').trim();
+    if (!name) return;
+    await createTask.mutateAsync({
+      name,
+      kanban_status: columnKey,
+      kanban_position: (tasksByColumn[columnKey]?.length || 0) + 1,
+      status: columnKey === 'done' ? 'completed' : 'active',
+      custom_fields: {},
+    });
+    setNewTaskNames((prev) => ({ ...prev, [columnKey]: '' }));
+  };
+
+  const handleCreateField = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = fieldForm.name.trim();
+    if (!name) return;
+    await createField.mutateAsync({
+      name,
+      key: name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''),
+      field_type: fieldForm.field_type,
+      position: data.custom_fields.length,
+      options: [],
+      required: false,
+    });
+    setFieldForm({ name: '', field_type: 'text' });
+    setShowFieldForm(false);
+  };
+
+  const handleStartTimer = async (task: ProjectTask) => {
+    await startTimer({
+      project_id: projectId,
+      task_id: task.id,
+      description: task.name,
+      hourly_rate: task.hourly_rate ?? project.hourly_rate ?? 0,
+    });
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-card/40 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-lg font-bold tracking-tight">Project Board</h3>
+          <p className="text-sm text-muted-foreground">Plan work, track progress, and start timers from task cards.</p>
+        </div>
+        <ProfessionalButton
+          variant="outline"
+          size="sm"
+          onClick={() => setShowFieldForm((value) => !value)}
+        >
+          <Plus className="w-4 h-4 mr-2" /> Custom Field
+        </ProfessionalButton>
+      </div>
+
+      {showFieldForm && (
+        <ProfessionalCard variant="elevated" className="p-4 border-l-4 border-l-primary bg-card/50">
+          <form onSubmit={handleCreateField} className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <Input
+              required
+              className="sm:col-span-2 bg-background/50 border-border/50 rounded-xl"
+              placeholder="Field name"
+              value={fieldForm.name}
+              onChange={(event) => setFieldForm({ ...fieldForm, name: event.target.value })}
+            />
+            <select
+              className="flex h-10 w-full rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+              value={fieldForm.field_type}
+              onChange={(event) => setFieldForm({ ...fieldForm, field_type: event.target.value })}
+            >
+              <option value="text">Text</option>
+              <option value="number">Number</option>
+              <option value="date">Date</option>
+              <option value="checkbox">Checkbox</option>
+            </select>
+            <div className="flex justify-end gap-2">
+              <ProfessionalButton type="button" variant="ghost" onClick={() => setShowFieldForm(false)}>Cancel</ProfessionalButton>
+              <ProfessionalButton type="submit" loading={createField.isPending}>Save</ProfessionalButton>
+            </div>
+          </form>
+        </ProfessionalCard>
+      )}
+
+      <DndContext onDragEnd={handleDragEnd}>
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {columns.map((column) => (
+            <KanbanColumnPanel
+              key={column.key}
+              column={column}
+              tasks={tasksByColumn[column.key] || []}
+              customFields={data.custom_fields}
+              currency={project.currency}
+              timerActive={timerActive}
+              newTaskName={newTaskNames[column.key] || ''}
+              onNewTaskName={(value) => setNewTaskNames((prev) => ({ ...prev, [column.key]: value }))}
+              onCreateTask={() => handleCreateTask(column.key)}
+              onOpenTask={setSelectedTask}
+              onStartTimer={handleStartTimer}
+            />
+          ))}
+        </div>
+      </DndContext>
+
+      {selectedTask && (
+        <KanbanTaskDrawer
+          task={selectedTask}
+          customFields={data.custom_fields}
+          project={project}
+          onClose={() => setSelectedTask(null)}
+          onSave={async (updates) => {
+            await updateTask.mutateAsync({ taskId: selectedTask.id, data: updates });
+            setSelectedTask(null);
+          }}
+          saving={updateTask.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+function KanbanColumnPanel({
+  column,
+  tasks,
+  customFields,
+  currency,
+  timerActive,
+  newTaskName,
+  onNewTaskName,
+  onCreateTask,
+  onOpenTask,
+  onStartTimer,
+}: {
+  column: KanbanColumn;
+  tasks: ProjectTask[];
+  customFields: ProjectCustomField[];
+  currency: string;
+  timerActive: boolean;
+  newTaskName: string;
+  onNewTaskName: (value: string) => void;
+  onCreateTask: () => void;
+  onOpenTask: (task: ProjectTask) => void;
+  onStartTimer: (task: ProjectTask) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: column.key });
+
+  return (
+    <section
+      ref={setNodeRef}
+      className={cn(
+        "flex min-h-[520px] w-[320px] shrink-0 flex-col rounded-2xl border border-border/50 bg-muted/20 p-3 transition-colors",
+        isOver && "border-primary/50 bg-primary/5"
+      )}
+    >
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h4 className="font-bold tracking-tight">{column.name}</h4>
+          <p className="text-xs text-muted-foreground">{tasks.length} card{tasks.length === 1 ? '' : 's'}</p>
+        </div>
+        <Badge variant="outline" className="rounded-full text-[10px]">{column.position + 1}</Badge>
+      </div>
+
+      <div className="flex flex-1 flex-col gap-3">
+        {tasks.map((task) => (
+          <KanbanTaskCard
+            key={task.id}
+            task={task}
+            customFields={customFields}
+            currency={currency}
+            timerActive={timerActive}
+            onOpen={() => onOpenTask(task)}
+            onStartTimer={() => onStartTimer(task)}
+          />
+        ))}
+      </div>
+
+      <div className="mt-3 space-y-2 rounded-xl border border-border/50 bg-background/60 p-2">
+        <Input
+          value={newTaskName}
+          onChange={(event) => onNewTaskName(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') onCreateTask();
+          }}
+          placeholder="Add task"
+          className="h-9 rounded-lg border-border/50 bg-background text-sm"
+        />
+        <ProfessionalButton variant="ghost" size="sm" className="w-full justify-center" onClick={onCreateTask}>
+          <Plus className="mr-2 h-3.5 w-3.5" /> Add Card
+        </ProfessionalButton>
+      </div>
+    </section>
+  );
+}
+
+function KanbanTaskCard({
+  task,
+  customFields,
+  currency,
+  timerActive,
+  onOpen,
+  onStartTimer,
+}: {
+  task: ProjectTask;
+  customFields: ProjectCustomField[];
+  currency: string;
+  timerActive: boolean;
+  onOpen: () => void;
+  onStartTimer: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `task-${task.id}`,
+    data: { task },
+  });
+  const style = { transform: CSS.Translate.toString(transform) };
+
+  return (
+    <ProfessionalCard
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "p-4 bg-card border border-border/60 shadow-sm transition-all hover:border-primary/30 hover:shadow-md",
+        isDragging && "opacity-70 shadow-xl"
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <button
+          type="button"
+          className="mt-0.5 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <button type="button" className="min-w-0 flex-1 text-left" onClick={onOpen}>
+          <div className="font-bold text-sm tracking-tight text-foreground">{task.name}</div>
+          {task.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.description}</p>}
+        </button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-medium text-muted-foreground">
+        <Badge variant="outline" className="rounded-md text-[10px]">{(task.actual_hours || 0).toFixed(1)}h logged</Badge>
+        {task.estimated_hours != null && <Badge variant="outline" className="rounded-md text-[10px]">Est {task.estimated_hours}h</Badge>}
+        {task.priority && <Badge variant="outline" className="rounded-md text-[10px]">{task.priority}</Badge>}
+        {task.due_date && (
+          <Badge variant="outline" className="rounded-md text-[10px]">
+            <CalendarDays className="mr-1 h-3 w-3" /> {task.due_date}
+          </Badge>
+        )}
+      </div>
+
+      {customFields.length > 0 && (
+        <div className="mt-3 space-y-1 border-t border-border/50 pt-3">
+          {customFields.slice(0, 3).map((field) => {
+            const value = task.custom_fields?.[field.key];
+            if (value === undefined || value === null || value === '') return null;
+            return (
+              <div key={field.id} className="flex items-center justify-between gap-2 text-[11px]">
+                <span className="truncate text-muted-foreground">{field.name}</span>
+                <span className="truncate font-semibold text-foreground">{String(value)}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-3">
+        <span className="text-[11px] font-semibold text-muted-foreground">
+          {task.hourly_rate != null ? `${currency} ${task.hourly_rate}/hr` : 'Project rate'}
+        </span>
+        <ProfessionalButton
+          variant="ghost"
+          size="icon-sm"
+          disabled={timerActive || task.status === 'completed'}
+          onClick={onStartTimer}
+          title="Start timer"
+        >
+          <Play className="h-3.5 w-3.5" />
+        </ProfessionalButton>
+      </div>
+    </ProfessionalCard>
+  );
+}
+
+function KanbanTaskDrawer({
+  task,
+  customFields,
+  project,
+  onClose,
+  onSave,
+  saving,
+}: {
+  task: ProjectTask;
+  customFields: ProjectCustomField[];
+  project: Project;
+  onClose: () => void;
+  onSave: (updates: Partial<ProjectTask>) => Promise<void>;
+  saving: boolean;
+}) {
+  const [form, setForm] = useState({
+    name: task.name,
+    description: task.description || '',
+    estimated_hours: task.estimated_hours != null ? String(task.estimated_hours) : '',
+    hourly_rate: task.hourly_rate != null ? String(task.hourly_rate) : '',
+    priority: task.priority || '',
+    due_date: task.due_date || '',
+    custom_fields: { ...(task.custom_fields || {}) } as Record<string, unknown>,
+  });
+
+  const setCustomField = (key: string, value: unknown) => {
+    setForm((prev) => ({ ...prev, custom_fields: { ...prev.custom_fields, [key]: value } }));
+  };
+
+  const handleSave = async () => {
+    await onSave({
+      name: form.name,
+      description: form.description || null,
+      estimated_hours: form.estimated_hours ? parseFloat(form.estimated_hours) : null,
+      hourly_rate: form.hourly_rate ? parseFloat(form.hourly_rate) : null,
+      priority: form.priority || null,
+      due_date: form.due_date || null,
+      custom_fields: form.custom_fields,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm">
+      <ProfessionalCard variant="elevated" className="h-full w-full max-w-xl overflow-y-auto rounded-none p-6 shadow-2xl">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-bold tracking-tight">Task Details</h3>
+            <p className="text-sm text-muted-foreground">Update the card, billing details, and project custom fields.</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-4">
+          <Input
+            value={form.name}
+            onChange={(event) => setForm({ ...form, name: event.target.value })}
+            className="bg-background/50 border-border/50 rounded-xl"
+            placeholder="Task name"
+          />
+          <textarea
+            value={form.description}
+            onChange={(event) => setForm({ ...form, description: event.target.value })}
+            className="min-h-28 w-full rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+            placeholder="Description"
+          />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Input
+              type="number"
+              step="0.25"
+              value={form.estimated_hours}
+              onChange={(event) => setForm({ ...form, estimated_hours: event.target.value })}
+              className="bg-background/50 border-border/50 rounded-xl"
+              placeholder="Estimated hours"
+            />
+            <Input
+              type="number"
+              step="0.01"
+              value={form.hourly_rate}
+              onChange={(event) => setForm({ ...form, hourly_rate: event.target.value })}
+              className="bg-background/50 border-border/50 rounded-xl"
+              placeholder={`Hourly rate (${project.currency})`}
+            />
+            <select
+              value={form.priority}
+              onChange={(event) => setForm({ ...form, priority: event.target.value })}
+              className="flex h-10 w-full rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+            >
+              <option value="">No priority</option>
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+              <option value="Urgent">Urgent</option>
+            </select>
+            <Input
+              type="date"
+              value={form.due_date}
+              onChange={(event) => setForm({ ...form, due_date: event.target.value })}
+              className="bg-background/50 border-border/50 rounded-xl"
+            />
+          </div>
+
+          {customFields.length > 0 && (
+            <div className="space-y-3 rounded-2xl border border-border/50 bg-muted/20 p-4">
+              <h4 className="text-sm font-bold tracking-tight">Custom Fields</h4>
+              {customFields.map((field) => (
+                <label key={field.id} className="block space-y-1.5 text-sm font-medium">
+                  <span>{field.name}</span>
+                  {field.field_type === 'checkbox' ? (
+                    <input
+                      type="checkbox"
+                      checked={Boolean(form.custom_fields[field.key])}
+                      onChange={(event) => setCustomField(field.key, event.target.checked)}
+                      className="h-4 w-4 rounded border-border"
+                    />
+                  ) : (
+                    <Input
+                      type={field.field_type === 'number' ? 'number' : field.field_type === 'date' ? 'date' : 'text'}
+                      value={String(form.custom_fields[field.key] ?? '')}
+                      onChange={(event) => {
+                        const value = field.field_type === 'number' && event.target.value
+                          ? Number(event.target.value)
+                          : event.target.value;
+                        setCustomField(field.key, value);
+                      }}
+                      className="bg-background/50 border-border/50 rounded-xl"
+                    />
+                  )}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2 border-t border-border/50 pt-4">
+          <ProfessionalButton variant="ghost" onClick={onClose}>Cancel</ProfessionalButton>
+          <ProfessionalButton variant="gradient" loading={saving} onClick={handleSave}>
+            <Save className="mr-2 h-4 w-4" /> Save Card
+          </ProfessionalButton>
+        </div>
+      </ProfessionalCard>
     </div>
   );
 }

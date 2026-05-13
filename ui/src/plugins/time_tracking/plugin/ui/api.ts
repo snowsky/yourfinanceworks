@@ -39,9 +39,45 @@ export interface ProjectTask {
   estimated_hours?: number | null;
   hourly_rate?: number | null;
   status: string;
+  kanban_status: string;
+  kanban_position: number;
+  priority?: string | null;
+  due_date?: string | null;
+  custom_fields: Record<string, unknown>;
   created_at: string;
   updated_at: string;
   actual_hours?: number;
+}
+
+export interface KanbanColumn {
+  id: number;
+  project_id: number;
+  key: string;
+  name: string;
+  position: number;
+  hidden: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectCustomField {
+  id: number;
+  project_id: number;
+  key: string;
+  name: string;
+  field_type: string;
+  options: string[];
+  required: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectKanban {
+  project: Project;
+  columns: KanbanColumn[];
+  tasks: ProjectTask[];
+  custom_fields: ProjectCustomField[];
 }
 
 export interface TimeEntry {
@@ -184,6 +220,26 @@ export const projectApi = {
 
   deleteTask: (projectId: number, taskId: number) =>
     api.delete<void>(`/projects/${projectId}/tasks/${taskId}`),
+
+  getKanban: (projectId: number) =>
+    api.get<ProjectKanban>(`/projects/${projectId}/kanban`),
+
+  reorderKanban: (
+    projectId: number,
+    data: { tasks: Array<{ task_id: number; kanban_status: string; kanban_position: number }> }
+  ) => api.post<ProjectTask[]>(`/projects/${projectId}/kanban/reorder`, data),
+
+  updateKanbanColumns: (projectId: number, columns: Array<Pick<KanbanColumn, 'key' | 'name' | 'position' | 'hidden'>>) =>
+    api.patch<KanbanColumn[]>(`/projects/${projectId}/kanban/columns`, columns),
+
+  createCustomField: (projectId: number, data: Partial<ProjectCustomField>) =>
+    api.post<ProjectCustomField>(`/projects/${projectId}/custom-fields`, data),
+
+  updateCustomField: (projectId: number, fieldId: number, data: Partial<ProjectCustomField>) =>
+    api.patch<ProjectCustomField>(`/projects/${projectId}/custom-fields/${fieldId}`, data),
+
+  deleteCustomField: (projectId: number, fieldId: number) =>
+    api.delete<void>(`/projects/${projectId}/custom-fields/${fieldId}`),
 };
 
 // -------------------------------------------------------------------------

@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { projectApi, timeEntryApi, Project, ProjectTask, TimeEntry } from './api';
+import { projectApi, timeEntryApi, Project, ProjectCustomField, ProjectTask, TimeEntry } from './api';
 
 // -------------------------------------------------------------------------
 // Project hooks
@@ -102,6 +102,13 @@ export const useProjectTasks = (projectId: number) =>
     enabled: !!projectId,
   });
 
+export const useProjectKanban = (projectId: number) =>
+  useQuery({
+    queryKey: ['project-kanban', projectId],
+    queryFn: () => projectApi.getKanban(projectId),
+    enabled: !!projectId,
+  });
+
 export const useCreateTask = (projectId: number) => {
   const qc = useQueryClient();
   return useMutation({
@@ -109,6 +116,7 @@ export const useCreateTask = (projectId: number) => {
     onSuccess: () => {
       toast.success('Task created');
       qc.invalidateQueries({ queryKey: ['project-tasks', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-kanban', projectId] });
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to create task'),
   });
@@ -122,6 +130,8 @@ export const useUpdateTask = (projectId: number) => {
     onSuccess: () => {
       toast.success('Task updated');
       qc.invalidateQueries({ queryKey: ['project-tasks', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-kanban', projectId] });
+      qc.invalidateQueries({ queryKey: ['time-entries'] });
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to update task'),
   });
@@ -134,8 +144,34 @@ export const useDeleteTask = (projectId: number) => {
     onSuccess: () => {
       toast.success('Task deleted');
       qc.invalidateQueries({ queryKey: ['project-tasks', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-kanban', projectId] });
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to delete task'),
+  });
+};
+
+export const useReorderKanbanTasks = (projectId: number) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (tasks: Array<{ task_id: number; kanban_status: string; kanban_position: number }>) =>
+      projectApi.reorderKanban(projectId, { tasks }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-kanban', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-tasks', projectId] });
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to move task'),
+  });
+};
+
+export const useCreateCustomField = (projectId: number) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<ProjectCustomField>) => projectApi.createCustomField(projectId, data),
+    onSuccess: () => {
+      toast.success('Custom field created');
+      qc.invalidateQueries({ queryKey: ['project-kanban', projectId] });
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to create custom field'),
   });
 };
 

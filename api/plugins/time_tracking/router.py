@@ -31,10 +31,12 @@ from core.models.models_per_tenant import Client, Invoice, InvoiceItem, Expense
 from core.routers.auth import get_current_user
 from core.utils.audit import log_audit_event
 
-from .models import Project, ProjectTask, TimeEntry
+from .models import Project, ProjectCustomField, ProjectKanbanColumn, ProjectTask, TimeEntry
 from .schemas import (
     ProjectCreate, ProjectUpdate, ProjectResponse,
     ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskResponse,
+    KanbanColumnResponse, KanbanColumnUpdate, KanbanReorderRequest, ProjectKanbanResponse,
+    ProjectCustomFieldCreate, ProjectCustomFieldUpdate, ProjectCustomFieldResponse,
     TimeEntryCreate, TimeEntryUpdate, TimeEntryResponse,
     TimerStartRequest, TimerStopRequest, TimerActiveResponse,
     ProjectSummaryResponse, UnbilledItemsResponse,
@@ -45,6 +47,14 @@ from .schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_KANBAN_COLUMNS = [
+    {"key": "backlog", "name": "Backlog", "position": 0},
+    {"key": "todo", "name": "To Do", "position": 1},
+    {"key": "in_progress", "name": "In Progress", "position": 2},
+    {"key": "review", "name": "Review", "position": 3},
+    {"key": "done", "name": "Done", "position": 4},
+]
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -84,6 +94,63 @@ def _enrich_project(project: Project, db: Session) -> dict:
         "total_amount_logged": round(float(amount_agg), 2),
     }
     return data
+
+
+def _task_with_actual_hours(task: ProjectTask, db: Session) -> dict:
+    actual_minutes = (
+        db.query(func.sum(TimeEntry.duration_minutes))
+        .filter(TimeEntry.task_id == task.id, TimeEntry.status != "in_progress")
+        .scalar()
+    ) or 0
+    data = {
+        "id": task.id,
+        "project_id": task.project_id,
+        "name": task.name,
+        "description": task.description,
+        "estimated_hours": task.estimated_hours,
+        "hourly_rate": task.hourly_rate,
+        "status": task.status,
+        "kanban_status": task.kanban_status or "todo",
+        "kanban_position": task.kanban_position or 0,
+        "priority": task.priority,
+        "due_date": task.due_date,
+        "custom_fields": task.custom_fields or {},
+        "created_at": task.created_at,
+        "updated_at": task.updated_at,
+        "actual_hours": round(actual_minutes / 60.0, 2),
+    }
+    return data
+
+
+def _ensure_default_kanban_columns(project_id: int, db: Session) -> List[ProjectKanbanColumn]:
+    columns = (
+        db.query(ProjectKanbanColumn)
+        .filter(ProjectKanbanColumn.project_id == project_id)
+        .order_by(ProjectKanbanColumn.position.asc(), ProjectKanbanColumn.id.asc())
+        .all()
+    )
+    if columns:
+        return columns
+
+    now = datetime.now(timezone.utc)
+    for column in DEFAULT_KANBAN_COLUMNS:
+        db.add(ProjectKanbanColumn(project_id=project_id, created_at=now, updated_at=now, **column))
+    db.commit()
+    return (
+        db.query(ProjectKanbanColumn)
+        .filter(ProjectKanbanColumn.project_id == project_id)
+        .order_by(ProjectKanbanColumn.position.asc(), ProjectKanbanColumn.id.asc())
+        .all()
+    )
+
+
+def _next_task_position(project_id: int, kanban_status: str, db: Session) -> int:
+    current_max = (
+        db.query(func.max(ProjectTask.kanban_position))
+        .filter(ProjectTask.project_id == project_id, ProjectTask.kanban_status == kanban_status)
+        .scalar()
+    )
+    return int(current_max or 0) + 1
 
 
 def _enrich_time_entry(entry: TimeEntry, db: Session) -> dict:
@@ -883,6 +950,11 @@ def create_task(
         estimated_hours=payload.estimated_hours,
         hourly_rate=payload.hourly_rate,
         status=payload.status,
+        kanban_status=payload.kanban_status,
+        kanban_position=payload.kanban_position or _next_task_position(project_id, payload.kanban_status, db),
+        priority=payload.priority,
+        due_date=payload.due_date,
+        custom_fields=payload.custom_fields or {},
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
     )
@@ -916,16 +988,222 @@ def list_tasks(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    tasks = db.query(ProjectTask).filter(ProjectTask.project_id == project_id).all()
-    results = []
-    for task in tasks:
-        actual_minutes = (
-            db.query(func.sum(TimeEntry.duration_minutes))
-            .filter(TimeEntry.task_id == task.id, TimeEntry.status != "in_progress")
-            .scalar()
-        ) or 0
-        results.append({**task.__dict__, "actual_hours": round(actual_minutes / 60.0, 2)})
-    return results
+    tasks = (
+        db.query(ProjectTask)
+        .filter(ProjectTask.project_id == project_id)
+        .order_by(ProjectTask.kanban_status.asc(), ProjectTask.kanban_position.asc(), ProjectTask.id.asc())
+        .all()
+    )
+    return [_task_with_actual_hours(task, db) for task in tasks]
+
+
+@projects_router.get("/{project_id}/kanban", response_model=ProjectKanbanResponse)
+def get_project_kanban(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    columns = _ensure_default_kanban_columns(project_id, db)
+    tasks = (
+        db.query(ProjectTask)
+        .filter(ProjectTask.project_id == project_id)
+        .order_by(ProjectTask.kanban_status.asc(), ProjectTask.kanban_position.asc(), ProjectTask.id.asc())
+        .all()
+    )
+    custom_fields = (
+        db.query(ProjectCustomField)
+        .filter(ProjectCustomField.project_id == project_id)
+        .order_by(ProjectCustomField.position.asc(), ProjectCustomField.id.asc())
+        .all()
+    )
+    return {
+        "project": _enrich_project(project, db),
+        "columns": columns,
+        "tasks": [_task_with_actual_hours(task, db) for task in tasks],
+        "custom_fields": custom_fields,
+    }
+
+
+@projects_router.patch("/{project_id}/kanban/columns", response_model=List[KanbanColumnResponse])
+def update_kanban_columns(
+    project_id: int,
+    payload: List[KanbanColumnUpdate],
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    existing = {
+        column.key: column
+        for column in db.query(ProjectKanbanColumn).filter(ProjectKanbanColumn.project_id == project_id).all()
+    }
+    seen_keys = set()
+    now = datetime.now(timezone.utc)
+    for item in payload:
+        if item.key in seen_keys:
+            raise HTTPException(status_code=400, detail=f"Duplicate Kanban column key: {item.key}")
+        seen_keys.add(item.key)
+        column = existing.get(item.key)
+        if not column:
+            column = ProjectKanbanColumn(project_id=project_id, key=item.key, created_at=now)
+            db.add(column)
+        column.name = item.name
+        column.position = item.position
+        column.hidden = item.hidden
+        column.updated_at = now
+
+    db.commit()
+    return (
+        db.query(ProjectKanbanColumn)
+        .filter(ProjectKanbanColumn.project_id == project_id)
+        .order_by(ProjectKanbanColumn.position.asc(), ProjectKanbanColumn.id.asc())
+        .all()
+    )
+
+
+@projects_router.post("/{project_id}/kanban/reorder", response_model=List[ProjectTaskResponse])
+def reorder_kanban_tasks(
+    project_id: int,
+    payload: KanbanReorderRequest,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    task_ids = [item.task_id for item in payload.tasks]
+    if len(task_ids) != len(set(task_ids)):
+        raise HTTPException(status_code=400, detail="Duplicate task IDs in reorder request")
+
+    tasks = db.query(ProjectTask).filter(ProjectTask.id.in_(task_ids)).all() if task_ids else []
+    by_id = {task.id: task for task in tasks}
+    if len(by_id) != len(task_ids) or any(task.project_id != project_id for task in tasks):
+        raise HTTPException(status_code=400, detail="All reordered tasks must belong to the project")
+
+    valid_column_keys = {
+        column.key for column in _ensure_default_kanban_columns(project_id, db) if not column.hidden
+    }
+    now = datetime.now(timezone.utc)
+    for item in payload.tasks:
+        if item.kanban_status not in valid_column_keys:
+            raise HTTPException(status_code=400, detail=f"Unknown Kanban column: {item.kanban_status}")
+        task = by_id[item.task_id]
+        task.kanban_status = item.kanban_status
+        task.kanban_position = item.kanban_position
+        task.status = "completed" if item.kanban_status == "done" else "active"
+        task.updated_at = now
+
+    db.commit()
+    updated = (
+        db.query(ProjectTask)
+        .filter(ProjectTask.project_id == project_id)
+        .order_by(ProjectTask.kanban_status.asc(), ProjectTask.kanban_position.asc(), ProjectTask.id.asc())
+        .all()
+    )
+    return [_task_with_actual_hours(task, db) for task in updated]
+
+
+@projects_router.post("/{project_id}/custom-fields", response_model=ProjectCustomFieldResponse, status_code=201)
+def create_custom_field(
+    project_id: int,
+    payload: ProjectCustomFieldCreate,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    duplicate = (
+        db.query(ProjectCustomField)
+        .filter(ProjectCustomField.project_id == project_id, ProjectCustomField.key == payload.key)
+        .first()
+    )
+    if duplicate:
+        raise HTTPException(status_code=409, detail="A custom field with this key already exists")
+
+    now = datetime.now(timezone.utc)
+    field = ProjectCustomField(project_id=project_id, created_at=now, updated_at=now, **payload.model_dump())
+    db.add(field)
+    db.commit()
+    db.refresh(field)
+    return field
+
+
+@projects_router.get("/{project_id}/custom-fields", response_model=List[ProjectCustomFieldResponse])
+def list_custom_fields(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    return (
+        db.query(ProjectCustomField)
+        .filter(ProjectCustomField.project_id == project_id)
+        .order_by(ProjectCustomField.position.asc(), ProjectCustomField.id.asc())
+        .all()
+    )
+
+
+@projects_router.patch("/{project_id}/custom-fields/{field_id}", response_model=ProjectCustomFieldResponse)
+def update_custom_field(
+    project_id: int,
+    field_id: int,
+    payload: ProjectCustomFieldUpdate,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    field = (
+        db.query(ProjectCustomField)
+        .filter(ProjectCustomField.id == field_id, ProjectCustomField.project_id == project_id)
+        .first()
+    )
+    if not field:
+        raise HTTPException(status_code=404, detail="Custom field not found")
+
+    updates = payload.model_dump(exclude_unset=True)
+    if "key" in updates:
+        duplicate = (
+            db.query(ProjectCustomField)
+            .filter(
+                ProjectCustomField.project_id == project_id,
+                ProjectCustomField.key == updates["key"],
+                ProjectCustomField.id != field_id,
+            )
+            .first()
+        )
+        if duplicate:
+            raise HTTPException(status_code=409, detail="A custom field with this key already exists")
+    for name, value in updates.items():
+        setattr(field, name, value)
+    field.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(field)
+    return field
+
+
+@projects_router.delete("/{project_id}/custom-fields/{field_id}", status_code=204)
+def delete_custom_field(
+    project_id: int,
+    field_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    field = (
+        db.query(ProjectCustomField)
+        .filter(ProjectCustomField.id == field_id, ProjectCustomField.project_id == project_id)
+        .first()
+    )
+    if not field:
+        raise HTTPException(status_code=404, detail="Custom field not found")
+    db.delete(field)
+    db.commit()
 
 
 @projects_router.patch("/{project_id}/tasks/{task_id}", response_model=ProjectTaskResponse)
@@ -943,7 +1221,13 @@ def update_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if updates.get("status") == "completed" and "kanban_status" not in updates:
+        updates["kanban_status"] = "done"
+    elif updates.get("status") == "active" and task.kanban_status == "done" and "kanban_status" not in updates:
+        updates["kanban_status"] = "todo"
+
+    for field, value in updates.items():
         setattr(task, field, value)
     task.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -957,7 +1241,7 @@ def update_task(
         resource_type="project_task",
         resource_id=str(task.id),
         resource_name=task.name,
-        details=payload.model_dump(exclude_unset=True),
+        details=updates,
         status="success"
     )
 
@@ -1027,7 +1311,14 @@ def timer_start(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    task = db.query(ProjectTask).filter(ProjectTask.id == payload.task_id).first() if payload.task_id else None
+    task = (
+        db.query(ProjectTask)
+        .filter(ProjectTask.id == payload.task_id, ProjectTask.project_id == payload.project_id)
+        .first()
+        if payload.task_id else None
+    )
+    if payload.task_id and not task:
+        raise HTTPException(status_code=404, detail="Task not found for this project")
     now = datetime.now(timezone.utc)
     started = payload.started_at or now
     hourly_rate = _resolve_hourly_rate(payload.hourly_rate if payload.hourly_rate > 0 else None, task, project)
@@ -1551,7 +1842,14 @@ def create_time_entry(
         raise HTTPException(status_code=404, detail="Project not found")
 
     now = datetime.now(timezone.utc)
-    task = db.query(ProjectTask).filter(ProjectTask.id == payload.task_id).first() if payload.task_id else None
+    task = (
+        db.query(ProjectTask)
+        .filter(ProjectTask.id == payload.task_id, ProjectTask.project_id == payload.project_id)
+        .first()
+        if payload.task_id else None
+    )
+    if payload.task_id and not task:
+        raise HTTPException(status_code=404, detail="Task not found for this project")
     hourly_rate = _resolve_hourly_rate(payload.hourly_rate if payload.hourly_rate > 0 else None, task, project)
 
     # Compute duration if ended_at is provided and duration_minutes is not
@@ -1639,11 +1937,21 @@ def update_time_entry(
     if not entry:
         raise HTTPException(status_code=404, detail="Time entry not found")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if "task_id" in updates and updates["task_id"] is not None:
+        task = (
+            db.query(ProjectTask)
+            .filter(ProjectTask.id == updates["task_id"], ProjectTask.project_id == entry.project_id)
+            .first()
+        )
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found for this project")
+
+    for field, value in updates.items():
         setattr(entry, field, value)
 
     # Recompute duration from started_at/ended_at if both are set and duration_minutes not explicit
-    if entry.started_at and entry.ended_at and "duration_minutes" not in payload.model_dump(exclude_unset=True):
+    if entry.started_at and entry.ended_at and "duration_minutes" not in updates:
         delta = entry.ended_at - entry.started_at
         entry.duration_minutes = max(1, int(delta.total_seconds() / 60))
 

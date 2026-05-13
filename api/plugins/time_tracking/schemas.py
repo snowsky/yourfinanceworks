@@ -11,8 +11,8 @@ Covers:
 """
 
 from __future__ import annotations
-from typing import Optional, List
-from datetime import datetime
+from typing import Any, Dict, Optional, List
+from datetime import date, datetime
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -74,6 +74,11 @@ class ProjectTaskBase(BaseModel):
     estimated_hours: Optional[float] = None
     hourly_rate: Optional[float] = None
     status: str = "active"
+    kanban_status: str = "todo"
+    kanban_position: int = 0
+    priority: Optional[str] = None
+    due_date: Optional[date] = None
+    custom_fields: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ProjectTaskCreate(ProjectTaskBase):
@@ -86,6 +91,11 @@ class ProjectTaskUpdate(BaseModel):
     estimated_hours: Optional[float] = None
     hourly_rate: Optional[float] = None
     status: Optional[str] = None
+    kanban_status: Optional[str] = None
+    kanban_position: Optional[int] = None
+    priority: Optional[str] = None
+    due_date: Optional[date] = None
+    custom_fields: Optional[Dict[str, Any]] = None
 
 
 class ProjectTaskResponse(ProjectTaskBase):
@@ -98,6 +108,78 @@ class ProjectTaskResponse(ProjectTaskBase):
     actual_hours: Optional[float] = None
 
     model_config = {"from_attributes": True}
+
+
+class KanbanColumnBase(BaseModel):
+    key: str
+    name: str
+    position: int = 0
+    hidden: bool = False
+
+
+class KanbanColumnUpdate(BaseModel):
+    id: Optional[int] = None
+    key: str
+    name: str
+    position: int = 0
+    hidden: bool = False
+
+
+class KanbanColumnResponse(KanbanColumnBase):
+    id: int
+    project_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ProjectCustomFieldBase(BaseModel):
+    key: str
+    name: str
+    field_type: str = "text"
+    options: List[str] = Field(default_factory=list)
+    required: bool = False
+    position: int = 0
+
+
+class ProjectCustomFieldCreate(ProjectCustomFieldBase):
+    pass
+
+
+class ProjectCustomFieldUpdate(BaseModel):
+    key: Optional[str] = None
+    name: Optional[str] = None
+    field_type: Optional[str] = None
+    options: Optional[List[str]] = None
+    required: Optional[bool] = None
+    position: Optional[int] = None
+
+
+class ProjectCustomFieldResponse(ProjectCustomFieldBase):
+    id: int
+    project_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class KanbanTaskMove(BaseModel):
+    task_id: int
+    kanban_status: str
+    kanban_position: int
+
+
+class KanbanReorderRequest(BaseModel):
+    tasks: List[KanbanTaskMove]
+
+
+class ProjectKanbanResponse(BaseModel):
+    project: ProjectResponse
+    columns: List[KanbanColumnResponse]
+    tasks: List[ProjectTaskResponse]
+    custom_fields: List[ProjectCustomFieldResponse]
 
 
 # ---------------------------------------------------------------------------
