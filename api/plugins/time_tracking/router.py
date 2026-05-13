@@ -1799,7 +1799,13 @@ async def import_time_entries_csv(
 
             project_id = _parse_int(row.get("project_id"))
             project_name = str(row.get("project_name") or "").strip()
-            if project_id:
+            if missing_project_strategy == "existing_project":
+                if not fallback_project:
+                    raise ValueError("Fallback project not found")
+                project = fallback_project
+                client_id = project.client_id
+                reused_project_ids.add(project.id)
+            elif project_id:
                 project = db.query(Project).filter(Project.id == project_id).first()
                 if not project:
                     raise ValueError(f"Project #{project_id} was not found")
@@ -1864,13 +1870,7 @@ async def import_time_entries_csv(
                 if missing_project_strategy == "error":
                     raise ValueError("Project name or project_id is required")
 
-                if missing_project_strategy == "existing_project":
-                    if not fallback_project:
-                        raise ValueError("Fallback project not found")
-                    project = fallback_project
-                    client_id = project.client_id
-                    reused_project_ids.add(project.id)
-                elif missing_project_strategy == "single_project":
+                if missing_project_strategy == "single_project":
                     if shared_missing_project:
                         project = shared_missing_project
                         client_id = project.client_id

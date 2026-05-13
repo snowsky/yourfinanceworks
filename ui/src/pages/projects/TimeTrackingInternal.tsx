@@ -736,7 +736,7 @@ function MyTimeTab() {
                   onChange={(e) => setMissingProjectStrategy(e.target.value as MissingProjectStrategy)}
                 >
                   <option value="error">Skip rows and show errors</option>
-                  <option value="existing_project">Merge tasks into an existing project</option>
+                  <option value="existing_project">Merge all rows into an existing project</option>
                   <option value="single_project">Create one new project for the import</option>
                   <option value="row_project">Create each row as its own project</option>
                 </select>
