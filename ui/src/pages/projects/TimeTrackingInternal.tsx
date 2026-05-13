@@ -110,14 +110,15 @@ function ProjectsTab() {
     });
   };
 
-  const handleBulkStatus = async (status: 'completed' | 'archived') => {
+  const handleBulkStatus = async (status: 'active' | 'completed' | 'archived') => {
     const ids = selectedProjectIds.filter((id) => selectableProjectIds.includes(id));
     if (!ids.length) return;
 
     setBulkUpdating(true);
     try {
       await Promise.all(ids.map((projectId) => projectApi.update(projectId, { status })));
-      toast.success(`${ids.length} project${ids.length === 1 ? '' : 's'} ${status === 'completed' ? 'closed' : 'archived'}`);
+      const verb = status === 'active' ? 'reopened' : status === 'completed' ? 'closed' : 'archived';
+      toast.success(`${ids.length} project${ids.length === 1 ? '' : 's'} ${verb}`);
       setSelectedProjectIds((prev) => prev.filter((id) => !ids.includes(id)));
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['project-summary'] });
@@ -290,6 +291,15 @@ function ProjectsTab() {
             <span>{selectedVisibleIds.length ? `${selectedVisibleIds.length} selected` : 'Select visible projects'}</span>
           </label>
           <div className="flex gap-2">
+            <ProfessionalButton
+              variant="outline"
+              size="sm"
+              disabled={selectedVisibleIds.length === 0 || bulkUpdating}
+              loading={bulkUpdating}
+              onClick={() => handleBulkStatus('active')}
+            >
+              Reopen Selected
+            </ProfessionalButton>
             <ProfessionalButton
               variant="outline"
               size="sm"
