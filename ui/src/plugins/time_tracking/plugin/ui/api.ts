@@ -180,7 +180,7 @@ export const projectApi = {
     api.post<ProjectTask>(`/projects/${projectId}/tasks`, { ...data, project_id: projectId }),
 
   updateTask: (projectId: number, taskId: number, data: Partial<ProjectTask>) =>
-    api.put<ProjectTask>(`/projects/${projectId}/tasks/${taskId}`, data),
+    api.patch<ProjectTask>(`/projects/${projectId}/tasks/${taskId}`, data),
 
   deleteTask: (projectId: number, taskId: number) =>
     api.delete<void>(`/projects/${projectId}/tasks/${taskId}`),

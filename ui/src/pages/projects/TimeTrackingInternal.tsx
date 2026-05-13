@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FolderKanban, Clock, Plus, Download, Search, DollarSign, Users, Activity, Calendar, Upload, Sparkles } from 'lucide-react';
+import { Archive, CheckCircle2, FolderKanban, Clock, Plus, Download, Search, DollarSign, Users, Activity, Calendar, Upload, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useProjects, useCreateProject, useImportTimeEntriesCsv, useTimeEntries } from '@/plugins/time_tracking/plugin/ui/hooks';
+import { useProjects, useCreateProject, useImportTimeEntriesCsv, useTimeEntries, useUpdateProject } from '@/plugins/time_tracking/plugin/ui/hooks';
 import { timeEntryApi, Project } from '@/plugins/time_tracking/plugin/ui/api';
 import { toast } from 'sonner';
 import { PageHeader, ContentSection, EmptyState } from '@/components/ui/professional-layout';
@@ -102,6 +102,34 @@ function ProjectsTab() {
     navigate(`/projects/${result.id}`);
   };
 
+  const emptyCopy = search
+    ? {
+        title: 'No projects found',
+        description: 'No projects match your current search criteria.',
+        action: undefined,
+      }
+    : statusFilter === 'completed'
+      ? {
+          title: 'No completed projects',
+          description: 'Active projects will appear here after you mark them complete.',
+          action: undefined,
+        }
+      : statusFilter === 'archived'
+        ? {
+            title: 'No archived projects',
+            description: 'Archived projects will appear here when you archive them from a project card or detail page.',
+            action: undefined,
+          }
+        : {
+            title: 'No projects found',
+            description: "It looks like you haven't created any projects yet.",
+            action: (
+              <Button variant="default" onClick={() => setShowNewForm(true)}>
+                <Plus className="w-4 h-4 mr-2" /> Create First Project
+              </Button>
+            ),
+          };
+
   return (
     <div className="space-y-6">
       {/* Toolbar */}
@@ -197,14 +225,10 @@ function ProjectsTab() {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
-          title="No projects found"
-          description={search ? "No projects match your current search criteria." : "It looks like you haven't created any projects yet."}
+          title={emptyCopy.title}
+          description={emptyCopy.description}
           icon={<FolderKanban className="w-12 h-12" />}
-          action={
-            <Button variant="default" onClick={() => setShowNewForm(true)}>
-              <Plus className="w-4 h-4 mr-2" /> Create First Project
-            </Button>
-          }
+          action={emptyCopy.action}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -218,6 +242,7 @@ function ProjectsTab() {
 }
 
 function ProjectCardUI({ project, onClick }: { project: Project; onClick: () => void }) {
+  const updateProject = useUpdateProject(project.id);
   const pct = project.budget_hours
     ? Math.min(100, ((project.total_hours_logged || 0) / project.budget_hours) * 100)
     : null;
@@ -282,12 +307,48 @@ function ProjectCardUI({ project, onClick }: { project: Project; onClick: () => 
       )}
 
       <div className="mt-6 pt-4 border-t border-border/30">
-        <ProfessionalButton
-          variant="outline"
-          className="w-full rounded-xl font-bold shadow-sm border-secondary/30 text-secondary hover:bg-secondary/5 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300"
-        >
-          View Details
-        </ProfessionalButton>
+        <div className="grid grid-cols-2 gap-2">
+          {project.status === 'active' ? (
+            <>
+              <ProfessionalButton
+                variant="outline"
+                size="sm"
+                className="rounded-xl"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  updateProject.mutate({ status: 'completed' });
+                }}
+                leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+              >
+                Complete
+              </ProfessionalButton>
+              <ProfessionalButton
+                variant="ghost"
+                size="sm"
+                className="rounded-xl"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  updateProject.mutate({ status: 'archived' });
+                }}
+                leftIcon={<Archive className="w-3.5 h-3.5" />}
+              >
+                Archive
+              </ProfessionalButton>
+            </>
+          ) : (
+            <ProfessionalButton
+              variant="outline"
+              size="sm"
+              className="col-span-2 rounded-xl"
+              onClick={(e) => {
+                e.stopPropagation();
+                updateProject.mutate({ status: 'active' });
+              }}
+            >
+              Reopen Project
+            </ProfessionalButton>
+          )}
+        </div>
       </div>
     </ProfessionalCard>
   );

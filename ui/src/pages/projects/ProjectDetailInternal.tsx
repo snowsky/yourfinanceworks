@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  Clock, DollarSign, ListChecks,
+  Archive, Clock, DollarSign, ListChecks,
   Receipt, BarChart3, Plus, Trash2, Play, FileText, CheckCircle2, AlertCircle, Edit2, Save, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   useProject, useProjectSummary, useProjectTasks,
   useTimeEntries, useUnbilledItems, useCreateInvoiceFromProject,
-  useCreateTask, useDeleteTask, useDeleteTimeEntry, useUpdateTimeEntry, useUpdateProject
+  useCreateTask, useDeleteTask, useDeleteTimeEntry, useUpdateTimeEntry, useUpdateProject, useUpdateTask
 } from '@/plugins/time_tracking/plugin/ui/hooks';
 import { SearchableClientSelect } from '@/plugins/time_tracking/plugin/ui/components/SearchableClientSelect';
 import { Project, ProjectSummary, TimeEntry, ProjectTask } from '@/plugins/time_tracking/plugin/ui/api';
@@ -109,6 +109,10 @@ export default function ProjectDetailInternal() {
     setIsEditing(false);
   };
 
+  const handleProjectStatus = async (status: 'active' | 'completed' | 'archived') => {
+    await updateProject.mutateAsync({ status });
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
       <PageHeader
@@ -187,7 +191,35 @@ export default function ProjectDetailInternal() {
                 <Badge variant="outline" className={cn("px-3 py-1 rounded-full border border-border/50 font-bold uppercase tracking-wider text-[10px]", project.status === 'active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30' : 'bg-slate-100 text-slate-700 dark:bg-slate-800')}>
                   {project.status}
                 </Badge>
-                {!timerActive && (
+                {project.status === 'active' && (
+                  <ProfessionalButton
+                    onClick={() => handleProjectStatus('completed')}
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                  >
+                    Complete
+                  </ProfessionalButton>
+                )}
+                {project.status === 'active' ? (
+                  <ProfessionalButton
+                    onClick={() => handleProjectStatus('archived')}
+                    variant="ghost"
+                    size="sm"
+                    leftIcon={<Archive className="w-3.5 h-3.5" />}
+                  >
+                    Archive
+                  </ProfessionalButton>
+                ) : (
+                  <ProfessionalButton
+                    onClick={() => handleProjectStatus('active')}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Reopen
+                  </ProfessionalButton>
+                )}
+                {!timerActive && project.status === 'active' && (
                   <ProfessionalButton
                     onClick={openTimerDialog}
                     variant="gradient"
@@ -448,6 +480,7 @@ function OverviewTab({ summary, project }: { summary?: ProjectSummary; project: 
 function TasksTab({ projectId, tasks, projectHourlyRate }: { projectId: number; tasks: ProjectTask[]; projectHourlyRate?: number | null }) {
   const createTask = useCreateTask(projectId);
   const deleteTask = useDeleteTask(projectId);
+  const updateTask = useUpdateTask(projectId);
   const [newTask, setNewTask] = useState({ name: '', estimated_hours: '', hourly_rate: '' });
   const [showAdd, setShowAdd] = useState(false);
 
@@ -509,7 +542,12 @@ function TasksTab({ projectId, tasks, projectHourlyRate }: { projectId: number; 
         {tasks.map((task) => (
           <ProfessionalCard key={task.id} className="p-4 bg-card/50 border border-border/50 hover:border-primary/20 transition-all hover:shadow-md group flex items-center justify-between">
             <div>
-              <div className="text-foreground font-bold text-sm tracking-tight">{task.name}</div>
+              <div className="flex items-center gap-2">
+                <div className="text-foreground font-bold text-sm tracking-tight">{task.name}</div>
+                <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 rounded-md", task.status === 'completed' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200')}>
+                  {task.status}
+                </Badge>
+              </div>
               <div className="text-muted-foreground text-[10px] mt-1 flex items-center gap-2 font-medium">
                 <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded-md">
                    {task.estimated_hours ? `Est: ${task.estimated_hours}h` : 'No estimate'}
@@ -520,14 +558,34 @@ function TasksTab({ projectId, tasks, projectHourlyRate }: { projectId: number; 
                 <span className="text-primary font-bold">Logged: {(task.actual_hours || 0).toFixed(1)}h</span>
               </div>
             </div>
-            <ProfessionalButton 
-              variant="ghost" 
-              size="icon-sm" 
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-              onClick={() => deleteTask.mutate(task.id)}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </ProfessionalButton>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {task.status === 'completed' ? (
+                <ProfessionalButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => updateTask.mutate({ taskId: task.id, data: { status: 'active' } })}
+                >
+                  Reopen
+                </ProfessionalButton>
+              ) : (
+                <ProfessionalButton
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground hover:text-primary"
+                  onClick={() => updateTask.mutate({ taskId: task.id, data: { status: 'completed' } })}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </ProfessionalButton>
+              )}
+              <ProfessionalButton
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => deleteTask.mutate(task.id)}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </ProfessionalButton>
+            </div>
           </ProfessionalCard>
         ))}
       </div>
