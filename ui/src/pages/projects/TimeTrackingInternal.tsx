@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Archive, CheckCircle2, FolderKanban, Clock, Plus, Download, Search, DollarSign, Users, Activity, Calendar, Upload, Sparkles, Grid3X3, List } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProjects, useCreateProject, useImportTimeEntriesCsv, useTimeEntries, useUpdateProject } from '@/plugins/time_tracking/plugin/ui/hooks';
-import { timeEntryApi, Project } from '@/plugins/time_tracking/plugin/ui/api';
+import { projectApi, timeEntryApi, Project } from '@/plugins/time_tracking/plugin/ui/api';
 import { toast } from 'sonner';
 import { PageHeader, ContentSection, EmptyState } from '@/components/ui/professional-layout';
 import { ProfessionalCard, MetricCard } from '@/components/ui/professional-card';
@@ -74,9 +75,12 @@ const STATUS_COLORS: Record<string, string> = {
 
 function ProjectsTab() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
+  const [selectedProjectIds, setSelectedProjectIds] = useState<number[]>([]);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', client_id: undefined as number | undefined, billing_method: 'hourly', hourly_rate: '', currency: 'USD' });
 
@@ -87,6 +91,43 @@ function ProjectsTab() {
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     (p.client_name || '').toLowerCase().includes(search.toLowerCase())
   );
+  const selectableProjectIds = filtered.map((project) => project.id);
+  const selectedVisibleIds = selectedProjectIds.filter((id) => selectableProjectIds.includes(id));
+  const allVisibleSelected = selectableProjectIds.length > 0 && selectedVisibleIds.length === selectableProjectIds.length;
+
+  const toggleProjectSelection = (projectId: number) => {
+    setSelectedProjectIds((prev) =>
+      prev.includes(projectId) ? prev.filter((id) => id !== projectId) : [...prev, projectId]
+    );
+  };
+
+  const toggleVisibleSelection = () => {
+    setSelectedProjectIds((prev) => {
+      if (allVisibleSelected) {
+        return prev.filter((id) => !selectableProjectIds.includes(id));
+      }
+      return Array.from(new Set([...prev, ...selectableProjectIds]));
+    });
+  };
+
+  const handleBulkStatus = async (status: 'completed' | 'archived') => {
+    const ids = selectedProjectIds.filter((id) => selectableProjectIds.includes(id));
+    if (!ids.length) return;
+
+    setBulkUpdating(true);
+    try {
+      await Promise.all(ids.map((projectId) => projectApi.update(projectId, { status })));
+      toast.success(`${ids.length} project${ids.length === 1 ? '' : 's'} ${status === 'completed' ? 'closed' : 'archived'}`);
+      setSelectedProjectIds((prev) => prev.filter((id) => !ids.includes(id)));
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['project-unbilled'] });
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update selected projects');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -237,6 +278,42 @@ function ProjectsTab() {
         </ProfessionalCard>
       )}
 
+      {filtered.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between rounded-2xl border border-border/50 bg-card/40 p-3 shadow-sm">
+          <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-border"
+              checked={allVisibleSelected}
+              onChange={toggleVisibleSelection}
+            />
+            <span>{selectedVisibleIds.length ? `${selectedVisibleIds.length} selected` : 'Select visible projects'}</span>
+          </label>
+          <div className="flex gap-2">
+            <ProfessionalButton
+              variant="outline"
+              size="sm"
+              disabled={selectedVisibleIds.length === 0 || bulkUpdating}
+              loading={bulkUpdating}
+              onClick={() => handleBulkStatus('completed')}
+              leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+            >
+              Close Selected
+            </ProfessionalButton>
+            <ProfessionalButton
+              variant="ghost"
+              size="sm"
+              disabled={selectedVisibleIds.length === 0 || bulkUpdating}
+              loading={bulkUpdating}
+              onClick={() => handleBulkStatus('archived')}
+              leftIcon={<Archive className="w-3.5 h-3.5" />}
+            >
+              Archive Selected
+            </ProfessionalButton>
+          </div>
+        </div>
+      )}
+
       {/* Projects grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -255,11 +332,22 @@ function ProjectsTab() {
         viewMode === 'cards' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((project) => (
-              <ProjectCardUI key={project.id} project={project} onClick={() => navigate(`/projects/${project.id}`)} />
+              <ProjectCardUI
+                key={project.id}
+                project={project}
+                selected={selectedProjectIds.includes(project.id)}
+                onSelect={() => toggleProjectSelection(project.id)}
+                onClick={() => navigate(`/projects/${project.id}`)}
+              />
             ))}
           </div>
         ) : (
-          <ProjectListUI projects={filtered} onOpen={(projectId) => navigate(`/projects/${projectId}`)} />
+          <ProjectListUI
+            projects={filtered}
+            selectedIds={selectedProjectIds}
+            onToggleSelection={toggleProjectSelection}
+            onOpen={(projectId) => navigate(`/projects/${projectId}`)}
+          />
         )
       )}
     </div>
@@ -315,7 +403,17 @@ function ProjectStatusActions({ project, compact = false }: { project: Project; 
   );
 }
 
-function ProjectListUI({ projects, onOpen }: { projects: Project[]; onOpen: (projectId: number) => void }) {
+function ProjectListUI({
+  projects,
+  selectedIds,
+  onToggleSelection,
+  onOpen,
+}: {
+  projects: Project[];
+  selectedIds: number[];
+  onToggleSelection: (projectId: number) => void;
+  onOpen: (projectId: number) => void;
+}) {
   return (
     <div className="space-y-2">
       {projects.map((project) => (
@@ -325,7 +423,14 @@ function ProjectListUI({ projects, onOpen }: { projects: Project[]; onOpen: (pro
           onClick={() => onOpen(project.id)}
           className="p-4 bg-card/50 border border-border/50 hover:border-primary/20 transition-all"
         >
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_1fr_0.8fr_auto] gap-4 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1.5fr)_1fr_0.8fr_auto] gap-4 items-center">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-border"
+              checked={selectedIds.includes(project.id)}
+              onClick={(e) => e.stopPropagation()}
+              onChange={() => onToggleSelection(project.id)}
+            />
             <div className="min-w-0">
               <div className="flex items-center gap-2 min-w-0">
                 <FolderKanban className="h-4 w-4 text-primary shrink-0" />
@@ -366,7 +471,17 @@ function ProjectListUI({ projects, onOpen }: { projects: Project[]; onOpen: (pro
   );
 }
 
-function ProjectCardUI({ project, onClick }: { project: Project; onClick: () => void }) {
+function ProjectCardUI({
+  project,
+  selected,
+  onSelect,
+  onClick,
+}: {
+  project: Project;
+  selected: boolean;
+  onSelect: () => void;
+  onClick: () => void;
+}) {
   const pct = project.budget_hours
     ? Math.min(100, ((project.total_hours_logged || 0) / project.budget_hours) * 100)
     : null;
@@ -378,6 +493,13 @@ function ProjectCardUI({ project, onClick }: { project: Project; onClick: () => 
       onClick={onClick}
       className="group relative overflow-hidden border-border/40 hover:border-primary/30 p-6"
     >
+      <input
+        type="checkbox"
+        className="absolute right-4 top-4 z-10 h-4 w-4 rounded border-border"
+        checked={selected}
+        onClick={(e) => e.stopPropagation()}
+        onChange={onSelect}
+      />
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
