@@ -277,7 +277,8 @@ export const timeEntryApi = {
     useAi: boolean,
     missingProjectStrategy: MissingProjectStrategy,
     fallbackProjectName?: string,
-    fallbackProjectId?: number
+    fallbackProjectId?: number,
+    taskNameColumn?: string
   ) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -288,6 +289,9 @@ export const timeEntryApi = {
     }
     if (fallbackProjectId) {
       formData.append('fallback_project_id', String(fallbackProjectId));
+    }
+    if (taskNameColumn?.trim()) {
+      formData.append('task_name_column', taskNameColumn.trim());
     }
     return apiRequest<TimeImportResult>('/time-entries/import/csv', {
       method: 'POST',

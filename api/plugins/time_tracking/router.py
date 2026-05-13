@@ -293,6 +293,24 @@ def _canonicalize_csv_rows(csv_content: str, field_mapping: Optional[Dict[str, s
     return rows
 
 
+def _apply_task_name_column_override(
+    csv_content: str,
+    rows: List[Dict[str, Any]],
+    task_name_column: Optional[str],
+) -> List[Dict[str, Any]]:
+    if not task_name_column:
+        return rows
+
+    reader = csv.DictReader(io.StringIO(csv_content))
+    headers = reader.fieldnames or []
+    if task_name_column not in headers:
+        raise HTTPException(status_code=400, detail="Selected task name column was not found in the CSV")
+
+    for normalized, raw in zip(rows, reader):
+        normalized["task_name"] = raw.get(task_name_column)
+    return rows
+
+
 def _extract_json_object(text: str) -> Dict[str, Any]:
     cleaned = text.strip()
     if cleaned.startswith("```"):
@@ -1720,6 +1738,7 @@ async def import_time_entries_csv(
     missing_project_strategy: str = Form("error"),
     fallback_project_name: Optional[str] = Form(None),
     fallback_project_id: Optional[int] = Form(None),
+    task_name_column: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
@@ -1757,6 +1776,7 @@ async def import_time_entries_csv(
 
     ai_rows = _normalize_rows_with_ai(csv_content, db) if use_ai else None
     rows = ai_rows or _canonicalize_csv_rows(csv_content)
+    rows = _apply_task_name_column_override(csv_content, rows, task_name_column)
     if not rows:
         raise HTTPException(status_code=400, detail="CSV file has no importable rows")
 

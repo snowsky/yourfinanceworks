@@ -24,6 +24,60 @@ const TAB_OPTIONS = [
 
 type TabId = typeof TAB_OPTIONS[number]['id'];
 
+type CsvPreview = {
+  headers: string[];
+  rows: string[][];
+};
+
+function parseCsvPreview(text: string, maxRows = 5): CsvPreview {
+  const source = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  const parsedRows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let inQuotes = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    const next = source[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      row.push(cell);
+      cell = '';
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && next === '\n') {
+        index += 1;
+      }
+      row.push(cell);
+      parsedRows.push(row);
+      if (parsedRows.length > maxRows) break;
+      row = [];
+      cell = '';
+    } else {
+      cell += char;
+    }
+  }
+
+  if (parsedRows.length <= maxRows && (cell || row.length)) {
+    row.push(cell);
+    parsedRows.push(row);
+  }
+
+  const [headers = [], ...rows] = parsedRows;
+  return { headers, rows: rows.slice(0, maxRows) };
+}
+
+function guessTaskNameColumn(headers: string[]): string {
+  const aliases = new Set(['task', 'task name', 'task_name', 'activity', 'service']);
+  return headers.find((header) => aliases.has(header.trim().toLowerCase())) || '';
+}
+
 // ─── Root page ────────────────────────────────────────────────────────────────
 
 export default function TimeTracking() {
@@ -592,6 +646,9 @@ function MyTimeTab() {
   const [missingProjectStrategy, setMissingProjectStrategy] = useState<MissingProjectStrategy>('error');
   const [fallbackProjectName, setFallbackProjectName] = useState('');
   const [fallbackProjectId, setFallbackProjectId] = useState('');
+  const [csvPreview, setCsvPreview] = useState<CsvPreview | null>(null);
+  const [csvPreviewError, setCsvPreviewError] = useState('');
+  const [taskNameColumn, setTaskNameColumn] = useState('');
   const [importErrors, setImportErrors] = useState<Array<{ row: number; message: string }>>([]);
 
   const { data: entries = [], isLoading } = useTimeEntries({ limit: 200 });
@@ -630,6 +687,10 @@ function MyTimeTab() {
       toast.error('Choose an existing project for unrecognized rows');
       return;
     }
+    if (!taskNameColumn) {
+      toast.error('Choose which CSV column should be used for task names');
+      return;
+    }
     setImportErrors([]);
     try {
       const result = await importCsv.mutateAsync({
@@ -638,6 +699,7 @@ function MyTimeTab() {
         missingProjectStrategy,
         fallbackProjectName,
         fallbackProjectId: fallbackProjectId ? Number(fallbackProjectId) : undefined,
+        taskNameColumn,
       });
       setImportErrors(result.errors);
       if (result.errors.length) {
@@ -650,6 +712,26 @@ function MyTimeTab() {
       if (detail?.errors?.length) {
         setImportErrors(detail.errors);
       }
+    }
+  };
+
+  const loadCsvPreview = async (file: File | null) => {
+    setCsvPreview(null);
+    setCsvPreviewError('');
+    setTaskNameColumn('');
+
+    if (!file) return;
+
+    try {
+      const preview = parseCsvPreview(await file.text());
+      if (!preview.headers.length) {
+        setCsvPreviewError('CSV header row could not be read');
+        return;
+      }
+      setCsvPreview(preview);
+      setTaskNameColumn(guessTaskNameColumn(preview.headers));
+    } catch (error: unknown) {
+      setCsvPreviewError(error instanceof Error ? error.message : 'CSV preview failed');
     }
   };
 
@@ -713,8 +795,66 @@ function MyTimeTab() {
                   setFallbackProjectName(file.name.replace(/\.csv$/i, ''));
                 }
                 setImportErrors([]);
+                void loadCsvPreview(file);
               }}
             />
+            {(csvPreview || csvPreviewError) && (
+              <div className="grid gap-3 rounded-xl border border-border/50 bg-background/40 p-4">
+                <div className="text-sm font-medium text-foreground">Task name column</div>
+                {csvPreviewError ? (
+                  <div className="text-sm text-red-600 dark:text-red-300">{csvPreviewError}</div>
+                ) : csvPreview ? (
+                  <div className="overflow-x-auto rounded-lg border border-border/50">
+                    <table className="min-w-full text-left text-xs">
+                      <thead className="bg-muted/40">
+                        <tr>
+                          {csvPreview.headers.map((header, index) => {
+                            const selected = taskNameColumn === header;
+                            return (
+                              <th key={`${header}-${index}`} className="whitespace-nowrap border-r border-border/40 p-2 last:border-r-0">
+                                <button
+                                  type="button"
+                                  onClick={() => setTaskNameColumn(header)}
+                                  className={cn(
+                                    'rounded-md border px-2 py-1 text-left transition-colors',
+                                    selected
+                                      ? 'border-primary bg-primary text-primary-foreground'
+                                      : 'border-border/50 bg-background/60 hover:border-primary/60'
+                                  )}
+                                >
+                                  {header || `Column ${index + 1}`}
+                                </button>
+                              </th>
+                            );
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {csvPreview.rows.map((row, rowIndex) => (
+                          <tr key={rowIndex} className="border-t border-border/40">
+                            {csvPreview.headers.map((header, columnIndex) => {
+                              const selected = taskNameColumn === header;
+                              return (
+                                <td
+                                  key={`${rowIndex}-${header}-${columnIndex}`}
+                                  className={cn(
+                                    'max-w-[220px] truncate border-r border-border/40 p-2 last:border-r-0',
+                                    selected && 'bg-primary/10 text-primary'
+                                  )}
+                                  title={row[columnIndex] || ''}
+                                >
+                                  {row[columnIndex] || ''}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </div>
+            )}
             <label className="flex items-center gap-3 text-sm text-muted-foreground">
               <input
                 type="checkbox"
@@ -766,7 +906,7 @@ function MyTimeTab() {
               )}
             </div>
             <div className="flex justify-end">
-              <ProfessionalButton type="submit" loading={importCsv.isPending} disabled={!importFile} variant="default">
+              <ProfessionalButton type="submit" loading={importCsv.isPending} disabled={!importFile || !taskNameColumn} variant="default">
                 Import entries
               </ProfessionalButton>
             </div>
