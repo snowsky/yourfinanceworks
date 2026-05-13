@@ -423,17 +423,32 @@ def _find_client_by_name(db: Session, name: str) -> Optional[Client]:
     return None
 
 
-def _find_project(db: Session, project_name: str, client_id: int) -> Optional[Project]:
+def _find_project(
+    db: Session,
+    project_name: str,
+    client_id: int,
+    statuses: Optional[set[str]] = None,
+) -> Optional[Project]:
     target = project_name.strip().lower()
-    for project in db.query(Project).filter(Project.client_id == client_id).all():
+    query = db.query(Project).filter(Project.client_id == client_id)
+    if statuses is not None:
+        query = query.filter(Project.status.in_(statuses))
+    for project in query.all():
         if project.name.strip().lower() == target:
             return project
     return None
 
 
-def _find_project_by_name(db: Session, project_name: str) -> Optional[Project]:
+def _find_project_by_name(
+    db: Session,
+    project_name: str,
+    statuses: Optional[set[str]] = None,
+) -> Optional[Project]:
     target = project_name.strip().lower()
-    for project in db.query(Project).all():
+    query = db.query(Project)
+    if statuses is not None:
+        query = query.filter(Project.status.in_(statuses))
+    for project in query.all():
         if project.name.strip().lower() == target:
             return project
     return None
@@ -524,11 +539,13 @@ def _get_or_create_import_project(
     now: datetime,
     created_project_ids: set[int],
     reused_project_ids: set[int],
+    reuse_existing: bool = True,
 ) -> Project:
-    project = _find_project(db, project_name, client_id)
-    if project:
-        reused_project_ids.add(project.id)
-        return project
+    if reuse_existing:
+        project = _find_project(db, project_name, client_id, statuses={"active"})
+        if project:
+            reused_project_ids.add(project.id)
+            return project
 
     currency = str(row.get("currency") or "USD").strip().upper()[:3] or "USD"
     project = Project(
@@ -1764,6 +1781,8 @@ async def import_time_entries_csv(
         fallback_project = db.query(Project).filter(Project.id == fallback_project_id).first()
         if not fallback_project:
             raise HTTPException(status_code=404, detail="Fallback project not found")
+        if fallback_project.status != "active":
+            raise HTTPException(status_code=400, detail="Choose an active project for import")
 
     content = await file.read()
     if len(content) > 2 * 1024 * 1024:
@@ -1842,6 +1861,7 @@ async def import_time_entries_csv(
                         now=now,
                         created_project_ids=created_project_ids,
                         reused_project_ids=reused_project_ids,
+                        reuse_existing=False,
                     )
                     shared_missing_project = project
             elif missing_project_strategy == "row_project":
@@ -1856,6 +1876,7 @@ async def import_time_entries_csv(
                     now=now,
                     created_project_ids=created_project_ids,
                     reused_project_ids=reused_project_ids,
+                    reuse_existing=False,
                 )
             elif project_id:
                 project = db.query(Project).filter(Project.id == project_id).first()
@@ -1887,7 +1908,7 @@ async def import_time_entries_csv(
                         result.created_clients += 1
                     client_id = client.id
                 else:
-                    project = _find_project_by_name(db, project_name)
+                    project = _find_project_by_name(db, project_name, statuses={"active"})
                     if project:
                         client_id = project.client_id
                         reused_project_ids.add(project.id)
@@ -1898,7 +1919,7 @@ async def import_time_entries_csv(
                             result.created_clients += 1
                         client_id = client.id
 
-                project = project or _find_project(db, project_name, client_id)
+                project = project or _find_project(db, project_name, client_id, statuses={"active"})
                 if project:
                     reused_project_ids.add(project.id)
                 else:
