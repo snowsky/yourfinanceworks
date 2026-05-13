@@ -439,6 +439,97 @@ def _get_or_create_import_client(db: Session, current_user: MasterUser, now: dat
     return client, True
 
 
+def _project_name_from_import_file(filename: Optional[str]) -> str:
+    if not filename:
+        return "Imported Time"
+    name = filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    if name.lower().endswith(".csv"):
+        name = name[:-4]
+    return name.strip() or "Imported Time"
+
+
+def _project_name_from_import_row(row: Dict[str, Any], row_number: int) -> str:
+    for field in ("description", "task_name", "notes"):
+        value = str(row.get(field) or "").strip()
+        if value:
+            return f"Row {row_number} - {value}"[:120]
+    date_value = str(row.get("date") or row.get("started_at") or "").strip()
+    if date_value:
+        return f"Row {row_number} - Imported Time {date_value}"[:120]
+    return f"Imported Time Row {row_number}"
+
+
+def _client_id_for_import_row(
+    db: Session,
+    row: Dict[str, Any],
+    current_user: MasterUser,
+    now: datetime,
+    result: TimeImportResponse,
+) -> int:
+    client_id = _parse_int(row.get("client_id"))
+    if client_id:
+        client = db.query(Client).filter(Client.id == client_id).first()
+        if not client:
+            raise ValueError(f"Client #{client_id} was not found")
+        return client.id
+
+    client_name = str(row.get("client_name") or "").strip()
+    if client_name:
+        client = _find_client_by_name(db, client_name)
+        if not client:
+            client = Client(
+                name=client_name,
+                preferred_currency=(str(row.get("currency") or "USD").strip().upper()[:3] or "USD"),
+                source="time_import",
+                owner_user_id=current_user.id,
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(client)
+            db.flush()
+            result.created_clients += 1
+        return client.id
+
+    currency = str(row.get("currency") or "USD").strip().upper()[:3] or "USD"
+    client, created_import_client = _get_or_create_import_client(db, current_user, now, currency)
+    if created_import_client:
+        result.created_clients += 1
+    return client.id
+
+
+def _get_or_create_import_project(
+    db: Session,
+    project_name: str,
+    client_id: int,
+    row: Dict[str, Any],
+    current_user: MasterUser,
+    now: datetime,
+    created_project_ids: set[int],
+    reused_project_ids: set[int],
+) -> Project:
+    project = _find_project(db, project_name, client_id)
+    if project:
+        reused_project_ids.add(project.id)
+        return project
+
+    currency = str(row.get("currency") or "USD").strip().upper()[:3] or "USD"
+    project = Project(
+        client_id=client_id,
+        name=project_name,
+        billing_method=str(row.get("billing_method") or "hourly").strip() or "hourly",
+        hourly_rate=_parse_float(row.get("hourly_rate")),
+        status="active",
+        currency=currency,
+        created_by=current_user.id,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(project)
+    db.flush()
+    created_project_ids.add(project.id)
+    return project
+
+
 def _find_task(db: Session, project_id: int, task_name: str) -> Optional[ProjectTask]:
     target = task_name.strip().lower()
     for task in db.query(ProjectTask).filter(ProjectTask.project_id == project_id).all():
@@ -1626,6 +1717,8 @@ def export_monthly(
 async def import_time_entries_csv(
     file: UploadFile = File(...),
     use_ai: bool = Form(False),
+    missing_project_strategy: str = Form("error"),
+    fallback_project_name: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
@@ -1640,6 +1733,9 @@ async def import_time_entries_csv(
     """
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Please upload a CSV file")
+
+    if missing_project_strategy not in {"error", "single_project", "row_project"}:
+        raise HTTPException(status_code=400, detail="Invalid missing project strategy")
 
     content = await file.read()
     if len(content) > 2 * 1024 * 1024:
@@ -1660,6 +1756,7 @@ async def import_time_entries_csv(
     created_project_ids: set[int] = set()
     reused_project_ids: set[int] = set()
     created_task_ids: set[int] = set()
+    shared_missing_project: Optional[Project] = None
 
     for index, row in enumerate(rows, start=2):
         try:
@@ -1755,7 +1852,41 @@ async def import_time_entries_csv(
                     db.flush()
                     created_project_ids.add(project.id)
             else:
-                raise ValueError("Project name or project_id is required")
+                if missing_project_strategy == "error":
+                    raise ValueError("Project name or project_id is required")
+
+                if missing_project_strategy == "single_project":
+                    if shared_missing_project:
+                        project = shared_missing_project
+                        client_id = project.client_id
+                        reused_project_ids.add(project.id)
+                    else:
+                        client_id = _client_id_for_import_row(db, row, current_user, now, result)
+                        fallback_name = str(fallback_project_name or "").strip() or _project_name_from_import_file(file.filename)
+                        project = _get_or_create_import_project(
+                            db=db,
+                            project_name=fallback_name,
+                            client_id=client_id,
+                            row=row,
+                            current_user=current_user,
+                            now=now,
+                            created_project_ids=created_project_ids,
+                            reused_project_ids=reused_project_ids,
+                        )
+                        shared_missing_project = project
+                else:
+                    client_id = _client_id_for_import_row(db, row, current_user, now, result)
+                    fallback_name = _project_name_from_import_row(row, index)
+                    project = _get_or_create_import_project(
+                        db=db,
+                        project_name=fallback_name,
+                        client_id=client_id,
+                        row=row,
+                        current_user=current_user,
+                        now=now,
+                        created_project_ids=created_project_ids,
+                        reused_project_ids=reused_project_ids,
+                    )
 
             task_id = None
             task = None

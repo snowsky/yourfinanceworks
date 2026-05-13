@@ -5,7 +5,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProjects, useCreateProject, useImportTimeEntriesCsv, useTimeEntries, useUpdateProject } from '@/plugins/time_tracking/plugin/ui/hooks';
-import { projectApi, timeEntryApi, Project } from '@/plugins/time_tracking/plugin/ui/api';
+import { projectApi, timeEntryApi } from '@/plugins/time_tracking/plugin/ui/api';
+import type { Project, MissingProjectStrategy } from '@/plugins/time_tracking/plugin/ui/api';
 import { toast } from 'sonner';
 import { PageHeader, ContentSection, EmptyState } from '@/components/ui/professional-layout';
 import { ProfessionalCard, MetricCard } from '@/components/ui/professional-card';
@@ -588,6 +589,8 @@ function MyTimeTab() {
   const [showImport, setShowImport] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [useAiImport, setUseAiImport] = useState(true);
+  const [missingProjectStrategy, setMissingProjectStrategy] = useState<MissingProjectStrategy>('error');
+  const [fallbackProjectName, setFallbackProjectName] = useState('');
   const [importErrors, setImportErrors] = useState<Array<{ row: number; message: string }>>([]);
 
   const { data: entries = [], isLoading } = useTimeEntries({ limit: 200 });
@@ -623,7 +626,12 @@ function MyTimeTab() {
     }
     setImportErrors([]);
     try {
-      const result = await importCsv.mutateAsync({ file: importFile, useAi: useAiImport });
+      const result = await importCsv.mutateAsync({
+        file: importFile,
+        useAi: useAiImport,
+        missingProjectStrategy,
+        fallbackProjectName,
+      });
       setImportErrors(result.errors);
       if (result.errors.length) {
         toast.warning(`${result.errors.length} row${result.errors.length === 1 ? '' : 's'} could not be imported`);
@@ -692,7 +700,11 @@ function MyTimeTab() {
               accept=".csv,text/csv"
               className="bg-background/50 border-border/50 rounded-xl"
               onChange={(e) => {
-                setImportFile(e.target.files?.[0] || null);
+                const file = e.target.files?.[0] || null;
+                setImportFile(file);
+                if (file && !fallbackProjectName.trim()) {
+                  setFallbackProjectName(file.name.replace(/\.csv$/i, ''));
+                }
                 setImportErrors([]);
               }}
             />
@@ -708,6 +720,28 @@ function MyTimeTab() {
                 Use AI to normalize unusual columns when available
               </span>
             </label>
+            <div className="grid gap-3 rounded-xl border border-border/50 bg-background/40 p-4">
+              <label className="grid gap-1.5 text-sm">
+                <span className="font-medium text-foreground">If no project is recognized</span>
+                <select
+                  className="flex h-10 rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all"
+                  value={missingProjectStrategy}
+                  onChange={(e) => setMissingProjectStrategy(e.target.value as MissingProjectStrategy)}
+                >
+                  <option value="error">Skip rows and show errors</option>
+                  <option value="single_project">Create one new project for the import</option>
+                  <option value="row_project">Create each row as its own project</option>
+                </select>
+              </label>
+              {missingProjectStrategy === 'single_project' && (
+                <Input
+                  value={fallbackProjectName}
+                  onChange={(e) => setFallbackProjectName(e.target.value)}
+                  placeholder="Project name"
+                  className="bg-background/50 border-border/50 rounded-xl"
+                />
+              )}
+            </div>
             <div className="flex justify-end">
               <ProfessionalButton type="submit" loading={importCsv.isPending} disabled={!importFile} variant="default">
                 Import entries

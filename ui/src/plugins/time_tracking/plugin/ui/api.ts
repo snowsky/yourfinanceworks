@@ -184,6 +184,8 @@ export interface TimeImportResult {
   errors: TimeImportError[];
 }
 
+export type MissingProjectStrategy = 'error' | 'single_project' | 'row_project';
+
 // -------------------------------------------------------------------------
 // Projects API
 // -------------------------------------------------------------------------
@@ -270,10 +272,14 @@ export const timeEntryApi = {
 
   delete: (id: number) => api.delete<void>(`/time-entries/${id}`),
 
-  importCsv: (file: File, useAi: boolean) => {
+  importCsv: (file: File, useAi: boolean, missingProjectStrategy: MissingProjectStrategy, fallbackProjectName?: string) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('use_ai', String(useAi));
+    formData.append('missing_project_strategy', missingProjectStrategy);
+    if (fallbackProjectName?.trim()) {
+      formData.append('fallback_project_name', fallbackProjectName.trim());
+    }
     return apiRequest<TimeImportResult>('/time-entries/import/csv', {
       method: 'POST',
       body: formData,
