@@ -591,9 +591,11 @@ function MyTimeTab() {
   const [useAiImport, setUseAiImport] = useState(true);
   const [missingProjectStrategy, setMissingProjectStrategy] = useState<MissingProjectStrategy>('error');
   const [fallbackProjectName, setFallbackProjectName] = useState('');
+  const [fallbackProjectId, setFallbackProjectId] = useState('');
   const [importErrors, setImportErrors] = useState<Array<{ row: number; message: string }>>([]);
 
   const { data: entries = [], isLoading } = useTimeEntries({ limit: 200 });
+  const { data: projects = [] } = useProjects({ status: 'active' });
   const importCsv = useImportTimeEntriesCsv();
 
   const monthEntries = entries.filter((e) => {
@@ -624,6 +626,10 @@ function MyTimeTab() {
       toast.error('Choose a CSV file first');
       return;
     }
+    if (missingProjectStrategy === 'existing_project' && !fallbackProjectId) {
+      toast.error('Choose an existing project for unrecognized rows');
+      return;
+    }
     setImportErrors([]);
     try {
       const result = await importCsv.mutateAsync({
@@ -631,6 +637,7 @@ function MyTimeTab() {
         useAi: useAiImport,
         missingProjectStrategy,
         fallbackProjectName,
+        fallbackProjectId: fallbackProjectId ? Number(fallbackProjectId) : undefined,
       });
       setImportErrors(result.errors);
       if (result.errors.length) {
@@ -729,10 +736,26 @@ function MyTimeTab() {
                   onChange={(e) => setMissingProjectStrategy(e.target.value as MissingProjectStrategy)}
                 >
                   <option value="error">Skip rows and show errors</option>
+                  <option value="existing_project">Merge tasks into an existing project</option>
                   <option value="single_project">Create one new project for the import</option>
                   <option value="row_project">Create each row as its own project</option>
                 </select>
               </label>
+              {missingProjectStrategy === 'existing_project' && (
+                <select
+                  className="flex h-10 rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all"
+                  value={fallbackProjectId}
+                  onChange={(e) => setFallbackProjectId(e.target.value)}
+                  required
+                >
+                  <option value="">Choose project</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              )}
               {missingProjectStrategy === 'single_project' && (
                 <Input
                   value={fallbackProjectName}

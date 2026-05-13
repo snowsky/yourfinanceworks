@@ -1719,6 +1719,7 @@ async def import_time_entries_csv(
     use_ai: bool = Form(False),
     missing_project_strategy: str = Form("error"),
     fallback_project_name: Optional[str] = Form(None),
+    fallback_project_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
@@ -1734,8 +1735,16 @@ async def import_time_entries_csv(
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Please upload a CSV file")
 
-    if missing_project_strategy not in {"error", "single_project", "row_project"}:
+    if missing_project_strategy not in {"error", "existing_project", "single_project", "row_project"}:
         raise HTTPException(status_code=400, detail="Invalid missing project strategy")
+
+    fallback_project: Optional[Project] = None
+    if missing_project_strategy == "existing_project":
+        if not fallback_project_id:
+            raise HTTPException(status_code=400, detail="Choose an existing project for unrecognized rows")
+        fallback_project = db.query(Project).filter(Project.id == fallback_project_id).first()
+        if not fallback_project:
+            raise HTTPException(status_code=404, detail="Fallback project not found")
 
     content = await file.read()
     if len(content) > 2 * 1024 * 1024:
@@ -1855,7 +1864,13 @@ async def import_time_entries_csv(
                 if missing_project_strategy == "error":
                     raise ValueError("Project name or project_id is required")
 
-                if missing_project_strategy == "single_project":
+                if missing_project_strategy == "existing_project":
+                    if not fallback_project:
+                        raise ValueError("Fallback project not found")
+                    project = fallback_project
+                    client_id = project.client_id
+                    reused_project_ids.add(project.id)
+                elif missing_project_strategy == "single_project":
                     if shared_missing_project:
                         project = shared_missing_project
                         client_id = project.client_id

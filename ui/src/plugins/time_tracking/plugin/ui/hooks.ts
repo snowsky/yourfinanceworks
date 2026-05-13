@@ -254,12 +254,14 @@ export const useImportTimeEntriesCsv = () => {
       useAi,
       missingProjectStrategy,
       fallbackProjectName,
+      fallbackProjectId,
     }: {
       file: File;
       useAi: boolean;
       missingProjectStrategy: MissingProjectStrategy;
       fallbackProjectName?: string;
-    }) => timeEntryApi.importCsv(file, useAi, missingProjectStrategy, fallbackProjectName),
+      fallbackProjectId?: number;
+    }) => timeEntryApi.importCsv(file, useAi, missingProjectStrategy, fallbackProjectName, fallbackProjectId),
     onSuccess: (result) => {
       const suffix = result.skipped_rows ? `, ${result.skipped_rows} skipped` : '';
       toast.success(`Imported ${result.created_time_entries} time entries${suffix}`);
