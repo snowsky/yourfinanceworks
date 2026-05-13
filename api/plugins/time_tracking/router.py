@@ -70,6 +70,7 @@ def _enrich_project(project: Project, db: Session) -> dict:
         "name": project.name,
         "description": project.description,
         "billing_method": project.billing_method,
+        "hourly_rate": project.hourly_rate,
         "fixed_amount": project.fixed_amount,
         "budget_hours": project.budget_hours,
         "budget_amount": project.budget_amount,
@@ -379,6 +380,16 @@ def _find_task(db: Session, project_id: int, task_name: str) -> Optional[Project
     return None
 
 
+def _resolve_hourly_rate(row_rate: Optional[float], task: Optional[ProjectTask], project: Project) -> float:
+    if row_rate is not None:
+        return row_rate
+    if task and task.hourly_rate is not None:
+        return task.hourly_rate
+    if project.hourly_rate is not None:
+        return project.hourly_rate
+    return 0.0
+
+
 # ---------------------------------------------------------------------------
 # Projects Router
 # ---------------------------------------------------------------------------
@@ -465,6 +476,10 @@ def update_project(
         raise HTTPException(status_code=404, detail="Project not found")
 
     for field, value in payload.model_dump(exclude_unset=True).items():
+        if field == "client_id" and value is not None:
+            client = db.query(Client).filter(Client.id == value).first()
+            if not client:
+                raise HTTPException(status_code=404, detail="Client not found")
         setattr(project, field, value)
     project.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -980,8 +995,10 @@ def timer_start(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    task = db.query(ProjectTask).filter(ProjectTask.id == payload.task_id).first() if payload.task_id else None
     now = datetime.now(timezone.utc)
     started = payload.started_at or now
+    hourly_rate = _resolve_hourly_rate(payload.hourly_rate if payload.hourly_rate > 0 else None, task, project)
 
     entry = TimeEntry(
         project_id=payload.project_id,
@@ -989,7 +1006,7 @@ def timer_start(
         user_id=current_user.id,
         client_id=project.client_id,
         description=payload.description,
-        hourly_rate=payload.hourly_rate,
+        hourly_rate=hourly_rate,
         billable=payload.billable,
         started_at=started,
         ended_at=None,
@@ -1399,10 +1416,12 @@ async def import_time_entries_csv(
                     reused_project_ids.add(project.id)
                 else:
                     currency = str(row.get("currency") or "USD").strip().upper()[:3] or "USD"
+                    project_hourly_rate = _parse_float(row.get("hourly_rate"))
                     project = Project(
                         client_id=client_id,
                         name=project_name,
                         billing_method=str(row.get("billing_method") or "hourly").strip() or "hourly",
+                        hourly_rate=project_hourly_rate,
                         status="active",
                         currency=currency,
                         created_by=current_user.id,
@@ -1416,6 +1435,7 @@ async def import_time_entries_csv(
                 raise ValueError("Project name or project_id is required")
 
             task_id = None
+            task = None
             task_name = str(row.get("task_name") or "").strip()
             if task_name:
                 task = _find_task(db, project.id, task_name)
@@ -1433,7 +1453,7 @@ async def import_time_entries_csv(
                     created_task_ids.add(task.id)
                 task_id = task.id
 
-            hourly_rate = _parse_float(row.get("hourly_rate")) or 0.0
+            hourly_rate = _resolve_hourly_rate(_parse_float(row.get("hourly_rate")), task, project)
             entry = TimeEntry(
                 project_id=project.id,
                 task_id=task_id,
@@ -1499,6 +1519,8 @@ def create_time_entry(
         raise HTTPException(status_code=404, detail="Project not found")
 
     now = datetime.now(timezone.utc)
+    task = db.query(ProjectTask).filter(ProjectTask.id == payload.task_id).first() if payload.task_id else None
+    hourly_rate = _resolve_hourly_rate(payload.hourly_rate if payload.hourly_rate > 0 else None, task, project)
 
     # Compute duration if ended_at is provided and duration_minutes is not
     duration_minutes = payload.duration_minutes
@@ -1517,7 +1539,7 @@ def create_time_entry(
         started_at=payload.started_at,
         ended_at=ended_at,
         duration_minutes=duration_minutes,
-        hourly_rate=payload.hourly_rate,
+        hourly_rate=hourly_rate,
         billable=payload.billable,
         status="logged",
         invoiced=False,

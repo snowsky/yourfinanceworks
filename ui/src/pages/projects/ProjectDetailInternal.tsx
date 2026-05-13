@@ -12,7 +12,7 @@ import {
   useCreateTask, useDeleteTask, useDeleteTimeEntry, useUpdateTimeEntry, useUpdateProject
 } from '@/plugins/time_tracking/plugin/ui/hooks';
 import { SearchableClientSelect } from '@/plugins/time_tracking/plugin/ui/components/SearchableClientSelect';
-import { TimeEntry, ProjectTask } from '@/plugins/time_tracking/plugin/ui/api';
+import { Project, ProjectSummary, TimeEntry, ProjectTask } from '@/plugins/time_tracking/plugin/ui/api';
 import { useTimer } from '@/contexts/TimerContext';
 import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
 import { ProfessionalCard, MetricCard } from '@/components/ui/professional-card';
@@ -31,6 +31,7 @@ export default function ProjectDetailInternal() {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editClientId, setEditClientId] = useState<number | undefined>(undefined);
+  const [editHourlyRate, setEditHourlyRate] = useState('');
   // Timer start dialog
   const [showTimerDialog, setShowTimerDialog] = useState(false);
   const [timerTaskId, setTimerTaskId] = useState<number | undefined>(undefined);
@@ -51,6 +52,7 @@ export default function ProjectDetailInternal() {
     if (project && !isEditing) {
       setEditName(project.name);
       setEditClientId(project.client_id);
+      setEditHourlyRate(project.hourly_rate != null ? String(project.hourly_rate) : '');
     }
   }, [project, isEditing]);
 
@@ -85,7 +87,7 @@ export default function ProjectDetailInternal() {
       project_id: projectId,
       task_id: timerTaskId,
       description: timerDesc || undefined,
-      hourly_rate: selectedTask?.hourly_rate ?? 0,
+      hourly_rate: selectedTask?.hourly_rate ?? project.hourly_rate ?? 0,
     });
     setShowTimerDialog(false);
   };
@@ -95,6 +97,7 @@ export default function ProjectDetailInternal() {
     await updateProject.mutateAsync({
       name: editName,
       client_id: editClientId,
+      hourly_rate: editHourlyRate ? parseFloat(editHourlyRate) : null,
     });
     setIsEditing(false);
   };
@@ -102,6 +105,7 @@ export default function ProjectDetailInternal() {
   const handleCancelEdit = () => {
     setEditName(project.name);
     setEditClientId(project.client_id);
+    setEditHourlyRate(project.hourly_rate != null ? String(project.hourly_rate) : '');
     setIsEditing(false);
   };
 
@@ -123,16 +127,25 @@ export default function ProjectDetailInternal() {
         }
         description={
           isEditing ? (
-            <div className="max-w-md mt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mt-2">
               <SearchableClientSelect
                 value={editClientId}
                 onChange={setEditClientId}
                 placeholder="Select client"
                 className="h-9"
               />
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={editHourlyRate}
+                onChange={(e) => setEditHourlyRate(e.target.value)}
+                placeholder="Project hourly rate"
+                className="h-9 bg-background/50 border-border/50"
+              />
             </div>
           ) : (
-            project.client_name || `Client #${project.client_id}`
+            `${project.client_name || `Client #${project.client_id}`}${project.hourly_rate != null ? ` • ${project.currency} ${project.hourly_rate}/hr` : ''}`
           )
         }
         breadcrumbs={[
@@ -209,11 +222,12 @@ export default function ProjectDetailInternal() {
 
       <ContentSection>
         {tab === 'Overview' && <OverviewTab summary={summary} project={project} />}
-        {tab === 'Tasks' && <TasksTab projectId={projectId} tasks={tasks} />}
+        {tab === 'Tasks' && <TasksTab projectId={projectId} tasks={tasks} projectHourlyRate={project.hourly_rate} />}
         {tab === 'Time Entries' && (
           <TimeEntriesTab
             entries={timeEntries}
             tasks={tasks}
+            project={project}
             onDelete={(id) => deleteEntry.mutate(id)}
           />
         )}
@@ -249,23 +263,34 @@ export default function ProjectDetailInternal() {
             </div>
 
             {tasks.length === 0 ? (
-              /* No tasks — nudge user to create one first */
+              /* No tasks — allow general project timer using the project rate */
               <div className="space-y-4">
-                <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50">
-                  <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20">
+                  <Clock className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-semibold text-amber-800 dark:text-amber-300 text-sm">
-                      No tasks yet
+                    <p className="font-semibold text-foreground text-sm">
+                      General project time
                     </p>
-                    <p className="text-amber-700 dark:text-amber-400 text-xs mt-1">
-                      Create at least one task first so you can set an hourly rate and associate time entries correctly.
+                    <p className="text-muted-foreground text-xs mt-1">
+                      This timer will use the project hourly rate: {project.hourly_rate != null ? `${project.currency} ${project.hourly_rate}/hr` : 'not set, so $0 will be charged'}.
                     </p>
                   </div>
                 </div>
+                <Input
+                  placeholder={`Working on ${project?.name ?? 'project'}…`}
+                  value={timerDesc}
+                  onChange={(e) => setTimerDesc(e.target.value)}
+                  className="bg-background/50 border-border/50 rounded-xl text-sm"
+                />
                 <div className="flex gap-2 justify-end">
                   <ProfessionalButton variant="ghost" onClick={() => setShowTimerDialog(false)}>Cancel</ProfessionalButton>
-                  <ProfessionalButton variant="gradient" onClick={() => { setShowTimerDialog(false); setTab('Tasks'); }}>
-                    <Plus className="w-4 h-4 mr-1" /> Go to Tasks
+                  <ProfessionalButton
+                    variant="gradient"
+                    className="shadow-lg shadow-primary/20"
+                    leftIcon={<Play className="w-3.5 h-3.5" />}
+                    onClick={handleStartTimer}
+                  >
+                    Start
                   </ProfessionalButton>
                 </div>
               </div>
@@ -279,24 +304,26 @@ export default function ProjectDetailInternal() {
                   <select
                     className="flex h-10 w-full rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all cursor-pointer"
                     value={timerTaskId ?? ''}
-                    onChange={(e) => setTimerTaskId(Number(e.target.value))}
+                    onChange={(e) => setTimerTaskId(e.target.value ? Number(e.target.value) : undefined)}
                   >
+                    <option value="">General project time</option>
                     {tasks.map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.name}{t.hourly_rate ? ` — $${t.hourly_rate}/hr` : ' — no rate set'}
+                        {t.name}{t.hourly_rate ? ` — $${t.hourly_rate}/hr` : ' — inherits project rate'}
                       </option>
                     ))}
                   </select>
                   {/* Rate preview */}
                   {(() => {
                     const sel = tasks.find((t) => t.id === timerTaskId);
-                    return sel ? (
+                    const rate = sel?.hourly_rate ?? project.hourly_rate ?? null;
+                    return (
                       <p className="text-xs text-muted-foreground mt-1.5">
-                        Hourly rate: <span className={cn("font-semibold", sel.hourly_rate ? 'text-foreground' : 'text-amber-500')}>
-                          {sel.hourly_rate ? `$${sel.hourly_rate}/hr` : 'not set — time tracked but $0 charged'}
+                        Hourly rate: <span className={cn("font-semibold", rate != null ? 'text-foreground' : 'text-amber-500')}>
+                          {rate != null ? `$${rate}/hr` : 'not set — time tracked but $0 charged'}
                         </span>
                       </p>
-                    ) : null;
+                    );
                   })()}
                 </div>
 
@@ -319,7 +346,6 @@ export default function ProjectDetailInternal() {
                     className="shadow-lg shadow-primary/20"
                     leftIcon={<Play className="w-3.5 h-3.5" />}
                     onClick={handleStartTimer}
-                    disabled={!timerTaskId}
                   >
                     Start
                   </ProfessionalButton>
@@ -335,7 +361,7 @@ export default function ProjectDetailInternal() {
 
 // ---- Sub-components ----
 
-function OverviewTab({ summary, project }: any) {
+function OverviewTab({ summary, project }: { summary?: ProjectSummary; project: Project }) {
   if (!summary) return <div className="text-muted-foreground animate-pulse py-8">Calculating summary statistics…</div>;
   
   return (
@@ -368,6 +394,23 @@ function OverviewTab({ summary, project }: any) {
           variant="success"
         />
       </div>
+
+      <ProfessionalCard variant="elevated" className="p-6 bg-card/50 backdrop-blur-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-primary" />
+              Project Hourly Rate
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Used when a task does not define its own rate.
+            </p>
+          </div>
+          <div className="text-2xl font-bold tracking-tight">
+            {project.hourly_rate != null ? `${project.currency} ${project.hourly_rate}/hr` : 'Not set'}
+          </div>
+        </div>
+      </ProfessionalCard>
 
       {summary.budget_hours && (
         <ProfessionalCard variant="elevated" className="p-6 bg-card/50 backdrop-blur-sm">
@@ -402,7 +445,7 @@ function OverviewTab({ summary, project }: any) {
   );
 }
 
-function TasksTab({ projectId, tasks }: { projectId: number; tasks: ProjectTask[] }) {
+function TasksTab({ projectId, tasks, projectHourlyRate }: { projectId: number; tasks: ProjectTask[]; projectHourlyRate?: number | null }) {
   const createTask = useCreateTask(projectId);
   const deleteTask = useDeleteTask(projectId);
   const [newTask, setNewTask] = useState({ name: '', estimated_hours: '', hourly_rate: '' });
@@ -472,7 +515,7 @@ function TasksTab({ projectId, tasks }: { projectId: number; tasks: ProjectTask[
                    {task.estimated_hours ? `Est: ${task.estimated_hours}h` : 'No estimate'}
                 </Badge>
                 <span className="opacity-30">•</span>
-                <span>{task.hourly_rate ? `$${task.hourly_rate}/hr` : 'No rate'}</span>
+                <span>{task.hourly_rate ? `$${task.hourly_rate}/hr` : projectHourlyRate != null ? `Inherits $${projectHourlyRate}/hr` : 'No rate'}</span>
                 <span className="opacity-30">•</span>
                 <span className="text-primary font-bold">Logged: {(task.actual_hours || 0).toFixed(1)}h</span>
               </div>
@@ -498,7 +541,7 @@ function TasksTab({ projectId, tasks }: { projectId: number; tasks: ProjectTask[
   );
 }
 
-function TimeEntriesTab({ entries, tasks, onDelete }: { entries: TimeEntry[]; tasks: import('@/plugins/time_tracking/plugin/ui/api').ProjectTask[]; onDelete: (id: number) => void }) {
+function TimeEntriesTab({ entries, tasks, project, onDelete }: { entries: TimeEntry[]; tasks: ProjectTask[]; project: Project; onDelete: (id: number) => void }) {
   const updateEntry = useUpdateTimeEntry();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({ description: '', hours: '', billable: true, task_id: undefined as number | undefined });
@@ -518,6 +561,7 @@ function TimeEntriesTab({ entries, tasks, onDelete }: { entries: TimeEntry[]; ta
   const saveEdit = async (entry: TimeEntry) => {
     const projectId = entry.project_id;
     const selectedTask = tasks.find((t) => t.id === editForm.task_id);
+    const hourlyRate = selectedTask?.hourly_rate ?? project.hourly_rate;
     await updateEntry.mutateAsync({
       id: entry.id,
       data: {
@@ -526,7 +570,7 @@ function TimeEntriesTab({ entries, tasks, onDelete }: { entries: TimeEntry[]; ta
         billable: editForm.billable,
         task_id: editForm.task_id ?? null,
         // Keep hourly_rate in sync with chosen task
-        ...(selectedTask?.hourly_rate != null ? { hourly_rate: selectedTask.hourly_rate } : {}),
+        ...(hourlyRate != null ? { hourly_rate: hourlyRate } : {}),
         project_id: projectId,
       },
     });
@@ -551,7 +595,7 @@ function TimeEntriesTab({ entries, tasks, onDelete }: { entries: TimeEntry[]; ta
                   <option value="">— No task —</option>
                   {tasks.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name}{t.hourly_rate ? ` — $${t.hourly_rate}/hr` : ''}
+                      {t.name}{t.hourly_rate ? ` — $${t.hourly_rate}/hr` : project.hourly_rate != null ? ` — inherits $${project.hourly_rate}/hr` : ''}
                     </option>
                   ))}
                 </select>
@@ -739,4 +783,3 @@ function UnbilledTab({ unbilled, selectedIds, onToggleEntry, onSelectAll, isAllS
     </div>
   );
 }
-

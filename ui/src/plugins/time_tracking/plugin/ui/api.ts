@@ -16,6 +16,7 @@ export interface Project {
   name: string;
   description?: string | null;
   billing_method: string;
+  hourly_rate?: number | null;
   fixed_amount?: number | null;
   budget_hours?: number | null;
   budget_amount?: number | null;

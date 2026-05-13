@@ -77,7 +77,7 @@ function ProjectsTab() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
   const [showNewForm, setShowNewForm] = useState(false);
-  const [newProject, setNewProject] = useState({ name: '', client_id: undefined as number | undefined, billing_method: 'hourly', currency: 'USD' });
+  const [newProject, setNewProject] = useState({ name: '', client_id: undefined as number | undefined, billing_method: 'hourly', hourly_rate: '', currency: 'USD' });
 
   const { data: projects = [], isLoading } = useProjects({ status: statusFilter || undefined });
   const createProject = useCreateProject();
@@ -94,10 +94,11 @@ function ProjectsTab() {
       name: newProject.name,
       client_id: newProject.client_id,
       billing_method: newProject.billing_method,
+      hourly_rate: newProject.hourly_rate ? parseFloat(newProject.hourly_rate) : undefined,
       currency: newProject.currency,
     });
     setShowNewForm(false);
-    setNewProject({ name: '', client_id: undefined, billing_method: 'hourly', currency: 'USD' });
+    setNewProject({ name: '', client_id: undefined, billing_method: 'hourly', hourly_rate: '', currency: 'USD' });
     navigate(`/projects/${result.id}`);
   };
 
@@ -168,6 +169,15 @@ function ProjectsTab() {
               <option value="hourly">Hourly</option>
               <option value="fixed_cost">Fixed Cost</option>
             </select>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              className="col-span-1 sm:col-span-2 bg-background/50 border-border/50 rounded-xl px-3 py-2 text-sm focus-visible:ring-primary/20"
+              placeholder="Project hourly rate"
+              value={newProject.hourly_rate}
+              onChange={(e) => setNewProject({ ...newProject, hourly_rate: e.target.value })}
+            />
             <div className="col-span-1 sm:col-span-4 flex gap-2 justify-end mt-2">
               <ProfessionalButton type="button" variant="ghost" onClick={() => setShowNewForm(false)}>Cancel</ProfessionalButton>
               <ProfessionalButton type="submit" loading={createProject.isPending} variant="default">

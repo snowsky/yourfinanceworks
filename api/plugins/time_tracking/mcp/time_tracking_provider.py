@@ -49,6 +49,7 @@ class TimeTrackingMCPProvider:
             "name": project.name,
             "description": project.description,
             "billing_method": project.billing_method,
+            "hourly_rate": project.hourly_rate,
             "status": project.status,
             "total_hours_logged": round(hours_agg / 60.0, 2) if hours_agg else 0.0,
             "total_amount_logged": round(float(amount_agg), 2),
