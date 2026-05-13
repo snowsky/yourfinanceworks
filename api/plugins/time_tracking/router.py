@@ -1805,6 +1805,38 @@ async def import_time_entries_csv(
                 project = fallback_project
                 client_id = project.client_id
                 reused_project_ids.add(project.id)
+            elif missing_project_strategy == "single_project":
+                if shared_missing_project:
+                    project = shared_missing_project
+                    client_id = project.client_id
+                    reused_project_ids.add(project.id)
+                else:
+                    client_id = _client_id_for_import_row(db, row, current_user, now, result)
+                    fallback_name = str(fallback_project_name or "").strip() or _project_name_from_import_file(file.filename)
+                    project = _get_or_create_import_project(
+                        db=db,
+                        project_name=fallback_name,
+                        client_id=client_id,
+                        row=row,
+                        current_user=current_user,
+                        now=now,
+                        created_project_ids=created_project_ids,
+                        reused_project_ids=reused_project_ids,
+                    )
+                    shared_missing_project = project
+            elif missing_project_strategy == "row_project":
+                client_id = _client_id_for_import_row(db, row, current_user, now, result)
+                fallback_name = _project_name_from_import_row(row, index)
+                project = _get_or_create_import_project(
+                    db=db,
+                    project_name=fallback_name,
+                    client_id=client_id,
+                    row=row,
+                    current_user=current_user,
+                    now=now,
+                    created_project_ids=created_project_ids,
+                    reused_project_ids=reused_project_ids,
+                )
             elif project_id:
                 project = db.query(Project).filter(Project.id == project_id).first()
                 if not project:
@@ -1867,41 +1899,7 @@ async def import_time_entries_csv(
                     db.flush()
                     created_project_ids.add(project.id)
             else:
-                if missing_project_strategy == "error":
-                    raise ValueError("Project name or project_id is required")
-
-                if missing_project_strategy == "single_project":
-                    if shared_missing_project:
-                        project = shared_missing_project
-                        client_id = project.client_id
-                        reused_project_ids.add(project.id)
-                    else:
-                        client_id = _client_id_for_import_row(db, row, current_user, now, result)
-                        fallback_name = str(fallback_project_name or "").strip() or _project_name_from_import_file(file.filename)
-                        project = _get_or_create_import_project(
-                            db=db,
-                            project_name=fallback_name,
-                            client_id=client_id,
-                            row=row,
-                            current_user=current_user,
-                            now=now,
-                            created_project_ids=created_project_ids,
-                            reused_project_ids=reused_project_ids,
-                        )
-                        shared_missing_project = project
-                else:
-                    client_id = _client_id_for_import_row(db, row, current_user, now, result)
-                    fallback_name = _project_name_from_import_row(row, index)
-                    project = _get_or_create_import_project(
-                        db=db,
-                        project_name=fallback_name,
-                        client_id=client_id,
-                        row=row,
-                        current_user=current_user,
-                        now=now,
-                        created_project_ids=created_project_ids,
-                        reused_project_ids=reused_project_ids,
-                    )
+                raise ValueError("Project name or project_id is required")
 
             task_id = None
             task = None

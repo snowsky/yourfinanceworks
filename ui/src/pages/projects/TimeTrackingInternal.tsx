@@ -729,13 +729,13 @@ function MyTimeTab() {
             </label>
             <div className="grid gap-3 rounded-xl border border-border/50 bg-background/40 p-4">
               <label className="grid gap-1.5 text-sm">
-                <span className="font-medium text-foreground">If no project is recognized</span>
+                <span className="font-medium text-foreground">Project handling</span>
                 <select
                   className="flex h-10 rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all"
                   value={missingProjectStrategy}
                   onChange={(e) => setMissingProjectStrategy(e.target.value as MissingProjectStrategy)}
                 >
-                  <option value="error">Skip rows and show errors</option>
+                  <option value="error">Use projects from CSV; skip missing rows</option>
                   <option value="existing_project">Merge all rows into an existing project</option>
                   <option value="single_project">Create one new project for the import</option>
                   <option value="row_project">Create each row as its own project</option>
