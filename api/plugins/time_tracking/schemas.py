@@ -25,6 +25,7 @@ class ProjectBase(BaseModel):
     name: str
     description: Optional[str] = None
     billing_method: str = "hourly"   # 'hourly' | 'fixed_cost'
+    hourly_rate: Optional[float] = None
     fixed_amount: Optional[float] = None
     budget_hours: Optional[float] = None
     budget_amount: Optional[float] = None
@@ -37,9 +38,11 @@ class ProjectCreate(ProjectBase):
 
 
 class ProjectUpdate(BaseModel):
+    client_id: Optional[int] = None
     name: Optional[str] = None
     description: Optional[str] = None
     billing_method: Optional[str] = None
+    hourly_rate: Optional[float] = None
     fixed_amount: Optional[float] = None
     budget_hours: Optional[float] = None
     budget_amount: Optional[float] = None
@@ -288,3 +291,23 @@ class TimeExportRow(BaseModel):
     status: str
     invoiced: bool
     invoice_number: Optional[str]
+
+
+# ---------------------------------------------------------------------------
+# CSV import
+# ---------------------------------------------------------------------------
+
+class TimeImportError(BaseModel):
+    row: int
+    message: str
+
+
+class TimeImportResponse(BaseModel):
+    created_clients: int = 0
+    created_projects: int = 0
+    reused_projects: int = 0
+    created_tasks: int = 0
+    created_time_entries: int = 0
+    skipped_rows: int = 0
+    ai_used: bool = False
+    errors: List[TimeImportError] = []

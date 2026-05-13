@@ -57,6 +57,9 @@ export const useUpdateProject = (id: number) => {
       toast.success('Project updated');
       qc.invalidateQueries({ queryKey: ['project', id] });
       qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['project-summary', id] });
+      qc.invalidateQueries({ queryKey: ['project-unbilled', id] });
+      qc.invalidateQueries({ queryKey: ['time-entries'] });
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to update project'),
   });
@@ -203,6 +206,23 @@ export const useDeleteTimeEntry = () => {
       qc.invalidateQueries({ queryKey: ['project-unbilled'] });
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to delete time entry'),
+  });
+};
+
+export const useImportTimeEntriesCsv = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ file, useAi }: { file: File; useAi: boolean }) =>
+      timeEntryApi.importCsv(file, useAi),
+    onSuccess: (result) => {
+      const suffix = result.skipped_rows ? `, ${result.skipped_rows} skipped` : '';
+      toast.success(`Imported ${result.created_time_entries} time entries${suffix}`);
+      qc.invalidateQueries({ queryKey: ['time-entries'] });
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['project-summary'] });
+      qc.invalidateQueries({ queryKey: ['project-unbilled'] });
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Failed to import CSV'),
   });
 };
 

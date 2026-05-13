@@ -36,6 +36,7 @@ class Project(Base):
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     billing_method = Column(String, nullable=False, default="hourly")  # 'hourly' | 'fixed_cost'
+    hourly_rate = Column(Float, nullable=True)
     fixed_amount = Column(Float, nullable=True)
     budget_hours = Column(Float, nullable=True)
     budget_amount = Column(Float, nullable=True)

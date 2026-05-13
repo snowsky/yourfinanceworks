@@ -14,11 +14,13 @@ Excel export uses openpyxl, matching the pattern in core/services/report_exporte
 from __future__ import annotations
 
 import io
+import csv
+import json
 import logging
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import datetime, time, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -39,6 +41,7 @@ from .schemas import (
     UnbilledTimeEntry, UnbilledExpense,
     ProjectInvoiceRequest, ProjectInvoiceResponse,
     TimeExportFilters, TimeExportRow,
+    TimeImportError, TimeImportResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,6 +70,7 @@ def _enrich_project(project: Project, db: Session) -> dict:
         "name": project.name,
         "description": project.description,
         "billing_method": project.billing_method,
+        "hourly_rate": project.hourly_rate,
         "fixed_amount": project.fixed_amount,
         "budget_hours": project.budget_hours,
         "budget_amount": project.budget_amount,
@@ -112,6 +116,305 @@ def _enrich_time_entry(entry: TimeEntry, db: Session) -> dict:
         "task_name": task.name if task else None,
         "client_name": client.name if client else None,
     }
+
+
+TIME_IMPORT_FIELD_ALIASES = {
+    "client_id": ["client_id", "client id"],
+    "client_name": ["client", "client_name", "client name", "customer", "customer_name", "customer name"],
+    "project_id": ["project_id", "project id"],
+    "project_name": ["project", "project_name", "project name", "job", "job_name", "job name"],
+    "task_name": ["task", "task_name", "task name", "activity", "service"],
+    "description": ["description", "desc", "work", "work performed", "memo"],
+    "notes": ["notes", "note"],
+    "date": ["date", "work_date", "work date", "entry_date", "entry date"],
+    "started_at": ["started_at", "started at", "start_datetime", "start datetime", "start date"],
+    "ended_at": ["ended_at", "ended at", "end_datetime", "end datetime", "end date"],
+    "start_time": ["start", "start_time", "start time", "from"],
+    "end_time": ["end", "end_time", "end time", "to"],
+    "duration_minutes": ["duration_minutes", "duration minutes", "minutes", "mins"],
+    "hours": ["hours", "hrs", "duration_hours", "duration hours", "time", "duration"],
+    "hourly_rate": ["hourly_rate", "hourly rate", "rate", "bill rate", "billing rate"],
+    "billable": ["billable", "is_billable", "is billable"],
+    "currency": ["currency"],
+    "billing_method": ["billing_method", "billing method"],
+}
+
+
+def _parse_float(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    text = str(value).strip().replace("$", "").replace(",", "")
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _parse_int(value: Any) -> Optional[int]:
+    parsed = _parse_float(value)
+    return int(parsed) if parsed is not None else None
+
+
+def _parse_bool(value: Any, default: bool = True) -> bool:
+    if value is None or str(value).strip() == "":
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "billable"}
+
+
+def _parse_datetime(value: Any) -> Optional[datetime]:
+    if value is None or str(value).strip() == "":
+        return None
+    text = str(value).strip()
+    for candidate in (text, text.replace("Z", "+00:00")):
+        try:
+            parsed = datetime.fromisoformat(candidate)
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+    for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d %I:%M %p", "%m/%d/%Y %H:%M", "%m/%d/%Y %I:%M %p", "%m/%d/%y %I:%M %p"):
+        try:
+            return datetime.strptime(text, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+    return None
+
+
+def _parse_date(value: Any) -> Optional[datetime]:
+    if value is None or str(value).strip() == "":
+        return None
+    text = str(value).strip()
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.combine(datetime.strptime(text, fmt).date(), time.min, tzinfo=timezone.utc)
+        except ValueError:
+            pass
+    return _parse_datetime(text)
+
+
+def _parse_time(value: Any) -> Optional[time]:
+    if value is None or str(value).strip() == "":
+        return None
+    text = str(value).strip()
+    for fmt in ("%H:%M", "%H:%M:%S", "%I:%M %p", "%I %p"):
+        try:
+            return datetime.strptime(text, fmt).time()
+        except ValueError:
+            pass
+    return None
+
+
+def _canonicalize_csv_rows(csv_content: str, field_mapping: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
+    reader = csv.DictReader(io.StringIO(csv_content))
+    if not reader.fieldnames:
+        return []
+
+    header_map = {header: header.strip().lower().replace("_", " ") for header in reader.fieldnames if header}
+    rows: List[Dict[str, Any]] = []
+    for raw in reader:
+        normalized: Dict[str, Any] = {}
+        for canonical, aliases in TIME_IMPORT_FIELD_ALIASES.items():
+            for source, lowered in header_map.items():
+                if lowered in aliases:
+                    normalized[canonical] = raw.get(source)
+                    break
+        for canonical, source in (field_mapping or {}).items():
+            if canonical in TIME_IMPORT_FIELD_ALIASES and source in raw:
+                normalized[canonical] = raw.get(source)
+        rows.append(normalized)
+    return rows
+
+
+def _extract_json_object(text: str) -> Dict[str, Any]:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("```", 2)[1]
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:]
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start >= 0 and end > start:
+            return json.loads(cleaned[start:end + 1])
+        raise
+
+
+def _normalize_rows_with_ai(csv_content: str, db: Session) -> Optional[List[Dict[str, Any]]]:
+    try:
+        from commercial.ai.services.ai_config_service import AIConfigService
+
+        ai_config = AIConfigService.get_ai_config(db, component="ocr", require_ocr=False)
+        if not ai_config:
+            return None
+
+        provider = (ai_config.get("provider_name") or "").lower()
+        model_name = ai_config.get("model_name")
+        reader = csv.DictReader(io.StringIO(csv_content))
+        headers = reader.fieldnames or []
+        sample_rows = []
+        for _, row in zip(range(5), reader):
+            sample_rows.append(row)
+
+        prompt = f"""
+Map this CSV's column headers to time tracking import fields. Return JSON only.
+
+Return this exact shape:
+{{"mapping":{{"client_id":null,"client_name":null,"project_id":null,"project_name":null,"task_name":null,"description":null,"notes":null,"date":null,"started_at":null,"ended_at":null,"start_time":null,"end_time":null,"duration_minutes":null,"hours":null,"hourly_rate":null,"billable":null,"currency":null,"billing_method":null}}}}
+
+Rules:
+- Each mapping value must be one exact source header from the CSV, or null.
+- Prefer project_id/client_id over names only when the source column contains numeric IDs.
+- Use date plus start_time/end_time when the CSV has separate date and time columns.
+- Use started_at/ended_at when the CSV has full datetime columns.
+- Do not invent headers that are not in the CSV.
+
+CSV headers:
+{json.dumps(headers)}
+
+Sample rows:
+{json.dumps(sample_rows, default=str)}
+"""
+        if provider == "openai":
+            from langchain_openai import ChatOpenAI
+
+            llm = ChatOpenAI(
+                api_key=ai_config.get("api_key"),
+                model=model_name,
+                temperature=0.0,
+                max_tokens=6000,
+                model_kwargs={"response_format": {"type": "json_object"}},
+            )
+        elif provider == "anthropic":
+            from langchain_anthropic import ChatAnthropic
+
+            llm = ChatAnthropic(
+                api_key=ai_config.get("api_key"),
+                model=model_name,
+                temperature=0.0,
+                max_tokens=6000,
+            )
+        elif provider == "ollama":
+            from langchain_ollama import OllamaLLM
+
+            llm = OllamaLLM(
+                base_url=ai_config.get("provider_url", "http://localhost:11434"),
+                model=model_name,
+                temperature=0.0,
+                num_predict=6000,
+            )
+        else:
+            return None
+
+        response = llm.invoke(prompt)
+        response_text = response.content if hasattr(response, "content") else str(response)
+        payload = _extract_json_object(response_text)
+        raw_mapping = payload.get("mapping")
+        if not isinstance(raw_mapping, dict):
+            return None
+
+        valid_headers = set(headers)
+        field_mapping = {
+            str(canonical): str(source)
+            for canonical, source in raw_mapping.items()
+            if source in valid_headers and canonical in TIME_IMPORT_FIELD_ALIASES
+        }
+        if not field_mapping:
+            return None
+        logger.info("AI time import header mapping: %s", field_mapping)
+        return _canonicalize_csv_rows(csv_content, field_mapping)
+    except Exception as exc:
+        logger.warning("AI time import normalization failed: %s", exc)
+        return None
+
+
+def _find_client_by_name(db: Session, name: str) -> Optional[Client]:
+    target = name.strip().lower()
+    for client in db.query(Client).all():
+        if (client.name or "").strip().lower() == target:
+            return client
+    return None
+
+
+def _find_project(db: Session, project_name: str, client_id: int) -> Optional[Project]:
+    target = project_name.strip().lower()
+    for project in db.query(Project).filter(Project.client_id == client_id).all():
+        if project.name.strip().lower() == target:
+            return project
+    return None
+
+
+def _find_project_by_name(db: Session, project_name: str) -> Optional[Project]:
+    target = project_name.strip().lower()
+    for project in db.query(Project).all():
+        if project.name.strip().lower() == target:
+            return project
+    return None
+
+
+def _get_or_create_import_client(db: Session, current_user: MasterUser, now: datetime, currency: str) -> tuple[Client, bool]:
+    client = _find_client_by_name(db, "Imported Time")
+    if client:
+        return client, False
+
+    client = Client(
+        name="Imported Time",
+        preferred_currency=currency,
+        source="time_import",
+        owner_user_id=current_user.id,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(client)
+    db.flush()
+    return client, True
+
+
+def _find_task(db: Session, project_id: int, task_name: str) -> Optional[ProjectTask]:
+    target = task_name.strip().lower()
+    for task in db.query(ProjectTask).filter(ProjectTask.project_id == project_id).all():
+        if task.name.strip().lower() == target:
+            return task
+    return None
+
+
+def _resolve_hourly_rate(row_rate: Optional[float], task: Optional[ProjectTask], project: Project) -> float:
+    if row_rate is not None:
+        return row_rate
+    if task and task.hourly_rate is not None:
+        return task.hourly_rate
+    if project.hourly_rate is not None:
+        return project.hourly_rate
+    return 0.0
+
+
+def _reprice_zero_rate_project_entries(project: Project, db: Session, now: datetime) -> int:
+    if project.hourly_rate is None:
+        return 0
+
+    entries = (
+        db.query(TimeEntry)
+        .filter(
+            TimeEntry.project_id == project.id,
+            TimeEntry.invoiced.is_(False),
+            TimeEntry.status != "in_progress",
+            TimeEntry.hourly_rate == 0,
+        )
+        .all()
+    )
+
+    updated = 0
+    for entry in entries:
+        task = db.query(ProjectTask).filter(ProjectTask.id == entry.task_id).first() if entry.task_id else None
+        if task and task.hourly_rate is not None:
+            continue
+        entry.hourly_rate = project.hourly_rate
+        entry.compute_amount()
+        entry.updated_at = now
+        updated += 1
+    return updated
 
 
 # ---------------------------------------------------------------------------
@@ -199,9 +502,18 @@ def update_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
+        if field == "client_id" and value is not None:
+            client = db.query(Client).filter(Client.id == value).first()
+            if not client:
+                raise HTTPException(status_code=404, detail="Client not found")
         setattr(project, field, value)
-    project.updated_at = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)
+    project.updated_at = now
+    repriced_entries = 0
+    if "hourly_rate" in changes:
+        repriced_entries = _reprice_zero_rate_project_entries(project, db, now)
     db.commit()
     db.refresh(project)
 
@@ -213,7 +525,7 @@ def update_project(
         resource_type="project",
         resource_id=str(project.id),
         resource_name=project.name,
-        details=payload.model_dump(exclude_unset=True),
+        details={**changes, "repriced_time_entries": repriced_entries},
         status="success"
     )
 
@@ -715,8 +1027,10 @@ def timer_start(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    task = db.query(ProjectTask).filter(ProjectTask.id == payload.task_id).first() if payload.task_id else None
     now = datetime.now(timezone.utc)
     started = payload.started_at or now
+    hourly_rate = _resolve_hourly_rate(payload.hourly_rate if payload.hourly_rate > 0 else None, task, project)
 
     entry = TimeEntry(
         project_id=payload.project_id,
@@ -724,7 +1038,7 @@ def timer_start(
         user_id=current_user.id,
         client_id=project.client_id,
         description=payload.description,
-        hourly_rate=payload.hourly_rate,
+        hourly_rate=hourly_rate,
         billable=payload.billable,
         started_at=started,
         ended_at=None,
@@ -1017,6 +1331,212 @@ def export_monthly(
     )
 
 
+@time_entries_router.post("/import/csv", response_model=TimeImportResponse, status_code=201)
+async def import_time_entries_csv(
+    file: UploadFile = File(...),
+    use_ai: bool = Form(False),
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Import projects, optional tasks, and logged time entries from a CSV file.
+
+    Recognized columns include client/client_name/client_id, project/project_name/project_id,
+    task/task_name, date, start/end or started_at/ended_at, hours/duration_minutes,
+    hourly_rate/rate, billable, description, notes, currency, and billing_method.
+    If use_ai is true and an AI provider is configured, the model first normalizes
+    unusual CSV headers into that canonical shape.
+    """
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Please upload a CSV file")
+
+    content = await file.read()
+    if len(content) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="CSV import is limited to 2MB")
+
+    try:
+        csv_content = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="CSV file must be UTF-8 encoded")
+
+    ai_rows = _normalize_rows_with_ai(csv_content, db) if use_ai else None
+    rows = ai_rows or _canonicalize_csv_rows(csv_content)
+    if not rows:
+        raise HTTPException(status_code=400, detail="CSV file has no importable rows")
+
+    result = TimeImportResponse(ai_used=bool(ai_rows))
+    now = datetime.now(timezone.utc)
+    created_project_ids: set[int] = set()
+    reused_project_ids: set[int] = set()
+    created_task_ids: set[int] = set()
+
+    for index, row in enumerate(rows, start=2):
+        try:
+            started_at = _parse_datetime(row.get("started_at"))
+            ended_at = _parse_datetime(row.get("ended_at"))
+            if not started_at:
+                date_dt = _parse_date(row.get("date"))
+                start_time = _parse_time(row.get("start_time")) or time(0, 0)
+                if date_dt:
+                    started_at = datetime.combine(date_dt.date(), start_time, tzinfo=timezone.utc)
+            if started_at and not ended_at:
+                end_time = _parse_time(row.get("end_time"))
+                if end_time:
+                    ended_at = datetime.combine(started_at.date(), end_time, tzinfo=timezone.utc)
+                    if ended_at < started_at:
+                        ended_at += timedelta(days=1)
+
+            duration_minutes = _parse_int(row.get("duration_minutes"))
+            hours = _parse_float(row.get("hours"))
+            if duration_minutes is None and hours is not None:
+                duration_minutes = max(1, int(round(hours * 60)))
+            if duration_minutes is None and started_at and ended_at:
+                duration_minutes = max(1, int((ended_at - started_at).total_seconds() / 60))
+            if not ended_at and started_at and duration_minutes:
+                ended_at = started_at + timedelta(minutes=duration_minutes)
+
+            if not started_at:
+                raise ValueError("A date/start time or started_at value is required")
+            if duration_minutes is None:
+                raise ValueError("Duration is required as hours, duration_minutes, or end time")
+
+            project_id = _parse_int(row.get("project_id"))
+            project_name = str(row.get("project_name") or "").strip()
+            if project_id:
+                project = db.query(Project).filter(Project.id == project_id).first()
+                if not project:
+                    raise ValueError(f"Project #{project_id} was not found")
+                client_id = project.client_id
+                reused_project_ids.add(project.id)
+            elif project_name:
+                client_id = _parse_int(row.get("client_id"))
+                client_name = str(row.get("client_name") or "").strip()
+                project = None
+                if client_id:
+                    client = db.query(Client).filter(Client.id == client_id).first()
+                    if not client:
+                        raise ValueError(f"Client #{client_id} was not found")
+                elif client_name:
+                    client = _find_client_by_name(db, client_name)
+                    if not client:
+                        client = Client(
+                            name=client_name,
+                            preferred_currency=(str(row.get("currency") or "USD").strip().upper()[:3] or "USD"),
+                            source="time_import",
+                            owner_user_id=current_user.id,
+                            created_at=now,
+                            updated_at=now,
+                        )
+                        db.add(client)
+                        db.flush()
+                        result.created_clients += 1
+                    client_id = client.id
+                else:
+                    project = _find_project_by_name(db, project_name)
+                    if project:
+                        client_id = project.client_id
+                        reused_project_ids.add(project.id)
+                    else:
+                        currency = str(row.get("currency") or "USD").strip().upper()[:3] or "USD"
+                        client, created_import_client = _get_or_create_import_client(db, current_user, now, currency)
+                        if created_import_client:
+                            result.created_clients += 1
+                        client_id = client.id
+
+                project = project or _find_project(db, project_name, client_id)
+                if project:
+                    reused_project_ids.add(project.id)
+                else:
+                    currency = str(row.get("currency") or "USD").strip().upper()[:3] or "USD"
+                    project_hourly_rate = _parse_float(row.get("hourly_rate"))
+                    project = Project(
+                        client_id=client_id,
+                        name=project_name,
+                        billing_method=str(row.get("billing_method") or "hourly").strip() or "hourly",
+                        hourly_rate=project_hourly_rate,
+                        status="active",
+                        currency=currency,
+                        created_by=current_user.id,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                    db.add(project)
+                    db.flush()
+                    created_project_ids.add(project.id)
+            else:
+                raise ValueError("Project name or project_id is required")
+
+            task_id = None
+            task = None
+            task_name = str(row.get("task_name") or "").strip()
+            if task_name:
+                task = _find_task(db, project.id, task_name)
+                if not task:
+                    task = ProjectTask(
+                        project_id=project.id,
+                        name=task_name,
+                        hourly_rate=_parse_float(row.get("hourly_rate")),
+                        status="active",
+                        created_at=now,
+                        updated_at=now,
+                    )
+                    db.add(task)
+                    db.flush()
+                    created_task_ids.add(task.id)
+                task_id = task.id
+
+            hourly_rate = _resolve_hourly_rate(_parse_float(row.get("hourly_rate")), task, project)
+            entry = TimeEntry(
+                project_id=project.id,
+                task_id=task_id,
+                user_id=current_user.id,
+                client_id=client_id,
+                description=(str(row.get("description")).strip() if row.get("description") else None),
+                notes=(str(row.get("notes")).strip() if row.get("notes") else None),
+                started_at=started_at,
+                ended_at=ended_at,
+                duration_minutes=duration_minutes,
+                hourly_rate=hourly_rate,
+                billable=_parse_bool(row.get("billable"), default=True),
+                status="logged",
+                invoiced=False,
+                created_at=now,
+                updated_at=now,
+            )
+            entry.compute_amount()
+            db.add(entry)
+            result.created_time_entries += 1
+        except Exception as exc:
+            result.skipped_rows += 1
+            result.errors.append(TimeImportError(row=index, message=str(exc)))
+
+    if result.created_time_entries == 0:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "No time entries could be imported", "errors": [e.model_dump() for e in result.errors]},
+        )
+
+    db.commit()
+    result.created_projects = len(created_project_ids)
+    result.reused_projects = len(reused_project_ids - created_project_ids)
+    result.created_tasks = len(created_task_ids)
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="IMPORT",
+        resource_type="time_entries",
+        resource_id=file.filename,
+        resource_name=f"Time CSV import: {file.filename}",
+        details=result.model_dump(),
+        status="success" if result.skipped_rows == 0 else "partial_success",
+    )
+
+    return result
+
+
 # ---- Standard CRUD (AFTER static paths) ----
 
 @time_entries_router.post("", response_model=TimeEntryResponse, status_code=201)
@@ -1031,6 +1551,8 @@ def create_time_entry(
         raise HTTPException(status_code=404, detail="Project not found")
 
     now = datetime.now(timezone.utc)
+    task = db.query(ProjectTask).filter(ProjectTask.id == payload.task_id).first() if payload.task_id else None
+    hourly_rate = _resolve_hourly_rate(payload.hourly_rate if payload.hourly_rate > 0 else None, task, project)
 
     # Compute duration if ended_at is provided and duration_minutes is not
     duration_minutes = payload.duration_minutes
@@ -1049,7 +1571,7 @@ def create_time_entry(
         started_at=payload.started_at,
         ended_at=ended_at,
         duration_minutes=duration_minutes,
-        hourly_rate=payload.hourly_rate,
+        hourly_rate=hourly_rate,
         billable=payload.billable,
         status="logged",
         invoiced=False,

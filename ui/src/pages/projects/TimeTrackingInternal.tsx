@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FolderKanban, Clock, Plus, Download, Search, DollarSign, Users, Activity, Calendar } from 'lucide-react';
+import { Archive, CheckCircle2, FolderKanban, Clock, Plus, Download, Search, DollarSign, Users, Activity, Calendar, Upload, Sparkles, Grid3X3, List } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useProjects, useCreateProject, useTimeEntries } from '@/plugins/time_tracking/plugin/ui/hooks';
-import { timeEntryApi, Project } from '@/plugins/time_tracking/plugin/ui/api';
+import { useProjects, useCreateProject, useImportTimeEntriesCsv, useTimeEntries, useUpdateProject } from '@/plugins/time_tracking/plugin/ui/hooks';
+import { projectApi, timeEntryApi, Project } from '@/plugins/time_tracking/plugin/ui/api';
 import { toast } from 'sonner';
 import { PageHeader, ContentSection, EmptyState } from '@/components/ui/professional-layout';
 import { ProfessionalCard, MetricCard } from '@/components/ui/professional-card';
@@ -74,10 +75,14 @@ const STATUS_COLORS: Record<string, string> = {
 
 function ProjectsTab() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
+  const [selectedProjectIds, setSelectedProjectIds] = useState<number[]>([]);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
-  const [newProject, setNewProject] = useState({ name: '', client_id: undefined as number | undefined, billing_method: 'hourly', currency: 'USD' });
+  const [newProject, setNewProject] = useState({ name: '', client_id: undefined as number | undefined, billing_method: 'hourly', hourly_rate: '', currency: 'USD' });
 
   const { data: projects = [], isLoading } = useProjects({ status: statusFilter || undefined });
   const createProject = useCreateProject();
@@ -86,6 +91,44 @@ function ProjectsTab() {
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     (p.client_name || '').toLowerCase().includes(search.toLowerCase())
   );
+  const selectableProjectIds = filtered.map((project) => project.id);
+  const selectedVisibleIds = selectedProjectIds.filter((id) => selectableProjectIds.includes(id));
+  const allVisibleSelected = selectableProjectIds.length > 0 && selectedVisibleIds.length === selectableProjectIds.length;
+
+  const toggleProjectSelection = (projectId: number) => {
+    setSelectedProjectIds((prev) =>
+      prev.includes(projectId) ? prev.filter((id) => id !== projectId) : [...prev, projectId]
+    );
+  };
+
+  const toggleVisibleSelection = () => {
+    setSelectedProjectIds((prev) => {
+      if (allVisibleSelected) {
+        return prev.filter((id) => !selectableProjectIds.includes(id));
+      }
+      return Array.from(new Set([...prev, ...selectableProjectIds]));
+    });
+  };
+
+  const handleBulkStatus = async (status: 'active' | 'completed' | 'archived') => {
+    const ids = selectedProjectIds.filter((id) => selectableProjectIds.includes(id));
+    if (!ids.length) return;
+
+    setBulkUpdating(true);
+    try {
+      await Promise.all(ids.map((projectId) => projectApi.update(projectId, { status })));
+      const verb = status === 'active' ? 'reopened' : status === 'completed' ? 'closed' : 'archived';
+      toast.success(`${ids.length} project${ids.length === 1 ? '' : 's'} ${verb}`);
+      setSelectedProjectIds((prev) => prev.filter((id) => !ids.includes(id)));
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['project-unbilled'] });
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update selected projects');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -94,12 +137,41 @@ function ProjectsTab() {
       name: newProject.name,
       client_id: newProject.client_id,
       billing_method: newProject.billing_method,
+      hourly_rate: newProject.hourly_rate ? parseFloat(newProject.hourly_rate) : undefined,
       currency: newProject.currency,
     });
     setShowNewForm(false);
-    setNewProject({ name: '', client_id: undefined, billing_method: 'hourly', currency: 'USD' });
+    setNewProject({ name: '', client_id: undefined, billing_method: 'hourly', hourly_rate: '', currency: 'USD' });
     navigate(`/projects/${result.id}`);
   };
+
+  const emptyCopy = search
+    ? {
+        title: 'No projects found',
+        description: 'No projects match your current search criteria.',
+        action: undefined,
+      }
+    : statusFilter === 'completed'
+      ? {
+          title: 'No completed projects',
+          description: 'Active projects will appear here after you mark them complete.',
+          action: undefined,
+        }
+      : statusFilter === 'archived'
+        ? {
+            title: 'No archived projects',
+            description: 'Archived projects will appear here when you archive them from a project card or detail page.',
+            action: undefined,
+          }
+        : {
+            title: 'No projects found',
+            description: "It looks like you haven't created any projects yet.",
+            action: (
+              <Button variant="default" onClick={() => setShowNewForm(true)}>
+                <Plus className="w-4 h-4 mr-2" /> Create First Project
+              </Button>
+            ),
+          };
 
   return (
     <div className="space-y-6">
@@ -130,6 +202,26 @@ function ProjectsTab() {
                 {s === '' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
               </Button>
             ))}
+          </div>
+          <div className="flex gap-1 p-1 rounded-xl border border-border/50 bg-background/50 shadow-inner">
+            <Button
+              variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
+              size="icon"
+              className={cn("h-8 w-8 rounded-lg", viewMode === 'cards' && "bg-white dark:bg-slate-800 shadow-sm text-primary")}
+              onClick={() => setViewMode('cards')}
+              title="Card view"
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="icon"
+              className={cn("h-8 w-8 rounded-lg", viewMode === 'list' && "bg-white dark:bg-slate-800 shadow-sm text-primary")}
+              onClick={() => setViewMode('list')}
+              title="List view"
+            >
+              <List className="h-4 w-4" />
+            </Button>
           </div>
         </div>
         <ProfessionalButton
@@ -168,6 +260,15 @@ function ProjectsTab() {
               <option value="hourly">Hourly</option>
               <option value="fixed_cost">Fixed Cost</option>
             </select>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              className="col-span-1 sm:col-span-2 bg-background/50 border-border/50 rounded-xl px-3 py-2 text-sm focus-visible:ring-primary/20"
+              placeholder="Project hourly rate"
+              value={newProject.hourly_rate}
+              onChange={(e) => setNewProject({ ...newProject, hourly_rate: e.target.value })}
+            />
             <div className="col-span-1 sm:col-span-4 flex gap-2 justify-end mt-2">
               <ProfessionalButton type="button" variant="ghost" onClick={() => setShowNewForm(false)}>Cancel</ProfessionalButton>
               <ProfessionalButton type="submit" loading={createProject.isPending} variant="default">
@@ -176,6 +277,51 @@ function ProjectsTab() {
             </div>
           </form>
         </ProfessionalCard>
+      )}
+
+      {filtered.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between rounded-2xl border border-border/50 bg-card/40 p-3 shadow-sm">
+          <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-border"
+              checked={allVisibleSelected}
+              onChange={toggleVisibleSelection}
+            />
+            <span>{selectedVisibleIds.length ? `${selectedVisibleIds.length} selected` : 'Select visible projects'}</span>
+          </label>
+          <div className="flex gap-2">
+            <ProfessionalButton
+              variant="outline"
+              size="sm"
+              disabled={selectedVisibleIds.length === 0 || bulkUpdating}
+              loading={bulkUpdating}
+              onClick={() => handleBulkStatus('active')}
+            >
+              Reopen Selected
+            </ProfessionalButton>
+            <ProfessionalButton
+              variant="outline"
+              size="sm"
+              disabled={selectedVisibleIds.length === 0 || bulkUpdating}
+              loading={bulkUpdating}
+              onClick={() => handleBulkStatus('completed')}
+              leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+            >
+              Close Selected
+            </ProfessionalButton>
+            <ProfessionalButton
+              variant="ghost"
+              size="sm"
+              disabled={selectedVisibleIds.length === 0 || bulkUpdating}
+              loading={bulkUpdating}
+              onClick={() => handleBulkStatus('archived')}
+              leftIcon={<Archive className="w-3.5 h-3.5" />}
+            >
+              Archive Selected
+            </ProfessionalButton>
+          </div>
+        </div>
       )}
 
       {/* Projects grid */}
@@ -187,27 +333,165 @@ function ProjectsTab() {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
-          title="No projects found"
-          description={search ? "No projects match your current search criteria." : "It looks like you haven't created any projects yet."}
+          title={emptyCopy.title}
+          description={emptyCopy.description}
           icon={<FolderKanban className="w-12 h-12" />}
-          action={
-            <Button variant="default" onClick={() => setShowNewForm(true)}>
-              <Plus className="w-4 h-4 mr-2" /> Create First Project
-            </Button>
-          }
+          action={emptyCopy.action}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((project) => (
-            <ProjectCardUI key={project.id} project={project} onClick={() => navigate(`/projects/${project.id}`)} />
-          ))}
-        </div>
+        viewMode === 'cards' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filtered.map((project) => (
+              <ProjectCardUI
+                key={project.id}
+                project={project}
+                selected={selectedProjectIds.includes(project.id)}
+                onSelect={() => toggleProjectSelection(project.id)}
+                onClick={() => navigate(`/projects/${project.id}`)}
+              />
+            ))}
+          </div>
+        ) : (
+          <ProjectListUI
+            projects={filtered}
+            selectedIds={selectedProjectIds}
+            onToggleSelection={toggleProjectSelection}
+            onOpen={(projectId) => navigate(`/projects/${projectId}`)}
+          />
+        )
       )}
     </div>
   );
 }
 
-function ProjectCardUI({ project, onClick }: { project: Project; onClick: () => void }) {
+function ProjectStatusActions({ project, compact = false }: { project: Project; compact?: boolean }) {
+  const updateProject = useUpdateProject(project.id);
+
+  if (project.status !== 'active') {
+    return (
+      <ProfessionalButton
+        variant="outline"
+        size="sm"
+        className={cn("rounded-xl", compact && "h-7 px-2 text-[11px]")}
+        onClick={(e) => {
+          e.stopPropagation();
+          updateProject.mutate({ status: 'active' });
+        }}
+      >
+        Reopen
+      </ProfessionalButton>
+    );
+  }
+
+  return (
+    <>
+      <ProfessionalButton
+        variant="outline"
+        size="sm"
+        className={cn("rounded-xl", compact && "h-7 px-2 text-[11px]")}
+        onClick={(e) => {
+          e.stopPropagation();
+          updateProject.mutate({ status: 'completed' });
+        }}
+        leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+      >
+        Complete
+      </ProfessionalButton>
+      <ProfessionalButton
+        variant="ghost"
+        size="sm"
+        className={cn("rounded-xl", compact && "h-7 px-2 text-[11px]")}
+        onClick={(e) => {
+          e.stopPropagation();
+          updateProject.mutate({ status: 'archived' });
+        }}
+        leftIcon={<Archive className="w-3.5 h-3.5" />}
+      >
+        Archive
+      </ProfessionalButton>
+    </>
+  );
+}
+
+function ProjectListUI({
+  projects,
+  selectedIds,
+  onToggleSelection,
+  onOpen,
+}: {
+  projects: Project[];
+  selectedIds: number[];
+  onToggleSelection: (projectId: number) => void;
+  onOpen: (projectId: number) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {projects.map((project) => (
+        <ProfessionalCard
+          key={project.id}
+          interactive
+          onClick={() => onOpen(project.id)}
+          className="p-4 bg-card/50 border border-border/50 hover:border-primary/20 transition-all"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1.5fr)_1fr_0.8fr_auto] gap-4 items-center">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-border"
+              checked={selectedIds.includes(project.id)}
+              onClick={(e) => e.stopPropagation()}
+              onChange={() => onToggleSelection(project.id)}
+            />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <FolderKanban className="h-4 w-4 text-primary shrink-0" />
+                <h3 className="font-bold text-sm truncate">{project.name}</h3>
+                <Badge variant="outline" className={cn("px-2 py-0.5 rounded-full border border-border/50 text-[10px] font-medium whitespace-nowrap", STATUS_COLORS[project.status] || STATUS_COLORS.active)}>
+                  {project.status}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
+                <Users className="w-3 h-3 opacity-60" />
+                <span className="truncate">{project.client_name || `Client #${project.client_id}`}</span>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <div className="text-muted-foreground uppercase tracking-wider text-[10px] font-semibold">Hours</div>
+                <div className="font-bold">{(project.total_hours_logged || 0).toFixed(1)}h</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground uppercase tracking-wider text-[10px] font-semibold">Unbilled</div>
+                <div className="font-bold">{project.currency} {(project.total_amount_logged || 0).toFixed(2)}</div>
+              </div>
+            </div>
+
+            <div className="text-xs">
+              <div className="text-muted-foreground uppercase tracking-wider text-[10px] font-semibold">Rate</div>
+              <div className="font-bold">{project.hourly_rate != null ? `${project.currency} ${project.hourly_rate}/hr` : 'Not set'}</div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <ProjectStatusActions project={project} compact />
+            </div>
+          </div>
+        </ProfessionalCard>
+      ))}
+    </div>
+  );
+}
+
+function ProjectCardUI({
+  project,
+  selected,
+  onSelect,
+  onClick,
+}: {
+  project: Project;
+  selected: boolean;
+  onSelect: () => void;
+  onClick: () => void;
+}) {
   const pct = project.budget_hours
     ? Math.min(100, ((project.total_hours_logged || 0) / project.budget_hours) * 100)
     : null;
@@ -219,6 +503,13 @@ function ProjectCardUI({ project, onClick }: { project: Project; onClick: () => 
       onClick={onClick}
       className="group relative overflow-hidden border-border/40 hover:border-primary/30 p-6"
     >
+      <input
+        type="checkbox"
+        className="absolute right-4 top-4 z-10 h-4 w-4 rounded border-border"
+        checked={selected}
+        onClick={(e) => e.stopPropagation()}
+        onChange={onSelect}
+      />
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -272,12 +563,15 @@ function ProjectCardUI({ project, onClick }: { project: Project; onClick: () => 
       )}
 
       <div className="mt-6 pt-4 border-t border-border/30">
-        <ProfessionalButton
-          variant="outline"
-          className="w-full rounded-xl font-bold shadow-sm border-secondary/30 text-secondary hover:bg-secondary/5 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300"
-        >
-          View Details
-        </ProfessionalButton>
+        <div className="grid grid-cols-2 gap-2">
+          {project.status === 'active' ? (
+            <ProjectStatusActions project={project} />
+          ) : (
+            <div className="col-span-2">
+              <ProjectStatusActions project={project} />
+            </div>
+          )}
+        </div>
       </div>
     </ProfessionalCard>
   );
@@ -291,8 +585,13 @@ function MyTimeTab() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [isExporting, setIsExporting] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [useAiImport, setUseAiImport] = useState(true);
+  const [importErrors, setImportErrors] = useState<Array<{ row: number; message: string }>>([]);
 
   const { data: entries = [], isLoading } = useTimeEntries({ limit: 200 });
+  const importCsv = useImportTimeEntriesCsv();
 
   const monthEntries = entries.filter((e) => {
     const d = new Date(e.started_at);
@@ -309,10 +608,33 @@ function MyTimeTab() {
       await timeEntryApi.downloadMonthlyExport({ year, month });
       toast.success('Export downloaded');
       setShowExport(false);
-    } catch (e: any) {
-      toast.error(e?.message || 'Export failed');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Export failed');
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleImport = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!importFile) {
+      toast.error('Choose a CSV file first');
+      return;
+    }
+    setImportErrors([]);
+    try {
+      const result = await importCsv.mutateAsync({ file: importFile, useAi: useAiImport });
+      setImportErrors(result.errors);
+      if (result.errors.length) {
+        toast.warning(`${result.errors.length} row${result.errors.length === 1 ? '' : 's'} could not be imported`);
+      }
+      setImportFile(null);
+      setShowImport(false);
+    } catch (error: unknown) {
+      const detail = (error as { response?: { data?: { detail?: { errors?: Array<{ row: number; message: string }> } } } })?.response?.data?.detail;
+      if (detail?.errors?.length) {
+        setImportErrors(detail.errors);
+      }
     }
   };
 
@@ -343,7 +665,14 @@ function MyTimeTab() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex justify-end bg-card/50 backdrop-blur-sm p-4 rounded-2xl border border-border/50 shadow-sm uppercase tracking-wider text-[10px] font-bold">
+      <div className="flex justify-end gap-2 bg-card/50 backdrop-blur-sm p-4 rounded-2xl border border-border/50 shadow-sm uppercase tracking-wider text-[10px] font-bold">
+        <ProfessionalButton
+          onClick={() => setShowImport((v) => !v)}
+          variant="outline"
+          className="rounded-xl border-border/50 bg-background/50 backdrop-blur-sm hover:bg-background transition-colors"
+        >
+          <Upload className="w-4 h-4 mr-2" /> Import CSV
+        </ProfessionalButton>
         <ProfessionalButton
           onClick={() => setShowExport((v) => !v)}
           variant="outline"
@@ -352,6 +681,58 @@ function MyTimeTab() {
           <Download className="w-4 h-4 mr-2" /> Export Excel
         </ProfessionalButton>
       </div>
+
+      {/* Import panel */}
+      {showImport && (
+        <ProfessionalCard variant="elevated" className="p-6 border-l-4 border-l-primary overflow-hidden bg-card/50 backdrop-blur-sm">
+          <h3 className="font-bold text-xl tracking-tight mb-4">Import Time CSV</h3>
+          <form onSubmit={handleImport} className="space-y-4">
+            <Input
+              type="file"
+              accept=".csv,text/csv"
+              className="bg-background/50 border-border/50 rounded-xl"
+              onChange={(e) => {
+                setImportFile(e.target.files?.[0] || null);
+                setImportErrors([]);
+              }}
+            />
+            <label className="flex items-center gap-3 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border"
+                checked={useAiImport}
+                onChange={(e) => setUseAiImport(e.target.checked)}
+              />
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Use AI to normalize unusual columns when available
+              </span>
+            </label>
+            <div className="flex justify-end">
+              <ProfessionalButton type="submit" loading={importCsv.isPending} disabled={!importFile} variant="default">
+                Import entries
+              </ProfessionalButton>
+            </div>
+            {importErrors.length > 0 && (
+              <div className="rounded-xl border border-red-200/60 bg-red-50/70 p-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+                <div className="font-semibold mb-2">Rows that could not be imported</div>
+                <ul className="space-y-1">
+                  {importErrors.slice(0, 6).map((error) => (
+                    <li key={`${error.row}-${error.message}`}>
+                      Row {error.row}: {error.message}
+                    </li>
+                  ))}
+                </ul>
+                {importErrors.length > 6 && (
+                  <div className="mt-2 text-xs opacity-80">
+                    {importErrors.length - 6} more row errors hidden
+                  </div>
+                )}
+              </div>
+            )}
+          </form>
+        </ProfessionalCard>
+      )}
 
       {/* Export panel */}
       {showExport && (
@@ -445,5 +826,3 @@ function MyTimeTab() {
     </div>
   );
 }
-
-

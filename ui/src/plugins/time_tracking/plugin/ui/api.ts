@@ -16,6 +16,7 @@ export interface Project {
   name: string;
   description?: string | null;
   billing_method: string;
+  hourly_rate?: number | null;
   fixed_amount?: number | null;
   budget_hours?: number | null;
   budget_amount?: number | null;
@@ -131,6 +132,22 @@ export interface ProjectInvoiceResult {
   currency: string;
 }
 
+export interface TimeImportError {
+  row: number;
+  message: string;
+}
+
+export interface TimeImportResult {
+  created_clients: number;
+  created_projects: number;
+  reused_projects: number;
+  created_tasks: number;
+  created_time_entries: number;
+  skipped_rows: number;
+  ai_used: boolean;
+  errors: TimeImportError[];
+}
+
 // -------------------------------------------------------------------------
 // Projects API
 // -------------------------------------------------------------------------
@@ -163,7 +180,7 @@ export const projectApi = {
     api.post<ProjectTask>(`/projects/${projectId}/tasks`, { ...data, project_id: projectId }),
 
   updateTask: (projectId: number, taskId: number, data: Partial<ProjectTask>) =>
-    api.put<ProjectTask>(`/projects/${projectId}/tasks/${taskId}`, data),
+    api.patch<ProjectTask>(`/projects/${projectId}/tasks/${taskId}`, data),
 
   deleteTask: (projectId: number, taskId: number) =>
     api.delete<void>(`/projects/${projectId}/tasks/${taskId}`),
@@ -196,6 +213,16 @@ export const timeEntryApi = {
     api.patch<TimeEntry>(`/time-entries/${id}`, data),
 
   delete: (id: number) => api.delete<void>(`/time-entries/${id}`),
+
+  importCsv: (file: File, useAi: boolean) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('use_ai', String(useAi));
+    return apiRequest<TimeImportResult>('/time-entries/import/csv', {
+      method: 'POST',
+      body: formData,
+    });
+  },
 
   // Timer
   startTimer: (data: {
