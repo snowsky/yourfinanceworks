@@ -57,6 +57,9 @@ export const useUpdateProject = (id: number) => {
       toast.success('Project updated');
       qc.invalidateQueries({ queryKey: ['project', id] });
       qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['project-summary', id] });
+      qc.invalidateQueries({ queryKey: ['project-unbilled', id] });
+      qc.invalidateQueries({ queryKey: ['time-entries'] });
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to update project'),
   });

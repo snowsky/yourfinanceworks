@@ -390,6 +390,33 @@ def _resolve_hourly_rate(row_rate: Optional[float], task: Optional[ProjectTask],
     return 0.0
 
 
+def _reprice_zero_rate_project_entries(project: Project, db: Session, now: datetime) -> int:
+    if project.hourly_rate is None:
+        return 0
+
+    entries = (
+        db.query(TimeEntry)
+        .filter(
+            TimeEntry.project_id == project.id,
+            TimeEntry.invoiced.is_(False),
+            TimeEntry.status != "in_progress",
+            TimeEntry.hourly_rate == 0,
+        )
+        .all()
+    )
+
+    updated = 0
+    for entry in entries:
+        task = db.query(ProjectTask).filter(ProjectTask.id == entry.task_id).first() if entry.task_id else None
+        if task and task.hourly_rate is not None:
+            continue
+        entry.hourly_rate = project.hourly_rate
+        entry.compute_amount()
+        entry.updated_at = now
+        updated += 1
+    return updated
+
+
 # ---------------------------------------------------------------------------
 # Projects Router
 # ---------------------------------------------------------------------------
@@ -475,13 +502,18 @@ def update_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         if field == "client_id" and value is not None:
             client = db.query(Client).filter(Client.id == value).first()
             if not client:
                 raise HTTPException(status_code=404, detail="Client not found")
         setattr(project, field, value)
-    project.updated_at = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)
+    project.updated_at = now
+    repriced_entries = 0
+    if "hourly_rate" in changes:
+        repriced_entries = _reprice_zero_rate_project_entries(project, db, now)
     db.commit()
     db.refresh(project)
 
@@ -493,7 +525,7 @@ def update_project(
         resource_type="project",
         resource_id=str(project.id),
         resource_name=project.name,
-        details=payload.model_dump(exclude_unset=True),
+        details={**changes, "repriced_time_entries": repriced_entries},
         status="success"
     )
 
