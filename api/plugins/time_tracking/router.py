@@ -204,7 +204,7 @@ def _parse_time(value: Any) -> Optional[time]:
     return None
 
 
-def _canonicalize_csv_rows(csv_content: str) -> List[Dict[str, Any]]:
+def _canonicalize_csv_rows(csv_content: str, field_mapping: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
     reader = csv.DictReader(io.StringIO(csv_content))
     if not reader.fieldnames:
         return []
@@ -218,6 +218,9 @@ def _canonicalize_csv_rows(csv_content: str) -> List[Dict[str, Any]]:
                 if lowered in aliases:
                     normalized[canonical] = raw.get(source)
                     break
+        for canonical, source in (field_mapping or {}).items():
+            if canonical in TIME_IMPORT_FIELD_ALIASES and source in raw:
+                normalized[canonical] = raw.get(source)
         rows.append(normalized)
     return rows
 
@@ -248,20 +251,30 @@ def _normalize_rows_with_ai(csv_content: str, db: Session) -> Optional[List[Dict
 
         provider = (ai_config.get("provider_name") or "").lower()
         model_name = ai_config.get("model_name")
+        reader = csv.DictReader(io.StringIO(csv_content))
+        headers = reader.fieldnames or []
+        sample_rows = []
+        for _, row in zip(range(5), reader):
+            sample_rows.append(row)
+
         prompt = f"""
-Normalize this CSV of time tracking records into JSON only.
+Map this CSV's column headers to time tracking import fields. Return JSON only.
 
 Return this exact shape:
-{{"rows":[{{"client_id":null,"client_name":null,"project_id":null,"project_name":null,"task_name":null,"description":null,"notes":null,"date":null,"started_at":null,"ended_at":null,"start_time":null,"end_time":null,"duration_minutes":null,"hours":null,"hourly_rate":null,"billable":true,"currency":"USD","billing_method":"hourly"}}]}}
+{{"mapping":{{"client_id":null,"client_name":null,"project_id":null,"project_name":null,"task_name":null,"description":null,"notes":null,"date":null,"started_at":null,"ended_at":null,"start_time":null,"end_time":null,"duration_minutes":null,"hours":null,"hourly_rate":null,"billable":null,"currency":null,"billing_method":null}}}}
 
 Rules:
-- Preserve every input row as one output row.
-- Use ISO dates/datetimes when possible.
-- Put unknown or missing values as null.
-- Do not invent clients, projects, times, or rates.
+- Each mapping value must be one exact source header from the CSV, or null.
+- Prefer project_id/client_id over names only when the source column contains numeric IDs.
+- Use date plus start_time/end_time when the CSV has separate date and time columns.
+- Use started_at/ended_at when the CSV has full datetime columns.
+- Do not invent headers that are not in the CSV.
 
-CSV:
-{csv_content[:20000]}
+CSV headers:
+{json.dumps(headers)}
+
+Sample rows:
+{json.dumps(sample_rows, default=str)}
 """
         if provider == "openai":
             from langchain_openai import ChatOpenAI
@@ -297,8 +310,20 @@ CSV:
         response = llm.invoke(prompt)
         response_text = response.content if hasattr(response, "content") else str(response)
         payload = _extract_json_object(response_text)
-        rows = payload.get("rows")
-        return rows if isinstance(rows, list) else None
+        raw_mapping = payload.get("mapping")
+        if not isinstance(raw_mapping, dict):
+            return None
+
+        valid_headers = set(headers)
+        field_mapping = {
+            str(canonical): str(source)
+            for canonical, source in raw_mapping.items()
+            if source in valid_headers and canonical in TIME_IMPORT_FIELD_ALIASES
+        }
+        if not field_mapping:
+            return None
+        logger.info("AI time import header mapping: %s", field_mapping)
+        return _canonicalize_csv_rows(csv_content, field_mapping)
     except Exception as exc:
         logger.warning("AI time import normalization failed: %s", exc)
         return None

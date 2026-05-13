@@ -294,6 +294,7 @@ function MyTimeTab() {
   const [showImport, setShowImport] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [useAiImport, setUseAiImport] = useState(true);
+  const [importErrors, setImportErrors] = useState<Array<{ row: number; message: string }>>([]);
 
   const { data: entries = [], isLoading } = useTimeEntries({ limit: 200 });
   const importCsv = useImportTimeEntriesCsv();
@@ -326,12 +327,21 @@ function MyTimeTab() {
       toast.error('Choose a CSV file first');
       return;
     }
-    const result = await importCsv.mutateAsync({ file: importFile, useAi: useAiImport });
-    if (result.errors.length) {
-      toast.warning(`${result.errors.length} row${result.errors.length === 1 ? '' : 's'} could not be imported`);
+    setImportErrors([]);
+    try {
+      const result = await importCsv.mutateAsync({ file: importFile, useAi: useAiImport });
+      setImportErrors(result.errors);
+      if (result.errors.length) {
+        toast.warning(`${result.errors.length} row${result.errors.length === 1 ? '' : 's'} could not be imported`);
+      }
+      setImportFile(null);
+      setShowImport(false);
+    } catch (error: unknown) {
+      const detail = (error as { response?: { data?: { detail?: { errors?: Array<{ row: number; message: string }> } } } })?.response?.data?.detail;
+      if (detail?.errors?.length) {
+        setImportErrors(detail.errors);
+      }
     }
-    setImportFile(null);
-    setShowImport(false);
   };
 
   return (
@@ -387,7 +397,10 @@ function MyTimeTab() {
               type="file"
               accept=".csv,text/csv"
               className="bg-background/50 border-border/50 rounded-xl"
-              onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+              onChange={(e) => {
+                setImportFile(e.target.files?.[0] || null);
+                setImportErrors([]);
+              }}
             />
             <label className="flex items-center gap-3 text-sm text-muted-foreground">
               <input
@@ -406,6 +419,23 @@ function MyTimeTab() {
                 Import entries
               </ProfessionalButton>
             </div>
+            {importErrors.length > 0 && (
+              <div className="rounded-xl border border-red-200/60 bg-red-50/70 p-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+                <div className="font-semibold mb-2">Rows that could not be imported</div>
+                <ul className="space-y-1">
+                  {importErrors.slice(0, 6).map((error) => (
+                    <li key={`${error.row}-${error.message}`}>
+                      Row {error.row}: {error.message}
+                    </li>
+                  ))}
+                </ul>
+                {importErrors.length > 6 && (
+                  <div className="mt-2 text-xs opacity-80">
+                    {importErrors.length - 6} more row errors hidden
+                  </div>
+                )}
+              </div>
+            )}
           </form>
         </ProfessionalCard>
       )}
