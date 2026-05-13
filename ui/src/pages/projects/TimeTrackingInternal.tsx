@@ -775,7 +775,7 @@ function MyTimeTab() {
           variant="outline"
           className="rounded-xl border-border/50 bg-background/50 backdrop-blur-sm hover:bg-background transition-colors"
         >
-          <Download className="w-4 h-4 mr-2" /> Export Excel
+          <Download className="w-4 h-4 mr-2" /> Export CSV
         </ProfessionalButton>
       </div>
 
@@ -957,7 +957,7 @@ function MyTimeTab() {
               ))}
             </select>
             <ProfessionalButton onClick={handleExport} loading={isExporting} variant="default" className="shadow-lg shadow-primary/20">
-              Download .xlsx
+              Download .csv
             </ProfessionalButton>
           </div>
         </ProfessionalCard>

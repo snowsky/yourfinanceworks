@@ -313,7 +313,7 @@ export const timeEntryApi = {
 
   getActiveTimer: () => api.get<TimerActiveResponse>('/time-entries/timer/active'),
 
-  // Monthly Excel export — returns a Blob download
+  // Monthly CSV export — returns a Blob download
   downloadMonthlyExport: async (params: {
     year: number;
     month: number;
@@ -346,7 +346,7 @@ export const timeEntryApi = {
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = blobUrl;
-    a.download = `time_report_${params.year}_${String(params.month).padStart(2, '0')}.xlsx`;
+    a.download = `time_report_${params.year}_${String(params.month).padStart(2, '0')}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

@@ -7,8 +7,6 @@ Two APIRouter instances:
 
 All routes require authentication via `get_current_user`.
 Multi-tenant isolation is via `get_db` which returns the tenant-specific DB session.
-
-Excel export uses openpyxl, matching the pattern in core/services/report_exporter.py.
 """
 
 from __future__ import annotations
@@ -42,7 +40,6 @@ from .schemas import (
     ProjectSummaryResponse, UnbilledItemsResponse,
     UnbilledTimeEntry, UnbilledExpense,
     ProjectInvoiceRequest, ProjectInvoiceResponse,
-    TimeExportFilters, TimeExportRow,
     TimeImportError, TimeImportResponse,
 )
 
@@ -1573,14 +1570,9 @@ def export_monthly(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """
-    Export a monthly time report as a .xlsx file.
-    Sheet 1: Time Log (one row per entry)
-    Sheet 2: Summary (totals by project)
+    Export a monthly time report as a CSV file for active projects only.
     """
     from calendar import monthrange
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from openpyxl.utils import get_column_letter
 
     _, last_day = monthrange(year, month)
     start_dt = datetime(year, month, 1, tzinfo=timezone.utc)
@@ -1588,10 +1580,12 @@ def export_monthly(
 
     q = (
         db.query(TimeEntry)
+        .join(Project, Project.id == TimeEntry.project_id)
         .filter(
             TimeEntry.started_at >= start_dt,
             TimeEntry.started_at <= end_dt,
             TimeEntry.status != "in_progress",
+            Project.status == "active",
         )
     )
     if project_id:
@@ -1605,145 +1599,41 @@ def export_monthly(
 
     entries = q.order_by(TimeEntry.started_at.asc()).all()
 
-    # Build row data
-    rows: list[TimeExportRow] = []
-    project_totals: dict[str, dict] = {}
-
-    for entry in entries:
-        project = db.query(Project).filter(Project.id == entry.project_id).first()
-        task = db.query(ProjectTask).filter(ProjectTask.id == entry.task_id).first() if entry.task_id else None
-        client = db.query(Client).filter(Client.id == entry.client_id).first() if entry.client_id else None
-
-        proj_name = project.name if project else f"Project {entry.project_id}"
-        client_name = client.name if client else f"Client {entry.client_id}"
-
-        row = TimeExportRow(
-            date=entry.started_at.strftime("%Y-%m-%d"),
-            client_id=entry.client_id,
-            client_name=client_name,
-            project_name=proj_name,
-            task_name=task.name if task else None,
-            description=entry.description,
-            notes=entry.notes,
-            hours=entry.hours,
-            hourly_rate=entry.hourly_rate,
-            amount=entry.amount or 0.0,
-            billable=entry.billable,
-            status=entry.status,
-            invoiced=entry.invoiced,
-            invoice_number=entry.invoice_number,
-        )
-        rows.append(row)
-
-        # Accumulate summary by project
-        if proj_name not in project_totals:
-            project_totals[proj_name] = {"hours": 0.0, "amount": 0.0, "client": client_name}
-        project_totals[proj_name]["hours"] += entry.hours
-        project_totals[proj_name]["amount"] += entry.amount or 0.0
-
-    # Build Excel workbook
-    wb = Workbook()
-    wb.remove(wb.active)  # remove default sheet
-
-    # --- Sheet 1: Time Log ---
-    ws = wb.create_sheet(title="Time Log")
     headers = [
         "Date", "Client ID", "Client Name", "Project", "Task",
         "Description", "Notes", "Hours", "Hourly Rate", "Amount",
         "Billable", "Status", "Invoiced", "Invoice #"
     ]
-    header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="34495E", end_color="34495E", fill_type="solid")
-    header_align = Alignment(horizontal="center", vertical="center")
 
-    for col_idx, h in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col_idx, value=h)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_align
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(headers)
+    for entry in entries:
+        project = db.query(Project).filter(Project.id == entry.project_id).first()
+        task = db.query(ProjectTask).filter(ProjectTask.id == entry.task_id).first() if entry.task_id else None
+        client = db.query(Client).filter(Client.id == entry.client_id).first() if entry.client_id else None
 
-    for row_idx, row in enumerate(rows, 2):
-        ws.cell(row=row_idx, column=1, value=row.date)
-        ws.cell(row=row_idx, column=2, value=row.client_id)
-        ws.cell(row=row_idx, column=3, value=row.client_name)
-        ws.cell(row=row_idx, column=4, value=row.project_name)
-        ws.cell(row=row_idx, column=5, value=row.task_name)
-        ws.cell(row=row_idx, column=6, value=row.description)
-        ws.cell(row=row_idx, column=7, value=row.notes)
-        ws.cell(row=row_idx, column=8, value=round(row.hours, 2))
-        ws.cell(row=row_idx, column=9, value=row.hourly_rate)
-        ws.cell(row=row_idx, column=10, value=round(row.amount, 2))
-        ws.cell(row=row_idx, column=11, value="Yes" if row.billable else "No")
-        ws.cell(row=row_idx, column=12, value=row.status)
-        ws.cell(row=row_idx, column=13, value="Yes" if row.invoiced else "No")
-        ws.cell(row=row_idx, column=14, value=row.invoice_number)
+        writer.writerow([
+            entry.started_at.strftime("%Y-%m-%d"),
+            entry.client_id,
+            client.name if client else f"Client {entry.client_id}",
+            project.name if project else f"Project {entry.project_id}",
+            task.name if task else "",
+            entry.description or "",
+            entry.notes or "",
+            round(entry.hours, 2),
+            entry.hourly_rate,
+            round(entry.amount or 0.0, 2),
+            "Yes" if entry.billable else "No",
+            entry.status,
+            "Yes" if entry.invoiced else "No",
+            entry.invoice_number or "",
+        ])
 
-        # Alternating row colors
-        if row_idx % 2 == 0:
-            row_fill = PatternFill(start_color="F8F9FA", end_color="F8F9FA", fill_type="solid")
-            for col_idx in range(1, len(headers) + 1):
-                ws.cell(row=row_idx, column=col_idx).fill = row_fill
-
-    # Auto-width columns
-    for col in ws.columns:
-        max_len = 0
-        col_letter = get_column_letter(col[0].column)
-        for cell in col:
-            try:
-                if cell.value and len(str(cell.value)) > max_len:
-                    max_len = len(str(cell.value))
-            except Exception:
-                pass
-        ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
-
-    # Totals row
-    total_row = len(rows) + 2
-    ws.cell(row=total_row, column=7, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=total_row, column=8, value=round(sum(r.hours for r in rows), 2)).font = Font(bold=True)
-    ws.cell(row=total_row, column=10, value=round(sum(r.amount for r in rows), 2)).font = Font(bold=True)
-
-    # --- Sheet 2: Summary ---
-    ws2 = wb.create_sheet(title="Summary")
-    ws2["A1"] = f"Time Report — {year}-{month:02d}"
-    ws2["A1"].font = Font(size=14, bold=True)
-
-    ws2["A3"] = "Project"
-    ws2["B3"] = "Client"
-    ws2["C3"] = "Total Hours"
-    ws2["D3"] = "Total Amount"
-    for col in ["A3", "B3", "C3", "D3"]:
-        ws2[col].font = Font(bold=True)
-        ws2[col].fill = PatternFill(start_color="34495E", end_color="34495E", fill_type="solid")
-        ws2[col].font = Font(bold=True, color="FFFFFF")
-
-    for i, (proj_name, data) in enumerate(project_totals.items(), 4):
-        ws2.cell(row=i, column=1, value=proj_name)
-        ws2.cell(row=i, column=2, value=data["client"])
-        ws2.cell(row=i, column=3, value=round(data["hours"], 2))
-        ws2.cell(row=i, column=4, value=round(data["amount"], 2))
-
-    for col in ws2.columns:
-        max_len = 0
-        col_letter = get_column_letter(col[0].column)
-        for cell in col:
-            try:
-                if cell.value and len(str(cell.value)) > max_len:
-                    max_len = len(str(cell.value))
-            except Exception:
-                pass
-        ws2.column_dimensions[col_letter].width = min(max_len + 2, 40)
-
-    # Serialize to bytes
-    buffer = io.BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
-    excel_bytes = buffer.getvalue()
-    buffer.close()
-
-    filename = f"time_report_{year}_{month:02d}.xlsx"
+    filename = f"time_report_{year}_{month:02d}.csv"
     return StreamingResponse(
-        io.BytesIO(excel_bytes),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        iter([buffer.getvalue()]),
+        media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
