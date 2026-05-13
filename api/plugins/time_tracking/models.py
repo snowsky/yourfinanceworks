@@ -13,7 +13,7 @@ Follows existing codebase patterns:
 from datetime import datetime, timezone
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, Text,
-    DateTime, ForeignKey
+    Date, DateTime, ForeignKey, JSON
 )
 from sqlalchemy.orm import relationship
 
@@ -51,6 +51,8 @@ class Project(Base):
     # Relationships
     tasks = relationship("ProjectTask", back_populates="project", cascade="all, delete-orphan")
     time_entries = relationship("TimeEntry", back_populates="project", cascade="all, delete-orphan")
+    kanban_columns = relationship("ProjectKanbanColumn", back_populates="project", cascade="all, delete-orphan")
+    custom_fields = relationship("ProjectCustomField", back_populates="project", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Project(id={self.id}, name='{self.name}', status='{self.status}')>"
@@ -70,6 +72,11 @@ class ProjectTask(Base):
     estimated_hours = Column(Float, nullable=True)
     hourly_rate = Column(Float, nullable=True)  # overrides project-level rate if set
     status = Column(String, nullable=False, default="active")
+    kanban_status = Column(String, nullable=False, default="todo", index=True)
+    kanban_position = Column(Integer, nullable=False, default=0)
+    priority = Column(String, nullable=True)
+    due_date = Column(Date, nullable=True)
+    custom_fields = Column(JSON, nullable=False, default=dict)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), nullable=False,
                         default=lambda: datetime.now(timezone.utc),
@@ -81,6 +88,50 @@ class ProjectTask(Base):
 
     def __repr__(self):
         return f"<ProjectTask(id={self.id}, name='{self.name}')>"
+
+
+class ProjectKanbanColumn(Base):
+    """
+    Project-scoped Kanban column definition.
+    key is stored on ProjectTask.kanban_status.
+    """
+    __tablename__ = "project_kanban_columns"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    key = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    position = Column(Integer, nullable=False, default=0)
+    hidden = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), nullable=False,
+                        default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+
+    project = relationship("Project", back_populates="kanban_columns")
+
+
+class ProjectCustomField(Base):
+    """
+    Project-scoped task custom field definition.
+    Values are stored on ProjectTask.custom_fields by field key.
+    """
+    __tablename__ = "project_custom_fields"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    key = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    field_type = Column(String, nullable=False, default="text")
+    options = Column(JSON, nullable=False, default=list)
+    required = Column(Boolean, nullable=False, default=False)
+    position = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), nullable=False,
+                        default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+
+    project = relationship("Project", back_populates="custom_fields")
 
 
 class TimeEntry(Base):

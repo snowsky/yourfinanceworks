@@ -16,7 +16,9 @@
     "database_tables": [
         "projects",
         "project_tasks",
-        "time_entries"
+        "time_entries",
+        "project_kanban_columns",
+        "project_custom_fields"
     ],
     "features": [
         "Project creation linked to clients",
@@ -26,7 +28,9 @@
         "Unbilled items review",
         "Invoice generation from unbilled items",
         "Monthly Excel (.xlsx) time report export",
-        "Project profitability summary"
+        "Project profitability summary",
+        "Project task Kanban board",
+        "Project-scoped task custom fields"
     ],
     "requirements": {
         "minimum_license_tier": "agpl",
@@ -44,7 +48,8 @@
         "migration_required": true,
         "migration_files": [
             "006_add_time_tracking_tables.py",
-            "007_add_project_fields_to_expenses.py"
+            "007_add_project_fields_to_expenses.py",
+            "024_add_project_task_kanban.py"
         ]
     }
 }
