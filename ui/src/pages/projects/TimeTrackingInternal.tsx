@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FolderKanban, Clock, Plus, Download, Search, DollarSign, Users, Activity, Calendar } from 'lucide-react';
+import { FolderKanban, Clock, Plus, Download, Search, DollarSign, Users, Activity, Calendar, Upload, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useProjects, useCreateProject, useTimeEntries } from '@/plugins/time_tracking/plugin/ui/hooks';
+import { useProjects, useCreateProject, useImportTimeEntriesCsv, useTimeEntries } from '@/plugins/time_tracking/plugin/ui/hooks';
 import { timeEntryApi, Project } from '@/plugins/time_tracking/plugin/ui/api';
 import { toast } from 'sonner';
 import { PageHeader, ContentSection, EmptyState } from '@/components/ui/professional-layout';
@@ -291,8 +291,12 @@ function MyTimeTab() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [isExporting, setIsExporting] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [useAiImport, setUseAiImport] = useState(true);
 
   const { data: entries = [], isLoading } = useTimeEntries({ limit: 200 });
+  const importCsv = useImportTimeEntriesCsv();
 
   const monthEntries = entries.filter((e) => {
     const d = new Date(e.started_at);
@@ -314,6 +318,20 @@ function MyTimeTab() {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleImport = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!importFile) {
+      toast.error('Choose a CSV file first');
+      return;
+    }
+    const result = await importCsv.mutateAsync({ file: importFile, useAi: useAiImport });
+    if (result.errors.length) {
+      toast.warning(`${result.errors.length} row${result.errors.length === 1 ? '' : 's'} could not be imported`);
+    }
+    setImportFile(null);
+    setShowImport(false);
   };
 
   return (
@@ -343,7 +361,14 @@ function MyTimeTab() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex justify-end bg-card/50 backdrop-blur-sm p-4 rounded-2xl border border-border/50 shadow-sm uppercase tracking-wider text-[10px] font-bold">
+      <div className="flex justify-end gap-2 bg-card/50 backdrop-blur-sm p-4 rounded-2xl border border-border/50 shadow-sm uppercase tracking-wider text-[10px] font-bold">
+        <ProfessionalButton
+          onClick={() => setShowImport((v) => !v)}
+          variant="outline"
+          className="rounded-xl border-border/50 bg-background/50 backdrop-blur-sm hover:bg-background transition-colors"
+        >
+          <Upload className="w-4 h-4 mr-2" /> Import CSV
+        </ProfessionalButton>
         <ProfessionalButton
           onClick={() => setShowExport((v) => !v)}
           variant="outline"
@@ -352,6 +377,38 @@ function MyTimeTab() {
           <Download className="w-4 h-4 mr-2" /> Export Excel
         </ProfessionalButton>
       </div>
+
+      {/* Import panel */}
+      {showImport && (
+        <ProfessionalCard variant="elevated" className="p-6 border-l-4 border-l-primary overflow-hidden bg-card/50 backdrop-blur-sm">
+          <h3 className="font-bold text-xl tracking-tight mb-4">Import Time CSV</h3>
+          <form onSubmit={handleImport} className="space-y-4">
+            <Input
+              type="file"
+              accept=".csv,text/csv"
+              className="bg-background/50 border-border/50 rounded-xl"
+              onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+            />
+            <label className="flex items-center gap-3 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border"
+                checked={useAiImport}
+                onChange={(e) => setUseAiImport(e.target.checked)}
+              />
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Use AI to normalize unusual columns when available
+              </span>
+            </label>
+            <div className="flex justify-end">
+              <ProfessionalButton type="submit" loading={importCsv.isPending} disabled={!importFile} variant="default">
+                Import entries
+              </ProfessionalButton>
+            </div>
+          </form>
+        </ProfessionalCard>
+      )}
 
       {/* Export panel */}
       {showExport && (
@@ -445,5 +502,3 @@ function MyTimeTab() {
     </div>
   );
 }
-
-

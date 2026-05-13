@@ -131,6 +131,22 @@ export interface ProjectInvoiceResult {
   currency: string;
 }
 
+export interface TimeImportError {
+  row: number;
+  message: string;
+}
+
+export interface TimeImportResult {
+  created_clients: number;
+  created_projects: number;
+  reused_projects: number;
+  created_tasks: number;
+  created_time_entries: number;
+  skipped_rows: number;
+  ai_used: boolean;
+  errors: TimeImportError[];
+}
+
 // -------------------------------------------------------------------------
 // Projects API
 // -------------------------------------------------------------------------
@@ -196,6 +212,16 @@ export const timeEntryApi = {
     api.patch<TimeEntry>(`/time-entries/${id}`, data),
 
   delete: (id: number) => api.delete<void>(`/time-entries/${id}`),
+
+  importCsv: (file: File, useAi: boolean) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('use_ai', String(useAi));
+    return apiRequest<TimeImportResult>('/time-entries/import/csv', {
+      method: 'POST',
+      body: formData,
+    });
+  },
 
   // Timer
   startTimer: (data: {
