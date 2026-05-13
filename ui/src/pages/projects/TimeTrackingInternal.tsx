@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Archive, CheckCircle2, FolderKanban, Clock, Plus, Download, Search, DollarSign, Users, Activity, Calendar, Upload, Sparkles } from 'lucide-react';
+import { Archive, CheckCircle2, FolderKanban, Clock, Plus, Download, Search, DollarSign, Users, Activity, Calendar, Upload, Sparkles, Grid3X3, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProjects, useCreateProject, useImportTimeEntriesCsv, useTimeEntries, useUpdateProject } from '@/plugins/time_tracking/plugin/ui/hooks';
@@ -76,6 +76,7 @@ function ProjectsTab() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
   const [showNewForm, setShowNewForm] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', client_id: undefined as number | undefined, billing_method: 'hourly', hourly_rate: '', currency: 'USD' });
 
@@ -160,6 +161,26 @@ function ProjectsTab() {
               </Button>
             ))}
           </div>
+          <div className="flex gap-1 p-1 rounded-xl border border-border/50 bg-background/50 shadow-inner">
+            <Button
+              variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
+              size="icon"
+              className={cn("h-8 w-8 rounded-lg", viewMode === 'cards' && "bg-white dark:bg-slate-800 shadow-sm text-primary")}
+              onClick={() => setViewMode('cards')}
+              title="Card view"
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="icon"
+              className={cn("h-8 w-8 rounded-lg", viewMode === 'list' && "bg-white dark:bg-slate-800 shadow-sm text-primary")}
+              onClick={() => setViewMode('list')}
+              title="List view"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <ProfessionalButton
           onClick={() => setShowNewForm(true)}
@@ -231,18 +252,121 @@ function ProjectsTab() {
           action={emptyCopy.action}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((project) => (
-            <ProjectCardUI key={project.id} project={project} onClick={() => navigate(`/projects/${project.id}`)} />
-          ))}
-        </div>
+        viewMode === 'cards' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filtered.map((project) => (
+              <ProjectCardUI key={project.id} project={project} onClick={() => navigate(`/projects/${project.id}`)} />
+            ))}
+          </div>
+        ) : (
+          <ProjectListUI projects={filtered} onOpen={(projectId) => navigate(`/projects/${projectId}`)} />
+        )
       )}
     </div>
   );
 }
 
-function ProjectCardUI({ project, onClick }: { project: Project; onClick: () => void }) {
+function ProjectStatusActions({ project, compact = false }: { project: Project; compact?: boolean }) {
   const updateProject = useUpdateProject(project.id);
+
+  if (project.status !== 'active') {
+    return (
+      <ProfessionalButton
+        variant="outline"
+        size="sm"
+        className={cn("rounded-xl", compact && "h-7 px-2 text-[11px]")}
+        onClick={(e) => {
+          e.stopPropagation();
+          updateProject.mutate({ status: 'active' });
+        }}
+      >
+        Reopen
+      </ProfessionalButton>
+    );
+  }
+
+  return (
+    <>
+      <ProfessionalButton
+        variant="outline"
+        size="sm"
+        className={cn("rounded-xl", compact && "h-7 px-2 text-[11px]")}
+        onClick={(e) => {
+          e.stopPropagation();
+          updateProject.mutate({ status: 'completed' });
+        }}
+        leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+      >
+        Complete
+      </ProfessionalButton>
+      <ProfessionalButton
+        variant="ghost"
+        size="sm"
+        className={cn("rounded-xl", compact && "h-7 px-2 text-[11px]")}
+        onClick={(e) => {
+          e.stopPropagation();
+          updateProject.mutate({ status: 'archived' });
+        }}
+        leftIcon={<Archive className="w-3.5 h-3.5" />}
+      >
+        Archive
+      </ProfessionalButton>
+    </>
+  );
+}
+
+function ProjectListUI({ projects, onOpen }: { projects: Project[]; onOpen: (projectId: number) => void }) {
+  return (
+    <div className="space-y-2">
+      {projects.map((project) => (
+        <ProfessionalCard
+          key={project.id}
+          interactive
+          onClick={() => onOpen(project.id)}
+          className="p-4 bg-card/50 border border-border/50 hover:border-primary/20 transition-all"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_1fr_0.8fr_auto] gap-4 items-center">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <FolderKanban className="h-4 w-4 text-primary shrink-0" />
+                <h3 className="font-bold text-sm truncate">{project.name}</h3>
+                <Badge variant="outline" className={cn("px-2 py-0.5 rounded-full border border-border/50 text-[10px] font-medium whitespace-nowrap", STATUS_COLORS[project.status] || STATUS_COLORS.active)}>
+                  {project.status}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
+                <Users className="w-3 h-3 opacity-60" />
+                <span className="truncate">{project.client_name || `Client #${project.client_id}`}</span>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <div className="text-muted-foreground uppercase tracking-wider text-[10px] font-semibold">Hours</div>
+                <div className="font-bold">{(project.total_hours_logged || 0).toFixed(1)}h</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground uppercase tracking-wider text-[10px] font-semibold">Unbilled</div>
+                <div className="font-bold">{project.currency} {(project.total_amount_logged || 0).toFixed(2)}</div>
+              </div>
+            </div>
+
+            <div className="text-xs">
+              <div className="text-muted-foreground uppercase tracking-wider text-[10px] font-semibold">Rate</div>
+              <div className="font-bold">{project.hourly_rate != null ? `${project.currency} ${project.hourly_rate}/hr` : 'Not set'}</div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <ProjectStatusActions project={project} compact />
+            </div>
+          </div>
+        </ProfessionalCard>
+      ))}
+    </div>
+  );
+}
+
+function ProjectCardUI({ project, onClick }: { project: Project; onClick: () => void }) {
   const pct = project.budget_hours
     ? Math.min(100, ((project.total_hours_logged || 0) / project.budget_hours) * 100)
     : null;
@@ -309,44 +433,11 @@ function ProjectCardUI({ project, onClick }: { project: Project; onClick: () => 
       <div className="mt-6 pt-4 border-t border-border/30">
         <div className="grid grid-cols-2 gap-2">
           {project.status === 'active' ? (
-            <>
-              <ProfessionalButton
-                variant="outline"
-                size="sm"
-                className="rounded-xl"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  updateProject.mutate({ status: 'completed' });
-                }}
-                leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
-              >
-                Complete
-              </ProfessionalButton>
-              <ProfessionalButton
-                variant="ghost"
-                size="sm"
-                className="rounded-xl"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  updateProject.mutate({ status: 'archived' });
-                }}
-                leftIcon={<Archive className="w-3.5 h-3.5" />}
-              >
-                Archive
-              </ProfessionalButton>
-            </>
+            <ProjectStatusActions project={project} />
           ) : (
-            <ProfessionalButton
-              variant="outline"
-              size="sm"
-              className="col-span-2 rounded-xl"
-              onClick={(e) => {
-                e.stopPropagation();
-                updateProject.mutate({ status: 'active' });
-              }}
-            >
-              Reopen Project
-            </ProfessionalButton>
+            <div className="col-span-2">
+              <ProjectStatusActions project={project} />
+            </div>
           )}
         </div>
       </div>
@@ -385,8 +476,8 @@ function MyTimeTab() {
       await timeEntryApi.downloadMonthlyExport({ year, month });
       toast.success('Export downloaded');
       setShowExport(false);
-    } catch (e: any) {
-      toast.error(e?.message || 'Export failed');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Export failed');
     } finally {
       setIsExporting(false);
     }
