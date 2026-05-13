@@ -184,6 +184,8 @@ export interface TimeImportResult {
   errors: TimeImportError[];
 }
 
+export type MissingProjectStrategy = 'error' | 'existing_project' | 'single_project' | 'row_project';
+
 // -------------------------------------------------------------------------
 // Projects API
 // -------------------------------------------------------------------------
@@ -270,10 +272,27 @@ export const timeEntryApi = {
 
   delete: (id: number) => api.delete<void>(`/time-entries/${id}`),
 
-  importCsv: (file: File, useAi: boolean) => {
+  importCsv: (
+    file: File,
+    useAi: boolean,
+    missingProjectStrategy: MissingProjectStrategy,
+    fallbackProjectName?: string,
+    fallbackProjectId?: number,
+    taskNameColumn?: string
+  ) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('use_ai', String(useAi));
+    formData.append('missing_project_strategy', missingProjectStrategy);
+    if (fallbackProjectName?.trim()) {
+      formData.append('fallback_project_name', fallbackProjectName.trim());
+    }
+    if (fallbackProjectId) {
+      formData.append('fallback_project_id', String(fallbackProjectId));
+    }
+    if (taskNameColumn?.trim()) {
+      formData.append('task_name_column', taskNameColumn.trim());
+    }
     return apiRequest<TimeImportResult>('/time-entries/import/csv', {
       method: 'POST',
       body: formData,
@@ -294,7 +313,7 @@ export const timeEntryApi = {
 
   getActiveTimer: () => api.get<TimerActiveResponse>('/time-entries/timer/active'),
 
-  // Monthly Excel export — returns a Blob download
+  // Monthly CSV export — returns a Blob download
   downloadMonthlyExport: async (params: {
     year: number;
     month: number;
@@ -327,7 +346,7 @@ export const timeEntryApi = {
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = blobUrl;
-    a.download = `time_report_${params.year}_${String(params.month).padStart(2, '0')}.xlsx`;
+    a.download = `time_report_${params.year}_${String(params.month).padStart(2, '0')}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

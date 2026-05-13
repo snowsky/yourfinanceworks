@@ -5,7 +5,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProjects, useCreateProject, useImportTimeEntriesCsv, useTimeEntries, useUpdateProject } from '@/plugins/time_tracking/plugin/ui/hooks';
-import { projectApi, timeEntryApi, Project } from '@/plugins/time_tracking/plugin/ui/api';
+import { projectApi, timeEntryApi } from '@/plugins/time_tracking/plugin/ui/api';
+import type { Project, MissingProjectStrategy } from '@/plugins/time_tracking/plugin/ui/api';
 import { toast } from 'sonner';
 import { PageHeader, ContentSection, EmptyState } from '@/components/ui/professional-layout';
 import { ProfessionalCard, MetricCard } from '@/components/ui/professional-card';
@@ -22,6 +23,60 @@ const TAB_OPTIONS = [
 ] as const;
 
 type TabId = typeof TAB_OPTIONS[number]['id'];
+
+type CsvPreview = {
+  headers: string[];
+  rows: string[][];
+};
+
+function parseCsvPreview(text: string, maxRows = 5): CsvPreview {
+  const source = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  const parsedRows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let inQuotes = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    const next = source[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      row.push(cell);
+      cell = '';
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && next === '\n') {
+        index += 1;
+      }
+      row.push(cell);
+      parsedRows.push(row);
+      if (parsedRows.length > maxRows) break;
+      row = [];
+      cell = '';
+    } else {
+      cell += char;
+    }
+  }
+
+  if (parsedRows.length <= maxRows && (cell || row.length)) {
+    row.push(cell);
+    parsedRows.push(row);
+  }
+
+  const [headers = [], ...rows] = parsedRows;
+  return { headers, rows: rows.slice(0, maxRows) };
+}
+
+function guessTaskNameColumn(headers: string[]): string {
+  const aliases = new Set(['task', 'task name', 'task_name', 'activity', 'service']);
+  return headers.find((header) => aliases.has(header.trim().toLowerCase())) || '';
+}
 
 // ─── Root page ────────────────────────────────────────────────────────────────
 
@@ -588,9 +643,16 @@ function MyTimeTab() {
   const [showImport, setShowImport] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [useAiImport, setUseAiImport] = useState(true);
+  const [missingProjectStrategy, setMissingProjectStrategy] = useState<MissingProjectStrategy>('error');
+  const [fallbackProjectName, setFallbackProjectName] = useState('');
+  const [fallbackProjectId, setFallbackProjectId] = useState('');
+  const [csvPreview, setCsvPreview] = useState<CsvPreview | null>(null);
+  const [csvPreviewError, setCsvPreviewError] = useState('');
+  const [taskNameColumn, setTaskNameColumn] = useState('');
   const [importErrors, setImportErrors] = useState<Array<{ row: number; message: string }>>([]);
 
   const { data: entries = [], isLoading } = useTimeEntries({ limit: 200 });
+  const { data: projects = [] } = useProjects({ status: 'active' });
   const importCsv = useImportTimeEntriesCsv();
 
   const monthEntries = entries.filter((e) => {
@@ -621,9 +683,24 @@ function MyTimeTab() {
       toast.error('Choose a CSV file first');
       return;
     }
+    if (missingProjectStrategy === 'existing_project' && !fallbackProjectId) {
+      toast.error('Choose an existing project for unrecognized rows');
+      return;
+    }
+    if (!taskNameColumn) {
+      toast.error('Choose which CSV column should be used for task names');
+      return;
+    }
     setImportErrors([]);
     try {
-      const result = await importCsv.mutateAsync({ file: importFile, useAi: useAiImport });
+      const result = await importCsv.mutateAsync({
+        file: importFile,
+        useAi: useAiImport,
+        missingProjectStrategy,
+        fallbackProjectName,
+        fallbackProjectId: fallbackProjectId ? Number(fallbackProjectId) : undefined,
+        taskNameColumn,
+      });
       setImportErrors(result.errors);
       if (result.errors.length) {
         toast.warning(`${result.errors.length} row${result.errors.length === 1 ? '' : 's'} could not be imported`);
@@ -635,6 +712,26 @@ function MyTimeTab() {
       if (detail?.errors?.length) {
         setImportErrors(detail.errors);
       }
+    }
+  };
+
+  const loadCsvPreview = async (file: File | null) => {
+    setCsvPreview(null);
+    setCsvPreviewError('');
+    setTaskNameColumn('');
+
+    if (!file) return;
+
+    try {
+      const preview = parseCsvPreview(await file.text());
+      if (!preview.headers.length) {
+        setCsvPreviewError('CSV header row could not be read');
+        return;
+      }
+      setCsvPreview(preview);
+      setTaskNameColumn(guessTaskNameColumn(preview.headers));
+    } catch (error: unknown) {
+      setCsvPreviewError(error instanceof Error ? error.message : 'CSV preview failed');
     }
   };
 
@@ -678,7 +775,7 @@ function MyTimeTab() {
           variant="outline"
           className="rounded-xl border-border/50 bg-background/50 backdrop-blur-sm hover:bg-background transition-colors"
         >
-          <Download className="w-4 h-4 mr-2" /> Export Excel
+          <Download className="w-4 h-4 mr-2" /> Export CSV
         </ProfessionalButton>
       </div>
 
@@ -692,10 +789,72 @@ function MyTimeTab() {
               accept=".csv,text/csv"
               className="bg-background/50 border-border/50 rounded-xl"
               onChange={(e) => {
-                setImportFile(e.target.files?.[0] || null);
+                const file = e.target.files?.[0] || null;
+                setImportFile(file);
+                if (file && !fallbackProjectName.trim()) {
+                  setFallbackProjectName(file.name.replace(/\.csv$/i, ''));
+                }
                 setImportErrors([]);
+                void loadCsvPreview(file);
               }}
             />
+            {(csvPreview || csvPreviewError) && (
+              <div className="grid gap-3 rounded-xl border border-border/50 bg-background/40 p-4">
+                <div className="text-sm font-medium text-foreground">Task name column</div>
+                {csvPreviewError ? (
+                  <div className="text-sm text-red-600 dark:text-red-300">{csvPreviewError}</div>
+                ) : csvPreview ? (
+                  <div className="overflow-x-auto rounded-lg border border-border/50">
+                    <table className="min-w-full text-left text-xs">
+                      <thead className="bg-muted/40">
+                        <tr>
+                          {csvPreview.headers.map((header, index) => {
+                            const selected = taskNameColumn === header;
+                            return (
+                              <th key={`${header}-${index}`} className="whitespace-nowrap border-r border-border/40 p-2 last:border-r-0">
+                                <button
+                                  type="button"
+                                  onClick={() => setTaskNameColumn(header)}
+                                  className={cn(
+                                    'rounded-md border px-2 py-1 text-left transition-colors',
+                                    selected
+                                      ? 'border-primary bg-primary text-primary-foreground'
+                                      : 'border-border/50 bg-background/60 hover:border-primary/60'
+                                  )}
+                                >
+                                  {header || `Column ${index + 1}`}
+                                </button>
+                              </th>
+                            );
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {csvPreview.rows.map((row, rowIndex) => (
+                          <tr key={rowIndex} className="border-t border-border/40">
+                            {csvPreview.headers.map((header, columnIndex) => {
+                              const selected = taskNameColumn === header;
+                              return (
+                                <td
+                                  key={`${rowIndex}-${header}-${columnIndex}`}
+                                  className={cn(
+                                    'max-w-[220px] truncate border-r border-border/40 p-2 last:border-r-0',
+                                    selected && 'bg-primary/10 text-primary'
+                                  )}
+                                  title={row[columnIndex] || ''}
+                                >
+                                  {row[columnIndex] || ''}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </div>
+            )}
             <label className="flex items-center gap-3 text-sm text-muted-foreground">
               <input
                 type="checkbox"
@@ -708,8 +867,46 @@ function MyTimeTab() {
                 Use AI to normalize unusual columns when available
               </span>
             </label>
+            <div className="grid gap-3 rounded-xl border border-border/50 bg-background/40 p-4">
+              <label className="grid gap-1.5 text-sm">
+                <span className="font-medium text-foreground">Project handling</span>
+                <select
+                  className="flex h-10 rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all"
+                  value={missingProjectStrategy}
+                  onChange={(e) => setMissingProjectStrategy(e.target.value as MissingProjectStrategy)}
+                >
+                  <option value="error">Use projects from CSV; skip missing rows</option>
+                  <option value="existing_project">Merge all rows into an existing project</option>
+                  <option value="single_project">Create one new project for the import</option>
+                  <option value="row_project">Create each row as its own project</option>
+                </select>
+              </label>
+              {missingProjectStrategy === 'existing_project' && (
+                <select
+                  className="flex h-10 rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all"
+                  value={fallbackProjectId}
+                  onChange={(e) => setFallbackProjectId(e.target.value)}
+                  required
+                >
+                  <option value="">Choose project</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {missingProjectStrategy === 'single_project' && (
+                <Input
+                  value={fallbackProjectName}
+                  onChange={(e) => setFallbackProjectName(e.target.value)}
+                  placeholder="Project name"
+                  className="bg-background/50 border-border/50 rounded-xl"
+                />
+              )}
+            </div>
             <div className="flex justify-end">
-              <ProfessionalButton type="submit" loading={importCsv.isPending} disabled={!importFile} variant="default">
+              <ProfessionalButton type="submit" loading={importCsv.isPending} disabled={!importFile || !taskNameColumn} variant="default">
                 Import entries
               </ProfessionalButton>
             </div>
@@ -760,7 +957,7 @@ function MyTimeTab() {
               ))}
             </select>
             <ProfessionalButton onClick={handleExport} loading={isExporting} variant="default" className="shadow-lg shadow-primary/20">
-              Download .xlsx
+              Download .csv
             </ProfessionalButton>
           </div>
         </ProfessionalCard>

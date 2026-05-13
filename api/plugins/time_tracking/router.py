@@ -7,8 +7,6 @@ Two APIRouter instances:
 
 All routes require authentication via `get_current_user`.
 Multi-tenant isolation is via `get_db` which returns the tenant-specific DB session.
-
-Excel export uses openpyxl, matching the pattern in core/services/report_exporter.py.
 """
 
 from __future__ import annotations
@@ -42,7 +40,6 @@ from .schemas import (
     ProjectSummaryResponse, UnbilledItemsResponse,
     UnbilledTimeEntry, UnbilledExpense,
     ProjectInvoiceRequest, ProjectInvoiceResponse,
-    TimeExportFilters, TimeExportRow,
     TimeImportError, TimeImportResponse,
 )
 
@@ -293,6 +290,24 @@ def _canonicalize_csv_rows(csv_content: str, field_mapping: Optional[Dict[str, s
     return rows
 
 
+def _apply_task_name_column_override(
+    csv_content: str,
+    rows: List[Dict[str, Any]],
+    task_name_column: Optional[str],
+) -> List[Dict[str, Any]]:
+    if not task_name_column:
+        return rows
+
+    reader = csv.DictReader(io.StringIO(csv_content))
+    headers = reader.fieldnames or []
+    if task_name_column not in headers:
+        raise HTTPException(status_code=400, detail="Selected task name column was not found in the CSV")
+
+    for normalized, raw in zip(rows, reader):
+        normalized["task_name"] = raw.get(task_name_column)
+    return rows
+
+
 def _extract_json_object(text: str) -> Dict[str, Any]:
     cleaned = text.strip()
     if cleaned.startswith("```"):
@@ -405,17 +420,32 @@ def _find_client_by_name(db: Session, name: str) -> Optional[Client]:
     return None
 
 
-def _find_project(db: Session, project_name: str, client_id: int) -> Optional[Project]:
+def _find_project(
+    db: Session,
+    project_name: str,
+    client_id: int,
+    statuses: Optional[set[str]] = None,
+) -> Optional[Project]:
     target = project_name.strip().lower()
-    for project in db.query(Project).filter(Project.client_id == client_id).all():
+    query = db.query(Project).filter(Project.client_id == client_id)
+    if statuses is not None:
+        query = query.filter(Project.status.in_(statuses))
+    for project in query.all():
         if project.name.strip().lower() == target:
             return project
     return None
 
 
-def _find_project_by_name(db: Session, project_name: str) -> Optional[Project]:
+def _find_project_by_name(
+    db: Session,
+    project_name: str,
+    statuses: Optional[set[str]] = None,
+) -> Optional[Project]:
     target = project_name.strip().lower()
-    for project in db.query(Project).all():
+    query = db.query(Project)
+    if statuses is not None:
+        query = query.filter(Project.status.in_(statuses))
+    for project in query.all():
         if project.name.strip().lower() == target:
             return project
     return None
@@ -437,6 +467,99 @@ def _get_or_create_import_client(db: Session, current_user: MasterUser, now: dat
     db.add(client)
     db.flush()
     return client, True
+
+
+def _project_name_from_import_file(filename: Optional[str]) -> str:
+    if not filename:
+        return "Imported Time"
+    name = filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    if name.lower().endswith(".csv"):
+        name = name[:-4]
+    return name.strip() or "Imported Time"
+
+
+def _project_name_from_import_row(row: Dict[str, Any], row_number: int) -> str:
+    for field in ("description", "task_name", "notes"):
+        value = str(row.get(field) or "").strip()
+        if value:
+            return f"Row {row_number} - {value}"[:120]
+    date_value = str(row.get("date") or row.get("started_at") or "").strip()
+    if date_value:
+        return f"Row {row_number} - Imported Time {date_value}"[:120]
+    return f"Imported Time Row {row_number}"
+
+
+def _client_id_for_import_row(
+    db: Session,
+    row: Dict[str, Any],
+    current_user: MasterUser,
+    now: datetime,
+    result: TimeImportResponse,
+) -> int:
+    client_id = _parse_int(row.get("client_id"))
+    if client_id:
+        client = db.query(Client).filter(Client.id == client_id).first()
+        if not client:
+            raise ValueError(f"Client #{client_id} was not found")
+        return client.id
+
+    client_name = str(row.get("client_name") or "").strip()
+    if client_name:
+        client = _find_client_by_name(db, client_name)
+        if not client:
+            client = Client(
+                name=client_name,
+                preferred_currency=(str(row.get("currency") or "USD").strip().upper()[:3] or "USD"),
+                source="time_import",
+                owner_user_id=current_user.id,
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(client)
+            db.flush()
+            result.created_clients += 1
+        return client.id
+
+    currency = str(row.get("currency") or "USD").strip().upper()[:3] or "USD"
+    client, created_import_client = _get_or_create_import_client(db, current_user, now, currency)
+    if created_import_client:
+        result.created_clients += 1
+    return client.id
+
+
+def _get_or_create_import_project(
+    db: Session,
+    project_name: str,
+    client_id: int,
+    row: Dict[str, Any],
+    current_user: MasterUser,
+    now: datetime,
+    created_project_ids: set[int],
+    reused_project_ids: set[int],
+    reuse_existing: bool = True,
+) -> Project:
+    if reuse_existing:
+        project = _find_project(db, project_name, client_id, statuses={"active"})
+        if project:
+            reused_project_ids.add(project.id)
+            return project
+
+    currency = str(row.get("currency") or "USD").strip().upper()[:3] or "USD"
+    project = Project(
+        client_id=client_id,
+        name=project_name,
+        billing_method=str(row.get("billing_method") or "hourly").strip() or "hourly",
+        hourly_rate=_parse_float(row.get("hourly_rate")),
+        status="active",
+        currency=currency,
+        created_by=current_user.id,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(project)
+    db.flush()
+    created_project_ids.add(project.id)
+    return project
 
 
 def _find_task(db: Session, project_id: int, task_name: str) -> Optional[ProjectTask]:
@@ -1447,14 +1570,9 @@ def export_monthly(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """
-    Export a monthly time report as a .xlsx file.
-    Sheet 1: Time Log (one row per entry)
-    Sheet 2: Summary (totals by project)
+    Export a monthly time report as a CSV file for active projects only.
     """
     from calendar import monthrange
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from openpyxl.utils import get_column_letter
 
     _, last_day = monthrange(year, month)
     start_dt = datetime(year, month, 1, tzinfo=timezone.utc)
@@ -1462,10 +1580,12 @@ def export_monthly(
 
     q = (
         db.query(TimeEntry)
+        .join(Project, Project.id == TimeEntry.project_id)
         .filter(
             TimeEntry.started_at >= start_dt,
             TimeEntry.started_at <= end_dt,
             TimeEntry.status != "in_progress",
+            Project.status == "active",
         )
     )
     if project_id:
@@ -1479,145 +1599,38 @@ def export_monthly(
 
     entries = q.order_by(TimeEntry.started_at.asc()).all()
 
-    # Build row data
-    rows: list[TimeExportRow] = []
-    project_totals: dict[str, dict] = {}
+    headers = [
+        "Date", "Client Name", "Project", "Task",
+        "Description", "Notes", "Hours",
+        "Billable", "Status", "Invoiced", "Invoice #"
+    ]
 
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(headers)
     for entry in entries:
         project = db.query(Project).filter(Project.id == entry.project_id).first()
         task = db.query(ProjectTask).filter(ProjectTask.id == entry.task_id).first() if entry.task_id else None
         client = db.query(Client).filter(Client.id == entry.client_id).first() if entry.client_id else None
 
-        proj_name = project.name if project else f"Project {entry.project_id}"
-        client_name = client.name if client else f"Client {entry.client_id}"
+        writer.writerow([
+            entry.started_at.strftime("%Y-%m-%d"),
+            client.name if client else f"Client {entry.client_id}",
+            project.name if project else f"Project {entry.project_id}",
+            task.name if task else "",
+            entry.description or "",
+            entry.notes or "",
+            round(entry.hours, 2),
+            "Yes" if entry.billable else "No",
+            entry.status,
+            "Yes" if entry.invoiced else "No",
+            entry.invoice_number or "",
+        ])
 
-        row = TimeExportRow(
-            date=entry.started_at.strftime("%Y-%m-%d"),
-            client_id=entry.client_id,
-            client_name=client_name,
-            project_name=proj_name,
-            task_name=task.name if task else None,
-            description=entry.description,
-            notes=entry.notes,
-            hours=entry.hours,
-            hourly_rate=entry.hourly_rate,
-            amount=entry.amount or 0.0,
-            billable=entry.billable,
-            status=entry.status,
-            invoiced=entry.invoiced,
-            invoice_number=entry.invoice_number,
-        )
-        rows.append(row)
-
-        # Accumulate summary by project
-        if proj_name not in project_totals:
-            project_totals[proj_name] = {"hours": 0.0, "amount": 0.0, "client": client_name}
-        project_totals[proj_name]["hours"] += entry.hours
-        project_totals[proj_name]["amount"] += entry.amount or 0.0
-
-    # Build Excel workbook
-    wb = Workbook()
-    wb.remove(wb.active)  # remove default sheet
-
-    # --- Sheet 1: Time Log ---
-    ws = wb.create_sheet(title="Time Log")
-    headers = [
-        "Date", "Client ID", "Client Name", "Project", "Task",
-        "Description", "Notes", "Hours", "Hourly Rate", "Amount",
-        "Billable", "Status", "Invoiced", "Invoice #"
-    ]
-    header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="34495E", end_color="34495E", fill_type="solid")
-    header_align = Alignment(horizontal="center", vertical="center")
-
-    for col_idx, h in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col_idx, value=h)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_align
-
-    for row_idx, row in enumerate(rows, 2):
-        ws.cell(row=row_idx, column=1, value=row.date)
-        ws.cell(row=row_idx, column=2, value=row.client_id)
-        ws.cell(row=row_idx, column=3, value=row.client_name)
-        ws.cell(row=row_idx, column=4, value=row.project_name)
-        ws.cell(row=row_idx, column=5, value=row.task_name)
-        ws.cell(row=row_idx, column=6, value=row.description)
-        ws.cell(row=row_idx, column=7, value=row.notes)
-        ws.cell(row=row_idx, column=8, value=round(row.hours, 2))
-        ws.cell(row=row_idx, column=9, value=row.hourly_rate)
-        ws.cell(row=row_idx, column=10, value=round(row.amount, 2))
-        ws.cell(row=row_idx, column=11, value="Yes" if row.billable else "No")
-        ws.cell(row=row_idx, column=12, value=row.status)
-        ws.cell(row=row_idx, column=13, value="Yes" if row.invoiced else "No")
-        ws.cell(row=row_idx, column=14, value=row.invoice_number)
-
-        # Alternating row colors
-        if row_idx % 2 == 0:
-            row_fill = PatternFill(start_color="F8F9FA", end_color="F8F9FA", fill_type="solid")
-            for col_idx in range(1, len(headers) + 1):
-                ws.cell(row=row_idx, column=col_idx).fill = row_fill
-
-    # Auto-width columns
-    for col in ws.columns:
-        max_len = 0
-        col_letter = get_column_letter(col[0].column)
-        for cell in col:
-            try:
-                if cell.value and len(str(cell.value)) > max_len:
-                    max_len = len(str(cell.value))
-            except Exception:
-                pass
-        ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
-
-    # Totals row
-    total_row = len(rows) + 2
-    ws.cell(row=total_row, column=7, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=total_row, column=8, value=round(sum(r.hours for r in rows), 2)).font = Font(bold=True)
-    ws.cell(row=total_row, column=10, value=round(sum(r.amount for r in rows), 2)).font = Font(bold=True)
-
-    # --- Sheet 2: Summary ---
-    ws2 = wb.create_sheet(title="Summary")
-    ws2["A1"] = f"Time Report — {year}-{month:02d}"
-    ws2["A1"].font = Font(size=14, bold=True)
-
-    ws2["A3"] = "Project"
-    ws2["B3"] = "Client"
-    ws2["C3"] = "Total Hours"
-    ws2["D3"] = "Total Amount"
-    for col in ["A3", "B3", "C3", "D3"]:
-        ws2[col].font = Font(bold=True)
-        ws2[col].fill = PatternFill(start_color="34495E", end_color="34495E", fill_type="solid")
-        ws2[col].font = Font(bold=True, color="FFFFFF")
-
-    for i, (proj_name, data) in enumerate(project_totals.items(), 4):
-        ws2.cell(row=i, column=1, value=proj_name)
-        ws2.cell(row=i, column=2, value=data["client"])
-        ws2.cell(row=i, column=3, value=round(data["hours"], 2))
-        ws2.cell(row=i, column=4, value=round(data["amount"], 2))
-
-    for col in ws2.columns:
-        max_len = 0
-        col_letter = get_column_letter(col[0].column)
-        for cell in col:
-            try:
-                if cell.value and len(str(cell.value)) > max_len:
-                    max_len = len(str(cell.value))
-            except Exception:
-                pass
-        ws2.column_dimensions[col_letter].width = min(max_len + 2, 40)
-
-    # Serialize to bytes
-    buffer = io.BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
-    excel_bytes = buffer.getvalue()
-    buffer.close()
-
-    filename = f"time_report_{year}_{month:02d}.xlsx"
+    filename = f"time_report_{year}_{month:02d}.csv"
     return StreamingResponse(
-        io.BytesIO(excel_bytes),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        iter([buffer.getvalue()]),
+        media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
@@ -1626,6 +1639,10 @@ def export_monthly(
 async def import_time_entries_csv(
     file: UploadFile = File(...),
     use_ai: bool = Form(False),
+    missing_project_strategy: str = Form("error"),
+    fallback_project_name: Optional[str] = Form(None),
+    fallback_project_id: Optional[int] = Form(None),
+    task_name_column: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
@@ -1641,6 +1658,19 @@ async def import_time_entries_csv(
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Please upload a CSV file")
 
+    if missing_project_strategy not in {"error", "existing_project", "single_project", "row_project"}:
+        raise HTTPException(status_code=400, detail="Invalid missing project strategy")
+
+    fallback_project: Optional[Project] = None
+    if missing_project_strategy == "existing_project":
+        if not fallback_project_id:
+            raise HTTPException(status_code=400, detail="Choose an existing project for unrecognized rows")
+        fallback_project = db.query(Project).filter(Project.id == fallback_project_id).first()
+        if not fallback_project:
+            raise HTTPException(status_code=404, detail="Fallback project not found")
+        if fallback_project.status != "active":
+            raise HTTPException(status_code=400, detail="Choose an active project for import")
+
     content = await file.read()
     if len(content) > 2 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="CSV import is limited to 2MB")
@@ -1652,6 +1682,7 @@ async def import_time_entries_csv(
 
     ai_rows = _normalize_rows_with_ai(csv_content, db) if use_ai else None
     rows = ai_rows or _canonicalize_csv_rows(csv_content)
+    rows = _apply_task_name_column_override(csv_content, rows, task_name_column)
     if not rows:
         raise HTTPException(status_code=400, detail="CSV file has no importable rows")
 
@@ -1660,6 +1691,7 @@ async def import_time_entries_csv(
     created_project_ids: set[int] = set()
     reused_project_ids: set[int] = set()
     created_task_ids: set[int] = set()
+    shared_missing_project: Optional[Project] = None
 
     for index, row in enumerate(rows, start=2):
         try:
@@ -1693,7 +1725,47 @@ async def import_time_entries_csv(
 
             project_id = _parse_int(row.get("project_id"))
             project_name = str(row.get("project_name") or "").strip()
-            if project_id:
+            if missing_project_strategy == "existing_project":
+                if not fallback_project:
+                    raise ValueError("Fallback project not found")
+                project = fallback_project
+                client_id = project.client_id
+                reused_project_ids.add(project.id)
+            elif missing_project_strategy == "single_project":
+                if shared_missing_project:
+                    project = shared_missing_project
+                    client_id = project.client_id
+                    reused_project_ids.add(project.id)
+                else:
+                    client_id = _client_id_for_import_row(db, row, current_user, now, result)
+                    fallback_name = str(fallback_project_name or "").strip() or _project_name_from_import_file(file.filename)
+                    project = _get_or_create_import_project(
+                        db=db,
+                        project_name=fallback_name,
+                        client_id=client_id,
+                        row=row,
+                        current_user=current_user,
+                        now=now,
+                        created_project_ids=created_project_ids,
+                        reused_project_ids=reused_project_ids,
+                        reuse_existing=False,
+                    )
+                    shared_missing_project = project
+            elif missing_project_strategy == "row_project":
+                client_id = _client_id_for_import_row(db, row, current_user, now, result)
+                fallback_name = _project_name_from_import_row(row, index)
+                project = _get_or_create_import_project(
+                    db=db,
+                    project_name=fallback_name,
+                    client_id=client_id,
+                    row=row,
+                    current_user=current_user,
+                    now=now,
+                    created_project_ids=created_project_ids,
+                    reused_project_ids=reused_project_ids,
+                    reuse_existing=False,
+                )
+            elif project_id:
                 project = db.query(Project).filter(Project.id == project_id).first()
                 if not project:
                     raise ValueError(f"Project #{project_id} was not found")
@@ -1723,7 +1795,7 @@ async def import_time_entries_csv(
                         result.created_clients += 1
                     client_id = client.id
                 else:
-                    project = _find_project_by_name(db, project_name)
+                    project = _find_project_by_name(db, project_name, statuses={"active"})
                     if project:
                         client_id = project.client_id
                         reused_project_ids.add(project.id)
@@ -1734,7 +1806,7 @@ async def import_time_entries_csv(
                             result.created_clients += 1
                         client_id = client.id
 
-                project = project or _find_project(db, project_name, client_id)
+                project = project or _find_project(db, project_name, client_id, statuses={"active"})
                 if project:
                     reused_project_ids.add(project.id)
                 else:

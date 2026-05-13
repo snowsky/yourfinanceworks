@@ -4,7 +4,8 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { projectApi, timeEntryApi, Project, ProjectCustomField, ProjectTask, TimeEntry } from './api';
+import { projectApi, timeEntryApi } from './api';
+import type { Project, ProjectCustomField, ProjectTask, TimeEntry, MissingProjectStrategy } from './api';
 
 // -------------------------------------------------------------------------
 // Project hooks
@@ -248,8 +249,21 @@ export const useDeleteTimeEntry = () => {
 export const useImportTimeEntriesCsv = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ file, useAi }: { file: File; useAi: boolean }) =>
-      timeEntryApi.importCsv(file, useAi),
+    mutationFn: ({
+      file,
+      useAi,
+      missingProjectStrategy,
+      fallbackProjectName,
+      fallbackProjectId,
+      taskNameColumn,
+    }: {
+      file: File;
+      useAi: boolean;
+      missingProjectStrategy: MissingProjectStrategy;
+      fallbackProjectName?: string;
+      fallbackProjectId?: number;
+      taskNameColumn?: string;
+    }) => timeEntryApi.importCsv(file, useAi, missingProjectStrategy, fallbackProjectName, fallbackProjectId, taskNameColumn),
     onSuccess: (result) => {
       const suffix = result.skipped_rows ? `, ${result.skipped_rows} skipped` : '';
       toast.success(`Imported ${result.created_time_entries} time entries${suffix}`);
