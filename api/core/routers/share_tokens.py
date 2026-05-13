@@ -38,6 +38,7 @@ from core.schemas.share_token import (
     PublicBankStatementTransaction,
     PublicPortfolioView,
     PublicPortfolioHolding,
+    PublicDocVaultItemView,
 )
 
 logger = logging.getLogger(__name__)
@@ -321,6 +322,7 @@ def _fetch_public_record(
     PublicClientView,
     PublicBankStatementView,
     PublicPortfolioView,
+    PublicDocVaultItemView,
 ]:
     if record_type == "invoice":
         invoice = (
@@ -481,6 +483,58 @@ def _fetch_public_record(
             currency=portfolio.currency,
             created_at=portfolio.created_at,
             holdings=holdings,
+        )
+
+    elif record_type == "docvault_item":
+        DocVaultEntry = None
+        for module_path in (
+            "plugins.docvault.models",
+            "plugins_dynamic.docvault.models",
+            "plugins_dynamic.docvault.backend.models",
+            "docvault.models",
+            "docvault.backend.models",
+        ):
+            try:
+                module = __import__(module_path, fromlist=["DocVaultEntry"])
+                DocVaultEntry = getattr(module, "DocVaultEntry")
+                break
+            except (ImportError, AttributeError):
+                continue
+        if DocVaultEntry is None:
+            raise HTTPException(status_code=404, detail="Record not found")
+
+        entry = (
+            tenant_db.query(DocVaultEntry)
+            .filter(DocVaultEntry.id == record_id, DocVaultEntry.is_archived == False)
+            .first()
+        )
+        if not entry:
+            raise HTTPException(status_code=404, detail="Record not found")
+
+        metadata = dict(entry.public_metadata or {})
+        cloud_integration = metadata.get("cloud_integration")
+        if isinstance(cloud_integration, dict):
+            metadata["cloud_integration"] = {
+                key: cloud_integration.get(key)
+                for key in ("provider", "provider_label", "file_name", "linked_at")
+                if cloud_integration.get(key) is not None
+            }
+
+        return PublicDocVaultItemView(
+            id=entry.id,
+            category=entry.category,
+            title=entry.title,
+            owner_name=entry.owner_name,
+            issuer=entry.issuer,
+            expiry_date=entry.expiry_date,
+            issue_date=entry.issue_date,
+            public_metadata=metadata,
+            tags=entry.tags or [],
+            file_name=entry.file_name,
+            file_mime_type=entry.file_mime_type,
+            file_size=entry.file_size,
+            created_at=entry.created_at,
+            updated_at=entry.updated_at,
         )
 
     raise HTTPException(status_code=400, detail="Unknown record type")

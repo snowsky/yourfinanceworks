@@ -14,6 +14,7 @@ const RECORD_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   client: Users,
   bank_statement: Landmark,
   portfolio: TrendingUp,
+  docvault_item: LockKeyhole,
 };
 
 function formatCurrency(amount: number | null | undefined, currency = 'USD') {
@@ -104,8 +105,9 @@ function ClientView({ data }: { data: any }) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function BankStatementView({ data }: { data: any }) {
-  const hasBalance = data.transactions?.some((tx: any) => tx.balance != null);
-  const hasCategory = data.transactions?.some((tx: any) => tx.category);
+  const transactions = (data.transactions || []) as Array<Record<string, unknown>>;
+  const hasBalance = transactions.some((tx) => tx.balance != null);
+  const hasCategory = transactions.some((tx) => tx.category);
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 text-sm">
@@ -186,6 +188,44 @@ function PortfolioView({ data }: { data: any }) {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function DocVaultItemView({ data }: { data: any }) {
+  const metadata = data.public_metadata || {};
+  const cloud = metadata.cloud_integration;
+  const documentLabel = metadata.document_label;
+  const approvalStatus = metadata.approval_status;
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4 text-sm">
+        <div><span className="text-muted-foreground">Title</span><p className="font-medium">{data.title || '—'}</p></div>
+        <div><span className="text-muted-foreground">Type</span><p className="font-medium capitalize">{String(data.category || '').replace(/_/g, ' ')}</p></div>
+        {data.owner_name && <div><span className="text-muted-foreground">Owner</span><p className="font-medium">{data.owner_name}</p></div>}
+        {data.issuer && <div><span className="text-muted-foreground">Issuer</span><p className="font-medium">{data.issuer}</p></div>}
+        {data.issue_date && <div><span className="text-muted-foreground">Issue date</span><p className="font-medium">{formatDate(data.issue_date)}</p></div>}
+        {data.expiry_date && <div><span className="text-muted-foreground">Expiry date</span><p className="font-medium">{formatDate(data.expiry_date)}</p></div>}
+        {data.file_name && <div><span className="text-muted-foreground">File</span><p className="font-medium">{data.file_name}</p></div>}
+        {cloud?.provider_label && <div><span className="text-muted-foreground">Cloud source</span><p className="font-medium">{cloud.provider_label}</p></div>}
+        {documentLabel && <div><span className="text-muted-foreground">Label</span><p className="font-medium capitalize">{String(documentLabel).replace(/_/g, ' ')}</p></div>}
+        {approvalStatus && <div><span className="text-muted-foreground">Approval</span><p className="font-medium capitalize">{String(approvalStatus).replace(/_/g, ' ')}</p></div>}
+        <div><span className="text-muted-foreground">Created</span><p className="font-medium">{formatDate(data.created_at)}</p></div>
+      </div>
+      {data.tags?.length > 0 && (
+        <div>
+          <span className="text-sm text-muted-foreground">Tags</span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {data.tags.map((tag: string) => (
+              <span key={tag} className="rounded-md border px-2 py-1 text-xs">{tag}</span>
+            ))}
+          </div>
+        </div>
+      )}
+      <p className="text-sm text-muted-foreground">
+        Sensitive vault details and file contents are not included in shared DocVault item views.
+      </p>
+    </div>
+  );
+}
+
 function escapeCsvField(value: unknown): string {
   const str = value == null ? '' : String(value);
   return str.includes(',') || str.includes('"') || str.includes('\n')
@@ -249,6 +289,7 @@ const RECORD_LABELS: Record<string, string> = {
   client: 'Client',
   bank_statement: 'Bank Statement',
   portfolio: 'Investment Portfolio',
+  docvault_item: 'DocVault Item',
 };
 
 export default function SharedRecord() {
@@ -390,6 +431,7 @@ export default function SharedRecord() {
               {recordType === 'client' && <ClientView data={data} />}
               {recordType === 'bank_statement' && <BankStatementView data={data} />}
               {recordType === 'portfolio' && <PortfolioView data={data} />}
+              {recordType === 'docvault_item' && <DocVaultItemView data={data} />}
             </CardContent>
           </Card>
         )}
