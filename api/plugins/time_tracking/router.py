@@ -1600,8 +1600,8 @@ def export_monthly(
     entries = q.order_by(TimeEntry.started_at.asc()).all()
 
     headers = [
-        "Date", "Client ID", "Client Name", "Project", "Task",
-        "Description", "Notes", "Hours", "Hourly Rate", "Amount",
+        "Date", "Client Name", "Project", "Task",
+        "Description", "Notes", "Hours",
         "Billable", "Status", "Invoiced", "Invoice #"
     ]
 
@@ -1615,15 +1615,12 @@ def export_monthly(
 
         writer.writerow([
             entry.started_at.strftime("%Y-%m-%d"),
-            entry.client_id,
             client.name if client else f"Client {entry.client_id}",
             project.name if project else f"Project {entry.project_id}",
             task.name if task else "",
             entry.description or "",
             entry.notes or "",
             round(entry.hours, 2),
-            entry.hourly_rate,
-            round(entry.amount or 0.0, 2),
             "Yes" if entry.billable else "No",
             entry.status,
             "Yes" if entry.invoiced else "No",
