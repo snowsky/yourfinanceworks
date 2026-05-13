@@ -345,6 +345,32 @@ def _find_project(db: Session, project_name: str, client_id: int) -> Optional[Pr
     return None
 
 
+def _find_project_by_name(db: Session, project_name: str) -> Optional[Project]:
+    target = project_name.strip().lower()
+    for project in db.query(Project).all():
+        if project.name.strip().lower() == target:
+            return project
+    return None
+
+
+def _get_or_create_import_client(db: Session, current_user: MasterUser, now: datetime, currency: str) -> tuple[Client, bool]:
+    client = _find_client_by_name(db, "Imported Time")
+    if client:
+        return client, False
+
+    client = Client(
+        name="Imported Time",
+        preferred_currency=currency,
+        source="time_import",
+        owner_user_id=current_user.id,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(client)
+    db.flush()
+    return client, True
+
+
 def _find_task(db: Session, project_id: int, task_name: str) -> Optional[ProjectTask]:
     target = task_name.strip().lower()
     for task in db.query(ProjectTask).filter(ProjectTask.project_id == project_id).all():
@@ -1336,6 +1362,7 @@ async def import_time_entries_csv(
             elif project_name:
                 client_id = _parse_int(row.get("client_id"))
                 client_name = str(row.get("client_name") or "").strip()
+                project = None
                 if client_id:
                     client = db.query(Client).filter(Client.id == client_id).first()
                     if not client:
@@ -1356,9 +1383,18 @@ async def import_time_entries_csv(
                         result.created_clients += 1
                     client_id = client.id
                 else:
-                    raise ValueError("Client name or client_id is required")
+                    project = _find_project_by_name(db, project_name)
+                    if project:
+                        client_id = project.client_id
+                        reused_project_ids.add(project.id)
+                    else:
+                        currency = str(row.get("currency") or "USD").strip().upper()[:3] or "USD"
+                        client, created_import_client = _get_or_create_import_client(db, current_user, now, currency)
+                        if created_import_client:
+                            result.created_clients += 1
+                        client_id = client.id
 
-                project = _find_project(db, project_name, client_id)
+                project = project or _find_project(db, project_name, client_id)
                 if project:
                     reused_project_ids.add(project.id)
                 else:
