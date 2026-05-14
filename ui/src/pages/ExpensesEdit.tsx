@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Upload, X, Package, Eye, AlertCircle, ArrowLeft, CheckCircle } from 'lucide-react';
+import { CalendarIcon, Upload, X, Package, Eye, AlertCircle, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { expenseApi, approvalApi, Expense, ExpenseAttachmentMeta, linkApi, clientApi } from '@/lib/api';
@@ -39,8 +39,9 @@ export default function ExpensesEdit() {
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [attachments, setAttachments] = useState<ExpenseAttachmentMeta[]>([]);
   const [pendingDelete, setPendingDelete] = useState<Set<number>>(new Set());
-  const [preview, setPreview] = useState<{ open: boolean; url: string | null; contentType: string | null; filename: string | null }>({ open: false, url: null, contentType: null, filename: null });
+  const [preview, setPreview] = useState<{ open: boolean; url: string | null; contentType: string | null; filename: string | null; loading: boolean }>({ open: false, url: null, contentType: null, filename: null, loading: false });
   const [previewLoading, setPreviewLoading] = useState<number | null>(null);
+  const previewRequestRef = useRef(0);
   const [invoiceOptions, setInvoiceOptions] = useState<Array<{ id: number; number: string; client_id: number; client_name: string }>>([]);
   const [clientOptions, setClientOptions] = useState<Array<{ id: number; name: string }>>([]);
   const [newLabel, setNewLabel] = useState<string>('');
@@ -247,6 +248,54 @@ export default function ExpensesEdit() {
     } catch (e: any) {
       toast.error(e?.message || 'Failed to submit expense for approval');
       throw e; // Re-throw to prevent dialog from closing
+    }
+  };
+
+  const openAttachmentPreview = async (attachment: ExpenseAttachmentMeta) => {
+    if (!id) return;
+
+    const requestId = ++previewRequestRef.current;
+    setPreview(prev => {
+      if (prev.url) URL.revokeObjectURL(prev.url);
+      return {
+        open: true,
+        url: null,
+        contentType: attachment.content_type || null,
+        filename: attachment.filename || null,
+        loading: true,
+      };
+    });
+    setPreviewLoading(attachment.id);
+
+    try {
+      const { blob, contentType } = await expenseApi.downloadAttachmentBlob(Number(id), attachment.id);
+      const url = URL.createObjectURL(blob);
+
+      if (previewRequestRef.current !== requestId) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      setPreview(prev => {
+        if (prev.url) URL.revokeObjectURL(prev.url);
+        return {
+          open: true,
+          url,
+          contentType: contentType || attachment.content_type || null,
+          filename: attachment.filename || null,
+          loading: false,
+        };
+      });
+    } catch (e: unknown) {
+      if (previewRequestRef.current === requestId) {
+        const message = e instanceof Error ? e.message : null;
+        toast.error(message || t('expenses.failed_to_download_attachment', { defaultValue: 'Failed to download attachment' }));
+        setPreview(prev => ({ ...prev, loading: false }));
+      }
+    } finally {
+      if (previewRequestRef.current === requestId) {
+        setPreviewLoading(null);
+      }
     }
   };
 
@@ -691,20 +740,12 @@ export default function ExpensesEdit() {
                               variant="ghost"
                               size="sm"
                               className="h-8 px-2"
-                              onClick={async () => {
-                                setPreviewLoading(att.id);
-                                try {
-                                  const { blob, contentType } = await expenseApi.downloadAttachmentBlob(Number(id), att.id);
-                                  const url = URL.createObjectURL(blob);
-                                  setPreview({ open: true, url, contentType: contentType || att.content_type || null, filename: att.filename || null });
-                                } finally {
-                                  setPreviewLoading(null);
-                                }
-                              }}
-                              disabled={previewLoading === att.id}
+                              onClick={() => openAttachmentPreview(att)}
+                              title={t('common.view')}
+                              aria-label={t('common.view')}
                             >
                               {previewLoading === att.id ? (
-                                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
                                 <Eye className="w-4 h-4" />
                               )}
@@ -871,21 +912,28 @@ export default function ExpensesEdit() {
 
         {/* File inline preview dialog */}
         <Dialog open={preview.open} onOpenChange={(o) => {
+          if (!o) previewRequestRef.current++;
           if (!o && preview.url) URL.revokeObjectURL(preview.url);
-          setPreview(prev => ({ open: o, url: o ? prev.url : null, contentType: o ? prev.contentType : null, filename: o ? prev.filename : null }));
+          setPreview(prev => ({ open: o, url: o ? prev.url : null, contentType: o ? prev.contentType : null, filename: o ? prev.filename : null, loading: o ? prev.loading : false }));
         }}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
               <DialogTitle>{preview.filename || t('expenses.preview', { defaultValue: 'Preview' })}</DialogTitle>
             </DialogHeader>
             <div className="max-h-[70vh] overflow-auto">
+              {preview.loading && (
+                <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <span>{t('expenses.loading_attachment', { defaultValue: 'Loading attachment...' })}</span>
+                </div>
+              )}
               {preview.url && (preview.contentType || '').startsWith('image/') && (
                 <img src={preview.url} alt={preview.filename || t('expenses.attachment', { defaultValue: 'attachment' })} className="max-w-full h-auto" />
               )}
-              {preview.url && preview.contentType === 'application/pdf' && (
+              {preview.url && (preview.contentType || '').startsWith('application/pdf') && (
                 <iframe src={preview.url} className="w-full h-[70vh]" title={t('expenses.pdf_preview', { defaultValue: 'PDF Preview' })} />
               )}
-              {preview.url && preview.contentType && !((preview.contentType || '').startsWith('image/') || preview.contentType === 'application/pdf') && (
+              {preview.url && preview.contentType && !((preview.contentType || '').startsWith('image/') || (preview.contentType || '').startsWith('application/pdf')) && (
                 <div className="text-sm text-muted-foreground">{t('expenses.cannot_preview', { defaultValue: 'This file type cannot be previewed. Please download instead.' })}</div>
               )}
             </div>
@@ -908,5 +956,3 @@ export default function ExpensesEdit() {
     </>
   );
 }
-
-
