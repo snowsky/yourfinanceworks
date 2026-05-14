@@ -1,5 +1,5 @@
 // @ts-nocheck - TypeScript configuration issue with React types
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { CurrencySelector } from '@/components/ui/currency-selector';
 import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Upload, Package, Eye, Pencil, AlertCircle, Trash2 } from 'lucide-react';
+import { CalendarIcon, Upload, Package, Eye, Pencil, AlertCircle, Trash2, Loader2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -45,7 +45,9 @@ export default function ExpensesView() {
   const [form, setForm] = useState<Partial<Expense>>({});
   const [loading, setLoading] = useState(true);
   const [attachments, setAttachments] = useState<ExpenseAttachmentMeta[]>([]);
-  const [preview, setPreview] = useState<{ open: boolean; url: string | null; contentType: string | null; filename: string | null }>({ open: false, url: null, contentType: null, filename: null });
+  const [preview, setPreview] = useState<{ open: boolean; url: string | null; contentType: string | null; filename: string | null; loading: boolean }>({ open: false, url: null, contentType: null, filename: null, loading: false });
+  const [previewLoading, setPreviewLoading] = useState<number | null>(null);
+  const previewRequestRef = useRef(0);
   const [invoiceOptions, setInvoiceOptions] = useState<Array<{ id: number; number: string; client_name: string }>>([]);
   const [approval, setApproval] = useState<ExpenseApproval | null>(null);
 
@@ -153,6 +155,54 @@ export default function ExpensesView() {
       toast.error(error?.message || 'Failed to unsubmit approval request');
     } finally {
       setUnsubmitLoading(false);
+    }
+  };
+
+  const openAttachmentPreview = async (attachment: ExpenseAttachmentMeta) => {
+    if (!id) return;
+
+    const requestId = ++previewRequestRef.current;
+    setPreview(prev => {
+      if (prev.url) URL.revokeObjectURL(prev.url);
+      return {
+        open: true,
+        url: null,
+        contentType: attachment.content_type || null,
+        filename: attachment.filename || null,
+        loading: true,
+      };
+    });
+    setPreviewLoading(attachment.id);
+
+    try {
+      const { blob, contentType } = await expenseApi.downloadAttachmentBlob(Number(id), attachment.id);
+      const url = URL.createObjectURL(blob);
+
+      if (previewRequestRef.current !== requestId) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      setPreview(prev => {
+        if (prev.url) URL.revokeObjectURL(prev.url);
+        return {
+          open: true,
+          url,
+          contentType: contentType || attachment.content_type || null,
+          filename: attachment.filename || null,
+          loading: false,
+        };
+      });
+    } catch (e: unknown) {
+      if (previewRequestRef.current === requestId) {
+        const message = e instanceof Error ? e.message : null;
+        toast.error(message || t('expenses.failed_to_download_attachment', { defaultValue: 'Failed to download attachment' }));
+        setPreview(prev => ({ ...prev, loading: false }));
+      }
+    } finally {
+      if (previewRequestRef.current === requestId) {
+        setPreviewLoading(null);
+      }
     }
   };
 
@@ -575,17 +625,13 @@ export default function ExpensesView() {
                               variant="ghost"
                               size="sm"
                               className="h-8 px-2"
-                              onClick={async () => {
-                                try {
-                                  const { blob, contentType } = await expenseApi.downloadAttachmentBlob(Number(id), att.id);
-                                  const url = URL.createObjectURL(blob);
-                                  setPreview({ open: true, url, contentType: contentType || att.content_type || null, filename: att.filename || null });
-                                } catch (e) {
-                                  toast.error('Failed to download attachment');
-                                }
-                              }}
+                              onClick={() => openAttachmentPreview(att)}
                             >
-                              <Eye className="w-4 h-4 mr-2" />
+                              {previewLoading === att.id ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              ) : (
+                                <Eye className="w-4 h-4 mr-2" />
+                              )}
                               {t('common.view')}
                             </Button>
                           </div>
@@ -648,14 +694,21 @@ export default function ExpensesView() {
 
         {/* File inline preview dialog */}
         <Dialog open={preview.open} onOpenChange={(o) => {
+          if (!o) previewRequestRef.current++;
           if (!o && preview.url) URL.revokeObjectURL(preview.url);
-          setPreview(prev => ({ open: o, url: o ? prev.url : null, contentType: o ? prev.contentType : null, filename: o ? prev.filename : null }));
+          setPreview(prev => ({ open: o, url: o ? prev.url : null, contentType: o ? prev.contentType : null, filename: o ? prev.filename : null, loading: o ? prev.loading : false }));
         }}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
               <DialogTitle>{preview.filename || t('expenses.preview', { defaultValue: 'Preview' })}</DialogTitle>
             </DialogHeader>
             <div className="max-h-[70vh] overflow-auto">
+              {preview.loading && (
+                <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <span>{t('expenses.loading_attachment', { defaultValue: 'Loading attachment...' })}</span>
+                </div>
+              )}
               {preview.url && (preview.contentType || '').startsWith('image/') && (
                 <img src={preview.url} alt={preview.filename || t('expenses.attachment', { defaultValue: 'attachment' })} className="max-w-full h-auto" />
               )}
