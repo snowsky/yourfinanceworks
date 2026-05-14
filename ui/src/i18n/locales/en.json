@@ -1059,7 +1059,7 @@
     "tabs": {
       "profile": "Profile",
       "company": "Company Info",
-      "invoices": "Invoice Settings",
+      "invoices": "Invoices",
       "currencies": "Currencies",
       "payments": "Payment",
       "discount_rules": "Discount Rules",
@@ -1070,7 +1070,7 @@
       "email_notifications": "Email & Notifications",
       "export_destinations": "Export Destinations",
       "gamification": "Gamification",
-      "cookies": "Cookie Settings",
+      "cookies": "Cookies",
       "export": "Data Management",
       "email": "Email Settings",
       "plugins": "Plugins"

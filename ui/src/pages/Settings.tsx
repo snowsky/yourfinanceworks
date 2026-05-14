@@ -72,7 +72,7 @@ const Settings = () => {
   const activeTabLabelMap: Record<string, string> = {
     profile: t('settings.tabs.profile', 'Profile'),
     appearance: t('settings.tabs.appearance', 'Appearance'),
-    cookies: t('settings.tabs.cookies', 'Privacy'),
+    cookies: t('settings.tabs.cookies', 'Cookies'),
     company: t('settings.tabs.company', 'Company'),
     invoices: t('settings.tabs.invoices', 'Invoices'),
     expenses: t('settings.tabs.expenses', 'Expenses'),
@@ -140,7 +140,7 @@ const Settings = () => {
               </p>
               <NavItem value="profile" icon={User} label={t('settings.tabs.profile', 'Profile')} activeTab={activeTab} onClick={setActiveTab} />
               <NavItem value="appearance" icon={Palette} label={t('settings.tabs.appearance', 'Appearance')} activeTab={activeTab} onClick={setActiveTab} />
-              <NavItem value="cookies" icon={Lock} label={t('settings.tabs.cookies', 'Privacy')} activeTab={activeTab} onClick={setActiveTab} />
+              <NavItem value="cookies" icon={Lock} label={t('settings.tabs.cookies', 'Cookies')} activeTab={activeTab} onClick={setActiveTab} />
 
               {isAdmin && (
                 <>
