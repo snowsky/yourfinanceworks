@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -11,6 +13,9 @@ from core.schemas.workflows import (
     WorkflowDefinitionResponse,
     WorkflowRunNowResponse,
     WorkflowToggleRequest,
+    WorkflowExecutionLogResponse,
+    WorkflowExecutionLogListResponse,
+    WorkflowUpdateRequest,
 )
 from core.services.workflow_service import WorkflowService
 from core.utils.feature_gate import require_feature
@@ -103,3 +108,66 @@ async def run_workflow_now(
         skipped_count=result["skipped_count"],
         errors=result["errors"],
     )
+
+
+@router.get("/executions", response_model=WorkflowExecutionLogListResponse)
+async def list_execution_logs(
+    status: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_admin(current_user)
+    service = WorkflowService(db)
+    return service.list_execution_logs(status=status, limit=limit, offset=offset)
+
+
+@router.get("/{workflow_id}/executions", response_model=WorkflowExecutionLogListResponse)
+async def list_workflow_execution_logs(
+    workflow_id: int,
+    status: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_admin(current_user)
+    service = WorkflowService(db)
+    return service.list_execution_logs(workflow_id=workflow_id, status=status, limit=limit, offset=offset)
+
+
+@router.put("/{workflow_id}", response_model=WorkflowDefinitionResponse)
+async def update_workflow(
+    workflow_id: int,
+    payload: WorkflowUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_admin(current_user)
+    service = WorkflowService(db)
+    try:
+        return service.update_workflow(
+            workflow_id=workflow_id,
+            name=payload.name,
+            description=payload.description,
+            action_ids=payload.action_ids,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/{workflow_id}", status_code=204)
+async def delete_workflow(
+    workflow_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_admin(current_user)
+    service = WorkflowService(db)
+    try:
+        service.delete_workflow(workflow_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return None
+

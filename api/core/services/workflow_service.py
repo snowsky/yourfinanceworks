@@ -247,6 +247,26 @@ class WorkflowService:
                     logger.error(error)
                     stats["errors"].append(error)
 
+                    try:
+                        failed_log = WorkflowExecutionLog(
+                            workflow_id=workflow.id,
+                            event_key=event_key,
+                            entity_type="invoice",
+                            entity_id=str(invoice.id),
+                            status="failed",
+                            details={
+                                "invoice_id": invoice.id,
+                                "invoice_number": invoice.number,
+                                "error": str(exc),
+                                "workflow_key": workflow.key,
+                            },
+                        )
+                        self.db.add(failed_log)
+                        self.db.commit()
+                    except Exception as log_exc:
+                        self.db.rollback()
+                        logger.error(f"Failed to record failed workflow execution log: {log_exc}")
+
         return stats
 
     def run_workflow_now(self, workflow_id: int) -> Dict[str, Any]:
@@ -334,3 +354,87 @@ class WorkflowService:
             suffix += 1
             candidate = f"{base}-{suffix}"
         return candidate
+
+    def list_execution_logs(
+        self,
+        *,
+        workflow_id: Optional[int] = None,
+        status: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        query = self.db.query(WorkflowExecutionLog)
+
+        if workflow_id is not None:
+            query = query.filter(WorkflowExecutionLog.workflow_id == workflow_id)
+        if status is not None:
+            query = query.filter(WorkflowExecutionLog.status == status)
+
+        total = query.count()
+
+        logs = query.order_by(WorkflowExecutionLog.created_at.desc()).offset(offset).limit(limit).all()
+
+        result_logs = []
+        for log in logs:
+            log.workflow_name = log.workflow.name if log.workflow else None
+            log.workflow_key = log.workflow.key if log.workflow else None
+            result_logs.append(log)
+
+        return {"total": total, "logs": result_logs}
+
+    def delete_workflow(self, workflow_id: int) -> None:
+        workflow = self.db.query(WorkflowDefinition).filter(WorkflowDefinition.id == workflow_id).first()
+        if not workflow:
+            raise ValueError("Workflow not found")
+
+        if workflow.is_system:
+            raise ValueError("System workflows cannot be deleted")
+
+        self.db.delete(workflow)
+        self.db.commit()
+
+    def update_workflow(
+        self,
+        workflow_id: int,
+        *,
+        name: str,
+        description: Optional[str],
+        action_ids: list[str],
+    ) -> WorkflowDefinition:
+        workflow = self.db.query(WorkflowDefinition).filter(WorkflowDefinition.id == workflow_id).first()
+        if not workflow:
+            raise ValueError("Workflow not found")
+
+        if workflow.is_system:
+            raise ValueError("System workflows cannot be edited")
+
+        if not name.strip():
+            raise ValueError("Workflow name cannot be empty")
+
+        normalized_actions = []
+        for action_id in action_ids:
+            if action_id not in SUPPORTED_ACTIONS:
+                raise ValueError(f"Unsupported workflow action: {action_id}")
+            if action_id not in normalized_actions:
+                normalized_actions.append(action_id)
+
+        if not normalized_actions:
+            raise ValueError("Select at least one workflow action")
+
+        actions = {
+            "send_internal_notification": "send_internal_notification" in normalized_actions,
+            "create_internal_task": "create_internal_task" in normalized_actions,
+            "task_type": "reminder",
+            "task_title_template": "Follow up on overdue invoice #{invoice_number}",
+            "task_due_in_days": 1,
+        }
+
+        workflow.name = name.strip()
+        workflow.description = (description or "").strip() or SUPPORTED_TRIGGERS[workflow.trigger_type]["description"]
+        workflow.actions = actions
+        workflow.updated_at = datetime.now(timezone.utc)
+
+        self.db.commit()
+        self.db.refresh(workflow)
+        return workflow
+
