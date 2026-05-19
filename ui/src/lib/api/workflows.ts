@@ -36,6 +36,24 @@ export interface WorkflowCatalogResponse {
   actions: WorkflowOption[];
 }
 
+export interface WorkflowExecutionLog {
+  id: number;
+  workflow_id: number;
+  workflow_name?: string | null;
+  workflow_key?: string | null;
+  event_key: string;
+  entity_type: string;
+  entity_id: string;
+  status: 'success' | 'failed';
+  details?: Record<string, any> | null;
+  created_at: string;
+}
+
+export interface WorkflowExecutionLogListResponse {
+  total: number;
+  logs: WorkflowExecutionLog[];
+}
+
 export const workflowsApi = {
   list: () => apiRequest<WorkflowDefinition[]>('/workflows/'),
   catalog: () => apiRequest<WorkflowCatalogResponse>('/workflows/catalog'),
@@ -52,5 +70,30 @@ export const workflowsApi = {
   runNow: (id: number) =>
     apiRequest<WorkflowRunNowResponse>(`/workflows/${id}/run`, {
       method: 'POST',
+    }),
+  listExecutions: (params?: { status?: string; limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
+    if (params?.offset !== undefined) searchParams.set('offset', String(params.offset));
+    const query = searchParams.toString();
+    return apiRequest<WorkflowExecutionLogListResponse>(`/workflows/executions${query ? `?${query}` : ''}`);
+  },
+  listWorkflowExecutions: (workflowId: number, params?: { status?: string; limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
+    if (params?.offset !== undefined) searchParams.set('offset', String(params.offset));
+    const query = searchParams.toString();
+    return apiRequest<WorkflowExecutionLogListResponse>(`/workflows/${workflowId}/executions${query ? `?${query}` : ''}`);
+  },
+  update: (id: number, payload: { name: string; description?: string | null; action_ids: string[] }) =>
+    apiRequest<WorkflowDefinition>(`/workflows/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  delete: (id: number) =>
+    apiRequest<void>(`/workflows/${id}`, {
+      method: 'DELETE',
     }),
 };

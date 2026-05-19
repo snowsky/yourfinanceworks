@@ -51,3 +51,30 @@ class WorkflowOption(BaseModel):
 class WorkflowCatalogResponse(BaseModel):
     triggers: list[WorkflowOption]
     actions: list[WorkflowOption]
+
+
+class WorkflowExecutionLogResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    workflow_id: int
+    workflow_name: Optional[str] = None
+    workflow_key: Optional[str] = None
+    event_key: str
+    entity_type: str
+    entity_id: str
+    status: str
+    details: Optional[Dict[str, Any]] = None
+    created_at: datetime
+
+
+class WorkflowExecutionLogListResponse(BaseModel):
+    total: int
+    logs: list[WorkflowExecutionLogResponse]
+
+
+class WorkflowUpdateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    action_ids: list[str]
+
