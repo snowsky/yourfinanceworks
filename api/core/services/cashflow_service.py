@@ -12,6 +12,9 @@ from datetime import date, datetime, timedelta, timezone
 from statistics import median
 from typing import Dict, List, Optional, Tuple
 
+from dateutil.relativedelta import relativedelta
+from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
@@ -75,6 +78,10 @@ class CashFlowService:
 
     def __init__(self, db: Session):
         self.db = db
+        self._threshold_settings_cache: Optional[CashFlowThresholdSettings] = None
+        self._bank_transaction_cache: Dict[
+            Tuple[str, date, date], List[BankStatementTransaction]
+        ] = {}
 
     def get_current_balance(self) -> float:
         """
@@ -494,7 +501,13 @@ class CashFlowService:
                 else current.bank_statement_outflow_categories
             ),
         }
-        validated_settings = CashFlowThresholdSettings(**new_values)
+        try:
+            validated_settings = CashFlowThresholdSettings(**new_values)
+        except ValidationError as exc:
+            # Surface schema-level cross-field errors (e.g. warning_threshold
+            # below safety_threshold after merging a partial update) as 422
+            # instead of letting them propagate as a 500.
+            raise HTTPException(status_code=422, detail=exc.errors()) from exc
         persisted_values = validated_settings.model_dump()
 
         if settings_row:
@@ -511,6 +524,9 @@ class CashFlowService:
 
         self.db.commit()
 
+        self._threshold_settings_cache = validated_settings
+        self._bank_transaction_cache.clear()
+
         return validated_settings
 
     # -------------------------------------------------------------------------
@@ -518,7 +534,14 @@ class CashFlowService:
     # -------------------------------------------------------------------------
 
     def _get_threshold_settings(self) -> CashFlowThresholdSettings:
-        """Load threshold settings from database or return defaults."""
+        """Load threshold settings from database or return defaults.
+
+        Cached for the lifetime of the service instance (one request) so callers
+        like get_alerts -> get_forecast don't re-query the settings row.
+        """
+        if self._threshold_settings_cache is not None:
+            return self._threshold_settings_cache
+
         settings_row = (
             self.db.query(Settings)
             .filter(Settings.key == CASHFLOW_SETTINGS_KEY)
@@ -526,9 +549,12 @@ class CashFlowService:
         )
 
         if settings_row and settings_row.value:
-            return CashFlowThresholdSettings(**settings_row.value)
+            settings = CashFlowThresholdSettings(**settings_row.value)
+        else:
+            settings = CashFlowThresholdSettings()
 
-        return CashFlowThresholdSettings()
+        self._threshold_settings_cache = settings
+        return settings
 
     def _get_projected_inflows(
         self,
@@ -543,6 +569,7 @@ class CashFlowService:
         """
         settings = settings or self._get_threshold_settings()
         entries = []
+        outstanding_invoice_ids: set[int] = set()
 
         # 1. Outstanding invoices due within the forecast period
         if settings.include_outstanding_invoices:
@@ -550,8 +577,11 @@ class CashFlowService:
                 self.db.query(Invoice)
                 .filter(Invoice.is_deleted == False)  # noqa: E712
                 .filter(Invoice.status.in_(["sent", "pending", "overdue", "partially_paid"]))
-                .filter(Invoice.due_date >= datetime.combine(start_date, datetime.min.time(), tzinfo=timezone.utc))
-                .filter(Invoice.due_date <= datetime.combine(end_date, datetime.max.time(), tzinfo=timezone.utc))
+                # Invoice.due_date is a naive DateTime column; mixing tz-aware
+                # values here raises "can't compare timestamptz with timestamp"
+                # on Postgres.
+                .filter(Invoice.due_date >= datetime.combine(start_date, datetime.min.time()))
+                .filter(Invoice.due_date <= datetime.combine(end_date, datetime.max.time()))
                 .all()
             )
 
@@ -559,6 +589,7 @@ class CashFlowService:
                 paid_amount = inv.paid_amount if hasattr(inv, 'paid_amount') else 0.0
                 remaining = inv.amount - paid_amount
                 if remaining > 0:
+                    outstanding_invoice_ids.add(inv.id)
                     inv_due_date = inv.due_date.date() if isinstance(inv.due_date, datetime) else inv.due_date
                     entries.append(
                         CashFlowEntry(
@@ -587,6 +618,10 @@ class CashFlowService:
             )
 
             for inv in recurring_invoices:
+                # Skip invoices already projected as outstanding to avoid
+                # double-counting the same expected payment.
+                if inv.id in outstanding_invoice_ids:
+                    continue
                 predicted_dates = self._predict_recurring_dates(
                     inv.recurring_frequency, inv.due_date, start_date, end_date
                 )
@@ -740,14 +775,13 @@ class CashFlowService:
 
         transactions = self._get_matching_bank_statement_transactions(transaction_type, settings, lookback_start, today)
 
+        # _get_matching_bank_statement_transactions already drops zero-amount
+        # rows and applies the configured category filter, so this loop just
+        # needs to group the survivors.
         grouped: Dict[Tuple[str, str, int], List[BankStatementTransaction]] = defaultdict(list)
         for txn in transactions:
             amount = abs(float(txn.amount or 0.0))
-            if amount <= 0:
-                continue
             label = self._bank_statement_pattern_label(txn)
-            if not self._is_bank_statement_category_enabled(transaction_type, label, settings):
-                continue
             grouped[(transaction_type, label.lower(), int(round(amount * 100)))].append(txn)
 
         entries: List[CashFlowEntry] = []
@@ -801,7 +835,26 @@ class CashFlowService:
         start_date: date,
         end_date: date,
     ) -> List[BankStatementTransaction]:
-        """Return statement transactions that match cash flow bank statement rules."""
+        """Return statement transactions that match cash flow bank statement rules.
+
+        Memoized per (type, start, end) on the service instance. A single
+        request fans out to this method from forecast, alerts, runway and
+        historical-average paths; without caching that hits the join 4+ times
+        with identical parameters.
+        """
+        cache_key = (transaction_type, start_date, end_date)
+        cached = self._bank_transaction_cache.get(cache_key)
+        if cached is not None:
+            return [
+                txn
+                for txn in cached
+                if self._is_bank_statement_category_enabled(
+                    transaction_type,
+                    self._bank_statement_pattern_label(txn),
+                    settings,
+                )
+            ]
+
         transactions = (
             self.db.query(BankStatementTransaction)
             .options(joinedload(BankStatementTransaction.statement))
@@ -814,11 +867,13 @@ class CashFlowService:
             .all()
         )
 
+        non_zero = [txn for txn in transactions if abs(float(txn.amount or 0.0)) > 0]
+        self._bank_transaction_cache[cache_key] = non_zero
+
         return [
             txn
-            for txn in transactions
-            if abs(float(txn.amount or 0.0)) > 0
-            and self._is_bank_statement_category_enabled(
+            for txn in non_zero
+            if self._is_bank_statement_category_enabled(
                 transaction_type,
                 self._bank_statement_pattern_label(txn),
                 settings,
@@ -975,27 +1030,31 @@ class CashFlowService:
     def _predict_recurring_dates(
         self, frequency: Optional[str], start_from: datetime, period_start: date, period_end: date
     ) -> List[date]:
-        """Predict future dates for a recurring item based on its frequency."""
+        """Predict future dates for a recurring item based on its frequency.
+
+        Uses calendar-aware offsets (relativedelta) for monthly/quarterly/annual
+        frequencies so a 28th-of-the-month invoice keeps its anchor day instead
+        of drifting backward each iteration.
+        """
         if not frequency or not start_from:
             return []
 
-        freq_days = {
-            "weekly": 7,
-            "biweekly": 14,
-            "monthly": 30,
-            "quarterly": 90,
-            "annually": 365,
-            "yearly": 365,
+        freq_offsets = {
+            "weekly": relativedelta(weeks=1),
+            "biweekly": relativedelta(weeks=2),
+            "monthly": relativedelta(months=1),
+            "quarterly": relativedelta(months=3),
+            "annually": relativedelta(years=1),
+            "yearly": relativedelta(years=1),
         }
 
-        interval = freq_days.get(frequency.lower(), 30)
-        dates = []
+        offset = freq_offsets.get(frequency.lower(), relativedelta(months=1))
         ref_date = start_from.date() if isinstance(start_from, datetime) else start_from
 
-        # Project forward from the original start date
+        dates: List[date] = []
         current = ref_date
         while current <= period_end:
-            current += timedelta(days=interval)
+            current = current + offset
             if period_start <= current <= period_end:
                 dates.append(current)
 
