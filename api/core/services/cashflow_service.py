@@ -75,6 +75,10 @@ class CashFlowService:
 
     def __init__(self, db: Session):
         self.db = db
+        self._threshold_settings_cache: Optional[CashFlowThresholdSettings] = None
+        self._bank_transaction_cache: Dict[
+            Tuple[str, date, date], List[BankStatementTransaction]
+        ] = {}
 
     def get_current_balance(self) -> float:
         """
@@ -511,6 +515,9 @@ class CashFlowService:
 
         self.db.commit()
 
+        self._threshold_settings_cache = validated_settings
+        self._bank_transaction_cache.clear()
+
         return validated_settings
 
     # -------------------------------------------------------------------------
@@ -518,7 +525,14 @@ class CashFlowService:
     # -------------------------------------------------------------------------
 
     def _get_threshold_settings(self) -> CashFlowThresholdSettings:
-        """Load threshold settings from database or return defaults."""
+        """Load threshold settings from database or return defaults.
+
+        Cached for the lifetime of the service instance (one request) so callers
+        like get_alerts -> get_forecast don't re-query the settings row.
+        """
+        if self._threshold_settings_cache is not None:
+            return self._threshold_settings_cache
+
         settings_row = (
             self.db.query(Settings)
             .filter(Settings.key == CASHFLOW_SETTINGS_KEY)
@@ -526,9 +540,12 @@ class CashFlowService:
         )
 
         if settings_row and settings_row.value:
-            return CashFlowThresholdSettings(**settings_row.value)
+            settings = CashFlowThresholdSettings(**settings_row.value)
+        else:
+            settings = CashFlowThresholdSettings()
 
-        return CashFlowThresholdSettings()
+        self._threshold_settings_cache = settings
+        return settings
 
     def _get_projected_inflows(
         self,
@@ -801,7 +818,26 @@ class CashFlowService:
         start_date: date,
         end_date: date,
     ) -> List[BankStatementTransaction]:
-        """Return statement transactions that match cash flow bank statement rules."""
+        """Return statement transactions that match cash flow bank statement rules.
+
+        Memoized per (type, start, end) on the service instance. A single
+        request fans out to this method from forecast, alerts, runway and
+        historical-average paths; without caching that hits the join 4+ times
+        with identical parameters.
+        """
+        cache_key = (transaction_type, start_date, end_date)
+        cached = self._bank_transaction_cache.get(cache_key)
+        if cached is not None:
+            return [
+                txn
+                for txn in cached
+                if self._is_bank_statement_category_enabled(
+                    transaction_type,
+                    self._bank_statement_pattern_label(txn),
+                    settings,
+                )
+            ]
+
         transactions = (
             self.db.query(BankStatementTransaction)
             .options(joinedload(BankStatementTransaction.statement))
@@ -814,11 +850,13 @@ class CashFlowService:
             .all()
         )
 
+        non_zero = [txn for txn in transactions if abs(float(txn.amount or 0.0)) > 0]
+        self._bank_transaction_cache[cache_key] = non_zero
+
         return [
             txn
-            for txn in transactions
-            if abs(float(txn.amount or 0.0)) > 0
-            and self._is_bank_statement_category_enabled(
+            for txn in non_zero
+            if self._is_bank_statement_category_enabled(
                 transaction_type,
                 self._bank_statement_pattern_label(txn),
                 settings,
