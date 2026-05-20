@@ -37,6 +37,12 @@ from core.schemas.cashflow import (
     CashFlowThresholdSettings,
     CashFlowAlertResponse,
 )
+from core.services.cashflow_references import (
+    bank_statement_transaction_reference,
+    expense_reference,
+    invoice_reference,
+    payment_reference,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -603,7 +609,7 @@ class CashFlowService:
                             source="invoice",
                             source_label="Outstanding invoice",
                             source_details="Open invoice due in the selected forecast window.",
-                            references=[self._invoice_reference(inv)],
+                            references=[invoice_reference(inv)],
                         )
                     )
 
@@ -638,7 +644,7 @@ class CashFlowService:
                             source="recurring_invoice",
                             source_label="Recurring invoice",
                             source_details="Predicted from a recurring invoice schedule.",
-                            references=[self._invoice_reference(inv)],
+                            references=[invoice_reference(inv)],
                         )
                     )
 
@@ -721,7 +727,7 @@ class CashFlowService:
                             source="expense",
                             source_label="Upcoming expense",
                             source_details="Future-dated expense already recorded in the app.",
-                            references=[self._expense_reference(exp)],
+                            references=[expense_reference(exp)],
                         )
                     )
 
@@ -949,7 +955,7 @@ class CashFlowService:
             return None
 
         label = self._bank_statement_pattern_label(ordered[-1])
-        references = [self._bank_statement_transaction_reference(txn) for txn in ordered[-5:]]
+        references = [bank_statement_transaction_reference(txn) for txn in ordered[-5:]]
         return avg_amount, interval_days, label, unique_dates[-1], len(ordered), ordered[-1].id, references
 
     def _build_single_observation_bank_statement_pattern(
@@ -975,7 +981,7 @@ class CashFlowService:
         if amount <= 0:
             return None
 
-        references = [self._bank_statement_transaction_reference(txn)]
+        references = [bank_statement_transaction_reference(txn)]
         return amount, 30, label, txn.date, 1, txn.id, references
 
     def _classify_bank_statement_interval(
@@ -1065,59 +1071,6 @@ class CashFlowService:
         remaining_days = (end_date - current).days + 1
         return max(1, min(HISTORICAL_PATTERN_INTERVAL_DAYS, remaining_days))
 
-    def _invoice_reference(self, invoice: Invoice) -> CashFlowReference:
-        return CashFlowReference(
-            type="invoice",
-            id=invoice.id,
-            label=f"Invoice {invoice.number}",
-            url=f"/invoices/view/{invoice.id}",
-        )
-
-    def _expense_reference(self, expense: Expense) -> CashFlowReference:
-        vendor = (expense.vendor or "").strip() or "Unknown vendor"
-        category = (expense.category or "").strip() or "Expense"
-        return CashFlowReference(
-            type="expense",
-            id=expense.id,
-            label=f"{category}: {vendor}",
-            url=f"/expenses/view/{expense.id}",
-        )
-
-    def _payment_reference(self, payment: Payment) -> CashFlowReference:
-        invoice = getattr(payment, "invoice", None)
-        if invoice:
-            return CashFlowReference(
-                type="invoice",
-                id=invoice.id,
-                label=f"Payment for invoice {invoice.number}",
-                url=f"/invoices/view/{invoice.id}",
-            )
-
-        return CashFlowReference(
-            type="payment",
-            id=payment.id,
-            label=f"Payment #{payment.id}",
-            url="/payments",
-        )
-
-    def _bank_statement_transaction_reference(
-        self,
-        transaction: BankStatementTransaction,
-    ) -> CashFlowReference:
-        statement = getattr(transaction, "statement", None)
-        date_label = transaction.date.isoformat() if transaction.date else "unknown date"
-        description = (transaction.description or "").strip() or "Bank transaction"
-        statement_label = (
-            getattr(statement, "original_filename", None)
-            or f"Statement #{transaction.statement_id}"
-        )
-        return CashFlowReference(
-            type="bank_statement_transaction",
-            id=transaction.id,
-            label=f"{statement_label} - {date_label} - {description[:60]}",
-            url=f"/statements?id={transaction.statement_id}&txn={transaction.id}",
-        )
-
     def _get_historical_payment_references(
         self,
         settings: CashFlowThresholdSettings,
@@ -1143,9 +1096,9 @@ class CashFlowService:
             if settings.include_bank_statement_patterns
             else []
         )
-        references = [self._payment_reference(payment) for payment in payments]
+        references = [payment_reference(payment) for payment in payments]
         references.extend(
-            self._bank_statement_transaction_reference(txn)
+            bank_statement_transaction_reference(txn)
             for txn in sorted(bank_transactions, key=lambda txn: txn.date, reverse=True)[:5]
         )
         return references, count, len(bank_transactions)
@@ -1176,9 +1129,9 @@ class CashFlowService:
             if settings.include_bank_statement_patterns
             else []
         )
-        references = [self._expense_reference(expense) for expense in expenses]
+        references = [expense_reference(expense) for expense in expenses]
         references.extend(
-            self._bank_statement_transaction_reference(txn)
+            bank_statement_transaction_reference(txn)
             for txn in sorted(bank_transactions, key=lambda txn: txn.date, reverse=True)[:5]
         )
         return references, count, len(bank_transactions)
