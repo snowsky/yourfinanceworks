@@ -91,9 +91,27 @@ const formatCurrency = (amount: number, currency = 'USD'): string => {
   }).format(amount);
 };
 
-// Format date for display
+// Read the tenant's configured cash flow currency from the shared settings
+// query so every formatted amount is labeled with the actual currency rather
+// than a hardcoded USD default. Returns 'USD' until the settings load.
+const useCashflowCurrency = (): string => {
+  const { data: settings } = useQuery({
+    queryKey: ['cashflow-settings'],
+    queryFn: () => cashflowApi.getThresholds(),
+  });
+  return settings?.currency || 'USD';
+};
+
+// Format date for display.
+// new Date("YYYY-MM-DD") parses as UTC midnight, which renders one day earlier
+// in any timezone west of UTC. Build a local Date from components instead.
 const formatDate = (dateStr: string): string => {
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const [year, month, day] = dateStr.split('-').map(Number);
+  if (!year || !month || !day) {
+    return dateStr;
+  }
+  const localDate = new Date(year, month - 1, day);
+  return localDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 const getSourceLabel = (entry: CashFlowEntry): string => {
@@ -229,7 +247,8 @@ const SourceBreakdownPanel: React.FC<{
   entries: CashFlowEntry[];
   total: number;
   tone: 'income' | 'expense';
-}> = ({ title, entries, total, tone }) => {
+  currency: string;
+}> = ({ title, entries, total, tone, currency }) => {
   const groups = buildSourceBreakdown(entries);
   const accentClass = tone === 'income' ? 'bg-green-600' : 'bg-red-600';
   const amountClass = tone === 'income' ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400';
@@ -238,7 +257,7 @@ const SourceBreakdownPanel: React.FC<{
     <div className="rounded border bg-muted/20 p-4">
       <div className="flex items-center justify-between gap-3 mb-3">
         <p className="font-semibold">{title}</p>
-        <p className={`text-sm font-semibold ${amountClass}`}>{formatCurrency(total)}</p>
+        <p className={`text-sm font-semibold ${amountClass}`}>{formatCurrency(total, currency)}</p>
       </div>
       {groups.length === 0 ? (
         <p className="text-sm text-muted-foreground">No projected entries</p>
@@ -254,7 +273,7 @@ const SourceBreakdownPanel: React.FC<{
                     <p className="font-medium truncate">{group.label}</p>
                     <p className="text-xs text-muted-foreground">{group.count} projected item{group.count === 1 ? '' : 's'} · {percentage}%</p>
                   </div>
-                  <p className={`font-semibold tabular-nums ${amountClass}`}>{formatCurrency(group.total)}</p>
+                  <p className={`font-semibold tabular-nums ${amountClass}`}>{formatCurrency(group.total, currency)}</p>
                 </div>
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                   <div className={`h-full rounded-full ${accentClass}`} style={{ width: `${Math.min(percentage, 100)}%` }} />
@@ -270,7 +289,7 @@ const SourceBreakdownPanel: React.FC<{
                     {group.categories.map((category) => (
                       <div key={category.label} className="flex items-center justify-between gap-3 text-xs">
                         <span className="text-muted-foreground truncate">{category.label} · {category.count}</span>
-                        <span className={`font-medium tabular-nums ${amountClass}`}>{formatCurrency(category.total)}</span>
+                        <span className={`font-medium tabular-nums ${amountClass}`}>{formatCurrency(category.total, currency)}</span>
                       </div>
                     ))}
                   </div>
@@ -314,6 +333,7 @@ const RunwayCard: React.FC<{ runway: CashRunwayResponse | undefined; isLoading: 
   runway,
   isLoading,
 }) => {
+  const currency = useCashflowCurrency();
   if (isLoading || !runway) return null;
 
   return (
@@ -328,15 +348,15 @@ const RunwayCard: React.FC<{ runway: CashRunwayResponse | undefined; isLoading: 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Current Balance</p>
-            <p className="text-2xl font-bold">{formatCurrency(runway.current_balance)}</p>
+            <p className="text-2xl font-bold">{formatCurrency(runway.current_balance, currency)}</p>
           </div>
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Monthly Outflow</p>
-            <p className="text-2xl font-bold text-red-600">{formatCurrency(runway.monthly_burn_rate)}</p>
+            <p className="text-2xl font-bold text-red-600">{formatCurrency(runway.monthly_burn_rate, currency)}</p>
           </div>
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Monthly Inflow</p>
-            <p className="text-2xl font-bold text-green-600">{formatCurrency(runway.monthly_income_rate)}</p>
+            <p className="text-2xl font-bold text-green-600">{formatCurrency(runway.monthly_income_rate, currency)}</p>
           </div>
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Runway</p>
@@ -361,6 +381,7 @@ const ForecastChart: React.FC<{ forecast: CashFlowForecastResponse | undefined; 
   forecast,
   isLoading,
 }) => {
+  const currency = useCashflowCurrency();
   if (isLoading || !forecast) return null;
 
   const chartData = forecast.daily_balances.map((d) => ({
@@ -383,19 +404,19 @@ const ForecastChart: React.FC<{ forecast: CashFlowForecastResponse | undefined; 
           <div className="text-center p-3 bg-green-50 dark:bg-green-950 rounded-lg">
             <p className="text-xs text-muted-foreground">Projected Inflows</p>
             <p className="text-lg font-semibold text-green-700 dark:text-green-300">
-              {formatCurrency(forecast.total_projected_inflows)}
+              {formatCurrency(forecast.total_projected_inflows, currency)}
             </p>
           </div>
           <div className="text-center p-3 bg-red-50 dark:bg-red-950 rounded-lg">
             <p className="text-xs text-muted-foreground">Projected Outflows</p>
             <p className="text-lg font-semibold text-red-700 dark:text-red-300">
-              {formatCurrency(forecast.total_projected_outflows)}
+              {formatCurrency(forecast.total_projected_outflows, currency)}
             </p>
           </div>
           <div className="text-center p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
             <p className="text-xs text-muted-foreground">End Balance</p>
             <p className="text-lg font-semibold text-blue-700 dark:text-blue-300">
-              {formatCurrency(forecast.projected_end_balance)}
+              {formatCurrency(forecast.projected_end_balance, currency)}
             </p>
           </div>
         </div>
@@ -415,7 +436,7 @@ const ForecastChart: React.FC<{ forecast: CashFlowForecastResponse | undefined; 
               <XAxis dataKey="date" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
               <Tooltip
-                formatter={(value: number) => formatCurrency(value)}
+                formatter={(value: number) => formatCurrency(value, currency)}
                 labelFormatter={(label) => `Date: ${label}`}
               />
               <Area
@@ -455,6 +476,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
   forecast,
   isLoading,
 }) => {
+  const currency = useCashflowCurrency();
   if (isLoading || !forecast) return null;
 
   const inflows = forecast.inflow_entries || [];
@@ -495,7 +517,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
                 <span className="text-xs text-muted-foreground">No projected inflow sources</span>
               ) : inflowSources.map((source) => (
                 <Badge key={source.label} variant="secondary" className="font-normal">
-                  {source.label}: {source.count} · {formatCurrency(source.total)}
+                  {source.label}: {source.count} · {formatCurrency(source.total, currency)}
                 </Badge>
               ))}
             </div>
@@ -507,7 +529,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
                 <span className="text-xs text-muted-foreground">No projected outflow sources</span>
               ) : outflowSources.map((source) => (
                 <Badge key={source.label} variant="secondary" className="font-normal">
-                  {source.label}: {source.count} · {formatCurrency(source.total)}
+                  {source.label}: {source.count} · {formatCurrency(source.total, currency)}
                 </Badge>
               ))}
             </div>
@@ -520,12 +542,14 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
             entries={inflows}
             total={forecast.total_projected_inflows}
             tone="income"
+            currency={currency}
           />
           <SourceBreakdownPanel
             title="Outflow breakdown"
             entries={outflows}
             total={forecast.total_projected_outflows}
             tone="expense"
+            currency={currency}
           />
         </div>
 
@@ -534,7 +558,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
           <div>
             <h4 className="flex items-center gap-2 font-semibold text-green-700 dark:text-green-400 mb-3">
               <TrendingUp className="w-4 h-4" />
-              Inflows ({inflows.length} items) — {formatCurrency(forecast.total_projected_inflows)}
+              Inflows ({inflows.length} items) — {formatCurrency(forecast.total_projected_inflows, currency)}
             </h4>
             {inflows.length === 0 ? (
               <p className="text-sm text-muted-foreground">No projected inflows</p>
@@ -551,7 +575,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
                       <EntryReferences entry={entry} />
                     </div>
                     <div className="text-right ml-2">
-                      <p className="text-sm font-semibold text-green-700 dark:text-green-400">+{formatCurrency(entry.amount)}</p>
+                      <p className="text-sm font-semibold text-green-700 dark:text-green-400">+{formatCurrency(entry.amount, currency)}</p>
                       <p className="text-xs text-muted-foreground">{Math.round(entry.confidence * 100)}% conf.</p>
                     </div>
                   </div>
@@ -564,7 +588,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
           <div>
             <h4 className="flex items-center gap-2 font-semibold text-red-700 dark:text-red-400 mb-3">
               <TrendingDown className="w-4 h-4" />
-              Outflows ({outflows.length} items) — {formatCurrency(forecast.total_projected_outflows)}
+              Outflows ({outflows.length} items) — {formatCurrency(forecast.total_projected_outflows, currency)}
             </h4>
             {outflows.length === 0 ? (
               <p className="text-sm text-muted-foreground">No projected outflows</p>
@@ -581,7 +605,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
                       <EntryReferences entry={entry} />
                     </div>
                     <div className="text-right ml-2">
-                      <p className="text-sm font-semibold text-red-700 dark:text-red-400">-{formatCurrency(entry.amount)}</p>
+                      <p className="text-sm font-semibold text-red-700 dark:text-red-400">-{formatCurrency(entry.amount, currency)}</p>
                       <p className="text-xs text-muted-foreground">{Math.round(entry.confidence * 100)}% conf.</p>
                     </div>
                   </div>
@@ -596,11 +620,20 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
 };
 
 // ---- Scenario Builder ----
+const formatLocalIsoDate = (d: Date): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const ScenarioBuilder: React.FC = () => {
+  const currency = useCashflowCurrency();
   const [description, setDescription] = useState('');
   const [revenueChange, setRevenueChange] = useState('');
   const [expenseChange, setExpenseChange] = useState('');
   const [additionalExpense, setAdditionalExpense] = useState('');
+  const [additionalExpenseDate, setAdditionalExpenseDate] = useState('');
   const [result, setResult] = useState<ScenarioResult | null>(null);
 
   const scenarioMutation = useMutation({
@@ -648,14 +681,21 @@ const ScenarioBuilder: React.FC = () => {
       return;
     }
 
+    let resolvedExpenseDate: string | null = null;
+    if (parsedAdditionalExpense != null) {
+      if (additionalExpenseDate) {
+        resolvedExpenseDate = additionalExpenseDate;
+      } else {
+        resolvedExpenseDate = formatLocalIsoDate(new Date(Date.now() + 7 * MS_PER_DAY));
+      }
+    }
+
     const scenario: ScenarioInput = {
       description: description.trim(),
       revenue_change_percent: parsedRevenueChange,
       expense_change_percent: parsedExpenseChange,
       additional_expense: parsedAdditionalExpense,
-      additional_expense_date: parsedAdditionalExpense != null
-        ? new Date(Date.now() + 7 * MS_PER_DAY).toISOString().split('T')[0]
-        : null,
+      additional_expense_date: resolvedExpenseDate,
     };
 
     scenarioMutation.mutate(scenario);
@@ -706,6 +746,18 @@ const ScenarioBuilder: React.FC = () => {
               onChange={(e) => setAdditionalExpense(e.target.value)}
             />
           </div>
+          <div>
+            <label className="text-sm font-medium">Additional Outflow Date</label>
+            <ProfessionalInput
+              type="date"
+              value={additionalExpenseDate}
+              onChange={(e) => setAdditionalExpenseDate(e.target.value)}
+              disabled={!additionalExpense.trim()}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Leave blank to default to 7 days from today.
+            </p>
+          </div>
         </div>
 
         <ProfessionalButton
@@ -721,22 +773,22 @@ const ScenarioBuilder: React.FC = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
               <div>
                 <p className="text-xs text-muted-foreground">Baseline End</p>
-                <p className="font-medium">{formatCurrency(result.baseline_end_balance)}</p>
+                <p className="font-medium">{formatCurrency(result.baseline_end_balance, currency)}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Scenario End</p>
-                <p className="font-medium">{formatCurrency(result.scenario_end_balance)}</p>
+                <p className="font-medium">{formatCurrency(result.scenario_end_balance, currency)}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Impact</p>
                 <p className={`font-medium ${result.balance_impact < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  {formatCurrency(result.balance_impact)}
+                  {formatCurrency(result.balance_impact, currency)}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Lowest Balance</p>
                 <p className={`font-medium ${result.lowest_balance < 0 ? 'text-red-600' : ''}`}>
-                  {formatCurrency(result.lowest_balance)}
+                  {formatCurrency(result.lowest_balance, currency)}
                 </p>
               </div>
             </div>

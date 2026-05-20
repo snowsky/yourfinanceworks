@@ -775,14 +775,13 @@ class CashFlowService:
 
         transactions = self._get_matching_bank_statement_transactions(transaction_type, settings, lookback_start, today)
 
+        # _get_matching_bank_statement_transactions already drops zero-amount
+        # rows and applies the configured category filter, so this loop just
+        # needs to group the survivors.
         grouped: Dict[Tuple[str, str, int], List[BankStatementTransaction]] = defaultdict(list)
         for txn in transactions:
             amount = abs(float(txn.amount or 0.0))
-            if amount <= 0:
-                continue
             label = self._bank_statement_pattern_label(txn)
-            if not self._is_bank_statement_category_enabled(transaction_type, label, settings):
-                continue
             grouped[(transaction_type, label.lower(), int(round(amount * 100)))].append(txn)
 
         entries: List[CashFlowEntry] = []
