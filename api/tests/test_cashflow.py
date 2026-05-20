@@ -719,6 +719,8 @@ class TestCashFlowService:
         assert "Mortgage Payment" in descriptions
         assert "Home Insurance Premium" in descriptions
         assert "Coffee Shop" not in descriptions
+
+    def test_cashflow_historical_averages_can_be_disabled(self, db_session):
         """Historical average projections should be optional."""
         from core.models.models_per_tenant import Payment
 

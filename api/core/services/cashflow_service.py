@@ -12,6 +12,9 @@ from datetime import date, datetime, timedelta, timezone
 from statistics import median
 from typing import Dict, List, Optional, Tuple
 
+from dateutil.relativedelta import relativedelta
+from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
@@ -498,7 +501,13 @@ class CashFlowService:
                 else current.bank_statement_outflow_categories
             ),
         }
-        validated_settings = CashFlowThresholdSettings(**new_values)
+        try:
+            validated_settings = CashFlowThresholdSettings(**new_values)
+        except ValidationError as exc:
+            # Surface schema-level cross-field errors (e.g. warning_threshold
+            # below safety_threshold after merging a partial update) as 422
+            # instead of letting them propagate as a 500.
+            raise HTTPException(status_code=422, detail=exc.errors()) from exc
         persisted_values = validated_settings.model_dump()
 
         if settings_row:
@@ -560,6 +569,7 @@ class CashFlowService:
         """
         settings = settings or self._get_threshold_settings()
         entries = []
+        outstanding_invoice_ids: set[int] = set()
 
         # 1. Outstanding invoices due within the forecast period
         if settings.include_outstanding_invoices:
@@ -567,8 +577,11 @@ class CashFlowService:
                 self.db.query(Invoice)
                 .filter(Invoice.is_deleted == False)  # noqa: E712
                 .filter(Invoice.status.in_(["sent", "pending", "overdue", "partially_paid"]))
-                .filter(Invoice.due_date >= datetime.combine(start_date, datetime.min.time(), tzinfo=timezone.utc))
-                .filter(Invoice.due_date <= datetime.combine(end_date, datetime.max.time(), tzinfo=timezone.utc))
+                # Invoice.due_date is a naive DateTime column; mixing tz-aware
+                # values here raises "can't compare timestamptz with timestamp"
+                # on Postgres.
+                .filter(Invoice.due_date >= datetime.combine(start_date, datetime.min.time()))
+                .filter(Invoice.due_date <= datetime.combine(end_date, datetime.max.time()))
                 .all()
             )
 
@@ -576,6 +589,7 @@ class CashFlowService:
                 paid_amount = inv.paid_amount if hasattr(inv, 'paid_amount') else 0.0
                 remaining = inv.amount - paid_amount
                 if remaining > 0:
+                    outstanding_invoice_ids.add(inv.id)
                     inv_due_date = inv.due_date.date() if isinstance(inv.due_date, datetime) else inv.due_date
                     entries.append(
                         CashFlowEntry(
@@ -604,6 +618,10 @@ class CashFlowService:
             )
 
             for inv in recurring_invoices:
+                # Skip invoices already projected as outstanding to avoid
+                # double-counting the same expected payment.
+                if inv.id in outstanding_invoice_ids:
+                    continue
                 predicted_dates = self._predict_recurring_dates(
                     inv.recurring_frequency, inv.due_date, start_date, end_date
                 )
@@ -1013,27 +1031,31 @@ class CashFlowService:
     def _predict_recurring_dates(
         self, frequency: Optional[str], start_from: datetime, period_start: date, period_end: date
     ) -> List[date]:
-        """Predict future dates for a recurring item based on its frequency."""
+        """Predict future dates for a recurring item based on its frequency.
+
+        Uses calendar-aware offsets (relativedelta) for monthly/quarterly/annual
+        frequencies so a 28th-of-the-month invoice keeps its anchor day instead
+        of drifting backward each iteration.
+        """
         if not frequency or not start_from:
             return []
 
-        freq_days = {
-            "weekly": 7,
-            "biweekly": 14,
-            "monthly": 30,
-            "quarterly": 90,
-            "annually": 365,
-            "yearly": 365,
+        freq_offsets = {
+            "weekly": relativedelta(weeks=1),
+            "biweekly": relativedelta(weeks=2),
+            "monthly": relativedelta(months=1),
+            "quarterly": relativedelta(months=3),
+            "annually": relativedelta(years=1),
+            "yearly": relativedelta(years=1),
         }
 
-        interval = freq_days.get(frequency.lower(), 30)
-        dates = []
+        offset = freq_offsets.get(frequency.lower(), relativedelta(months=1))
         ref_date = start_from.date() if isinstance(start_from, datetime) else start_from
 
-        # Project forward from the original start date
+        dates: List[date] = []
         current = ref_date
         while current <= period_end:
-            current += timedelta(days=interval)
+            current = current + offset
             if period_start <= current <= period_end:
                 dates.append(current)
 
