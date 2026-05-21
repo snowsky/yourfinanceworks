@@ -6,13 +6,10 @@ and scenario modeling based on invoices, expenses, and historical patterns.
 """
 
 import logging
-import re
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
-from statistics import median
 from typing import Dict, List, Optional, Tuple
 
-from dateutil.relativedelta import relativedelta
 from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy import func
@@ -31,11 +28,31 @@ from core.schemas.cashflow import (
     CashFlowReference,
     CashFlowForecastResponse,
     CashRunwayResponse,
-    DailyBalance,
     ScenarioInput,
     ScenarioResult,
     CashFlowThresholdSettings,
     CashFlowAlertResponse,
+)
+from core.services.cashflow_calculations import (
+    HISTORICAL_PATTERN_INTERVAL_DAYS,
+    apply_invoice_delays,
+    calculate_daily_balances,
+    generate_alerts,
+    historical_pattern_interval_days,
+    predict_recurring_dates,
+)
+from core.services.cashflow_patterns import (
+    BANK_STATEMENT_READY_STATUSES,
+    bank_statement_pattern_label,
+    build_bank_statement_pattern,
+    build_single_observation_bank_statement_pattern,
+    is_bank_statement_category_enabled,
+)
+from core.services.cashflow_references import (
+    bank_statement_transaction_reference,
+    expense_reference,
+    invoice_reference,
+    payment_reference,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,32 +62,6 @@ CASHFLOW_SETTINGS_KEY = "cashflow_thresholds"
 
 # Minimum number of concrete forecast entries before adding historical pattern predictions
 MIN_CONCRETE_ENTRIES_FOR_PATTERN = 5
-
-# Interval (in days) between historical pattern-based prediction entries
-HISTORICAL_PATTERN_INTERVAL_DAYS = 7
-
-# Statement statuses whose transactions are usable for cash flow projection.
-BANK_STATEMENT_READY_STATUSES = ("processed", "uploaded", "done")
-
-# Labels that are usually scheduled household or operating bills even when the
-# lookback window only contains one statement.
-LIKELY_MONTHLY_BILL_KEYWORDS = (
-    "mortgage",
-    "mtge",
-    "rent",
-    "lease",
-    "insurance",
-    "ins",
-    "hydro",
-    "utility",
-    "utilities",
-    "electric",
-    "water",
-    "gas",
-    "internet",
-    "telecom",
-    "phone",
-)
 
 
 class CashFlowService:
@@ -137,7 +128,7 @@ class CashFlowService:
         outflow_entries = self._get_projected_outflows(today, end_date, settings)
 
         # Calculate daily balances
-        daily_balances = self._calculate_daily_balances(
+        daily_balances = calculate_daily_balances(
             current_balance, today, end_date, inflow_entries, outflow_entries
         )
 
@@ -147,7 +138,7 @@ class CashFlowService:
         projected_end_balance = current_balance + net_change
 
         # Generate alerts
-        alerts = self._generate_alerts(daily_balances, settings)
+        alerts = generate_alerts(daily_balances, settings)
 
         return CashFlowForecastResponse(
             period=period,
@@ -272,7 +263,7 @@ class CashFlowService:
         # Apply delayed invoices
         if scenario.delayed_invoice_ids:
             delay_days = scenario.delay_days if scenario.delay_days is not None else 30
-            scenario_inflows = self._apply_invoice_delays(
+            scenario_inflows = apply_invoice_delays(
                 scenario_inflows, scenario.delayed_invoice_ids, delay_days, end_date
             )
 
@@ -331,7 +322,7 @@ class CashFlowService:
             ]
 
         # Calculate scenario daily balances
-        daily_balances = self._calculate_daily_balances(
+        daily_balances = calculate_daily_balances(
             current_balance, today, end_date, scenario_inflows, scenario_outflows
         )
 
@@ -603,7 +594,7 @@ class CashFlowService:
                             source="invoice",
                             source_label="Outstanding invoice",
                             source_details="Open invoice due in the selected forecast window.",
-                            references=[self._invoice_reference(inv)],
+                            references=[invoice_reference(inv)],
                         )
                     )
 
@@ -622,7 +613,7 @@ class CashFlowService:
                 # double-counting the same expected payment.
                 if inv.id in outstanding_invoice_ids:
                     continue
-                predicted_dates = self._predict_recurring_dates(
+                predicted_dates = predict_recurring_dates(
                     inv.recurring_frequency, inv.due_date, start_date, end_date
                 )
                 for pred_date in predicted_dates:
@@ -638,7 +629,7 @@ class CashFlowService:
                             source="recurring_invoice",
                             source_label="Recurring invoice",
                             source_details="Predicted from a recurring invoice schedule.",
-                            references=[self._invoice_reference(inv)],
+                            references=[invoice_reference(inv)],
                         )
                     )
 
@@ -655,7 +646,7 @@ class CashFlowService:
                 while current <= end_date:
                     # Only add for days without existing entries
                     if not any(e.date == current for e in entries):
-                        interval_days = self._historical_pattern_interval_days(current, end_date)
+                        interval_days = historical_pattern_interval_days(current, end_date)
                         entries.append(
                             CashFlowEntry(
                                 date=current,
@@ -721,7 +712,7 @@ class CashFlowService:
                             source="expense",
                             source_label="Upcoming expense",
                             source_details="Future-dated expense already recorded in the app.",
-                            references=[self._expense_reference(exp)],
+                            references=[expense_reference(exp)],
                         )
                     )
 
@@ -737,7 +728,7 @@ class CashFlowService:
             while current <= end_date:
                 day_total = sum(e.amount for e in entries if e.date == current)
                 if day_total == 0:
-                    interval_days = self._historical_pattern_interval_days(current, end_date)
+                    interval_days = historical_pattern_interval_days(current, end_date)
                     entries.append(
                         CashFlowEntry(
                             date=current,
@@ -781,15 +772,15 @@ class CashFlowService:
         grouped: Dict[Tuple[str, str, int], List[BankStatementTransaction]] = defaultdict(list)
         for txn in transactions:
             amount = abs(float(txn.amount or 0.0))
-            label = self._bank_statement_pattern_label(txn)
+            label = bank_statement_pattern_label(txn)
             grouped[(transaction_type, label.lower(), int(round(amount * 100)))].append(txn)
 
         entries: List[CashFlowEntry] = []
         for group in grouped.values():
             if len(group) < settings.bank_statement_min_occurrences:
-                pattern = self._build_single_observation_bank_statement_pattern(group, settings)
+                pattern = build_single_observation_bank_statement_pattern(group, settings)
             else:
-                pattern = self._build_bank_statement_pattern(group, settings)
+                pattern = build_bank_statement_pattern(group, settings)
 
             if not pattern:
                 continue
@@ -821,13 +812,6 @@ class CashFlowService:
 
         return sorted(entries, key=lambda e: e.date)
 
-    def _bank_statement_pattern_label(self, txn: BankStatementTransaction) -> str:
-        """Choose a stable user-facing label for a statement transaction pattern."""
-        category = (txn.category or "").strip()
-        if category and category.lower() not in {"other", "uncategorized", "unknown"}:
-            return category
-        return self._normalize_transaction_description(txn.description)
-
     def _get_matching_bank_statement_transactions(
         self,
         transaction_type: str,
@@ -848,9 +832,9 @@ class CashFlowService:
             return [
                 txn
                 for txn in cached
-                if self._is_bank_statement_category_enabled(
+                if is_bank_statement_category_enabled(
                     transaction_type,
-                    self._bank_statement_pattern_label(txn),
+                    bank_statement_pattern_label(txn),
                     settings,
                 )
             ]
@@ -873,250 +857,12 @@ class CashFlowService:
         return [
             txn
             for txn in non_zero
-            if self._is_bank_statement_category_enabled(
+            if is_bank_statement_category_enabled(
                 transaction_type,
-                self._bank_statement_pattern_label(txn),
+                bank_statement_pattern_label(txn),
                 settings,
             )
         ]
-
-    def _is_bank_statement_category_enabled(
-        self,
-        transaction_type: str,
-        label: str,
-        settings: CashFlowThresholdSettings,
-    ) -> bool:
-        configured = (
-            settings.bank_statement_inflow_categories
-            if transaction_type == "credit"
-            else settings.bank_statement_outflow_categories
-        )
-        if not configured:
-            return True
-        label_lower = label.lower()
-        return any(
-            item_lower in label_lower or label_lower in item_lower
-            for item_lower in (item.lower() for item in configured)
-        )
-
-    def _normalize_transaction_description(self, description: Optional[str]) -> str:
-        """Collapse noisy transaction descriptions into a recurring-pattern key."""
-        if not description:
-            return "Bank statement transaction"
-
-        normalized = description.lower()
-        normalized = re.sub(r"\b\d{2,}\b", " ", normalized)
-        normalized = re.sub(r"[^a-z\s]", " ", normalized)
-        words = [
-            word
-            for word in normalized.split()
-            if word not in {"pos", "debit", "credit", "payment", "transfer", "online"}
-        ]
-        if not words:
-            return description.strip()[:60] or "Bank statement transaction"
-
-        return " ".join(words[:4]).title()
-
-    def _build_bank_statement_pattern(
-        self,
-        transactions: List[BankStatementTransaction],
-        settings: CashFlowThresholdSettings,
-    ) -> Optional[Tuple[float, int, str, date, int, int, List[CashFlowReference]]]:
-        """Return amount/interval metadata if transactions look recurring enough."""
-        ordered = sorted(transactions, key=lambda txn: txn.date)
-        unique_dates = sorted({txn.date for txn in ordered})
-        if len(unique_dates) < settings.bank_statement_min_occurrences:
-            return None
-
-        intervals = [
-            (unique_dates[index] - unique_dates[index - 1]).days
-            for index in range(1, len(unique_dates))
-            if (unique_dates[index] - unique_dates[index - 1]).days > 0
-        ]
-        if not intervals:
-            return None
-
-        interval_days = self._classify_bank_statement_interval(
-            int(round(median(intervals))),
-            settings.bank_statement_intervals,
-        )
-        if interval_days is None:
-            return None
-
-        amounts = [abs(float(txn.amount or 0.0)) for txn in ordered]
-        avg_amount = sum(amounts) / len(amounts)
-        if avg_amount <= 0:
-            return None
-
-        label = self._bank_statement_pattern_label(ordered[-1])
-        references = [self._bank_statement_transaction_reference(txn) for txn in ordered[-5:]]
-        return avg_amount, interval_days, label, unique_dates[-1], len(ordered), ordered[-1].id, references
-
-    def _build_single_observation_bank_statement_pattern(
-        self,
-        transactions: List[BankStatementTransaction],
-        settings: CashFlowThresholdSettings,
-    ) -> Optional[Tuple[float, int, str, date, int, int, List[CashFlowReference]]]:
-        """Project obvious monthly bills from a single statement observation."""
-        if 30 not in set(settings.bank_statement_intervals or []):
-            return None
-
-        ordered = sorted(transactions, key=lambda txn: (txn.date, txn.id or 0))
-        if not ordered:
-            return None
-
-        txn = ordered[-1]
-        label = self._bank_statement_pattern_label(txn)
-        text = f"{label} {txn.description or ''}".lower()
-        if not any(keyword in text for keyword in LIKELY_MONTHLY_BILL_KEYWORDS):
-            return None
-
-        amount = abs(float(txn.amount or 0.0))
-        if amount <= 0:
-            return None
-
-        references = [self._bank_statement_transaction_reference(txn)]
-        return amount, 30, label, txn.date, 1, txn.id, references
-
-    def _classify_bank_statement_interval(
-        self,
-        observed_days: int,
-        enabled_intervals: Optional[List[int]] = None,
-    ) -> Optional[int]:
-        """Map observed transaction spacing to a conservative recurring interval."""
-        enabled = set(enabled_intervals or [7, 14, 30, 90])
-        if 7 in enabled and 6 <= observed_days <= 8:
-            return 7
-        if 14 in enabled and 12 <= observed_days <= 16:
-            return 14
-        if 30 in enabled and 25 <= observed_days <= 35:
-            return 30
-        if 90 in enabled and 85 <= observed_days <= 95:
-            return 90
-        return None
-
-    def _calculate_daily_balances(
-        self,
-        starting_balance: float,
-        start_date: date,
-        end_date: date,
-        inflows: List[CashFlowEntry],
-        outflows: List[CashFlowEntry],
-    ) -> List[DailyBalance]:
-        """Calculate projected balance for each day in the period."""
-        daily_balances = []
-        running_balance = starting_balance
-
-        current = start_date
-        while current <= end_date:
-            day_inflows = sum(e.amount for e in inflows if e.date == current)
-            day_outflows = sum(e.amount for e in outflows if e.date == current)
-            net = day_inflows - day_outflows
-            running_balance += net
-
-            daily_balances.append(
-                DailyBalance(
-                    date=current,
-                    projected_inflows=day_inflows,
-                    projected_outflows=day_outflows,
-                    net_change=net,
-                    projected_balance=running_balance,
-                )
-            )
-            current += timedelta(days=1)
-
-        return daily_balances
-
-    def _predict_recurring_dates(
-        self, frequency: Optional[str], start_from: datetime, period_start: date, period_end: date
-    ) -> List[date]:
-        """Predict future dates for a recurring item based on its frequency.
-
-        Uses calendar-aware offsets (relativedelta) for monthly/quarterly/annual
-        frequencies so a 28th-of-the-month invoice keeps its anchor day instead
-        of drifting backward each iteration.
-        """
-        if not frequency or not start_from:
-            return []
-
-        freq_offsets = {
-            "weekly": relativedelta(weeks=1),
-            "biweekly": relativedelta(weeks=2),
-            "monthly": relativedelta(months=1),
-            "quarterly": relativedelta(months=3),
-            "annually": relativedelta(years=1),
-            "yearly": relativedelta(years=1),
-        }
-
-        offset = freq_offsets.get(frequency.lower(), relativedelta(months=1))
-        ref_date = start_from.date() if isinstance(start_from, datetime) else start_from
-
-        dates: List[date] = []
-        current = ref_date
-        while current <= period_end:
-            current = current + offset
-            if period_start <= current <= period_end:
-                dates.append(current)
-
-        return dates
-
-    def _historical_pattern_interval_days(self, current: date, end_date: date) -> int:
-        """Return how many days a weekly historical pattern entry represents."""
-        remaining_days = (end_date - current).days + 1
-        return max(1, min(HISTORICAL_PATTERN_INTERVAL_DAYS, remaining_days))
-
-    def _invoice_reference(self, invoice: Invoice) -> CashFlowReference:
-        return CashFlowReference(
-            type="invoice",
-            id=invoice.id,
-            label=f"Invoice {invoice.number}",
-            url=f"/invoices/view/{invoice.id}",
-        )
-
-    def _expense_reference(self, expense: Expense) -> CashFlowReference:
-        vendor = (expense.vendor or "").strip() or "Unknown vendor"
-        category = (expense.category or "").strip() or "Expense"
-        return CashFlowReference(
-            type="expense",
-            id=expense.id,
-            label=f"{category}: {vendor}",
-            url=f"/expenses/view/{expense.id}",
-        )
-
-    def _payment_reference(self, payment: Payment) -> CashFlowReference:
-        invoice = getattr(payment, "invoice", None)
-        if invoice:
-            return CashFlowReference(
-                type="invoice",
-                id=invoice.id,
-                label=f"Payment for invoice {invoice.number}",
-                url=f"/invoices/view/{invoice.id}",
-            )
-
-        return CashFlowReference(
-            type="payment",
-            id=payment.id,
-            label=f"Payment #{payment.id}",
-            url="/payments",
-        )
-
-    def _bank_statement_transaction_reference(
-        self,
-        transaction: BankStatementTransaction,
-    ) -> CashFlowReference:
-        statement = getattr(transaction, "statement", None)
-        date_label = transaction.date.isoformat() if transaction.date else "unknown date"
-        description = (transaction.description or "").strip() or "Bank transaction"
-        statement_label = (
-            getattr(statement, "original_filename", None)
-            or f"Statement #{transaction.statement_id}"
-        )
-        return CashFlowReference(
-            type="bank_statement_transaction",
-            id=transaction.id,
-            label=f"{statement_label} - {date_label} - {description[:60]}",
-            url=f"/statements?id={transaction.statement_id}&txn={transaction.id}",
-        )
 
     def _get_historical_payment_references(
         self,
@@ -1143,9 +889,9 @@ class CashFlowService:
             if settings.include_bank_statement_patterns
             else []
         )
-        references = [self._payment_reference(payment) for payment in payments]
+        references = [payment_reference(payment) for payment in payments]
         references.extend(
-            self._bank_statement_transaction_reference(txn)
+            bank_statement_transaction_reference(txn)
             for txn in sorted(bank_transactions, key=lambda txn: txn.date, reverse=True)[:5]
         )
         return references, count, len(bank_transactions)
@@ -1176,9 +922,9 @@ class CashFlowService:
             if settings.include_bank_statement_patterns
             else []
         )
-        references = [self._expense_reference(expense) for expense in expenses]
+        references = [expense_reference(expense) for expense in expenses]
         references.extend(
-            self._bank_statement_transaction_reference(txn)
+            bank_statement_transaction_reference(txn)
             for txn in sorted(bank_transactions, key=lambda txn: txn.date, reverse=True)[:5]
         )
         return references, count, len(bank_transactions)
@@ -1242,61 +988,3 @@ class CashFlowService:
             )
 
         return float(total) / 90.0
-
-    def _apply_invoice_delays(
-        self, inflows: List[CashFlowEntry], invoice_ids: List[int], delay_days: int, end_date: date
-    ) -> List[CashFlowEntry]:
-        """Apply delays to specific invoices in the inflow list."""
-        result = []
-        for entry in inflows:
-            if entry.reference_id in invoice_ids and entry.category == "invoice":
-                new_date = entry.date + timedelta(days=delay_days)
-                if new_date <= end_date:
-                    result.append(
-                        CashFlowEntry(
-                            date=new_date,
-                            amount=entry.amount,
-                            type=entry.type,
-                            category=entry.category,
-                            description=f"{entry.description} (delayed {delay_days}d)",
-                            reference_id=entry.reference_id,
-                            confidence=entry.confidence * 0.6,
-                            source=entry.source,
-                            source_label=entry.source_label,
-                            source_details=f"{entry.source_details or 'Projected invoice payment.'} Delayed by scenario.",
-                            references=entry.references,
-                        )
-                    )
-                # If delayed beyond period, it effectively disappears from forecast
-            else:
-                result.append(entry)
-        return result
-
-    def _generate_alerts(
-        self, daily_balances: List[DailyBalance], thresholds: CashFlowThresholdSettings
-    ) -> List[str]:
-        """Generate alerts based on projected balances and thresholds."""
-        alerts = []
-
-        for daily in daily_balances:
-            if daily.projected_balance < 0:
-                alerts.append(f"🔴 CRITICAL: Projected negative balance on {daily.date}")
-                break
-
-        for daily in daily_balances:
-            if daily.projected_balance < thresholds.safety_threshold:
-                alerts.append(
-                    f"⚠️ Balance projected to drop below safety threshold "
-                    f"(${thresholds.safety_threshold:,.2f}) on {daily.date}"
-                )
-                break
-
-        for daily in daily_balances:
-            if daily.projected_balance < thresholds.warning_threshold:
-                alerts.append(
-                    f"🟡 Balance projected to approach warning level "
-                    f"(${thresholds.warning_threshold:,.2f}) on {daily.date}"
-                )
-                break
-
-        return alerts
