@@ -10,7 +10,6 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
-from dateutil.relativedelta import relativedelta
 from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy import func
@@ -29,11 +28,18 @@ from core.schemas.cashflow import (
     CashFlowReference,
     CashFlowForecastResponse,
     CashRunwayResponse,
-    DailyBalance,
     ScenarioInput,
     ScenarioResult,
     CashFlowThresholdSettings,
     CashFlowAlertResponse,
+)
+from core.services.cashflow_calculations import (
+    HISTORICAL_PATTERN_INTERVAL_DAYS,
+    apply_invoice_delays,
+    calculate_daily_balances,
+    generate_alerts,
+    historical_pattern_interval_days,
+    predict_recurring_dates,
 )
 from core.services.cashflow_patterns import (
     BANK_STATEMENT_READY_STATUSES,
@@ -56,9 +62,6 @@ CASHFLOW_SETTINGS_KEY = "cashflow_thresholds"
 
 # Minimum number of concrete forecast entries before adding historical pattern predictions
 MIN_CONCRETE_ENTRIES_FOR_PATTERN = 5
-
-# Interval (in days) between historical pattern-based prediction entries
-HISTORICAL_PATTERN_INTERVAL_DAYS = 7
 
 
 class CashFlowService:
@@ -125,7 +128,7 @@ class CashFlowService:
         outflow_entries = self._get_projected_outflows(today, end_date, settings)
 
         # Calculate daily balances
-        daily_balances = self._calculate_daily_balances(
+        daily_balances = calculate_daily_balances(
             current_balance, today, end_date, inflow_entries, outflow_entries
         )
 
@@ -135,7 +138,7 @@ class CashFlowService:
         projected_end_balance = current_balance + net_change
 
         # Generate alerts
-        alerts = self._generate_alerts(daily_balances, settings)
+        alerts = generate_alerts(daily_balances, settings)
 
         return CashFlowForecastResponse(
             period=period,
@@ -260,7 +263,7 @@ class CashFlowService:
         # Apply delayed invoices
         if scenario.delayed_invoice_ids:
             delay_days = scenario.delay_days if scenario.delay_days is not None else 30
-            scenario_inflows = self._apply_invoice_delays(
+            scenario_inflows = apply_invoice_delays(
                 scenario_inflows, scenario.delayed_invoice_ids, delay_days, end_date
             )
 
@@ -319,7 +322,7 @@ class CashFlowService:
             ]
 
         # Calculate scenario daily balances
-        daily_balances = self._calculate_daily_balances(
+        daily_balances = calculate_daily_balances(
             current_balance, today, end_date, scenario_inflows, scenario_outflows
         )
 
@@ -610,7 +613,7 @@ class CashFlowService:
                 # double-counting the same expected payment.
                 if inv.id in outstanding_invoice_ids:
                     continue
-                predicted_dates = self._predict_recurring_dates(
+                predicted_dates = predict_recurring_dates(
                     inv.recurring_frequency, inv.due_date, start_date, end_date
                 )
                 for pred_date in predicted_dates:
@@ -643,7 +646,7 @@ class CashFlowService:
                 while current <= end_date:
                     # Only add for days without existing entries
                     if not any(e.date == current for e in entries):
-                        interval_days = self._historical_pattern_interval_days(current, end_date)
+                        interval_days = historical_pattern_interval_days(current, end_date)
                         entries.append(
                             CashFlowEntry(
                                 date=current,
@@ -725,7 +728,7 @@ class CashFlowService:
             while current <= end_date:
                 day_total = sum(e.amount for e in entries if e.date == current)
                 if day_total == 0:
-                    interval_days = self._historical_pattern_interval_days(current, end_date)
+                    interval_days = historical_pattern_interval_days(current, end_date)
                     entries.append(
                         CashFlowEntry(
                             date=current,
@@ -861,76 +864,6 @@ class CashFlowService:
             )
         ]
 
-    def _calculate_daily_balances(
-        self,
-        starting_balance: float,
-        start_date: date,
-        end_date: date,
-        inflows: List[CashFlowEntry],
-        outflows: List[CashFlowEntry],
-    ) -> List[DailyBalance]:
-        """Calculate projected balance for each day in the period."""
-        daily_balances = []
-        running_balance = starting_balance
-
-        current = start_date
-        while current <= end_date:
-            day_inflows = sum(e.amount for e in inflows if e.date == current)
-            day_outflows = sum(e.amount for e in outflows if e.date == current)
-            net = day_inflows - day_outflows
-            running_balance += net
-
-            daily_balances.append(
-                DailyBalance(
-                    date=current,
-                    projected_inflows=day_inflows,
-                    projected_outflows=day_outflows,
-                    net_change=net,
-                    projected_balance=running_balance,
-                )
-            )
-            current += timedelta(days=1)
-
-        return daily_balances
-
-    def _predict_recurring_dates(
-        self, frequency: Optional[str], start_from: datetime, period_start: date, period_end: date
-    ) -> List[date]:
-        """Predict future dates for a recurring item based on its frequency.
-
-        Uses calendar-aware offsets (relativedelta) for monthly/quarterly/annual
-        frequencies so a 28th-of-the-month invoice keeps its anchor day instead
-        of drifting backward each iteration.
-        """
-        if not frequency or not start_from:
-            return []
-
-        freq_offsets = {
-            "weekly": relativedelta(weeks=1),
-            "biweekly": relativedelta(weeks=2),
-            "monthly": relativedelta(months=1),
-            "quarterly": relativedelta(months=3),
-            "annually": relativedelta(years=1),
-            "yearly": relativedelta(years=1),
-        }
-
-        offset = freq_offsets.get(frequency.lower(), relativedelta(months=1))
-        ref_date = start_from.date() if isinstance(start_from, datetime) else start_from
-
-        dates: List[date] = []
-        current = ref_date
-        while current <= period_end:
-            current = current + offset
-            if period_start <= current <= period_end:
-                dates.append(current)
-
-        return dates
-
-    def _historical_pattern_interval_days(self, current: date, end_date: date) -> int:
-        """Return how many days a weekly historical pattern entry represents."""
-        remaining_days = (end_date - current).days + 1
-        return max(1, min(HISTORICAL_PATTERN_INTERVAL_DAYS, remaining_days))
-
     def _get_historical_payment_references(
         self,
         settings: CashFlowThresholdSettings,
@@ -1055,61 +988,3 @@ class CashFlowService:
             )
 
         return float(total) / 90.0
-
-    def _apply_invoice_delays(
-        self, inflows: List[CashFlowEntry], invoice_ids: List[int], delay_days: int, end_date: date
-    ) -> List[CashFlowEntry]:
-        """Apply delays to specific invoices in the inflow list."""
-        result = []
-        for entry in inflows:
-            if entry.reference_id in invoice_ids and entry.category == "invoice":
-                new_date = entry.date + timedelta(days=delay_days)
-                if new_date <= end_date:
-                    result.append(
-                        CashFlowEntry(
-                            date=new_date,
-                            amount=entry.amount,
-                            type=entry.type,
-                            category=entry.category,
-                            description=f"{entry.description} (delayed {delay_days}d)",
-                            reference_id=entry.reference_id,
-                            confidence=entry.confidence * 0.6,
-                            source=entry.source,
-                            source_label=entry.source_label,
-                            source_details=f"{entry.source_details or 'Projected invoice payment.'} Delayed by scenario.",
-                            references=entry.references,
-                        )
-                    )
-                # If delayed beyond period, it effectively disappears from forecast
-            else:
-                result.append(entry)
-        return result
-
-    def _generate_alerts(
-        self, daily_balances: List[DailyBalance], thresholds: CashFlowThresholdSettings
-    ) -> List[str]:
-        """Generate alerts based on projected balances and thresholds."""
-        alerts = []
-
-        for daily in daily_balances:
-            if daily.projected_balance < 0:
-                alerts.append(f"🔴 CRITICAL: Projected negative balance on {daily.date}")
-                break
-
-        for daily in daily_balances:
-            if daily.projected_balance < thresholds.safety_threshold:
-                alerts.append(
-                    f"⚠️ Balance projected to drop below safety threshold "
-                    f"(${thresholds.safety_threshold:,.2f}) on {daily.date}"
-                )
-                break
-
-        for daily in daily_balances:
-            if daily.projected_balance < thresholds.warning_threshold:
-                alerts.append(
-                    f"🟡 Balance projected to approach warning level "
-                    f"(${thresholds.warning_threshold:,.2f}) on {daily.date}"
-                )
-                break
-
-        return alerts
