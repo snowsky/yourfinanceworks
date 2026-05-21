@@ -78,6 +78,14 @@ def ensure_required_columns(database_url):
                     "count_against_license": "BOOLEAN NOT NULL DEFAULT TRUE",
                     "azure_ad_id": "VARCHAR(255)",
                     "azure_tenant_id": "VARCHAR(255)",
+                    # MFA chain columns (mirrors alembic 018_add_mfa_chain_columns).
+                    # Listed here because db_init runs on every startup while
+                    # alembic does not, so pre-existing DBs created before
+                    # migration 018 land in a broken state otherwise.
+                    "mfa_chain_enabled": "BOOLEAN NOT NULL DEFAULT FALSE",
+                    "mfa_chain_mode": "VARCHAR NOT NULL DEFAULT 'fixed'",
+                    "mfa_chain_factors": "JSON",
+                    "mfa_factor_secrets": "JSON",
                 }
 
                 for col_name, col_definition in required_columns.items():
