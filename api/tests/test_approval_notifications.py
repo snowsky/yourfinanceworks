@@ -62,29 +62,31 @@ class TestNotificationServiceApprovalExtensions:
     
     def test_approval_event_info_mapping(self, notification_service):
         """Test that approval events are properly mapped."""
+        from core.services.notification_event_info import get_event_info
+
         # Test expense submitted for approval
-        event_info = notification_service._get_event_info('expense_submitted_for_approval', 'expense_approval')
+        event_info = get_event_info('expense_submitted_for_approval', 'expense_approval')
         assert event_info['title'] == 'Expense Submitted for Approval'
         assert event_info['color'] == '#ffc107'
         assert 'requires your approval' in event_info['description']
-        
+
         # Test expense approved
-        event_info = notification_service._get_event_info('expense_approved', 'expense_approval')
+        event_info = get_event_info('expense_approved', 'expense_approval')
         assert event_info['title'] == 'Expense Approved'
         assert event_info['color'] == '#28a745'
-        
+
         # Test expense rejected
-        event_info = notification_service._get_event_info('expense_rejected', 'expense_approval')
+        event_info = get_event_info('expense_rejected', 'expense_approval')
         assert event_info['title'] == 'Expense Rejected'
         assert event_info['color'] == '#dc3545'
-        
+
         # Test approval reminder
-        event_info = notification_service._get_event_info('approval_reminder', 'expense_approval')
+        event_info = get_event_info('approval_reminder', 'expense_approval')
         assert event_info['title'] == 'Approval Reminder'
         assert event_info['color'] == '#fd7e14'
-        
+
         # Test approval escalation
-        event_info = notification_service._get_event_info('approval_escalation', 'expense_approval')
+        event_info = get_event_info('approval_escalation', 'expense_approval')
         assert event_info['title'] == 'Approval Escalation'
         assert event_info['color'] == '#dc3545'
     
