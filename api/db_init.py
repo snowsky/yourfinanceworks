@@ -180,6 +180,39 @@ def ensure_required_columns(database_url):
         return False
 
 
+def ensure_tenant_required_columns(tenant_db_url: str, tenant_id: int) -> bool:
+    """Ensure required columns exist on per-tenant tables.
+
+    db_init runs on every startup while alembic does not, so pre-existing
+    tenant DBs created before a column-adding migration must be patched here
+    or they will diverge from the SQLAlchemy model and break queries.
+    """
+    try:
+        engine = create_engine(tenant_db_url)
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+
+            # bank_statements: rollup_expense_id (mirrors alembic 025).
+            if "bank_statements" in inspector.get_table_names():
+                existing = {c["name"] for c in inspector.get_columns("bank_statements")}
+                if "rollup_expense_id" not in existing:
+                    logger.info(
+                        f"[tenant {tenant_id}] Adding bank_statements.rollup_expense_id"
+                    )
+                    conn.execute(
+                        text(
+                            "ALTER TABLE bank_statements "
+                            "ADD COLUMN rollup_expense_id INTEGER "
+                            "REFERENCES expenses(id) ON DELETE SET NULL"
+                        )
+                    )
+                    conn.commit()
+        return True
+    except Exception as e:
+        logger.error(f"[tenant {tenant_id}] Error ensuring tenant columns: {e}")
+        return False
+
+
 def sync_users_to_tenant_db(tenant_id: int):
     """Sync only admin users from master database to tenant database"""
     try:
@@ -376,6 +409,11 @@ def init_db():
             # databases are created dynamically and need immediate schema setup
             TenantBase.metadata.create_all(bind=tenant_engine)
             logger.info(f"Tables created for tenant {tenant.id}")
+
+            # Patch any missing columns added by alembic migrations after
+            # the tenant DB was first created (metadata.create_all does not
+            # alter existing tables). See ensure_tenant_required_columns.
+            ensure_tenant_required_columns(tenant_db_url, tenant.id)
 
             # Create gamification tables for this tenant
             create_gamification_tables(tenant_db_url)

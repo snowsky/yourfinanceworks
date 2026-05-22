@@ -14,6 +14,7 @@ import {
 } from '@/lib/api';
 import { TransactionLinkInfo } from '@/lib/api/bank-statements';
 import { LinkTransferModal } from '@/components/statements/LinkTransferModal';
+import { RollupExpenseModal } from '@/components/statements/RollupExpenseModal';
 import { InvoiceForm } from '@/components/invoices/InvoiceForm';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { ProfessionalCard } from '@/components/ui/professional-card';
@@ -78,6 +79,7 @@ export default function Statements() {
   const [linkingRowIdx, setLinkingRowIdx] = useState<number | null>(null);
   const [unlinkModalOpen, setUnlinkModalOpen] = useState(false);
   const [rowToUnlink, setRowToUnlink] = useState<number | null>(null);
+  const [rollupModalOpen, setRollupModalOpen] = useState(false);
   const [highlightedBackendId, setHighlightedBackendId] = useState<number | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -743,6 +745,11 @@ export default function Statements() {
     } catch (e: any) { toast.error(e?.message || t('statements.expense.create_failed', { defaultValue: 'Failed to create expense' })); }
   };
 
+  const openRollupExpenseModal = () => {
+    if (!selected) return;
+    setRollupModalOpen(true);
+  };
+
   const createInvoiceFromTransaction = (rowIndex: number) => {
     const transaction = rows[rowIndex];
     if (transaction.transaction_type !== 'credit') { toast.error(t('statements.invoice.create_only_credit', { defaultValue: 'Can only create invoices from credit transactions' })); return; }
@@ -985,6 +992,7 @@ export default function Statements() {
             saveRows={saveAll} saveMeta={saveMeta} addEmptyRow={addEmptyRow} exportToCSV={exportToCSV}
             createExpenseFromTransaction={createExpenseFromTransaction}
             createInvoiceFromTransaction={createInvoiceFromTransaction}
+            openRollupExpenseModal={openRollupExpenseModal}
             openStatement={openStatement} handlePreview={handlePreview} handleDownload={handleDownload}
             toggleSplitView={toggleSplitView} onBack={handleBack}
             setStatementToDelete={setStatementToDelete} setDeleteModalOpen={setDeleteModalOpen}
@@ -1161,6 +1169,15 @@ export default function Statements() {
             onLinked={(link) => handleTransactionLinked(linkingRowIdx, link)}
           />
         )}
+
+        {/* Statement Rollup Expense Modal */}
+        <RollupExpenseModal
+          isOpen={rollupModalOpen}
+          statementId={selected}
+          onClose={() => setRollupModalOpen(false)}
+          onCreated={async () => { if (selected) await openStatement(selected); }}
+          onOpenExpense={(expenseId) => { window.location.href = `/expenses?id=${expenseId}`; }}
+        />
       </div>
     </>
   );

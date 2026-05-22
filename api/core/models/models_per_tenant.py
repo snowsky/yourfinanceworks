@@ -505,6 +505,10 @@ class BankStatement(Base):
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # User attribution
     is_possible_receipt = Column(Boolean, default=False, nullable=False)  # AI detected this may be a receipt
     file_hash = Column(String(64), nullable=True, index=True)  # SHA-256 hex digest of uploaded file
+    # Bookkeeping rollup: one Expense that aggregates all debit transactions on this statement.
+    # Nullable; null means no rollup has been created yet. ON DELETE SET NULL so deleting the
+    # rollup expense (e.g. via recycle bin) does not cascade to the statement.
+    rollup_expense_id = Column(Integer, ForeignKey("expenses.id", ondelete="SET NULL"), nullable=True)
 
     # Soft delete fields for recycle bin functionality
     is_deleted = Column(Boolean, default=False, nullable=False)
@@ -524,6 +528,7 @@ class BankStatement(Base):
     attachments = relationship("BankStatementAttachment", back_populates="statement", cascade="all, delete-orphan")
     created_by = relationship("User", foreign_keys=[created_by_user_id])
     deleted_by_user = relationship("User", foreign_keys=[deleted_by])
+    rollup_expense = relationship("Expense", foreign_keys=[rollup_expense_id])
 
 
 class BankStatementTransaction(Base):

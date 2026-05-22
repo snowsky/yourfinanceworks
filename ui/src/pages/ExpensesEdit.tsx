@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { MarkdownEditor } from '@/components/markdown/MarkdownEditor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Calendar } from '@/components/ui/calendar';
@@ -692,7 +693,11 @@ export default function ExpensesEdit() {
 
             <div className="sm:col-span-2">
               <label className="text-sm">{t('expenses.labels.notes')}</label>
-              <Input value={form.notes || ''} onChange={e => setForm({ ...form, notes: e.target.value })} />
+              <MarkdownEditor
+                value={form.notes || ''}
+                onChange={(v) => setForm({ ...form, notes: v })}
+                rows={4}
+              />
             </div>
             <div className="sm:col-span-2">
               <label className="text-sm">{t('expenses.max_attachments')}</label>

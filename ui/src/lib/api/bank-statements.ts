@@ -71,6 +71,42 @@ export interface FileDuplicateEntry {
   created_at?: string | null;
 }
 
+export interface RollupDebitPreview {
+  transaction_id: number;
+  date: string;
+  description: string;
+  amount: number;
+  category?: string | null;
+  linked_expense_id?: number | null;
+}
+
+export interface RollupPreview {
+  statement_id: number;
+  count: number;
+  total: number;
+  currency: string;
+  latest_date?: string | null;
+  auto_labels: string[];
+  debits: RollupDebitPreview[];
+  notes_preview: string;
+  existing_rollup_id?: number | null;
+}
+
+export interface RollupCreateResult {
+  expense_id: number;
+  statement_id: number;
+  amount: number;
+  currency: string;
+  labels: string[];
+  debit_count: number;
+}
+
+/** Shape of `error.response.data.detail` on a 409 from create-rollup-expense. */
+export interface RollupConflictDetail {
+  message: string;
+  existing_expense_id: number;
+}
+
 
 export const bankStatementApi = {
   uploadAndExtract: async (
@@ -266,4 +302,16 @@ export const bankStatementApi = {
       '/statements/transactions/duplicates',
       { method: 'GET' }
     ),
+
+  getRollupPreview: (statementId: number): Promise<RollupPreview> =>
+    apiRequest<RollupPreview>(`/statements/${statementId}/rollup-preview`, { method: 'GET' }),
+
+  createRollupExpense: (
+    statementId: number,
+    body: { user_tags: string[]; replace?: boolean }
+  ): Promise<RollupCreateResult> =>
+    apiRequest<RollupCreateResult>(`/statements/${statementId}/create-rollup-expense`, {
+      method: 'POST',
+      body: JSON.stringify({ user_tags: body.user_tags, replace: !!body.replace }),
+    }),
 };

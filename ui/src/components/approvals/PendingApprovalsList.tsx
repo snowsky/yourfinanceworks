@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { approvalApi } from '@/lib/api';
 import { ExpenseApproval } from '@/types';
+import { MarkdownView } from '@/components/markdown/MarkdownView';
 import {
   Search,
   Filter,
@@ -269,9 +270,10 @@ export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListP
                     </div>
 
                     {approval.expense?.notes && (
-                      <p className="text-sm text-muted-foreground">
-                        {approval.expense.notes}
-                      </p>
+                      <MarkdownView
+                        source={approval.expense.notes}
+                        className="text-muted-foreground"
+                      />
                     )}
 
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { MarkdownEditor } from '@/components/markdown/MarkdownEditor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
@@ -210,7 +211,11 @@ export function ExpenseEditDialog({
 
           <div className="sm:col-span-2">
             <label className="text-sm">{t('expenses.labels.notes')}</label>
-            <Input value={editExpense.notes || ''} onChange={e => setEditExpense({ ...editExpense, notes: e.target.value })} />
+            <MarkdownEditor
+              value={editExpense.notes || ''}
+              onChange={(v) => setEditExpense({ ...editExpense, notes: v })}
+              rows={4}
+            />
           </div>
           <div className="sm:col-span-2">
             <label className="text-sm">{t('expenses.labels.receipt')}</label>
