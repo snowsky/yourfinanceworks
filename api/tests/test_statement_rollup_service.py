@@ -303,3 +303,28 @@ def test_preview_reports_existing_rollup_id(db_session, sample_user):
 
     preview = build_preview(db_session, statement.id, user_tags=[])
     assert preview.existing_rollup_id == first.expense.id
+
+
+def test_negative_debit_amounts_produce_positive_rollup(db_session, sample_user):
+    """Some banks store debits as negative on the statement.
+
+    The Expense.amount column represents the outgoing magnitude, so the rollup
+    must take abs() — sum, markdown notes, and preview payload all positive.
+    """
+    statement = _make_statement(db_session)
+    _add_tx(db_session, statement.id, amount=-10.0, tx_type="debit", description="A")
+    _add_tx(db_session, statement.id, amount=-20.0, tx_type="debit", description="B")
+
+    result = create_rollup_expense(db_session, statement.id, sample_user.id)
+
+    assert result.expense.amount == pytest.approx(30.0)
+    # Per-row table cells should also show positive magnitude (no leading "-")
+    for line in result.expense.notes.splitlines():
+        if line.startswith("| 2026-") and "|" in line:
+            assert "-10.00" not in line
+            assert "-20.00" not in line
+
+    # Preview also reports positive
+    preview = build_preview(db_session, statement.id, user_tags=[])
+    assert preview.total == pytest.approx(30.0)
+    assert all(d.amount > 0 for d in preview.debits)

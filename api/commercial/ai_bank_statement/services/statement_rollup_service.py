@@ -93,7 +93,11 @@ def _get_debit_rows(db: Session, statement_id: int) -> List[DebitRow]:
             transaction_id=tx.id,
             date=tx.date if isinstance(tx.date, datetime) else datetime.combine(tx.date, datetime.min.time()),
             description=tx.description or "",
-            amount=float(tx.amount or 0),
+            # Use magnitude — some banks store debits as negative amounts on the
+            # statement. The Expense.amount column represents the outgoing
+            # magnitude, mirroring the per-transaction "Create expense" flow
+            # which calls Math.abs() in the frontend.
+            amount=abs(float(tx.amount or 0)),
             category=tx.category,
             linked_expense_id=tx.expense_id,
         )
