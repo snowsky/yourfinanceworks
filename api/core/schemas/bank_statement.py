@@ -115,3 +115,53 @@ class PaginatedBankStatements(BaseModel):
     statements: List[BankStatementResponse]
     total: int
     success: bool = True
+
+
+# === Rollup Expense Schemas ===
+
+
+class RollupDebitPreview(BaseModel):
+    """One debit transaction as shown in the rollup preview."""
+    transaction_id: int
+    date: datetime
+    description: str
+    amount: float
+    category: Optional[str] = None
+    linked_expense_id: Optional[int] = None  # if this transaction already has its own expense
+
+
+class RollupPreviewResponse(BaseModel):
+    """Preview payload for the rollup-expense confirm modal."""
+    statement_id: int
+    count: int                              # number of debit transactions
+    total: float                            # sum of debit amounts (includes already-linked ones)
+    currency: str
+    latest_date: Optional[datetime] = None
+    auto_labels: List[str]                  # statement-ref, distinct categories, fixed marker
+    debits: List[RollupDebitPreview]
+    notes_preview: str                      # auto-generated notes that would be saved
+    existing_rollup_id: Optional[int] = None  # set if a rollup already exists for this statement
+
+
+class RollupCreateRequest(BaseModel):
+    """Request body for POST /statements/{id}/create-rollup-expense."""
+    user_tags: List[str] = Field(default_factory=list, description="User-entered tags to add")
+    replace: bool = Field(False, description="If true and a rollup exists, soft-delete it and create a new one")
+
+
+class RollupConflictResponse(BaseModel):
+    """409 body when a rollup already exists and replace=false."""
+    detail: str
+    existing_expense_id: int
+
+
+class RollupCreateResponse(BaseModel):
+    """Success response from POST /statements/{id}/create-rollup-expense."""
+    expense_id: int
+    statement_id: int
+    amount: float
+    currency: str
+    labels: List[str]
+    debit_count: int
+
+    model_config = ConfigDict(from_attributes=True)

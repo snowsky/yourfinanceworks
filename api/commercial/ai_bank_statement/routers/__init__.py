@@ -10,7 +10,7 @@ Split from the original monolithic router.py (1,782 lines) into focused modules:
 
 from fastapi import APIRouter
 from core.schemas.bank_statement import PaginatedBankStatements
-from . import upload, crud, transactions, processing
+from . import upload, crud, transactions, processing, rollup
 
 router = APIRouter(prefix="/statements", tags=["statements"])
 
@@ -30,5 +30,6 @@ router.include_router(upload.router)
 router.include_router(crud.router)
 router.include_router(transactions.router)
 router.include_router(processing.router)
+router.include_router(rollup.router)
 
 __all__ = ["router"]

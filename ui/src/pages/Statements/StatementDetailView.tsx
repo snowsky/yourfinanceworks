@@ -20,7 +20,7 @@ import { ProfessionalButton } from '@/components/ui/professional-button';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
 import {
   CalendarIcon, ArrowLeft, Eye, Download, Trash2, FileText, Plus, Copy, X, Edit,
-  MoreHorizontal, Loader2, RotateCcw, Save, AlertCircle, Columns, ArrowLeftRight
+  MoreHorizontal, Loader2, RotateCcw, Save, AlertCircle, Columns, ArrowLeftRight, Receipt
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { bankStatementApi, expenseApi, invoiceApi, BankStatementDetail } from '@/lib/api';
@@ -61,6 +61,7 @@ interface StatementDetailViewProps {
   exportToCSV: () => void;
   createExpenseFromTransaction: (idx: number) => void;
   createInvoiceFromTransaction: (idx: number) => void;
+  openRollupExpenseModal: () => void;
   openStatement: (id: number, highlightId?: number) => void;
   handlePreview: (id: number) => void;
   handleDownload: (id: number, filename?: string) => void;
@@ -93,6 +94,7 @@ export function StatementDetailView({
   getLocale, timezone,
   saveRows, saveMeta, addEmptyRow, exportToCSV,
   createExpenseFromTransaction, createInvoiceFromTransaction,
+  openRollupExpenseModal,
   openStatement, handlePreview, handleDownload, toggleSplitView, onBack,
   setStatementToDelete, setDeleteModalOpen,
   setDeleteTransactionModalOpen, setTransactionToDelete,
@@ -565,6 +567,19 @@ export function StatementDetailView({
                 >
                   <FileText className="w-4 h-4 mr-2 text-primary" />
                   {t('statements.export_csv', { defaultValue: 'Export CSV' })}
+                </ProfessionalButton>
+                <ProfessionalButton
+                  variant="outline"
+                  size="sm"
+                  onClick={openRollupExpenseModal}
+                  disabled={readOnly || rows.filter((r) => r.transaction_type === 'debit').length === 0}
+                  className="h-9 px-3 border-border/50"
+                  title={t('statements.rollup_expense_tooltip', {
+                    defaultValue: 'Create one bookkeeping expense summing all debit transactions on this statement',
+                  })}
+                >
+                  <Receipt className="w-4 h-4 mr-2 text-primary" />
+                  {t('statements.rollup_expense', { defaultValue: 'Create rollup expense' })}
                 </ProfessionalButton>
                 <ProfessionalButton
                   variant="outline"
