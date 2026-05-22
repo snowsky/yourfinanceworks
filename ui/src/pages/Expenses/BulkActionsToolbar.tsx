@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,10 +14,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Tag, Plus, Minus, Wand, Trash2 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Tag, Plus, Minus, Wand, Trash2, GitMerge, Download, ChevronDown } from 'lucide-react';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { expenseApi, type Expense } from '@/lib/api';
 import { toast } from 'sonner';
+import { MergeExpensesModal } from '@/components/expenses/MergeExpensesModal';
+import { downloadExpenseExport } from '@/lib/expense-export-download';
 
 interface BulkActionsToolbarProps {
   selectedIds: number[];
@@ -55,8 +65,13 @@ export function BulkActionsToolbar({
   onDuplicatesInvalidate,
 }: BulkActionsToolbarProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
 
   if (selectedIds.length === 0) return null;
+
+  const canMerge = selectedIds.length >= 2 && canPerformActionsResult;
+  const canExportOne = selectedIds.length === 1 && canPerformActionsResult;
 
   return (
     <div className="flex flex-col md:flex-row items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-xl shadow-sm gap-4 slide-in">
@@ -148,6 +163,92 @@ export function BulkActionsToolbar({
         </div>
 
         <div className="w-px h-6 bg-primary/10 hidden md:block mx-1"></div>
+
+        <ProfessionalButton
+          variant="outline"
+          size="sm"
+          onClick={() => setMergeModalOpen(true)}
+          disabled={!canMerge}
+          title={
+            canMerge
+              ? t('expenses.merge_tooltip', {
+                  defaultValue: 'Combine selected expenses into one (sources go to recycle bin)',
+                })
+              : t('expenses.merge_disabled_tooltip', {
+                  defaultValue: 'Select at least 2 expenses to merge',
+                })
+          }
+          className="h-9 px-3 gap-1.5"
+        >
+          <GitMerge className="h-3.5 w-3.5" />
+          {t('expenses.merge', { defaultValue: 'Merge' })}
+        </ProfessionalButton>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <ProfessionalButton
+              variant="outline"
+              size="sm"
+              disabled={!canExportOne}
+              title={
+                canExportOne
+                  ? undefined
+                  : t('expenses.export_disabled_tooltip', {
+                      defaultValue: 'Select exactly one expense to export',
+                    })
+              }
+              className="h-9 px-3 gap-1.5"
+            >
+              <Download className="h-3.5 w-3.5" />
+              {t('expenses.export', { defaultValue: 'Export' })}
+              <ChevronDown className="h-3 w-3 ml-0.5 opacity-60" />
+            </ProfessionalButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem onClick={() => downloadExpenseExport(selectedIds[0], 'pdf')}>
+              {t('expenses.export_pdf', { defaultValue: 'PDF' })}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => downloadExpenseExport(selectedIds[0], 'csv')}>
+              {t('expenses.export_csv', { defaultValue: 'CSV' })}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled
+              title={t('expenses.export_zip_tooltip', {
+                defaultValue: 'PDF + JSON + attachment files bundled in one ZIP',
+              })}
+            >
+              {t('expenses.export_zip', { defaultValue: 'ZIP bundle' })}
+              <span className="ml-auto text-[10px] text-muted-foreground">soon</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <MergeExpensesModal
+          isOpen={mergeModalOpen}
+          expenseIds={selectedIds}
+          onClose={() => setMergeModalOpen(false)}
+          onMerged={(result) => {
+            setSelectedIds([]);
+            // After merge, refresh the list AND navigate to the new expense.
+            (async () => {
+              try {
+                const refreshed = await expenseApi.getExpensesPaginated({
+                  category: categoryFilter,
+                  label: labelFilter || undefined,
+                  unlinkedOnly,
+                  skip: (page - 1) * pageSize,
+                  limit: pageSize,
+                  excludeStatus: 'pending_approval',
+                });
+                onExpensesChange(refreshed.expenses, refreshed.total);
+              } catch {
+                /* the toast in the modal already covered failures */
+              }
+              onDuplicatesInvalidate?.();
+              navigate(`/expenses/${result.expense_id}`);
+            })();
+          }}
+        />
 
         <AlertDialog>
           <AlertDialogTrigger asChild>

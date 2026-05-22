@@ -11,7 +11,14 @@ import { CurrencySelector } from '@/components/ui/currency-selector';
 import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Upload, Package, Eye, Pencil, AlertCircle, Trash2, Loader2 } from 'lucide-react';
+import { CalendarIcon, Upload, Package, Eye, Pencil, AlertCircle, Trash2, Loader2, Download, ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { downloadExpenseExport } from '@/lib/expense-export-download';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -247,6 +254,34 @@ export default function ExpensesView() {
               )}
               {(!approval || approval.status !== 'pending') && (
                 <>
+                  {form.id && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline">
+                          <Download className="mr-2 h-4 w-4" />
+                          {t('expenses.export', { defaultValue: 'Export' })}
+                          <ChevronDown className="ml-1 h-3 w-3 opacity-60" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuItem onClick={() => downloadExpenseExport(form.id as number, 'pdf')}>
+                          {t('expenses.export_pdf', { defaultValue: 'PDF' })}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => downloadExpenseExport(form.id as number, 'csv')}>
+                          {t('expenses.export_csv', { defaultValue: 'CSV' })}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled
+                          title={t('expenses.export_zip_tooltip', {
+                            defaultValue: 'PDF + JSON + attachment files bundled in one ZIP',
+                          })}
+                        >
+                          {t('expenses.export_zip', { defaultValue: 'ZIP bundle' })}
+                          <span className="ml-auto text-[10px] text-muted-foreground">soon</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                   <Button
                     onClick={() => navigate(`/expenses/edit/${id}`)}
                     variant="outline"
