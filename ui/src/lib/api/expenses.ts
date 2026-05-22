@@ -63,6 +63,51 @@ export interface DeletedExpense extends Expense {
   deleted_by_username?: string | null;
 }
 
+// ─── Merge ────────────────────────────────────────────────────────────────────
+
+export interface MergeSourceRow {
+  id: number;
+  expense_date?: string | null;
+  vendor?: string | null;
+  amount: number;
+  category?: string | null;
+  currency: string;
+}
+
+export interface MergePreviewResult {
+  count: number;
+  total: number;
+  currency: string;
+  latest_date: string;
+  category?: string | null;
+  vendor?: string | null;
+  labels: string[];
+  notes_preview: string;
+  sources: MergeSourceRow[];
+}
+
+export interface MergeRequest {
+  expense_ids: number[];
+  user_tags?: string[];
+  notes_prefix?: string | null;
+  /** When true, sources stay alive and attachments are duplicated. Defaults to false. */
+  keep_sources?: boolean;
+}
+
+export interface MergeResult {
+  expense_id: number;
+  amount: number;
+  currency: string;
+  labels: string[];
+  source_count: number;
+}
+
+/** Shape of `error.response.data.detail` on a 400 from /expenses/merge. */
+export interface MergeErrorDetail {
+  code: string; // "too_few" | "too_many" | "duplicate_ids" | "not_found" | "currency_mismatch" | "merge_invalid"
+  message: string;
+}
+
 // Expense API methods
 export const expenseApi = {
   getExpenses: async (category?: string, label?: string) => {
@@ -300,4 +345,64 @@ export const expenseApi = {
       `/expenses/potential-duplicates?date_window_days=${dateWindowDays}`,
       { method: 'GET' }
     ),
+
+  // Merge
+  getMergePreview: (req: MergeRequest): Promise<MergePreviewResult> =>
+    apiRequest<MergePreviewResult>('/expenses/merge-preview', {
+      method: 'POST',
+      body: JSON.stringify({
+        expense_ids: req.expense_ids,
+        user_tags: req.user_tags ?? [],
+        notes_prefix: req.notes_prefix ?? null,
+        keep_sources: !!req.keep_sources,
+      }),
+    }),
+
+  mergeExpenses: (req: MergeRequest): Promise<MergeResult> =>
+    apiRequest<MergeResult>('/expenses/merge', {
+      method: 'POST',
+      body: JSON.stringify({
+        expense_ids: req.expense_ids,
+        user_tags: req.user_tags ?? [],
+        notes_prefix: req.notes_prefix ?? null,
+        keep_sources: !!req.keep_sources,
+      }),
+    }),
+
+  // Single-expense export. Returns a Blob the caller can download via createObjectURL.
+  exportExpensePdf: async (
+    id: number
+  ): Promise<{ blob: Blob; filename: string }> =>
+    _fetchExpenseExport(id, 'pdf'),
+
+  exportExpenseCsv: async (
+    id: number
+  ): Promise<{ blob: Blob; filename: string }> =>
+    _fetchExpenseExport(id, 'csv'),
 };
+
+async function _fetchExpenseExport(
+  expenseId: number,
+  format: 'pdf' | 'csv'
+): Promise<{ blob: Blob; filename: string }> {
+  const tenantId = getTenantId();
+  const base = API_BASE_URL.replace(/\/$/, '');
+  const url = `${base}/expenses/${expenseId}/export.${format}`;
+  const headers: Record<string, string> = {};
+  if (tenantId) headers['X-Tenant-ID'] = tenantId;
+  const resp = await fetch(url, { method: 'GET', headers, credentials: 'include' });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    throw new Error(text || `Failed to export expense (${resp.status})`);
+  }
+  const cd = resp.headers.get('content-disposition') || '';
+  let filename = `expense-${expenseId}.${format}`;
+  try {
+    const m = cd.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+    const raw = decodeURIComponent((m?.[1] || m?.[2] || '').trim());
+    if (raw) filename = raw;
+  } catch {
+    /* keep default filename */
+  }
+  return { blob: await resp.blob(), filename };
+}
