@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
@@ -602,7 +603,13 @@ export default function ExpensesView() {
 
               <div className="sm:col-span-2">
                 <label className="text-sm">{t('expenses.labels.notes')}</label>
-                <Input value={form.notes || ''} disabled={true} />
+                <div className="rounded-md border bg-muted/30 p-3 min-h-[2.5rem]">
+                  {form.notes ? (
+                    <MarkdownView source={form.notes} />
+                  ) : (
+                    <span className="text-sm text-muted-foreground italic">No notes</span>
+                  )}
+                </div>
               </div>
               <div className="sm:col-span-2">
                 <label className="text-sm">{t('expenses.max_attachments')}</label>

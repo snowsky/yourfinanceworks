@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { MarkdownEditor } from '@/components/markdown/MarkdownEditor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Calendar } from '@/components/ui/calendar';
@@ -489,10 +490,10 @@ export default function ExpensesNew() {
               </div>
               <div className="sm:col-span-2 space-y-2">
                 <label className="text-sm font-medium text-foreground">{t('expenses.labels.notes')}</label>
-                <Input
+                <MarkdownEditor
                   value={form.notes || ''}
-                  onChange={e => setForm({ ...form, notes: e.target.value })}
-                  className="h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                  onChange={(v) => setForm({ ...form, notes: v })}
+                  rows={4}
                 />
               </div>
             </div>

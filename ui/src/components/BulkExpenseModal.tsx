@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { MarkdownEditor } from '@/components/markdown/MarkdownEditor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Calendar } from '@/components/ui/calendar';
@@ -250,10 +251,11 @@ export function BulkExpenseModal({ open, onOpenChange, onSuccess }: BulkExpenseM
 
                 <div className="sm:col-span-2 lg:col-span-3">
                   <label className="text-sm font-medium">Notes</label>
-                  <Input
+                  <MarkdownEditor
                     value={expense.notes || ''}
-                    onChange={(e) => updateExpense(index, 'notes', e.target.value)}
-                    placeholder="Additional notes"
+                    onChange={(v) => updateExpense(index, 'notes', v)}
+                    placeholder="Additional notes (markdown supported)"
+                    rows={3}
                   />
                 </div>
 
