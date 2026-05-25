@@ -101,6 +101,11 @@ try:
     # Importing the model registers it on TenantBase.metadata so
     # create_all() picks it up when provisioning new tenant databases.
     from commercial.subscriptions.models import DetectedSubscription  # noqa: F401
+    from commercial.networth.router import router as networth
+    from commercial.networth.models import (  # noqa: F401
+        FinancialLiability,
+        NetWorthSnapshot,
+    )
     COMMERCIAL_MODULES_AVAILABLE = True
 except ImportError as e:
     logger.error(f"Failed to import commercial modules: {str(e)}")
@@ -128,6 +133,7 @@ except ImportError as e:
     developer_api_router = None
     tools_api_router = None
     subscriptions = None
+    networth = None
     COMMERCIAL_MODULES_AVAILABLE = False
 
 try:
@@ -705,6 +711,12 @@ if subscriptions:
     app.include_router(subscriptions, prefix="/api/v1")
 else:
     logger.warning("subscriptions router is None - not registering")
+
+if networth:
+    logger.info("Registering networth router")
+    app.include_router(networth, prefix="/api/v1")
+else:
+    logger.warning("networth router is None - not registering")
 
 @app.get("/")
 def read_root():

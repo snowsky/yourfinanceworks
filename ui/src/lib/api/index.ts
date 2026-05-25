@@ -23,3 +23,4 @@ export * from './dashboard';
 export * from './workflows';
 export * from './cashflow';
 export * from './subscriptions';
+export * from './networth';
