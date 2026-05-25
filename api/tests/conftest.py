@@ -28,6 +28,13 @@ try:
 except ImportError:
     INVESTMENT_MODELS_AVAILABLE = False
 
+# Register commercial subscription model on TenantBase.metadata so
+# create_all() picks up the detected_subscriptions table for tests.
+try:
+    import commercial.subscriptions.models  # noqa: F401
+except ImportError:
+    pass
+
 # Postgres test configuration
 POSTGRES_BASE_URL = "postgresql://postgres:password@postgres-master:5432/postgres"
 TEST_DB_NAME = "invoice_test"

@@ -25,6 +25,7 @@ interface FeatureFlags {
   prompt_management: boolean;
   anomaly_detection: boolean;
   plugin_management: boolean;
+  subscription_detection: boolean;
   [key: string]: boolean;
 }
 
@@ -113,7 +114,8 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         prompt_management: hasAllFeatures || enabledFeatures.includes('prompt_management'),
         anomaly_detection: hasAllFeatures || enabledFeatures.includes('anomaly_detection'),
         plugin_management: hasAllFeatures || enabledFeatures.includes('plugin_management'),
-        
+        subscription_detection: hasAllFeatures || enabledFeatures.includes('subscription_detection'),
+
         // Core features (client-side only for now)
         inventory: true,
         crm: true,
@@ -229,6 +231,7 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
           prompt_management: false,
           anomaly_detection: false,
           plugin_management: false,
+          subscription_detection: false,
           crm: true,
         });
         setLicenseStatus(null);

@@ -38,6 +38,7 @@ import {
   Package,
   Clock,
   TrendingUp,
+  Repeat,
 } from "lucide-react";
 import { iconRegistry } from '@/plugins/plugin-icons';
 import type { PluginNavItem } from '@/types/plugin-routes';
@@ -401,6 +402,12 @@ export function AppSidebar() {
       label: t('navigation.cashflow', { defaultValue: 'Cash Flow' }),
       icon: <TrendingUp className="w-5 h-5" />,
       tourId: 'nav-cashflow'
+    }] : []),
+    ...(isFeatureEnabled('subscription_detection') ? [{
+      path: '/subscriptions',
+      label: t('navigation.subscriptions', { defaultValue: 'Subscriptions' }),
+      icon: <Repeat className="w-5 h-5" />,
+      tourId: 'nav-subscriptions'
     }] : []),
 
     // Users, Audit Log, and Analytics moved under Settings; remove from main nav

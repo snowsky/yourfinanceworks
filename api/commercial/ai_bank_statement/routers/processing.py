@@ -203,6 +203,19 @@ async def accept_review(
         details={"statement_id": statement.id, "review_status": statement.review_status}
     )
 
+    # Fire-and-forget subscription auto-scan. Wrapped because subscription
+    # detection is commercial+licensed and must never break the statement
+    # flow when unavailable.
+    try:
+        from commercial.subscriptions.services import scan_after_statement_import
+        scan_after_statement_import(db, user_id=current_user.id)
+    except ImportError:
+        pass
+    except Exception as scan_err:  # noqa: BLE001
+        logger.warning(
+            f"Subscription auto-scan failed after accepting review for statement {statement.id}: {scan_err}"
+        )
+
     return statement
 
 
