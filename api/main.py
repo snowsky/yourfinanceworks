@@ -97,6 +97,10 @@ try:
     from commercial.plugin_management.router import router as plugin_management
     from commercial.developer_api.router import router as developer_api_router
     from commercial.tools_api.router import router as tools_api_router
+    from commercial.subscriptions.router import router as subscriptions
+    # Importing the model registers it on TenantBase.metadata so
+    # create_all() picks it up when provisioning new tenant databases.
+    from commercial.subscriptions.models import DetectedSubscription  # noqa: F401
     COMMERCIAL_MODULES_AVAILABLE = True
 except ImportError as e:
     logger.error(f"Failed to import commercial modules: {str(e)}")
@@ -123,6 +127,7 @@ except ImportError as e:
     external_transactions = None
     developer_api_router = None
     tools_api_router = None
+    subscriptions = None
     COMMERCIAL_MODULES_AVAILABLE = False
 
 try:
@@ -694,6 +699,12 @@ if tools_api_router:
     app.include_router(tools_api_router)
 else:
     logger.warning("tools_api router is None - not registering")
+
+if subscriptions:
+    logger.info("Registering subscriptions router")
+    app.include_router(subscriptions, prefix="/api/v1")
+else:
+    logger.warning("subscriptions router is None - not registering")
 
 @app.get("/")
 def read_root():

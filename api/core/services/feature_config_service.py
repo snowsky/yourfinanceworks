@@ -208,6 +208,14 @@ class FeatureConfigService:
             'default': False,
             'license_tier': 'commercial'
         },
+        'subscription_detection': {
+            'name': 'Subscription Detection',
+            'description': 'Detect recurring bank statement charges as subscriptions and alert on price changes',
+            'category': 'advanced',
+            'env_var': 'FEATURE_SUBSCRIPTION_DETECTION_ENABLED',
+            'default': False,
+            'license_tier': 'commercial'
+        },
     }
     
     @classmethod
