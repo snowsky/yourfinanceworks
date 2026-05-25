@@ -34,7 +34,7 @@ export const SubscriptionsWidget: React.FC = () => {
   const next = data?.next_charge_date;
 
   return (
-    <ProfessionalCard>
+    <ProfessionalCard data-tour="dashboard-subscriptions">
       <ProfessionalCardHeader className="flex flex-row items-center justify-between">
         <ProfessionalCardTitle className="text-lg flex items-center gap-2">
           <Repeat className="h-4 w-4" />

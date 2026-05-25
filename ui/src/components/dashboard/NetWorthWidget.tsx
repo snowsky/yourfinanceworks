@@ -61,7 +61,7 @@ export const NetWorthWidget: React.FC = () => {
 
   return (
     <>
-      <ProfessionalCard>
+      <ProfessionalCard data-tour="dashboard-net-worth">
         <ProfessionalCardHeader className="flex flex-row items-center justify-between">
           <ProfessionalCardTitle className="text-lg flex items-center gap-2">
             <Scale className="h-4 w-4" />
