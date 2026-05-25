@@ -1,7 +1,5 @@
 """Pydantic request/response models for subscription detection."""
 
-from __future__ import annotations
-
 from datetime import date, datetime
 from typing import List, Literal, Optional
 

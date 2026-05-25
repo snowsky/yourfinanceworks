@@ -3,12 +3,10 @@
 All endpoints are gated by ``@require_feature("subscription_detection")``.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from commercial.subscriptions.models import DetectedSubscription, SubscriptionStatus
@@ -115,16 +113,18 @@ async def charge_history_endpoint(
 @router.post("/scan", response_model=ScanResponse)
 @require_feature("subscription_detection")
 async def scan_endpoint(
-    request: ScanRequest = ScanRequest(),
+    request: Optional[ScanRequest] = Body(default=None),
     tenant_db: Session = Depends(get_tenant_db),
     current_user: MasterUser = Depends(get_current_user),
 ) -> ScanResponse:
-    """Run a fresh scan on demand."""
+    """Run a fresh scan on demand. Body is optional; an empty POST runs
+    with default lookback (365d) and notifications enabled."""
+    payload = request or ScanRequest()
     result = scan_tenant(
         tenant_db,
         user_id=current_user.id,
-        lookback_days=request.lookback_days,
-        emit_notifications=request.emit_notifications,
+        lookback_days=payload.lookback_days,
+        emit_notifications=payload.emit_notifications,
     )
     return ScanResponse(**result.__dict__)
 
