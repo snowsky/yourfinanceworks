@@ -84,6 +84,20 @@ const TOURS: OnboardingTour[] = [
         placement: 'top'
       },
       {
+        id: 'subscriptions',
+        title: 'Recurring Spend Visibility',
+        content: 'Track every subscription detected in your bank statements—monthly cost, next charge date, and price-change alerts so nothing renews unnoticed.',
+        target: '[data-tour="dashboard-subscriptions"]',
+        placement: 'top'
+      },
+      {
+        id: 'net-worth',
+        title: 'Total Position at a Glance',
+        content: 'Aggregate bank balances, investments, and liabilities into one net-worth number with month-over-month history. Snapshot on demand or automatically when a statement lands.',
+        target: '[data-tour="dashboard-net-worth"]',
+        placement: 'top'
+      },
+      {
         id: 'payment-trends',
         title: 'Liquidity Insights',
         content: 'Analyze your cash flow health with deep-dive metrics on payment cycles and collection efficiency.',

@@ -35,6 +35,13 @@ try:
 except ImportError:
     pass
 
+# Register commercial net-worth models on TenantBase.metadata so
+# create_all() picks up financial_liabilities and net_worth_snapshots.
+try:
+    import commercial.networth.models  # noqa: F401
+except ImportError:
+    pass
+
 # Postgres test configuration
 POSTGRES_BASE_URL = "postgresql://postgres:password@postgres-master:5432/postgres"
 TEST_DB_NAME = "invoice_test"

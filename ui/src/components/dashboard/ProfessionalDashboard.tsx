@@ -21,6 +21,7 @@ import { QuickActions } from './QuickActions';
 import { InvoiceChart } from './InvoiceChart';
 import { RecentActivity } from './RecentActivity';
 import { SubscriptionsWidget } from './SubscriptionsWidget';
+import { NetWorthWidget } from './NetWorthWidget';
 import { HelpCenter } from '@/components/onboarding/HelpCenter';
 import { dashboardApi } from '@/lib/api';
 import { getCurrentUser } from '@/utils/auth';
@@ -371,6 +372,9 @@ export function ProfessionalDashboard() {
 
       {/* Subscription detection widget (no-op when feature is disabled) */}
       <SubscriptionsWidget />
+
+      {/* Net worth widget (no-op when feature is disabled) */}
+      <NetWorthWidget />
 
       {/* Business Insights Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

@@ -216,6 +216,20 @@ async def accept_review(
             f"Subscription auto-scan failed after accepting review for statement {statement.id}: {scan_err}"
         )
 
+    # Fire-and-forget net-worth snapshot. Bank balances may have shifted after
+    # this import; capture a fresh snapshot so the history chart stays current.
+    try:
+        from commercial.networth.services import (
+            capture_snapshot_after_statement_import,
+        )
+        capture_snapshot_after_statement_import(db, user_id=current_user.id)
+    except ImportError:
+        pass
+    except Exception as snap_err:  # noqa: BLE001
+        logger.warning(
+            f"Net-worth auto-snapshot failed after accepting review for statement {statement.id}: {snap_err}"
+        )
+
     return statement
 
 

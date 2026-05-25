@@ -216,6 +216,14 @@ class FeatureConfigService:
             'default': False,
             'license_tier': 'commercial'
         },
+        'net_worth': {
+            'name': 'Net Worth',
+            'description': 'Aggregate bank balances, investments, and manually-entered liabilities into a unified net-worth view with month-over-month history',
+            'category': 'advanced',
+            'env_var': 'FEATURE_NET_WORTH_ENABLED',
+            'default': False,
+            'license_tier': 'commercial'
+        },
     }
     
     @classmethod
