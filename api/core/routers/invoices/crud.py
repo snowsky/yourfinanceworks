@@ -24,7 +24,7 @@ from core.routers.auth import get_current_user
 from core.services.tenant_database_manager import tenant_db_manager
 from core.services.currency_service import CurrencyService
 from core.utils.invoice import generate_invoice_number
-from core.utils.rbac import require_non_viewer, require_admin
+from core.utils.rbac import require_component_permission
 from core.utils.audit import log_audit_event
 from core.utils.file_deletion import delete_file_from_storage
 from core.constants.error_codes import FAILED_TO_CREATE_INVOICE, FAILED_TO_FETCH_INVOICE
@@ -57,7 +57,7 @@ async def create_invoice(
     logger.info(f"Invoice data received: {invoice}")
     logger.info(f"Current user: {current_user.email if current_user else 'None'}")
     # Check if user has permission to create invoices
-    require_non_viewer(current_user, "create invoices")
+    require_component_permission(db, current_user, "invoices", "user", "create invoices")
 
     try:
         # Validate that the client exists
@@ -512,7 +512,7 @@ async def clone_invoice(
     - Does not copy payments or attachments
     """
     # Check permissions
-    require_non_viewer(current_user, "clone invoices")
+    require_component_permission(db, current_user, "invoices", "user", "clone invoices")
 
     try:
         # Fetch source invoice (exclude soft-deleted)
@@ -827,7 +827,7 @@ async def bulk_labels(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Bulk add or remove labels from invoices"""
-    require_non_viewer(current_user, "bulk update invoices")
+    require_component_permission(db, current_user, "invoices", "user", "bulk update invoices")
 
     ids = payload.get("ids", [])
     action = payload.get("action") # "add" or "remove"
@@ -929,7 +929,7 @@ async def empty_recycle_bin(
     """Empty the entire recycle bin (admin only)"""
     try:
         # Only admins can empty the recycle bin
-        require_admin(current_user, "empty the recycle bin")
+        require_component_permission(db, current_user, "invoices", "admin", "empty the recycle bin")
 
         # Get count of deleted invoices
         count = db.query(Invoice).filter(Invoice.is_deleted == True).count()
@@ -1148,7 +1148,7 @@ async def permanently_delete_invoice(
             )
 
         # Only admins can permanently delete invoices
-        require_admin(current_user, "permanently delete invoices")
+        require_component_permission(db, current_user, "invoices", "admin", "permanently delete invoices")
 
         # Delete all attachments from storage before deleting the invoice
         try:
@@ -1454,7 +1454,7 @@ async def update_invoice(
     logger.info(f"Invoice update endpoint called - User: {current_user.email}, Tenant: {current_tenant}, Invoice ID: {invoice_id}")
     logger.debug(f"[DEBUG] Received custom_fields in update: {invoice.custom_fields}")
     # Check if user has permission to update invoices
-    require_non_viewer(current_user, "update invoices")
+    require_component_permission(db, current_user, "invoices", "user", "update invoices")
 
     try:
         # Query invoice in current tenant's database (exclude soft-deleted)
@@ -2089,7 +2089,7 @@ async def bulk_delete_invoices(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Bulk delete invoices (move to recycle bin)"""
-    require_non_viewer(current_user, "bulk delete invoices")
+    require_component_permission(db, current_user, "invoices", "user", "bulk delete invoices")
 
     # Set tenant context for encryption operations
     from core.models.database import set_tenant_context

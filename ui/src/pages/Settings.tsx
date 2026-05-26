@@ -8,6 +8,7 @@ import {
   Database, User, Lock, Mail, Shield, ExternalLink, ShieldCheck, Terminal, Trophy, Puzzle, Settings2, Palette, CreditCard, Landmark, Share2
 } from "lucide-react";
 import { getCurrentUser } from "@/utils/auth";
+import { usePermissionChecker } from "@/hooks/usePermissions";
 import {
   CompanyInfoTab, InvoiceSettingsTab, UserProfileTab, DiscountRulesTab, AIConfigTab,
   NotificationsTab, DataManagementTab, CurrenciesTab, SearchSettingsTab,
@@ -39,7 +40,14 @@ const Settings = () => {
   const { t } = useTranslation();
 
   const currentUser = getCurrentUser();
-  const isAdmin = currentUser?.role === 'admin';
+  // Per-component grants can demote a tenant admin below admin on Settings.
+  // While the permission request is loading we leave the role-based decision
+  // alone so admins don't flash a disabled UI on first paint.
+  const permissionChecker = usePermissionChecker();
+  const isAdmin =
+    currentUser?.role === 'admin' &&
+    (permissionChecker.isLoading ||
+      permissionChecker.hasPermission('settings', 'admin'));
 
   const [activeTab, setActiveTab] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);

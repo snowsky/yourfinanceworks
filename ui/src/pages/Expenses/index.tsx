@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { expenseApi, Expense, ExpenseAttachmentMeta, settingsApi, DeletedExpense } from '@/lib/api';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 import { canPerformActions } from '@/utils/auth';
+import { usePermissionChecker } from '@/hooks/usePermissions';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -62,6 +63,15 @@ const Expenses = () => {
         return 'en-US';
     }
   };
+  // Effective gating: coarse role check AND per-component grant. While the
+  // permission request is in flight we leave the role result alone so the UI
+  // doesn't briefly disable buttons for users who really do have access.
+  const permissionChecker = usePermissionChecker();
+  const canPerformAction =
+    canPerformActions() &&
+    (permissionChecker.isLoading ||
+      permissionChecker.hasPermission('expenses', 'user'));
+
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const categoryOptions = EXPENSE_CATEGORY_OPTIONS;
   const [loading, setLoading] = useState(true);
@@ -662,7 +672,7 @@ const Expenses = () => {
                 </span>
               </div>
             </div>
-            {canPerformActions() && (
+            {canPerformAction && (
               <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
                 <ProfessionalButton
                   variant="outline"
@@ -808,7 +818,7 @@ const Expenses = () => {
                 setSelectedIds={setSelectedIds}
                 bulkLabel={bulkLabel}
                 setBulkLabel={setBulkLabel}
-                canPerformActionsResult={canPerformActions()}
+                canPerformActionsResult={canPerformAction}
                 categoryFilter={categoryFilter}
                 labelFilter={labelFilter}
                 unlinkedOnly={unlinkedOnly}

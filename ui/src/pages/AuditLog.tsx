@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/professional-table';
 import { isSuperAdmin, getCurrentUser } from '@/utils/auth';
 import { useOrganizations } from '@/hooks/useOrganizations';
+import { usePermissionChecker } from '@/hooks/usePermissions';
 import {
   Pagination,
   PaginationContent,
@@ -95,6 +96,7 @@ export default function AuditLogPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrganization, setSelectedOrganization] = useState<string>('current');
   const isCurrentUserSuperAdmin = isSuperAdmin();
+  const permissionChecker = usePermissionChecker();
 
   // Check permission to access audit log
   useEffect(() => {
@@ -106,7 +108,14 @@ export default function AuditLogPage() {
 
     // Check if user is admin in current organization or is a superuser
     const isAdminInCurrentOrg = currentOrg?.role === 'admin';
-    const userHasAccess = isCurrentUserSuperAdmin || isAdminInCurrentOrg;
+    // Per-component grants can demote a tenant admin to viewer on audit_log.
+    // While permission data is still loading we trust the role-only check so
+    // we don't briefly redirect away from a page the user actually can see.
+    const componentAllows =
+      permissionChecker.isLoading ||
+      permissionChecker.hasPermission('audit_log', 'admin');
+    const userHasAccess =
+      isCurrentUserSuperAdmin || (isAdminInCurrentOrg && componentAllows);
 
     setHasAccess(userHasAccess);
 
@@ -114,7 +123,14 @@ export default function AuditLogPage() {
     if (userOrganizations.length > 0 && !userHasAccess) {
       navigate('/');
     }
-  }, [userOrganizations, isCurrentUserSuperAdmin, navigate, user?.tenant_id]);
+  }, [
+    userOrganizations,
+    isCurrentUserSuperAdmin,
+    navigate,
+    user?.tenant_id,
+    permissionChecker.isLoading,
+    permissionChecker,
+  ]);
 
   useEffect(() => {
     if (hasAccess) {

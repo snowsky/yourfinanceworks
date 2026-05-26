@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/professional-table";
 import { getCurrentUser } from '@/utils/auth';
 import { useOrganizations } from '@/hooks/useOrganizations';
+import { UserPermissionsDialog } from '@/components/UserPermissionsDialog';
 
 const ROLES = ["admin", "user", "viewer"];
 
@@ -103,6 +104,7 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [passwordRequirements, setPasswordRequirements] = useState<any>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [permissionsTarget, setPermissionsTarget] = useState<User | null>(null);
 
   // Check permission to access users page
   useEffect(() => {
@@ -677,6 +679,10 @@ export default function UsersPage() {
                             disabled: resettingPassword
                           },
                           {
+                            label: 'Manage permissions',
+                            onClick: () => setPermissionsTarget(member),
+                          },
+                          {
                             label: t('users.delete'),
                             onClick: () => handleDeleteUser(member),
                             disabled: deletingUser || member.id === currentUserId,
@@ -855,6 +861,13 @@ export default function UsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <UserPermissionsDialog
+        userId={permissionsTarget?.id ?? null}
+        userLabel={permissionsTarget?.email}
+        open={!!permissionsTarget}
+        onOpenChange={(open) => !open && setPermissionsTarget(null)}
+      />
 
     </div>
   );

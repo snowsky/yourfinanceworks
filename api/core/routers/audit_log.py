@@ -6,7 +6,7 @@ from core.models.models import MasterUser, AuditLog as MasterAuditLog
 from core.schemas import AuditLog, AuditLogCreate, AuditLogResponse
 from datetime import datetime
 from core.routers.auth import get_current_user
-from core.utils.rbac import require_admin_or_superuser
+from core.utils.rbac import require_component_permission
 
 router = APIRouter()
 
@@ -270,7 +270,7 @@ def get_audit_logs(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
-    require_admin_or_superuser(current_user, "view audit logs")
+    require_component_permission(db, current_user, "audit_log", "admin", "view audit logs")
 
     # Check if user is super admin and organization_id is provided
     is_super_admin = current_user.role == 'super_admin' or current_user.is_superuser
@@ -385,7 +385,7 @@ def get_audit_log(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
-    require_admin_or_superuser(current_user, "view audit logs")
+    require_component_permission(db, current_user, "audit_log", "admin", "view audit logs")
 
     # Check if user is super admin and organization_id is provided
     is_super_admin = current_user.role == 'super_admin' or current_user.is_superuser

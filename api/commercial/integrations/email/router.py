@@ -11,7 +11,7 @@ from core.models.models_per_tenant import Settings
 from core.models.models import MasterUser
 from core.routers.auth import get_current_user
 from commercial.integrations.email.service import EmailIngestionService
-from core.utils.rbac import require_admin
+from core.utils.rbac import require_component_permission
 from core.utils.feature_gate import require_feature
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ async def get_config(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_admin(current_user)
+    require_component_permission(db, current_user, "integrations", "admin", "manage email integration")
     # Set tenant context
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
@@ -87,7 +87,7 @@ async def update_config(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_admin(current_user)
+    require_component_permission(db, current_user, "integrations", "admin", "manage email integration")
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
 
@@ -164,7 +164,7 @@ async def test_connection(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_admin(current_user)
+    require_component_permission(db, current_user, "integrations", "admin", "manage email integration")
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
     
@@ -195,7 +195,7 @@ async def get_sync_status(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_admin(current_user)
+    require_component_permission(db, current_user, "integrations", "admin", "manage email integration")
     # Set tenant context
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
@@ -217,7 +217,7 @@ async def trigger_sync(
     
     logger.info(f"Sync triggered by user {current_user.id} for tenant {current_user.tenant_id}")
     
-    require_admin(current_user)
+    require_component_permission(db, current_user, "integrations", "admin", "manage email integration")
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
 

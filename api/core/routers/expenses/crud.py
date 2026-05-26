@@ -35,7 +35,7 @@ from core.services.review_service import ReviewService
 from core.services.search_service import search_service
 from core.utils.audit import log_audit_event
 from core.utils.file_deletion import delete_file_from_storage
-from core.utils.rbac import require_non_viewer
+from core.utils.rbac import require_component_permission
 from core.utils.timezone import get_tenant_timezone_aware_datetime
 from commercial.ai.services.ocr_service import cancel_ocr_tasks_for_expense
 
@@ -344,7 +344,7 @@ async def create_expense(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_non_viewer(current_user, "create expenses")
+    require_component_permission(db, current_user, "expenses", "user", "create expenses")
 
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
@@ -636,7 +636,7 @@ async def bulk_labels_expenses(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_non_viewer(current_user, "bulk label expenses")
+    require_component_permission(db, current_user, "expenses", "user", "bulk label expenses")
     try:
         if not payload.expense_ids:
             raise HTTPException(status_code=400, detail="No expense IDs provided")
@@ -679,7 +679,7 @@ async def bulk_create_expenses(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_non_viewer(current_user, "create expenses")
+    require_component_permission(db, current_user, "expenses", "user", "create expenses")
     try:
         if not payload.expenses or len(payload.expenses) == 0:
             raise HTTPException(status_code=400, detail="No expenses provided")
@@ -791,7 +791,7 @@ async def bulk_delete_expenses(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_non_viewer(current_user, "bulk delete expenses")
+    require_component_permission(db, current_user, "expenses", "user", "bulk delete expenses")
 
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
@@ -909,7 +909,7 @@ async def update_expense(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_non_viewer(current_user, "update expenses")
+    require_component_permission(db, current_user, "expenses", "user", "update expenses")
 
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
@@ -1162,7 +1162,7 @@ async def delete_expense(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Move an expense to the recycle bin (soft delete)"""
-    require_non_viewer(current_user, "delete expenses")
+    require_component_permission(db, current_user, "expenses", "user", "delete expenses")
 
     import traceback
     from core.models.database import set_tenant_context

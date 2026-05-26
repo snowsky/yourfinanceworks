@@ -15,7 +15,7 @@ from core.schemas.client import ClientCreate, ClientUpdate, Client as ClientSche
 from core.schemas.client_record import ClientRecordResponse
 from core.schemas.client_record import ClientRecordUpdateRequest, ClientTaskCreateRequest, ClientTaskItem
 from core.routers.auth import get_current_user
-from core.utils.rbac import require_non_viewer
+from core.utils.rbac import require_component_permission
 from core.utils.audit import log_audit_event
 from core.constants.error_codes import CLIENT_ALREADY_EXISTS, CLIENT_NOT_FOUND, CLIENT_HAS_INVOICES, FAILED_TO_CREATE_CLIENT, FAILED_TO_UPDATE_CLIENT, FAILED_TO_FETCH_CLIENTS, FAILED_TO_FETCH_CLIENT
 from core.services.notification_service import NotificationService
@@ -198,7 +198,7 @@ async def create_client(
     current_user: MasterUser = Depends(get_current_user)
 ):
     # Check if user has permission to create clients
-    require_non_viewer(current_user, "create clients")
+    require_component_permission(db, current_user, "customers", "user", "create clients")
     
     try:
         logger.info(f"DEBUG: Attempting to create client: name='{client.name}', email='{client.email}'")
@@ -356,7 +356,7 @@ async def update_client(
     current_user: MasterUser = Depends(get_current_user)
 ):
     # Check if user has permission to update clients
-    require_non_viewer(current_user, "update clients")
+    require_component_permission(db, current_user, "customers", "user", "update clients")
 
     try:
         # No tenant_id filtering needed since we're in the tenant's database
@@ -529,7 +529,7 @@ async def update_client_record(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
-    require_non_viewer(current_user, "update client record")
+    require_component_permission(db, current_user, "customers", "user", "update client record")
     try:
         service = ClientRecordService(db)
         update_data = payload.model_dump(exclude_unset=True)
@@ -588,7 +588,7 @@ async def create_client_task(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
-    require_non_viewer(current_user, "create client task")
+    require_component_permission(db, current_user, "customers", "user", "create client task")
     try:
         service = ClientRecordService(db)
         return service.create_client_task(
@@ -616,7 +616,7 @@ async def bulk_labels(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Bulk add or remove labels from clients"""
-    require_non_viewer(current_user, "bulk update clients")
+    require_component_permission(db, current_user, "customers", "user", "bulk update clients")
     
     ids = payload.get("ids", [])
     action = payload.get("action") # "add" or "remove"

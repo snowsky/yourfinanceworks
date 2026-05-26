@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.models.database import get_db, get_master_db
 from core.routers.auth import get_current_user
 from core.models.models import MasterUser
-from core.utils.rbac import require_non_viewer
+from core.utils.rbac import require_component_permission
 from core.utils.file_validation import validate_file_path
 from core.utils.file_deletion import delete_file_from_storage
 from core.models.models_per_tenant import BankStatement, BankStatementTransaction
@@ -56,7 +56,7 @@ async def list_statements(
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_non_viewer(current_user, "list statements")
+    require_component_permission(db, current_user, "bank_statements", "user", "list statements")
     tenant_id = get_tenant_id()
 
     query = (
@@ -176,7 +176,7 @@ async def bulk_labels(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Bulk add or remove labels from bank statements"""
-    require_non_viewer(current_user, "bulk update statements")
+    require_component_permission(db, current_user, "bank_statements", "user", "bulk update statements")
 
     ids = payload.get("ids", [])
     action = payload.get("action")  # "add" or "remove"
@@ -221,7 +221,7 @@ async def merge_statements(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Merge multiple bank statements into one (originals are kept)"""
-    require_non_viewer(current_user, "merge statements")
+    require_component_permission(db, current_user, "bank_statements", "user", "merge statements")
 
     ids = payload.get("ids", [])
     if not isinstance(ids, list) or len(ids) < 2:
@@ -638,7 +638,7 @@ async def get_statement(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_non_viewer(current_user, "view statement")
+    require_component_permission(db, current_user, "bank_statements", "viewer", "view statement")
     tenant_id = get_tenant_id()
 
     from core.services import transaction_link_service
@@ -730,7 +730,7 @@ async def update_statement_meta(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Update metadata for a bank statement: notes and label."""
-    require_non_viewer(current_user, "edit bank statement")
+    require_component_permission(db, current_user, "bank_statements", "user", "edit bank statement")
     tenant_id = get_tenant_id()
 
     s = (
@@ -847,7 +847,7 @@ async def download_statement_file(
     """Return the original uploaded PDF for a bank statement.
     If inline=true, set Content-Disposition to inline; otherwise as attachment.
     """
-    require_non_viewer(current_user, "download bank statement file")
+    require_component_permission(db, current_user, "bank_statements", "viewer", "download bank statement file")
     tenant_id = get_tenant_id()
 
     s = (
@@ -1029,7 +1029,7 @@ async def delete_statement(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Move a statement to the recycle bin (soft delete)"""
-    require_non_viewer(current_user, "delete statement")
+    require_component_permission(db, current_user, "bank_statements", "user", "delete statement")
     tenant_id = get_tenant_id()
 
     # First check if statement exists (regardless of deletion status)

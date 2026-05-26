@@ -67,6 +67,7 @@ from core.routers import (
     share_tokens,  # Add the record sharing router
     workflows,
     cashflow,  # Add the cash flow forecasting router
+    user_permissions,  # Per-user, per-component permission grants
 )
 
 # Configure logging early so we can use it in imports
@@ -610,6 +611,7 @@ app.include_router(timeline.router, prefix="/api/v1")        # Add the client ti
 app.include_router(share_tokens.router, prefix="/api/v1")   # Add the record sharing router
 app.include_router(workflows.router, prefix="/api/v1")      # Add the workflows router
 app.include_router(cashflow.router, prefix="/api/v1")       # Add the cash flow forecasting router
+app.include_router(user_permissions.router, prefix="/api/v1")  # Per-component permission grants
 
 
 # ------------------------------------------------------------------------------

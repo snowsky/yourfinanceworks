@@ -14,7 +14,7 @@ from core.models.database import get_db, get_master_db, set_tenant_context
 from core.models.models_per_tenant import User, Client, Invoice, Settings, ClientNote, InvoiceItem
 from core.models.models import Tenant, MasterUser
 from core.routers.auth import get_current_user
-from core.utils.rbac import require_admin, require_admin_or_superuser
+from core.utils.rbac import require_component_permission
 from core.utils.audit import log_audit_event
 from core.utils.feature_gate import feature_enabled
 from core.constants.error_codes import FAILED_TO_IMPORT_DATA
@@ -50,7 +50,7 @@ async def get_settings(
 ):
     """Get tenant settings (using tenant info as settings)"""
     # Only org admins or superusers can view settings
-    require_admin_or_superuser(current_user, "view settings")
+    require_component_permission(db, current_user, "settings", "admin", "view settings")
 
     # Manually get master database
     master_db = next(get_master_db())
@@ -159,7 +159,7 @@ async def update_settings(
 ):
     """Update tenant settings"""
     # Only org admins or superusers can update settings
-    require_admin_or_superuser(current_user, "update settings")
+    require_component_permission(db, current_user, "settings", "admin", "update settings")
 
 
 
@@ -370,10 +370,11 @@ async def update_settings(
 @router.get("/export-data")
 async def export_tenant_data(
     current_user: MasterUser = Depends(get_current_user),
-    master_db: Session = Depends(get_master_db)
+    master_db: Session = Depends(get_master_db),
+    db: Session = Depends(get_db),
 ):
     """Export tenant data to a real SQLite file"""
-    require_admin_or_superuser(current_user, "export data")
+    require_component_permission(db, current_user, "settings", "admin", "export data")
     import sqlalchemy
     from sqlalchemy.orm import sessionmaker
     from core.models.models_per_tenant import (
@@ -474,7 +475,8 @@ async def export_tenant_data(
 @router.post("/import-data")
 async def import_tenant_data(
     file: UploadFile = File(...),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Import data from an uploaded SQLite file (full restore, all tables)"""
     import tempfile, os
@@ -485,7 +487,7 @@ async def import_tenant_data(
     )
     from core.services.tenant_database_manager import tenant_db_manager
     try:
-        require_admin_or_superuser(current_user, "import data")
+        require_component_permission(db, current_user, "settings", "admin", "import data")
 
         # Validate file type
         if not file.filename or not file.filename.endswith('.sqlite'):
@@ -988,14 +990,15 @@ async def import_tenant_data(
 @router.post("/upload-logo")
 async def upload_company_logo(
     file: UploadFile = File(...),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Upload a company logo image and return its public URL (per-tenant directory)."""
     logger.info(f"🔍 LOGO UPLOAD ENDPOINT REACHED - user: {current_user.email}, tenant: {current_user.tenant_id}")
     logger.info(f"file: {file}")
 
     # Only admins can upload company logo
-    require_admin(current_user, "upload company logo")
+    require_component_permission(db, current_user, "settings", "admin", "upload company logo")
 
     # Debug logging to see what we're receiving
     logger.info(f"🔍 Logo upload request - filename: {file.filename}, content_type: {file.content_type}, size: {file.size if hasattr(file, 'size') else 'unknown'}")
@@ -1168,7 +1171,7 @@ async def get_setting_value(
 ):
     """Get a specific setting value by key"""
     # Only admins
-    require_admin_or_superuser(current_user, "view settings")
+    require_component_permission(db, current_user, "settings", "admin", "view settings")
 
     setting = db.query(Settings).filter(Settings.key == key).first()
     if not setting:
@@ -1184,7 +1187,7 @@ async def update_setting_value(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Update a specific setting value by key"""
-    require_admin_or_superuser(current_user, "update settings")
+    require_component_permission(db, current_user, "settings", "admin", "update settings")
 
     # Expect payload to contain "value" key
     if "value" not in payload:
