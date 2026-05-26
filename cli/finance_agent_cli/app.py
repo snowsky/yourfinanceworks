@@ -5,10 +5,15 @@ from __future__ import annotations
 import argparse
 import getpass
 import json
+import sys
 from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from typing import Sequence
+
+
+class CliInputError(ValueError):
+    """Raised for malformed CLI input (bad --page-context JSON, etc.)."""
 
 from .agent import PortfolioMonitorAgent
 from .analyzers import normalize_allocation
@@ -21,7 +26,11 @@ from .logging_config import configure_logging, get_logger
 from .models import Portfolio, PortfolioAnalysis
 from .render import (
     print_chat_response,
+    print_cross_summary,
+    print_document_scan,
+    print_exposure_report,
     print_json,
+    print_overlap_analysis,
     print_portfolio_analysis,
     print_portfolios,
     print_recommendations,
@@ -148,6 +157,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return _handle_documents(args, client, profile)
             if args.resource == "agent":
                 return _handle_agent(args, client, profile)
+    except CliInputError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
     except APIError as exc:
         print_json(
             {
@@ -259,17 +271,26 @@ def _handle_portfolio(args, client: InvestmentAPIClient, profile) -> int:
 
     if args.action == "cross-summary":
         payload = client.get_cross_summary()
-        print_json(payload)
+        if args.json:
+            print_json(payload)
+        else:
+            print_cross_summary(payload)
         return 0
 
     if args.action == "exposure":
         payload = client.get_exposure()
-        print_json(payload)
+        if args.json:
+            print_json(payload)
+        else:
+            print_exposure_report(payload)
         return 0
 
     if args.action == "overlap":
         payload = client.get_overlap()
-        print_json(payload)
+        if args.json:
+            print_json(payload)
+        else:
+            print_overlap_analysis(payload)
         return 0
 
     if args.action == "monitor":
@@ -390,7 +411,10 @@ def _handle_documents(args, client: InvestmentAPIClient, profile) -> int:
             }
             for item in routed
         ]
-    print_json(payload)
+    if args.json:
+        print_json(payload)
+    else:
+        print_document_scan(payload)
     return 0
 
 
@@ -435,9 +459,9 @@ def _parse_page_context(raw: str | None) -> dict | None:
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise APIError(f"Invalid --page-context JSON: {exc}") from exc
+        raise CliInputError(f"Invalid --page-context JSON: {exc}") from exc
     if not isinstance(parsed, dict):
-        raise APIError("--page-context must be a JSON object.")
+        raise CliInputError("--page-context must be a JSON object.")
     return parsed
 
 

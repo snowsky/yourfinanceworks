@@ -3,10 +3,31 @@
 from __future__ import annotations
 
 import json
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from .models import Portfolio, PortfolioAnalysis, Recommendation
+
+
+def _money(value: Any) -> str:
+    try:
+        return f"{Decimal(str(value if value is not None else 0)):,.2f}"
+    except (InvalidOperation, ValueError, TypeError):
+        return str(value)
+
+
+def _pct(value: Any) -> str:
+    try:
+        return f"{Decimal(str(value if value is not None else 0)):.2f}%"
+    except (InvalidOperation, ValueError, TypeError):
+        return str(value)
+
+
+def _qty(value: Any) -> str:
+    try:
+        return f"{Decimal(str(value if value is not None else 0)):,.4f}"
+    except (InvalidOperation, ValueError, TypeError):
+        return str(value)
 
 
 def print_json(payload: Any) -> None:
@@ -137,6 +158,147 @@ def print_recommendations(recommendations: list[Recommendation], *, title: str =
             print(f"  reason: {reason}")
         for action in recommendation.suggested_actions:
             print(f"  action: {action}")
+
+
+def print_cross_summary(payload: dict[str, Any]) -> None:
+    print("Cross-Portfolio Summary")
+    print(
+        f"Portfolios: {payload.get('portfolio_count', 0)}  "
+        f"Unique Securities: {payload.get('total_unique_securities', 0)}"
+    )
+    print(
+        f"Combined Value: {_money(payload.get('total_combined_value'))}  "
+        f"Cost: {_money(payload.get('total_combined_cost'))}  "
+        f"Gain/Loss: {_money(payload.get('total_gain_loss'))} "
+        f"({_pct(payload.get('total_gain_loss_pct'))})"
+    )
+    print(
+        f"Overlapping Securities: {payload.get('overlapping_securities_count', 0)} "
+        f"({_pct(payload.get('overlap_percentage'))})"
+    )
+
+    top_holdings = payload.get("top_holdings") or []
+    if top_holdings:
+        print("")
+        print("Top Holdings")
+        rows = [["Symbol", "Qty", "Value", "Gain/Loss %", "Portfolios"]]
+        for holding in top_holdings:
+            rows.append(
+                [
+                    str(holding.get("security_symbol", "")),
+                    _qty(holding.get("total_quantity")),
+                    _money(holding.get("total_current_value")),
+                    _pct(holding.get("gain_loss_pct")),
+                    str(holding.get("portfolio_count", 0)),
+                ]
+            )
+        print(_format_table(rows))
+
+    warnings = payload.get("concentration_warnings") or []
+    if warnings:
+        print("")
+        print("Concentration Warnings")
+        print(_format_table(_exposure_rows(warnings)))
+
+
+def print_overlap_analysis(payload: dict[str, Any]) -> None:
+    print("Cross-Portfolio Overlap Analysis")
+    print(
+        f"Portfolios: {payload.get('portfolio_count', 0)}  "
+        f"Unique Securities: {payload.get('total_unique_securities', 0)}"
+    )
+    print(
+        f"Overlapping: {payload.get('overlapping_securities_count', 0)} "
+        f"({_pct(payload.get('overlap_percentage'))})"
+    )
+
+    details = payload.get("overlap_details") or []
+    if not details:
+        print("")
+        print("No overlap between portfolios.")
+        return
+
+    print("")
+    print("Overlap Details")
+    rows = [["Symbol", "Qty", "Value", "Portfolios"]]
+    for detail in details:
+        names = ", ".join(detail.get("portfolio_names") or [])
+        rows.append(
+            [
+                str(detail.get("security_symbol", "")),
+                _qty(detail.get("total_quantity")),
+                _money(detail.get("total_value")),
+                names[:50],
+            ]
+        )
+    print(_format_table(rows))
+
+
+def print_exposure_report(payload: dict[str, Any]) -> None:
+    print("Cross-Portfolio Exposure Report")
+    print(f"Total Combined Value: {_money(payload.get('total_combined_value'))}")
+    print(
+        f"Securities: {payload.get('securities_count', 0)}  "
+        f"Concentration Warnings: {payload.get('concentration_warnings_count', 0)}"
+    )
+
+    warnings = payload.get("concentration_warnings") or []
+    if warnings:
+        print("")
+        print("Concentration Warnings")
+        print(_format_table(_exposure_rows(warnings)))
+
+    exposures = payload.get("exposures") or []
+    if exposures:
+        print("")
+        print("Top Exposures")
+        print(_format_table(_exposure_rows(exposures[:20])))
+
+
+def print_document_scan(payload: dict[str, Any]) -> None:
+    documents = payload.get("documents") or []
+    print(f"Scanned {len(documents)} document(s)")
+    if documents:
+        rows = [["Filename", "Type", "Confidence", "Reason"]]
+        for document in documents:
+            rows.append(
+                [
+                    str(document.get("filename", ""))[:40],
+                    str(document.get("document_type", "")),
+                    f"{Decimal(str(document.get('confidence', 0))):.2f}",
+                    str(document.get("reason", ""))[:30],
+                ]
+            )
+        print(_format_table(rows))
+
+    sent = payload.get("sent") or []
+    if sent:
+        print("")
+        print(f"Sent {len(sent)} document(s) to YFW")
+        rows = [["Filename", "Type", "Destination"]]
+        for item in sent:
+            rows.append(
+                [
+                    str(item.get("filename", ""))[:40],
+                    str(item.get("document_type", "")),
+                    str(item.get("destination", "")),
+                ]
+            )
+        print(_format_table(rows))
+
+
+def _exposure_rows(items: list[dict[str, Any]]) -> list[list[str]]:
+    rows = [["Symbol", "Value", "% of Total", "Portfolios"]]
+    for item in items:
+        rows.append(
+            [
+                str(item.get("security_symbol", "")),
+                _money(item.get("total_value")),
+                _pct(item.get("pct_of_total")),
+                str(item.get("portfolio_count", 0)),
+            ]
+        )
+    return rows
 
 
 def _format_table(rows: list[list[str]]) -> str:
