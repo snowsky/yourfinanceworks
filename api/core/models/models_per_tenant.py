@@ -1595,6 +1595,70 @@ class LicenseValidationLog(Base):
     installation = relationship("InstallationInfo")
 
 
+class UserComponentPermission(Base):
+    """Per-user, per-component permission grant.
+
+    The user's tenant role (`User.role`) is the ceiling. A grant can only
+    restrict access further — never elevate it. Effective level is
+    `min(role, grant)` ordered as viewer < user < admin.
+    """
+
+    __tablename__ = "user_component_permissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    component = Column(String, nullable=False, index=True)
+    permission_level = Column(String, nullable=False)  # viewer | user | admin
+    granted_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    granted_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "component", name="uq_user_component_permission"),
+    )
+
+
+class UserPermissionAuditLog(Base):
+    """Immutable record of every component-permission grant/update/revoke."""
+
+    __tablename__ = "user_permission_audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    actor_user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    # Snapshot the actor's email so the log survives actor deletion.
+    actor_email = Column(EncryptedColumn(), nullable=True)
+    component = Column(String, nullable=False, index=True)
+    action = Column(String, nullable=False)  # grant | update | revoke
+    previous_level = Column(String, nullable=True)
+    new_level = Column(String, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+
+
 # Import split-off models to ensure they are registered with SQLAlchemy
 # This prevents "failed to locate a name" errors during mapper initialization
 try:

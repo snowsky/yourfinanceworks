@@ -3,6 +3,12 @@ from typing import List, Union
 from core.models.models_per_tenant import User
 from core.models.models import MasterUser
 from core.constants.error_codes import ONLY_SUPERUSERS, ROLE_NOT_ALLOWED
+from core.constants.components import (
+    PERMISSION_LEVELS,
+    is_valid_component,
+    is_valid_level,
+    level_rank,
+)
 
 
 def require_roles(
@@ -332,3 +338,64 @@ def require_permission(user: Union[User, MasterUser], permission: str) -> None:
     # Check user role against required roles for this permission
     required_roles = permission_mapping[permission]
     require_roles(user, required_roles, f"access {permission}")
+
+
+# --- Component-level permission helpers ---------------------------------------
+#
+# Per-user component grants (UserComponentPermission) refine the tenant role
+# `User.role` *downward only*: a grant can never elevate a user above their role.
+# `is_superuser` short-circuits every check.
+
+
+def get_effective_component_level(db, user, component: str) -> str:
+    """Return the effective permission level a user has on a given component.
+
+    Super admins always get "admin". Otherwise this is `min(user.role, grant)`
+    with viewer < user < admin ordering. The result is always one of
+    PERMISSION_LEVELS.
+    """
+    if not is_valid_component(component):
+        raise ValueError(f"Unknown component: {component}")
+    if getattr(user, "is_superuser", False):
+        return "admin"
+
+    # Imported lazily so this module doesn't pull SQLAlchemy session machinery
+    # at import time (some callers patch require_* in tests without a DB).
+    from core.services.permission_service import get_effective_permission
+
+    return get_effective_permission(db, user, component).effective_level
+
+
+def require_component_permission(
+    db,
+    user,
+    component: str,
+    min_level: str,
+    action: str = "perform this action",
+) -> None:
+    """Raise 403 unless the user has at least `min_level` on `component`."""
+    if not is_valid_level(min_level):
+        raise ValueError(f"Unknown level: {min_level}")
+    if getattr(user, "is_superuser", False):
+        return
+    effective = get_effective_component_level(db, user, component)
+    if level_rank(effective) < level_rank(min_level):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ROLE_NOT_ALLOWED,
+        )
+
+
+def can_assign_component_permissions(user) -> bool:
+    """Tenant admins and super admins may assign per-component grants."""
+    if getattr(user, "is_superuser", False):
+        return True
+    return getattr(user, "role", None) == "admin"
+
+
+def require_component_permission_assigner(user, action: str = "manage permissions") -> None:
+    if not can_assign_component_permissions(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ROLE_NOT_ALLOWED,
+        )

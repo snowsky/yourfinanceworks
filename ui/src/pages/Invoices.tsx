@@ -17,6 +17,7 @@ import { Minus } from "lucide-react";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { formatDate, cn } from '@/lib/utils';
 import { canPerformActions } from "@/utils/auth";
+import { usePermissionChecker } from "@/hooks/usePermissions";
 import { useTranslation } from 'react-i18next';
 import { InvoiceCard } from "@/components/invoices/InvoiceCard";
 import { FeatureGate } from "@/components/FeatureGate";
@@ -165,8 +166,14 @@ const Invoices = () => {
     }
   };
 
-  // Check if user can perform actions (not a viewer)
-  const canPerformAction = canPerformActions();
+  // Effective permission gating: coarse role check AND per-component grant.
+  // Once permission data loads, the per-component check refines the role-only
+  // check so an admin restricted to viewer on invoices loses write access.
+  const permissionChecker = usePermissionChecker();
+  const canPerformAction =
+    canPerformActions() &&
+    (permissionChecker.isLoading ||
+      permissionChecker.hasPermission("invoices", "user"));
   const [shareInvoiceId, setShareInvoiceId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [labelFilter, setLabelFilter] = useState("");
