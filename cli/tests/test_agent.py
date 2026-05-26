@@ -88,6 +88,32 @@ def test_monitor_reemits_when_severity_changes():
     assert len(updated.emitted) == 1
 
 
+def test_monitor_forever_recovers_after_cycle_failure(monkeypatch):
+    monkeypatch.setattr("cli.finance_agent_cli.agent.time.sleep", lambda _: None)
+
+    client = StubClient()
+    agent = PortfolioMonitorAgent(client, AgentState())
+
+    attempts = {"count": 0}
+    original_run_cycle = agent.run_cycle
+
+    def flaky_run_cycle(*args, **kwargs):
+        attempts["count"] += 1
+        if attempts["count"] == 2:
+            raise RuntimeError("simulated transient failure")
+        return original_run_cycle(*args, **kwargs)
+
+    agent.run_cycle = flaky_run_cycle
+
+    generator = agent.monitor_forever(drift_threshold=Decimal("1.0"), interval_seconds=1)
+    first = next(generator)
+    third = next(generator)
+
+    assert first is not None
+    assert third is not None
+    assert attempts["count"] == 3
+
+
 def test_monitor_persists_history_and_snapshot(tmp_path):
     client = StubClient()
     agent = PortfolioMonitorAgent(client, AgentState())

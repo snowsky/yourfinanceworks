@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
+import random
 import time
 import webbrowser
 from datetime import datetime, timedelta, timezone
@@ -13,6 +15,27 @@ from typing import Any
 import httpx
 
 from .config import Profile
+from .logging_config import get_logger
+
+
+logger = get_logger("api_client")
+
+RETRIABLE_STATUSES = frozenset({429, 500, 502, 503, 504})
+MAX_ATTEMPTS = 3
+BASE_BACKOFF_SECONDS = 1.0
+MAX_BACKOFF_SECONDS = 30.0
+
+
+def _retry_delay(attempt: int, retry_after: str | None) -> float:
+    """Return the seconds to wait before the next retry attempt."""
+    if retry_after:
+        try:
+            return max(0.0, min(float(retry_after), MAX_BACKOFF_SECONDS))
+        except (TypeError, ValueError):
+            pass
+    base = BASE_BACKOFF_SECONDS * (2 ** attempt)
+    jitter = random.uniform(0.5, 1.0)
+    return min(base * jitter, MAX_BACKOFF_SECONDS)
 
 
 class APIError(RuntimeError):
@@ -174,6 +197,7 @@ class InvestmentAPIClient:
                 sort_keys=True,
             )
         )
+        _restrict_file_permissions(self.profile.token_path)
 
     def _authenticate(self) -> None:
         if self.profile.auth_type in {"none", ""}:
@@ -220,27 +244,79 @@ class InvestmentAPIClient:
         return {"Accept": "application/json", "X-API-Key": self.profile.yfw_api_key}
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
-        try:
-            response = self._client.request(
-                method=method,
-                url=f"{self.profile.api_base_url}{path}",
-                headers={**self._get_headers(), **kwargs.pop("headers", {})},
-                **kwargs,
-            )
-        except httpx.RequestError as exc:
-            raise APIError(
-                f"API request failed before response: {exc}",
-                payload={"url": str(exc.request.url) if exc.request else f"{self.profile.api_base_url}{path}"},
-            ) from exc
-        if response.status_code >= 400:
-            raise APIError(
-                f"API request failed: {response.status_code} {path}",
-                status_code=response.status_code,
-                payload=_safe_json(response),
-            )
-        if not response.content:
-            return None
-        return response.json()
+        upper_method = method.upper()
+        retriable_method = upper_method == "GET"
+        url = f"{self.profile.api_base_url}{path}"
+        extra_headers = kwargs.pop("headers", {})
+
+        for attempt in range(MAX_ATTEMPTS):
+            try:
+                response = self._client.request(
+                    method=method,
+                    url=url,
+                    headers={**self._get_headers(), **extra_headers},
+                    **kwargs,
+                )
+            except httpx.RequestError as exc:
+                if retriable_method and attempt < MAX_ATTEMPTS - 1:
+                    self._sleep_before_retry(
+                        attempt,
+                        retry_after=None,
+                        reason=f"network error: {exc}",
+                        method=upper_method,
+                        path=path,
+                    )
+                    continue
+                raise APIError(
+                    f"API request failed before response: {exc}",
+                    payload={
+                        "url": str(exc.request.url) if exc.request else url,
+                        "attempts": attempt + 1,
+                    },
+                ) from exc
+
+            status = response.status_code
+            if status >= 400:
+                if retriable_method and status in RETRIABLE_STATUSES and attempt < MAX_ATTEMPTS - 1:
+                    self._sleep_before_retry(
+                        attempt,
+                        retry_after=response.headers.get("Retry-After"),
+                        reason=f"HTTP {status}",
+                        method=upper_method,
+                        path=path,
+                    )
+                    continue
+                raise APIError(
+                    f"API request failed: {status} {path}",
+                    status_code=status,
+                    payload=_safe_json(response),
+                )
+            if not response.content:
+                return None
+            return response.json()
+
+        raise APIError(f"API request failed after {MAX_ATTEMPTS} attempts: {path}")
+
+    def _sleep_before_retry(
+        self,
+        attempt: int,
+        *,
+        retry_after: str | None,
+        reason: str,
+        method: str,
+        path: str,
+    ) -> None:
+        delay = _retry_delay(attempt, retry_after)
+        logger.warning(
+            "Retrying %s %s in %.2fs (attempt %d/%d): %s",
+            method,
+            path,
+            delay,
+            attempt + 2,
+            MAX_ATTEMPTS,
+            reason,
+        )
+        time.sleep(delay)
 
     def list_portfolios(self, *, skip: int = 0, limit: int = 50) -> dict[str, Any]:
         return self._request("GET", "/investments/portfolios", params={"skip": skip, "limit": limit})
@@ -432,3 +508,11 @@ def _safe_json(response: httpx.Response) -> Any:
         return response.json()
     except json.JSONDecodeError:
         return response.text
+
+
+def _restrict_file_permissions(path: Path) -> None:
+    """Best-effort chmod 0o600. POSIX-only; silently no-op on platforms that reject it."""
+    try:
+        os.chmod(path, 0o600)
+    except (OSError, NotImplementedError) as exc:
+        logger.debug("Could not restrict permissions on %s: %s", path, exc)

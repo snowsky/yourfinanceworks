@@ -3,10 +3,24 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from .logging_config import get_logger
+
+
+logger = get_logger("state")
+
+
+def _restrict_permissions(path: Path) -> None:
+    """Best-effort chmod 0o600 on POSIX. No-op on platforms that reject it."""
+    try:
+        os.chmod(path, 0o600)
+    except (OSError, NotImplementedError) as exc:
+        logger.debug("Could not restrict permissions on %s: %s", path, exc)
 
 
 @dataclass
@@ -33,6 +47,7 @@ class AgentState:
             "recommendations": self.recommendations,
         }
         path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+        _restrict_permissions(path)
 
 
 def append_history(path: Path, payload: dict[str, Any]) -> None:

@@ -17,6 +17,7 @@ from .chat_agent import CliChatAgent
 from .config import load_profile
 from .document_classifier import DocumentClassifier
 from .document_router import DocumentIngestionAgent
+from .logging_config import configure_logging, get_logger
 from .models import Portfolio, PortfolioAnalysis
 from .render import (
     print_chat_response,
@@ -28,6 +29,9 @@ from .render import (
     print_transactions,
 )
 from .state import AgentState
+
+
+logger = get_logger("app")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -121,6 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    configure_logging()
     config_path = Path(args.config) if args.config else None
     profile_name = args.profile
     if args.profile and Path(args.profile).suffix == ".json":
@@ -180,13 +185,17 @@ def _handle_auth(args, client: InvestmentAPIClient, profile) -> int:
         return 0
     if args.action in {"browser-login", "device-login"}:
         device = client.start_device_login()
+        verification_url = device["verification_uri_complete"]
         if args.no_open:
-            print(f"Open this URL to approve CLI login: {device['verification_uri_complete']}")
+            logger.info("Open this URL to approve CLI login: %s", verification_url)
         else:
             import webbrowser
-            webbrowser.open(device["verification_uri_complete"])
-            print(f"Opened browser for CLI login. If it did not open, visit: {device['verification_uri_complete']}")
-        print(f"Device code: {device['user_code']}")
+            webbrowser.open(verification_url)
+            logger.info(
+                "Opened browser for CLI login. If it did not open, visit: %s",
+                verification_url,
+            )
+        logger.info("Device code: %s", device["user_code"])
         result = client.poll_device_login(device, timeout_seconds=args.timeout)
         print_json(result)
         return 0
