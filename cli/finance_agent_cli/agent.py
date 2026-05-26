@@ -8,8 +8,12 @@ from decimal import Decimal
 
 from .analyzers import build_recommendations, build_sentiment_recommendations, normalize_allocation
 from .api_client import InvestmentAPIClient
+from .logging_config import get_logger
 from .models import MonitorCycle, Portfolio, PortfolioAnalysis, Recommendation
 from .state import AgentState, append_history, write_snapshot
+
+
+logger = get_logger("monitor")
 
 
 class PortfolioMonitorAgent:
@@ -28,6 +32,12 @@ class PortfolioMonitorAgent:
         include_sentiment: bool = False,
         sentiment_lookback_days: int = 7,
     ) -> MonitorCycle:
+        logger.info(
+            "Starting monitor cycle (drift_threshold=%s, refresh_prices=%s, include_sentiment=%s)",
+            drift_threshold,
+            refresh_prices,
+            include_sentiment,
+        )
         if refresh_prices:
             self.api_client.refresh_prices()
 
@@ -75,6 +85,12 @@ class PortfolioMonitorAgent:
             recommendations.extend(build_sentiment_recommendations(list(sentiment_reports.values())))
             recommendations.sort(key=lambda item: item.severity, reverse=True)
         emitted = self._dedupe(recommendations)
+        logger.info(
+            "Cycle complete: %d portfolio(s), %d recommendation(s), %d emitted",
+            len(analyses),
+            len(recommendations),
+            len(emitted),
+        )
         return MonitorCycle(
             analyses=tuple(analyses),
             recommendations=tuple(recommendations),
@@ -115,17 +131,38 @@ class PortfolioMonitorAgent:
         include_sentiment: bool = False,
         sentiment_lookback_days: int = 7,
     ):
+        consecutive_failures = 0
         while True:
-            cycle = self.run_cycle(
-                drift_threshold=drift_threshold,
-                refresh_prices=refresh_prices,
-                portfolio_ids=portfolio_ids,
-                include_sentiment=include_sentiment,
-                sentiment_lookback_days=sentiment_lookback_days,
-            )
-            yield cycle
-            self.state.last_run_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            time.sleep(interval_seconds)
+            cycle_started_at = time.monotonic()
+            try:
+                cycle = self.run_cycle(
+                    drift_threshold=drift_threshold,
+                    refresh_prices=refresh_prices,
+                    portfolio_ids=portfolio_ids,
+                    include_sentiment=include_sentiment,
+                    sentiment_lookback_days=sentiment_lookback_days,
+                )
+            except KeyboardInterrupt:
+                raise
+            except Exception:
+                consecutive_failures += 1
+                logger.exception(
+                    "Monitor cycle failed (consecutive_failures=%d); sleeping %ds before retry",
+                    consecutive_failures,
+                    interval_seconds,
+                )
+            else:
+                if consecutive_failures:
+                    logger.info(
+                        "Monitor cycle recovered after %d consecutive failure(s)",
+                        consecutive_failures,
+                    )
+                consecutive_failures = 0
+                yield cycle
+                self.state.last_run_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+            elapsed = time.monotonic() - cycle_started_at
+            time.sleep(max(0.0, interval_seconds - elapsed))
 
     def _dedupe(self, recommendations: list[Recommendation]) -> list[Recommendation]:
         emitted: list[Recommendation] = []
