@@ -66,9 +66,8 @@ def _profile(tmp_path):
 def test_upload_batch_files_uses_authenticated_endpoint_without_yfw_api_key(tmp_path):
     path = tmp_path / "receipt.pdf"
     path.write_bytes(b"receipt")
-    client = InvestmentAPIClient(_profile(tmp_path))
     fake_http = FakeHttpClient()
-    client._client = fake_http
+    client = InvestmentAPIClient(_profile(tmp_path), http_client=fake_http)
 
     payload = client.upload_batch_files([path], document_types=["expense"])
 
@@ -79,9 +78,8 @@ def test_upload_batch_files_uses_authenticated_endpoint_without_yfw_api_key(tmp_
 
 
 def test_ai_chat_uses_web_assistant_endpoint(tmp_path):
-    client = InvestmentAPIClient(_profile(tmp_path))
     fake_http = FakeHttpClient()
-    client._client = fake_http
+    client = InvestmentAPIClient(_profile(tmp_path), http_client=fake_http)
 
     client.ai_chat("list expenses", config_id=9, page_context={"route": "/expenses"})
 
@@ -105,9 +103,8 @@ def test_cached_token_is_sent_when_auth_type_is_none(tmp_path):
         }
         """
     )
-    client = InvestmentAPIClient(profile)
     fake_http = FakeRequestHttpClient()
-    client._client = fake_http
+    client = InvestmentAPIClient(profile, http_client=fake_http)
 
     client.list_portfolios()
 
@@ -116,9 +113,8 @@ def test_cached_token_is_sent_when_auth_type_is_none(tmp_path):
 
 
 def test_list_document_resources_use_expected_paths(tmp_path):
-    client = InvestmentAPIClient(_profile(tmp_path))
     fake_http = FakeRequestHttpClient()
-    client._client = fake_http
+    client = InvestmentAPIClient(_profile(tmp_path), http_client=fake_http)
 
     client.list_expenses()
     client.list_invoices()
