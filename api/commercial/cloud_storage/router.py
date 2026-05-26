@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from core.models.database import get_db
 from core.models.models import MasterUser
 from core.routers.auth import get_current_user
-from core.utils.rbac import require_admin
+from core.utils.rbac import require_component_permission
 from core.utils.feature_gate import require_feature
 from commercial.cloud_storage.service import CloudStorageService
 from core.services.attachment_migration_service import AttachmentMigrationService
@@ -80,7 +80,7 @@ async def get_storage_configuration(
     Get current cloud storage configuration and health status.
     Requires admin privileges.
     """
-    require_admin(current_user, "view storage configuration")
+    require_component_permission(db, current_user, "integrations", "admin", "view storage configuration")
     
     try:
         # Initialize cloud storage service
@@ -127,7 +127,7 @@ async def test_storage_configuration(
     Test connectivity to a specific storage provider.
     Requires admin privileges.
     """
-    require_admin(current_user, "test storage configuration")
+    require_component_permission(db, current_user, "integrations", "admin", "test storage configuration")
     
     try:
         # Initialize cloud storage service
@@ -190,7 +190,7 @@ async def start_migration(
     """
     # Determine target tenant
     if tenant_id:
-        require_admin(current_user, "migrate other tenant data")
+        require_component_permission(db, current_user, "integrations", "admin", "migrate other tenant data")
         target_tenant_id = tenant_id
     else:
         target_tenant_id = str(current_user.tenant_id)
@@ -243,7 +243,7 @@ async def get_migration_status(
     """
     # Determine target tenant
     if tenant_id:
-        require_admin(current_user, "view other tenant migration status")
+        require_component_permission(db, current_user, "integrations", "admin", "view other tenant migration status")
         target_tenant_id = tenant_id
     else:
         target_tenant_id = str(current_user.tenant_id)
@@ -325,7 +325,7 @@ async def get_storage_usage(
     """
     # Determine target tenant
     if tenant_id:
-        require_admin(current_user, "view other tenant storage usage")
+        require_component_permission(db, current_user, "integrations", "admin", "view other tenant storage usage")
         target_tenant_id = tenant_id
     else:
         target_tenant_id = str(current_user.tenant_id)
@@ -369,7 +369,7 @@ async def get_operation_logs(
     """
     # Determine target tenant
     if tenant_id:
-        require_admin(current_user, "view other tenant operation logs")
+        require_component_permission(db, current_user, "integrations", "admin", "view other tenant operation logs")
         target_tenant_id = tenant_id
     else:
         target_tenant_id = str(current_user.tenant_id)
@@ -420,7 +420,7 @@ async def cleanup_orphaned_files(
     """
     # Determine target tenant
     if tenant_id:
-        require_admin(current_user, "cleanup other tenant files")
+        require_component_permission(db, current_user, "integrations", "admin", "cleanup other tenant files")
         target_tenant_id = tenant_id
     else:
         target_tenant_id = str(current_user.tenant_id)

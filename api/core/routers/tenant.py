@@ -12,7 +12,7 @@ from core.models.models import Tenant, MasterUser
 from core.schemas.tenant import TenantCreate, TenantUpdate, Tenant as TenantSchema
 from core.routers.auth import get_current_user
 from core.services.currency_service import CurrencyService
-from core.utils.rbac import require_admin
+from core.utils.rbac import require_component_permission
 from core.constants.error_codes import ONLY_SUPERUSERS, SUBDOMAIN_EXISTS, INVALID_CURRENCY_CODE, NOT_AUTHORIZED
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
@@ -231,9 +231,10 @@ async def import_sql_to_tenant(
     file: UploadFile = File(...),
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user),
-    dry_run: bool = Query(False, description="If true, only validate the SQL file without executing")
+    dry_run: bool = Query(False, description="If true, only validate the SQL file without executing"),
+    tenant_db: Session = Depends(get_db),
 ):
-    require_admin(current_user)
+    require_component_permission(tenant_db, current_user, "settings", "admin", "import tenant SQL")
     # Limit file size (e.g., 5MB)
     file.file.seek(0, 2)  # Seek to end
     file_size = file.file.tell()

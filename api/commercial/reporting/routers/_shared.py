@@ -25,7 +25,7 @@ from core.services.report_exporter import ReportExportService, ExportError
 from core.services.report_audit_service import ReportAuditService, extract_request_info
 from core.services.report_security_service import ReportSecurityService, ReportRateLimiter
 from core.routers.auth import get_current_user
-from core.utils.rbac import require_non_viewer, require_admin
+from core.utils.rbac import require_component_permission
 from core.utils.audit import log_audit_event
 from core.exceptions.report_exceptions import (
     BaseReportException, ReportValidationException, ReportGenerationException,
@@ -76,8 +76,11 @@ def get_report_service(db: Session) -> ReportService:
     )
 
 
-def get_current_non_viewer_user(current_user=Depends(get_current_user)):
-    require_non_viewer(current_user, "access reports")
+def get_current_non_viewer_user(
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_component_permission(db, current_user, "reports", "user", "access reports")
     return current_user
 
 

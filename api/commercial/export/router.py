@@ -23,7 +23,7 @@ from core.schemas.export_destination import (
     ExportDestinationList
 )
 from core.utils.feature_gate import require_feature
-from core.utils.rbac import require_non_viewer, require_admin
+from core.utils.rbac import require_component_permission
 from core.utils.audit import log_audit_event
 from core.utils.feature_gate import check_feature, check_feature_read_only
 
@@ -100,7 +100,7 @@ async def create_export_destination(
     """
     
     # Check permissions
-    require_non_viewer(current_user, "create export destinations")
+    require_component_permission(tenant_db, current_user, "integrations", "user", "create export destinations")
     
     try:
         # Create destination
@@ -336,7 +336,7 @@ async def update_export_destination(
     check_feature("advanced_export", db)
     
     # Check permissions
-    require_non_viewer(current_user, "update export destinations")
+    require_component_permission(db, current_user, "integrations", "user", "update export destinations")
     
     try:
         # Update destination
@@ -484,7 +484,7 @@ async def delete_export_destination(
     check_feature("advanced_export", db)
     
     # Check permissions - require admin for deletion
-    require_admin(current_user, "delete export destinations")
+    require_component_permission(db, current_user, "integrations", "admin", "delete export destinations")
     
     try:
         # Get destination name for audit log

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.models.database import get_db
 from core.routers.auth import get_current_user
 from core.models.models import MasterUser
-from core.utils.rbac import require_non_viewer
+from core.utils.rbac import require_component_permission
 from core.utils.feature_gate import require_feature
 from core.models.models_per_tenant import BankStatement, BankStatementTransaction
 from core.schemas.bank_statement import TransactionLinkCreate
@@ -56,7 +56,7 @@ async def create_transaction_link(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Link two transactions from different statements (e.g., inter-account transfer or FX conversion)."""
-    require_non_viewer(current_user, "link transactions")
+    require_component_permission(db, current_user, "bank_statements", "user", "link transactions")
     tenant_id = get_tenant_id()
 
     link = transaction_link_service.create_link(
@@ -99,7 +99,7 @@ async def delete_transaction_link(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Remove a cross-statement transaction link."""
-    require_non_viewer(current_user, "unlink transactions")
+    require_component_permission(db, current_user, "bank_statements", "user", "unlink transactions")
     tenant_id = get_tenant_id()
 
     transaction_link_service.delete_link(db=db, tenant_id=tenant_id, link_id=link_id)
@@ -121,7 +121,7 @@ async def patch_statement_transaction(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_non_viewer(current_user, "edit bank statement transaction")
+    require_component_permission(db, current_user, "bank_statements", "user", "edit bank statement transaction")
     tenant_id = get_tenant_id()
 
     txn = (
@@ -160,7 +160,7 @@ async def delete_statement_transaction(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_non_viewer(current_user, "delete bank statement transaction")
+    require_component_permission(db, current_user, "bank_statements", "user", "delete bank statement transaction")
     tenant_id = get_tenant_id()
 
     txn = (
@@ -198,7 +198,7 @@ async def replace_statement_transactions(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_non_viewer(current_user, "edit bank statement")
+    require_component_permission(db, current_user, "bank_statements", "user", "edit bank statement")
     tenant_id = get_tenant_id()
 
     s = (

@@ -25,7 +25,7 @@ from core.services.report_history_service import ReportHistoryService, ReportHis
 from core.services.report_audit_service import ReportAuditService, extract_request_info
 from core.services.report_security_service import ReportSecurityService
 from core.routers.auth import get_current_user
-from core.utils.rbac import require_non_viewer, require_admin
+from core.utils.rbac import require_component_permission
 from core.utils.audit import log_audit_event
 from core.schemas.report import (
     ReportType, ReportStatus, ReportHistory as ReportHistorySchema, ReportHistoryListResponse
@@ -224,9 +224,10 @@ async def download_report(
 async def delete_report_file(
     report_id: int,
     db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(require_non_viewer)
+    current_user: MasterUser = Depends(get_current_user),
 ):
     """Delete a report file and clear its file path from history."""
+    require_component_permission(db, current_user, "reports", "user", "delete report file")
     try:
         history_service = ReportHistoryService(db)
 
@@ -262,9 +263,10 @@ async def delete_report_file(
 @require_feature("reporting")
 async def get_storage_stats(
     db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(require_admin)
+    current_user: MasterUser = Depends(get_current_user),
 ):
     """Get report storage statistics (admin only)."""
+    require_component_permission(db, current_user, "reports", "admin", "view report storage stats")
     try:
         history_service = ReportHistoryService(db)
         return history_service.get_storage_stats()
@@ -282,9 +284,10 @@ async def get_storage_stats(
 @require_feature("reporting")
 async def cleanup_expired_reports(
     db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(require_admin)
+    current_user: MasterUser = Depends(get_current_user),
 ):
     """Clean up expired report files (admin only)."""
+    require_component_permission(db, current_user, "reports", "admin", "cleanup expired reports")
     try:
         history_service = ReportHistoryService(db)
         cleanup_stats = history_service.cleanup_expired_reports()
@@ -313,9 +316,10 @@ async def cleanup_expired_reports(
 @require_feature("reporting")
 async def cleanup_orphaned_files(
     db: Session = Depends(get_db),
-    current_user: MasterUser = Depends(require_admin)
+    current_user: MasterUser = Depends(get_current_user),
 ):
     """Clean up orphaned report files with no database records (admin only)."""
+    require_component_permission(db, current_user, "reports", "admin", "cleanup orphaned report files")
     try:
         history_service = ReportHistoryService(db)
         cleanup_stats = history_service.cleanup_orphaned_files()

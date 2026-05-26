@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from core.models.database import get_db
 from core.routers.auth import get_current_user
 from core.models.models import MasterUser
-from core.utils.rbac import require_non_viewer
+from core.utils.rbac import require_component_permission
 from core.utils.feature_gate import require_feature
 from core.utils.audit import log_audit_event
 from core.schemas.bank_statement import (
@@ -46,7 +46,7 @@ async def get_rollup_preview(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Compute the rollup that would be created without persisting anything."""
-    require_non_viewer(current_user, "preview rollup expense")
+    require_component_permission(db, current_user, "bank_statements", "user", "preview rollup expense")
     get_tenant_id()
     try:
         preview = build_preview(db, statement_id, user_tags=[])
@@ -93,7 +93,7 @@ async def create_rollup(
     `replace=False`. Send `replace=true` to soft-delete the prior rollup and
     create a fresh one.
     """
-    require_non_viewer(current_user, "create rollup expense")
+    require_component_permission(db, current_user, "bank_statements", "user", "create rollup expense")
     get_tenant_id()
     try:
         result = create_rollup_expense(

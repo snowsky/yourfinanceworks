@@ -442,3 +442,60 @@ def test_endpoint_set_404_when_user_missing(db_session, create_test_user):
             )
         )
     assert exc.value.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Per-component require_component_permission unit checks
+# ---------------------------------------------------------------------------
+# Locks in that every (component, level) combo actually wired into a router
+# is a known component-level pair the helper accepts and the role ceiling
+# enforces. Keeps router migrations from silently regressing if someone
+# renames a component key.
+
+
+_COMPONENT_LEVEL_CASES = [
+    ("customers", "user"),
+    ("bank_statements", "user"),
+    ("reports", "user"),
+    ("reports", "admin"),
+    ("users", "admin"),
+    ("settings", "admin"),
+    ("integrations", "admin"),
+    ("integrations", "user"),
+    ("audit_log", "admin"),
+]
+
+
+@pytest.mark.parametrize("component,required_level", _COMPONENT_LEVEL_CASES)
+def test_migrated_components_deny_viewer(
+    db_session, create_test_user, component, required_level
+):
+    """A viewer-role user must be denied wherever the migrated routers require
+    a level above viewer."""
+    from core.utils.rbac import require_component_permission
+
+    user = _make_user(
+        create_test_user,
+        f"viewer-{component}-{required_level}@example.com",
+        role="viewer",
+    )
+    with pytest.raises(HTTPException) as exc:
+        require_component_permission(
+            db_session, user, component, required_level, "test"
+        )
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.parametrize("component,required_level", _COMPONENT_LEVEL_CASES)
+def test_migrated_components_allow_admin(
+    db_session, create_test_user, component, required_level
+):
+    """An admin must be allowed everywhere the migrated routers gate access."""
+    from core.utils.rbac import require_component_permission
+
+    user = _make_user(
+        create_test_user,
+        f"admin-{component}-{required_level}@example.com",
+        role="admin",
+    )
+    require_component_permission(db_session, user, component, required_level, "test")

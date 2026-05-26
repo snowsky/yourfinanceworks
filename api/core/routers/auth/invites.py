@@ -12,7 +12,7 @@ import os
 import secrets
 import logging
 
-from core.models.database import get_master_db
+from core.models.database import get_master_db, get_db
 from core.models.models import MasterUser, Tenant, Invite, Settings
 from core.schemas.user import (
     Token, UserList, InviteCreate, InviteRead, InviteAccept, UserRoleUpdate, AdminActivateUser
@@ -21,7 +21,7 @@ from core.utils.auth import get_password_hash, create_access_token
 from core.models.models_per_tenant import User as TenantUser
 from core.services.tenant_database_manager import tenant_db_manager
 from core.middleware.tenant_context_middleware import set_tenant_context
-from core.utils.rbac import require_admin
+from core.utils.rbac import require_component_permission
 from core.utils.audit import log_audit_event, log_audit_event_master
 from core.routers.auth._shared import (
     get_current_user, get_email_service_for_tenant, generate_invite_token,
@@ -42,10 +42,11 @@ def send_invite_email(email: str, invite_url: str, inviter_name: str, tenant_nam
 async def invite_user(
     invite_data: InviteCreate,
     db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
+    tenant_db: Session = Depends(get_db),
 ):
     """Invite a user to the organization (admin only)"""
-    require_admin(current_user, "invite users")
+    require_component_permission(tenant_db, current_user, "users", "admin", "invite users")
 
     invite_email = (invite_data.email or "").strip()
     if not invite_email:
@@ -189,10 +190,11 @@ async def invite_user(
 @router.get("/invites", response_model=List[InviteRead])
 async def list_invites(
     db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
+    tenant_db: Session = Depends(get_db),
 ):
     """List all invites for the organization (admin only)"""
-    require_admin(current_user, "view invites")
+    require_component_permission(tenant_db, current_user, "users", "admin", "view invites")
     invites = db.query(Invite).filter(
         Invite.tenant_id == current_user.tenant_id
     ).all()
@@ -220,10 +222,11 @@ async def list_invites(
 async def cancel_invite(
     invite_id: int,
     db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
+    tenant_db: Session = Depends(get_db),
 ):
     """Cancel a pending invite (admin only)"""
-    require_admin(current_user, "cancel invites")
+    require_component_permission(tenant_db, current_user, "users", "admin", "cancel invites")
 
     invite = db.query(Invite).filter(
         Invite.id == invite_id,
@@ -463,10 +466,11 @@ async def update_user_role(
     role_update: UserRoleUpdate,
     tenant_id: Optional[int] = Query(None),
     db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
+    tenant_db: Session = Depends(get_db),
 ):
     """Update user role (admin only)"""
-    require_admin(current_user, "update user roles")
+    require_component_permission(tenant_db, current_user, "users", "admin", "update user roles")
 
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot update your own role")
@@ -623,10 +627,11 @@ async def admin_activate_user(
     invite_id: int,
     activation_data: AdminActivateUser,
     db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
+    tenant_db: Session = Depends(get_db),
 ):
     """Admin activates a pending invite by setting password and creating user account"""
-    require_admin(current_user, "activate users")
+    require_component_permission(tenant_db, current_user, "users", "admin", "activate users")
 
     invite = db.query(Invite).filter(
         Invite.id == invite_id,
@@ -822,10 +827,11 @@ async def admin_activate_user(
 async def remove_user_from_organization(
     user_id: int,
     db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
+    tenant_db: Session = Depends(get_db),
 ):
     """Remove a user from the current organization (admin only)"""
-    require_admin(current_user, "remove users")
+    require_component_permission(tenant_db, current_user, "users", "admin", "remove users")
 
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot remove yourself from the organization")

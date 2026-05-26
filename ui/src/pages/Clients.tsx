@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { canPerformActions } from "@/utils/auth";
+import { usePermissionChecker } from "@/hooks/usePermissions";
 import { useTranslation } from 'react-i18next';
 import { ProfessionalCard } from "@/components/ui/professional-card";
 import { ProfessionalButton } from "@/components/ui/professional-button";
@@ -57,8 +58,14 @@ const Clients = () => {
   const [pageSize, setPageSize] = useState(50);
   const [totalClients, setTotalClients] = useState(0);
 
-  // Check if user can perform actions (not a viewer)
-  const canPerformAction = canPerformActions();
+  // Effective gating: role check + per-component grant on customers.
+  // While the permission request is in flight, leave the role decision alone
+  // so the UI doesn't briefly disable buttons for users who actually have access.
+  const permissionChecker = usePermissionChecker();
+  const canPerformAction =
+    canPerformActions() &&
+    (permissionChecker.isLoading ||
+      permissionChecker.hasPermission("customers", "user"));
   const [shareClientId, setShareClientId] = useState<number | null>(null);
 
   // Get current tenant ID to trigger refetch when organization switches

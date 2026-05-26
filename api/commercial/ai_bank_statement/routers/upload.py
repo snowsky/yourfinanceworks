@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from core.models.database import get_db
 from core.routers.auth import get_current_user
 from core.models.models import MasterUser
-from core.utils.rbac import require_non_viewer
+from core.utils.rbac import require_component_permission
 from core.utils.feature_gate import require_feature
 from core.utils.file_validation import validate_file_magic_bytes
 from core.models.models_per_tenant import BankStatement
@@ -37,7 +37,7 @@ async def upload_statements(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Accept up to 12 PDF/CSV files, create one Statement per file, enqueue processing, and return created statements."""
-    require_non_viewer(current_user, "upload statements")
+    require_component_permission(db, current_user, "bank_statements", "user", "upload statements")
 
     if not files:
         raise HTTPException(status_code=400, detail="At least one file is required")

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from core.models.database import get_db
 from core.routers.auth import get_current_user
 from core.models.models import MasterUser
-from core.utils.rbac import require_non_viewer
+from core.utils.rbac import require_component_permission
 from core.utils.feature_gate import require_feature
 from core.models.models_per_tenant import BankStatement
 from core.schemas.bank_statement import BankStatementResponse
@@ -33,7 +33,7 @@ async def reprocess_statement(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Reprocess a bank statement's analysis with proper status reset and duplicate prevention."""
-    require_non_viewer(current_user, "reprocess statement")
+    require_component_permission(db, current_user, "bank_statements", "user", "reprocess statement")
 
     tenant_id = get_tenant_id()
 
@@ -168,7 +168,7 @@ async def accept_review(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
-    require_non_viewer(current_user, "review bank statements")
+    require_component_permission(db, current_user, "bank_statements", "user", "review bank statements")
 
     # Set tenant context
     from core.models.database import get_tenant_context, set_tenant_context
@@ -239,7 +239,7 @@ async def reject_review(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
-    require_non_viewer(current_user, "review bank statements")
+    require_component_permission(db, current_user, "bank_statements", "user", "review bank statements")
 
     statement = db.query(BankStatement).filter(BankStatement.id == statement_id).first()
     if not statement:
@@ -273,7 +273,7 @@ async def run_review(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Trigger a full re-review (reset status to not_started for the worker to pick up)"""
-    require_non_viewer(current_user, "review bank statements")
+    require_component_permission(db, current_user, "bank_statements", "user", "review bank statements")
 
     # Set tenant context
     from core.models.database import get_tenant_context, set_tenant_context

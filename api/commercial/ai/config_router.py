@@ -16,7 +16,7 @@ from commercial.ai.schemas.ai_config import (
     AIConfigTestResponse,
     SUPPORTED_PROVIDERS
 )
-from core.utils.rbac import require_admin
+from core.utils.rbac import require_component_permission
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +111,7 @@ async def create_ai_config(
 ):
     """Create a new AI configuration"""
     # Only tenant admins can create AI configs
-    require_admin(current_user, "create AI configurations")
+    require_component_permission(db, current_user, "integrations", "admin", "create AI configurations")
 
     # Manually set tenant context and get tenant database
     try:
@@ -169,7 +169,7 @@ async def update_ai_config(
 ):
     """Update an AI configuration"""
     # Only tenant admins can update AI configs
-    require_admin(current_user, "update AI configurations")
+    require_component_permission(db, current_user, "integrations", "admin", "update AI configurations")
 
     # Manually set tenant context and get tenant database
     try:
@@ -237,7 +237,7 @@ async def delete_ai_config(
 ):
     """Delete an AI configuration"""
     # Only tenant admins can delete AI configs
-    require_admin(current_user, "delete AI configurations")
+    require_component_permission(db, current_user, "integrations", "admin", "delete AI configurations")
 
     # Manually set tenant context and get tenant database
     try:
@@ -565,7 +565,7 @@ async def mark_config_as_tested(
 ):
     """Manually mark an AI configuration as tested"""
     # Only tenant admins can mark configs as tested
-    require_admin(current_user, "mark AI configurations as tested")
+    require_component_permission(db, current_user, "integrations", "admin", "mark AI configurations as tested")
 
     # Manually set tenant context and get tenant database
     try:
@@ -606,7 +606,7 @@ async def trigger_full_system_review(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Reset review status for all documents (Invoices, Expenses, Statements) to trigger a full re-review"""
-    require_admin(current_user, "trigger full system review")
+    require_component_permission(db, current_user, "integrations", "admin", "trigger full system review")
 
     try:
         from core.models.models_per_tenant import Invoice, Expense, BankStatement
@@ -683,7 +683,7 @@ async def get_review_progress(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Get the current review progress for all document types"""
-    require_admin(current_user, "view review progress")
+    require_component_permission(db, current_user, "integrations", "admin", "view review progress")
 
     try:
         from core.models.models_per_tenant import Invoice, Expense, BankStatement
@@ -808,7 +808,7 @@ async def cancel_full_system_review(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Cancel the full system review by resetting all pending reviews back to not_started"""
-    require_admin(current_user, "cancel full system review")
+    require_component_permission(db, current_user, "integrations", "admin", "cancel full system review")
 
     try:
         logger.info(f"Cancelling full system review for tenant context")
