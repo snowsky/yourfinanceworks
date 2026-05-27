@@ -1,6 +1,7 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   FolderKanban,
@@ -14,6 +15,7 @@ import {
   Calendar,
   Layers,
   ChevronDown,
+  ExternalLink,
 } from 'lucide-react';
 
 import { workflowsApi, type WorkflowDefinition, type WorkflowExecutionLog } from '@/lib/api';
@@ -395,7 +397,95 @@ const DeleteWorkflowDialog: React.FC<DeleteWorkflowDialogProps> = ({ workflow, i
   );
 };
 
-const WorkflowCard: React.FC<{ workflow: WorkflowDefinition }> = ({ workflow }) => {
+const WORKFLOW_RECENT_RUNS_LIMIT = 50;
+
+
+const WorkflowRecentRuns: React.FC<{
+  workflowId: number;
+  onViewAll: () => void;
+}> = ({ workflowId, onViewAll }) => {
+  const { data, isLoading } = useQuery({
+    queryKey: ['workflow-executions', { workflow_id: workflowId, limit: WORKFLOW_RECENT_RUNS_LIMIT }],
+    queryFn: () => workflowsApi.listWorkflowExecutions(workflowId, { limit: WORKFLOW_RECENT_RUNS_LIMIT }),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-xs text-muted-foreground flex items-center gap-2">
+        <RefreshCw className="h-3 w-3 animate-spin" />
+        Loading recent runs…
+      </div>
+    );
+  }
+
+  const logs = data?.logs ?? [];
+  if (logs.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-border/50 bg-muted/10 px-4 py-3 text-xs text-muted-foreground">
+        No recorded runs yet for this workflow.
+      </div>
+    );
+  }
+
+  const successCount = logs.filter((log) => log.status === 'success').length;
+  const failedCount = logs.length - successCount;
+  const lastFailure = logs.find((log) => log.status !== 'success');
+  const failureError =
+    typeof lastFailure?.details?.error === 'string'
+      ? (lastFailure?.details?.error as string)
+      : null;
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-muted/10 px-4 py-3 space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-muted-foreground uppercase tracking-wide font-semibold">
+            Last {logs.length} runs
+          </span>
+          <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 rounded-full px-2 py-0">
+            <CheckCircle className="h-3 w-3 mr-1" /> {successCount}
+          </Badge>
+          {failedCount > 0 ? (
+            <Badge className="bg-destructive/10 text-destructive border-destructive/20 rounded-full px-2 py-0">
+              <AlertCircle className="h-3 w-3 mr-1" /> {failedCount}
+            </Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">no failures</span>
+          )}
+        </div>
+        <ProfessionalButton
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs text-primary hover:text-primary"
+          onClick={onViewAll}
+        >
+          View runs <ExternalLink className="h-3 w-3 ml-1" />
+        </ProfessionalButton>
+      </div>
+      {lastFailure && (
+        <div className="text-xs text-destructive bg-destructive/5 border border-destructive/20 rounded-lg px-3 py-2 flex gap-2 items-start">
+          <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <div className="min-w-0">
+            <p className="font-medium">
+              Most recent failure: {new Date(lastFailure.created_at).toLocaleString()}
+            </p>
+            {failureError && (
+              <p className="font-mono text-[11px] mt-1 break-all line-clamp-2">
+                {failureError}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+const WorkflowCard: React.FC<{
+  workflow: WorkflowDefinition;
+  onViewRuns: (workflowId: number) => void;
+}> = ({ workflow, onViewRuns }) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
@@ -474,6 +564,11 @@ const WorkflowCard: React.FC<{ workflow: WorkflowDefinition }> = ({ workflow }) 
           <div className="rounded-xl border border-amber-200/50 bg-amber-50/50 p-4 text-sm text-amber-900 dark:border-amber-700/40 dark:bg-amber-950/20 dark:text-amber-200">
             Internal tasks are currently implemented with the existing reminders system so assignees get due dates, notifications, and a clear follow-up queue without a separate task module yet.
           </div>
+
+          <WorkflowRecentRuns
+            workflowId={workflow.id}
+            onViewAll={() => onViewRuns(workflow.id)}
+          />
 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
@@ -696,28 +791,66 @@ const Workflows: React.FC = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
-  const [statusFilter, setStatusFilter] = React.useState<string>('all');
-  const [page, setPage] = React.useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') ?? 'active';
+  const statusFilter = searchParams.get('status') ?? 'all';
+  const workflowFilter = searchParams.get('workflow') ?? 'all';
+  const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
   const limit = 10;
   const offset = (page - 1) * limit;
+
+  const updateParams = React.useCallback(
+    (updates: Record<string, string | null>) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          for (const [key, value] of Object.entries(updates)) {
+            if (value === null || value === 'all' || value === '') {
+              next.delete(key);
+            } else {
+              next.set(key, value);
+            }
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const setActiveTab = (next: string) => updateParams({ tab: next === 'active' ? null : next });
+  const setStatusFilter = (next: string) => updateParams({ status: next, page: null });
+  const setWorkflowFilter = (next: string) => updateParams({ workflow: next, page: null });
+  const setPage = (next: number) => updateParams({ page: String(next) });
 
   const { data: workflows = [], isLoading: isWorkflowsLoading, refetch: refetchWorkflows, isFetching: isWorkflowsFetching } = useQuery({
     queryKey: ['workflows'],
     queryFn: () => workflowsApi.list(),
   });
 
+  const selectedWorkflowId = workflowFilter === 'all' ? null : Number(workflowFilter);
+
   const { data: executionData, isLoading: isExecutionsLoading, refetch: refetchExecutions, isFetching: isExecutionsFetching } = useQuery({
-    queryKey: ['workflow-executions', { status: statusFilter, limit, offset }],
-    queryFn: () => workflowsApi.listExecutions({
-      status: statusFilter === 'all' ? undefined : statusFilter,
-      limit,
-      offset,
-    }),
+    queryKey: [
+      'workflow-executions',
+      { status: statusFilter, workflow_id: selectedWorkflowId, limit, offset },
+    ],
+    queryFn: () => {
+      const params = {
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        limit,
+        offset,
+      };
+      return selectedWorkflowId === null
+        ? workflowsApi.listExecutions(params)
+        : workflowsApi.listWorkflowExecutions(selectedWorkflowId, params);
+    },
   });
 
-  React.useEffect(() => {
-    setPage(1);
-  }, [statusFilter]);
+  const handleViewRunsForWorkflow = (workflowId: number) => {
+    updateParams({ tab: 'history', workflow: String(workflowId), page: null });
+  };
 
   const totalLogs = executionData?.total || 0;
   const totalPages = Math.ceil(totalLogs / limit) || 1;
@@ -746,7 +879,7 @@ const Workflows: React.FC = () => {
         />
 
         <ContentSection className="space-y-6 slide-in">
-          <Tabs defaultValue="active" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid grid-cols-2 w-[400px] mb-6 border-b border-border bg-transparent p-0 rounded-none h-12">
               <TabsTrigger
                 value="active"
@@ -789,7 +922,11 @@ const Workflows: React.FC = () => {
               ) : (
                 <div className="grid gap-6">
                   {workflows.map((workflow) => (
-                    <WorkflowCard key={workflow.id} workflow={workflow} />
+                    <WorkflowCard
+                      key={workflow.id}
+                      workflow={workflow}
+                      onViewRuns={handleViewRunsForWorkflow}
+                    />
                   ))}
                 </div>
               )}
@@ -797,18 +934,37 @@ const Workflows: React.FC = () => {
 
             <TabsContent value="history" className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">Status Filter:</span>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="All Statuses" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="success">Success</SelectItem>
-                      <SelectItem value="failed">Failed</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Status:</span>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue placeholder="All Statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="success">Success</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Workflow:</span>
+                    <Select value={workflowFilter} onValueChange={setWorkflowFilter}>
+                      <SelectTrigger className="w-[220px]">
+                        <SelectValue placeholder="All Workflows" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Workflows</SelectItem>
+                        {workflows.map((wf) => (
+                          <SelectItem key={wf.id} value={String(wf.id)}>
+                            {wf.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="flex gap-2">
@@ -850,7 +1006,7 @@ const Workflows: React.FC = () => {
                           variant="outline"
                           size="sm"
                           disabled={page === 1}
-                          onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                          onClick={() => setPage(Math.max(page - 1, 1))}
                         >
                           Previous
                         </ProfessionalButton>
@@ -858,7 +1014,7 @@ const Workflows: React.FC = () => {
                           variant="outline"
                           size="sm"
                           disabled={page === totalPages}
-                          onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                          onClick={() => setPage(Math.min(page + 1, totalPages))}
                         >
                           Next
                         </ProfessionalButton>
