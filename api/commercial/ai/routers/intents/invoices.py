@@ -15,6 +15,7 @@ import logging
 from typing import Any, Optional
 
 from commercial.ai.routers.intent_registry import (
+    ArgSpec,
     IntentContext,
     IntentRegistry,
     mcp_envelope,
@@ -32,15 +33,28 @@ class InvoicesHandler:
     intent = "invoices"
     license_feature: Optional[str] = None
     license_denied_message = ""
+    args_schema = [
+        ArgSpec(
+            name="limit",
+            type=int,
+            default=20,
+            min_value=1,
+            max_value=100,
+            description="Maximum number of invoices to return on the default list path.",
+        ),
+    ]
 
     async def execute(self, ctx: IntentContext) -> Optional[dict]:
+        list_limit = ctx.validated_args["limit"]
         is_search, query = detect_search_intent(ctx.lower_message)
         if is_search and query:
             result = await ctx.tools.search_invoices(query=query)
         elif is_search:
+            # Search keyword without a captured query falls back to a small page;
+            # keep this hardcoded so search-fallbacks don't get massive.
             result = await ctx.tools.list_invoices(limit=10)
         else:
-            result = await ctx.tools.list_invoices(limit=20)
+            result = await ctx.tools.list_invoices(limit=list_limit)
 
         if not result.get("success"):
             # Legacy behavior: don't fall back to the LLM on an MCP failure;

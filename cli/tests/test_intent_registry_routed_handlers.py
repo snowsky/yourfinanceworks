@@ -193,9 +193,10 @@ def test_invoices_search_with_captured_query_calls_search_tool(intent_registry, 
     tools = _RecordingTools(
         search_invoices={"success": True, "data": [{"id": 1, "amount": 100, "status": "paid"}]}
     )
-    handler = handlers["invoices"].InvoicesHandler()
+    registry = intent_registry.IntentRegistry()
+    handlers["invoices"].register(registry)
     body = asyncio.run(
-        handler.execute(_ctx(intent_registry, "invoices", tools=tools, message="search for acme"))
+        registry.dispatch(_ctx(intent_registry, "invoices", tools=tools, message="search for acme"))
     )["data"]["response"]
 
     assert tools.calls == [("search_invoices", {"query": "acme"})]
@@ -206,9 +207,10 @@ def test_invoices_search_keyword_without_query_defaults_to_list_with_limit_10(in
     tools = _RecordingTools(
         list_invoices={"success": True, "data": [{"id": 1, "amount": 100, "status": "paid"}]}
     )
-    handler = handlers["invoices"].InvoicesHandler()
+    registry = intent_registry.IntentRegistry()
+    handlers["invoices"].register(registry)
     asyncio.run(
-        handler.execute(_ctx(intent_registry, "invoices", tools=tools, message="search"))
+        registry.dispatch(_ctx(intent_registry, "invoices", tools=tools, message="search"))
     )
 
     assert tools.calls == [("list_invoices", {"limit": 10})]
@@ -218,9 +220,10 @@ def test_invoices_no_search_keyword_lists_with_limit_20(intent_registry, handler
     tools = _RecordingTools(
         list_invoices={"success": True, "data": [{"id": 1, "amount": 100, "status": "paid"}]}
     )
-    handler = handlers["invoices"].InvoicesHandler()
+    registry = intent_registry.IntentRegistry()
+    handlers["invoices"].register(registry)
     asyncio.run(
-        handler.execute(_ctx(intent_registry, "invoices", tools=tools, message="show invoices"))
+        registry.dispatch(_ctx(intent_registry, "invoices", tools=tools, message="show invoices"))
     )
 
     assert tools.calls == [("list_invoices", {"limit": 20})]
@@ -229,9 +232,10 @@ def test_invoices_no_search_keyword_lists_with_limit_20(intent_registry, handler
 def test_invoices_tool_failure_returns_friendly_error_envelope(intent_registry, handlers):
     """Unique invoices behavior: tool failures get wrapped in an envelope, not None."""
     tools = _RecordingTools(list_invoices={"success": False, "error": "db locked"})
-    handler = handlers["invoices"].InvoicesHandler()
+    registry = intent_registry.IntentRegistry()
+    handlers["invoices"].register(registry)
     result = asyncio.run(
-        handler.execute(_ctx(intent_registry, "invoices", tools=tools, message="show invoices"))
+        registry.dispatch(_ctx(intent_registry, "invoices", tools=tools, message="show invoices"))
     )
 
     assert result is not None
@@ -240,9 +244,10 @@ def test_invoices_tool_failure_returns_friendly_error_envelope(intent_registry, 
 
 def test_invoices_no_results_returns_friendly_message(intent_registry, handlers):
     tools = _RecordingTools(list_invoices={"success": True, "data": []})
-    handler = handlers["invoices"].InvoicesHandler()
+    registry = intent_registry.IntentRegistry()
+    handlers["invoices"].register(registry)
     result = asyncio.run(
-        handler.execute(_ctx(intent_registry, "invoices", tools=tools, message="show invoices"))
+        registry.dispatch(_ctx(intent_registry, "invoices", tools=tools, message="show invoices"))
     )
 
     assert result["data"]["response"] == handlers["invoices"].NO_INVOICES_MESSAGE
@@ -259,9 +264,10 @@ def test_invoices_status_breakdown_counts(intent_registry, handlers):
             ],
         }
     )
-    handler = handlers["invoices"].InvoicesHandler()
+    registry = intent_registry.IntentRegistry()
+    handlers["invoices"].register(registry)
     body = asyncio.run(
-        handler.execute(_ctx(intent_registry, "invoices", tools=tools, message="show invoices"))
+        registry.dispatch(_ctx(intent_registry, "invoices", tools=tools, message="show invoices"))
     )["data"]["response"]
 
     assert "Paid:** 2" in body
@@ -272,13 +278,18 @@ def test_invoices_status_breakdown_counts(intent_registry, handlers):
 # ---------- expenses ----------
 
 
+def _expenses_registry(intent_registry, handlers):
+    registry = intent_registry.IntentRegistry()
+    handlers["expenses"].register(registry)
+    return registry
+
+
 def test_expenses_search_with_captured_query_propagates_limit(intent_registry, handlers):
     tools = _RecordingTools(
         search_expenses={"success": True, "data": [{"id": 1, "amount": 12, "tax_amount": 1, "total_amount": 13}]}
     )
-    handler = handlers["expenses"].ExpensesHandler()
     asyncio.run(
-        handler.execute(
+        _expenses_registry(intent_registry, handlers).dispatch(
             _ctx(
                 intent_registry,
                 "expenses",
@@ -294,9 +305,8 @@ def test_expenses_search_with_captured_query_propagates_limit(intent_registry, h
 
 def test_expenses_search_keyword_without_query_caps_at_10(intent_registry, handlers):
     tools = _RecordingTools(list_expenses={"success": True, "data": [{"id": 1, "amount": 10}]})
-    handler = handlers["expenses"].ExpensesHandler()
     asyncio.run(
-        handler.execute(
+        _expenses_registry(intent_registry, handlers).dispatch(
             _ctx(intent_registry, "expenses", tools=tools, message="search", tool_options={"limit": 25})
         )
     )
@@ -306,9 +316,8 @@ def test_expenses_search_keyword_without_query_caps_at_10(intent_registry, handl
 
 def test_expenses_no_search_uses_requested_limit(intent_registry, handlers):
     tools = _RecordingTools(list_expenses={"success": True, "data": [{"id": 1, "amount": 10}]})
-    handler = handlers["expenses"].ExpensesHandler()
     asyncio.run(
-        handler.execute(
+        _expenses_registry(intent_registry, handlers).dispatch(
             _ctx(intent_registry, "expenses", tools=tools, message="show expenses", tool_options={"limit": 7})
         )
     )
@@ -318,8 +327,11 @@ def test_expenses_no_search_uses_requested_limit(intent_registry, handlers):
 
 def test_expenses_default_limit_when_tool_options_missing(intent_registry, handlers):
     tools = _RecordingTools(list_expenses={"success": True, "data": [{"id": 1, "amount": 10}]})
-    handler = handlers["expenses"].ExpensesHandler()
-    asyncio.run(handler.execute(_ctx(intent_registry, "expenses", tools=tools, message="show expenses")))
+    asyncio.run(
+        _expenses_registry(intent_registry, handlers).dispatch(
+            _ctx(intent_registry, "expenses", tools=tools, message="show expenses")
+        )
+    )
 
     assert tools.calls == [("list_expenses", {"limit": 20})]
 
@@ -334,9 +346,10 @@ def test_expenses_renders_totals_including_tax(intent_registry, handlers):
             ],
         }
     )
-    handler = handlers["expenses"].ExpensesHandler()
     body = asyncio.run(
-        handler.execute(_ctx(intent_registry, "expenses", tools=tools, message="show expenses"))
+        _expenses_registry(intent_registry, handlers).dispatch(
+            _ctx(intent_registry, "expenses", tools=tools, message="show expenses")
+        )
     )["data"]["response"]
 
     assert "Total Amount (Pre-Tax):** $300.00" in body
@@ -346,18 +359,22 @@ def test_expenses_renders_totals_including_tax(intent_registry, handlers):
 
 def test_expenses_tool_failure_returns_none(intent_registry, handlers):
     tools = _RecordingTools(list_expenses={"success": False})
-    handler = handlers["expenses"].ExpensesHandler()
     assert (
-        asyncio.run(handler.execute(_ctx(intent_registry, "expenses", tools=tools, message="show expenses")))
+        asyncio.run(
+            _expenses_registry(intent_registry, handlers).dispatch(
+                _ctx(intent_registry, "expenses", tools=tools, message="show expenses")
+            )
+        )
         is None
     )
 
 
 def test_expenses_no_results_returns_friendly_message(intent_registry, handlers):
     tools = _RecordingTools(list_expenses={"success": True, "data": []})
-    handler = handlers["expenses"].ExpensesHandler()
     result = asyncio.run(
-        handler.execute(_ctx(intent_registry, "expenses", tools=tools, message="show expenses"))
+        _expenses_registry(intent_registry, handlers).dispatch(
+            _ctx(intent_registry, "expenses", tools=tools, message="show expenses")
+        )
     )
 
     assert result["data"]["response"] == handlers["expenses"].NO_EXPENSES_MESSAGE

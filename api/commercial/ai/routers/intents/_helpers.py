@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
+from typing import Optional
 
 
 _SEARCH_RE = re.compile(r"""(?:search|find)\s+(?:for\s+)?["']?([^"']+)["']?""")
@@ -26,23 +26,3 @@ def detect_search_intent(lower_message: str) -> tuple[bool, Optional[str]]:
         return (False, None)
     match = _SEARCH_RE.search(lower_message)
     return (True, match.group(1) if match else None)
-
-
-def _requested_limit_from_options(
-    tool_options: Optional[dict[str, Any]],
-    *,
-    default: int,
-    maximum: int = 100,
-) -> int:
-    """Read planned result limits from the agent tool plan.
-
-    Originally lived in intent_handlers.py; relocated here so it can be reused
-    by any registry-resident handler. The leading underscore is kept for
-    backwards-compatibility with tests that already import this exact name.
-    """
-    if not tool_options or tool_options.get("limit") is None:
-        return default
-    try:
-        return max(1, min(maximum, int(tool_options["limit"])))
-    except (TypeError, ValueError):
-        return default

@@ -8,14 +8,12 @@ import logging
 from typing import Any, Optional
 
 from commercial.ai.routers.intent_registry import (
+    ArgSpec,
     IntentContext,
     IntentRegistry,
     mcp_envelope,
 )
-from commercial.ai.routers.intents._helpers import (
-    _requested_limit_from_options,
-    detect_search_intent,
-)
+from commercial.ai.routers.intents._helpers import detect_search_intent
 
 
 logger = logging.getLogger(__name__)
@@ -28,9 +26,19 @@ class ExpensesHandler:
     intent = "expenses"
     license_feature: Optional[str] = None
     license_denied_message = ""
+    args_schema = [
+        ArgSpec(
+            name="limit",
+            type=int,
+            default=20,
+            min_value=1,
+            max_value=100,
+            description="Maximum number of expenses to return.",
+        ),
+    ]
 
     async def execute(self, ctx: IntentContext) -> Optional[dict]:
-        requested_limit = _requested_limit_from_options(ctx.tool_options, default=20)
+        requested_limit = ctx.validated_args["limit"]
         is_search, query = detect_search_intent(ctx.lower_message)
         if is_search and query:
             result = await ctx.tools.search_expenses(query=query, limit=requested_limit)
