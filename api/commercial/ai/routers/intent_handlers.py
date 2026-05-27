@@ -33,81 +33,31 @@ async def dispatch_intent(
     db: Session,
     tool_options: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
-    # Execute MCP tool based on AI-classified intent
-    if intent == "investments":
-        print(f"MCP Integration: Detected investments intent in message: '{message}'")
-        try:
-            # 1. Check Feature license
-            from core.utils.feature_gate import feature_enabled
-            if not feature_enabled("investments", db):
-                mcp_response = "The Investment Management feature is not enabled for your account. Please contact your administrator or upgrade your license to access your investment data."
-                return {
-                    "success": True,
-                    "data": {
-                        "response": mcp_response,
-                        "provider": ai_config.provider_name,
-                        "model": ai_config.model_name,
-                        "source": "mcp_tools"
-                    }
-                }
+    # First, consult the intent registry. Handlers migrated to the registry
+    # return their MCP envelope here (or None if the handler errored).
+    # Unmigrated intents fall through to the legacy if/elif chain below.
+    from commercial.ai.routers.intent_registry import IntentContext
+    from commercial.ai.routers.intents import default_registry
 
-            # 2. List Portfolios
-            print("MCP Integration: Listing portfolios...")
-            result = await tools.list_portfolios()
+    ctx = IntentContext(
+        intent=intent,
+        message=message,
+        lower_message=lower_message,
+        tools=tools,
+        ai_config=ai_config,
+        page_context=page_context,
+        db=db,
+        tool_options=tool_options,
+    )
+    registry_result = await default_registry.dispatch(ctx)
+    if registry_result is not None:
+        return registry_result
+    if default_registry.is_registered(intent):
+        # Handler ran but returned None (tool failure or exception). Don't
+        # fall through to a legacy branch for the same intent.
+        return None
 
-            if result.get("success"):
-                portfolios = result.get("data", [])
-                if portfolios:
-                    # If the user mentioned a specific portfolio name, we could try to get its summary
-                    # For now, let's show the summary of all portfolios
-                    portfolio_lines = []
-                    total_market_value = 0
-
-                    for p in portfolios:
-                        val = p.get('total_value', 0)
-                        total_market_value += val
-                        perf = p.get('return_percentage', 0)
-                        perf_str = f"{perf:+.2f}%" if perf != 0 else "0.00%"
-
-                        line = (f"• **{p.get('name', 'Unnamed Portfolio')}** ({p.get('type', 'Unknown')})\n"
-                               f"  💰 Value: ${val:,.2f} | 📈 Return: {perf_str}\n"
-                               f"  📊 Holdings: {p.get('holdings_count', 0)}")
-                        portfolio_lines.append(line)
-
-                    portfolio_display = "\n".join(portfolio_lines)
-
-                    mcp_response = f"""
-📈 **Investment Portfolio Overview**
-
-📊 **Business Summary:**
-• **Total Portfolios:** {len(portfolios)}
-• **Total Market Value:** ${total_market_value:,.2f}
-
-💼 **Individual Portfolios:**
-{portfolio_display}
-
-📋 **Data Source:**
-This information was retrieved from your investment management plugin via advanced MCP tools.
-                    """.strip()
-                else:
-                    mcp_response = "You don't have any investment portfolios set up yet."
-
-                return {
-                    "success": True,
-                    "data": {
-                        "response": mcp_response,
-                        "provider": ai_config.provider_name,
-                        "model": ai_config.model_name,
-                        "source": "mcp_tools"
-                    }
-                }
-            else:
-                print(f"MCP Integration: Tool execution failed: {result}")
-                # Fallback
-        except Exception as e:
-            print(f"MCP Integration: Exception during investments tool execution: {e}")
-            # Fallback
-
+    # Legacy: intents not yet migrated to the registry
     if intent == "cashflow":
         print(f"MCP Integration: Detected cashflow intent in message: '{message}'")
         try:
