@@ -11,9 +11,12 @@ from commercial.ai.routers.intent_registry import default_registry
 from commercial.ai.routers.intents import (
     analyze_patterns,
     currencies,
+    expenses,
     investments,
+    invoices,
     outstanding,
     overdue,
+    payments,
     statements,
     statistics,
     suggest_actions,
@@ -28,6 +31,9 @@ for module in (
     overdue,
     statements,
     statistics,
+    payments,
+    invoices,
+    expenses,
 ):
     module.register(default_registry)
 

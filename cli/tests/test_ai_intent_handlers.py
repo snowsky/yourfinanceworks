@@ -3,13 +3,18 @@ from pathlib import Path
 
 
 API_DIR = Path(__file__).resolve().parents[2] / "api"
-HANDLERS_PATH = API_DIR / "commercial" / "ai" / "routers" / "intent_handlers.py"
-spec = importlib.util.spec_from_file_location("intent_handlers", HANDLERS_PATH)
-intent_handlers = importlib.util.module_from_spec(spec)
-assert spec.loader is not None
-spec.loader.exec_module(intent_handlers)
 
-requested_limit_from_options = intent_handlers._requested_limit_from_options
+# _requested_limit_from_options moved from intent_handlers.py into the new
+# intents/_helpers.py module so it can be shared by every registry-resident
+# handler. Load the new home directly to keep the test independent of the
+# import-package machinery that the CLI test runner doesn't have set up.
+HELPERS_PATH = API_DIR / "commercial" / "ai" / "routers" / "intents" / "_helpers.py"
+spec = importlib.util.spec_from_file_location("intents_helpers", HELPERS_PATH)
+helpers = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+spec.loader.exec_module(helpers)
+
+requested_limit_from_options = helpers._requested_limit_from_options
 
 
 def test_requested_limit_reads_agent_tool_options():
