@@ -15,6 +15,27 @@ from typing import Sequence
 class CliInputError(ValueError):
     """Raised for malformed CLI input (bad --page-context JSON, etc.)."""
 
+
+MAX_CHAT_MESSAGE_BYTES = 8 * 1024
+CHAT_PASTE_WARNING_BYTES = 4 * 1024
+
+
+def _validate_chat_message(message: str) -> None:
+    size = len(message.encode("utf-8"))
+    if size > MAX_CHAT_MESSAGE_BYTES:
+        raise CliInputError(
+            f"Chat message is {size} bytes; max is {MAX_CHAT_MESSAGE_BYTES}. "
+            "Trim or split the input — large pastes risk leaking secrets and "
+            "blow the backend's prompt budget."
+        )
+    if size > CHAT_PASTE_WARNING_BYTES:
+        logger.warning(
+            "Chat message is %d bytes (over %d-byte paste-warning threshold); "
+            "review for secrets before sending.",
+            size,
+            CHAT_PASTE_WARNING_BYTES,
+        )
+
 from .agent import PortfolioMonitorAgent
 from .analyzers import normalize_allocation
 from .api_client import APIError, InvestmentAPIClient
@@ -424,8 +445,10 @@ def _handle_agent(args, client: InvestmentAPIClient, profile) -> int:
     chat_agent = CliChatAgent(client, profile)
     page_context = _parse_page_context(args.page_context)
     if args.message:
+        message = " ".join(args.message)
+        _validate_chat_message(message)
         result = chat_agent.handle(
-            " ".join(args.message),
+            message,
             config_id=args.config_id,
             page_context=page_context,
         )
@@ -439,16 +462,23 @@ def _handle_agent(args, client: InvestmentAPIClient, profile) -> int:
             message = input("finance-agent> ").strip()
             if message.lower() in {"exit", "quit"}:
                 return 0
-            if message:
-                result = chat_agent.handle(
-                    message,
-                    config_id=args.config_id,
-                    page_context=page_context,
-                )
-                if args.json:
-                    print_json(result)
-                else:
-                    print_chat_response(result)
+            if not message:
+                continue
+            try:
+                _validate_chat_message(message)
+            except CliInputError as exc:
+                # In interactive mode, don't exit the loop — let the user retry.
+                print(f"Error: {exc}", file=sys.stderr)
+                continue
+            result = chat_agent.handle(
+                message,
+                config_id=args.config_id,
+                page_context=page_context,
+            )
+            if args.json:
+                print_json(result)
+            else:
+                print_chat_response(result)
     except (EOFError, KeyboardInterrupt):
         return 0
 

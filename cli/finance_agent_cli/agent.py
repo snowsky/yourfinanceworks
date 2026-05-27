@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import signal
 import time
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -22,6 +23,37 @@ class PortfolioMonitorAgent:
     def __init__(self, api_client: InvestmentAPIClient, state: AgentState):
         self.api_client = api_client
         self.state = state
+        self._stop_requested = False
+
+    def request_stop(self) -> None:
+        """Ask monitor_forever to exit cleanly after the current cycle finishes."""
+        self._stop_requested = True
+
+    def _install_signal_handlers(self):
+        """Install SIGTERM handler; return the previous handler for later restoration.
+
+        Signal handlers can only be installed from the main thread. If we are not
+        in the main thread (or the OS rejects the install), return None and skip
+        signal-based stops; KeyboardInterrupt still works.
+        """
+
+        def handle_sigterm(_signum, _frame):
+            logger.info("Received SIGTERM; will stop after current cycle")
+            self._stop_requested = True
+
+        try:
+            return signal.signal(signal.SIGTERM, handle_sigterm)
+        except (ValueError, OSError) as exc:
+            logger.debug("Could not install SIGTERM handler: %s", exc)
+            return None
+
+    def _restore_signal_handlers(self, previous) -> None:
+        if previous is None:
+            return
+        try:
+            signal.signal(signal.SIGTERM, previous)
+        except (ValueError, OSError) as exc:
+            logger.debug("Could not restore SIGTERM handler: %s", exc)
 
     def run_cycle(
         self,
@@ -131,38 +163,46 @@ class PortfolioMonitorAgent:
         include_sentiment: bool = False,
         sentiment_lookback_days: int = 7,
     ):
-        consecutive_failures = 0
-        while True:
-            cycle_started_at = time.monotonic()
-            try:
-                cycle = self.run_cycle(
-                    drift_threshold=drift_threshold,
-                    refresh_prices=refresh_prices,
-                    portfolio_ids=portfolio_ids,
-                    include_sentiment=include_sentiment,
-                    sentiment_lookback_days=sentiment_lookback_days,
-                )
-            except KeyboardInterrupt:
-                raise
-            except Exception:
-                consecutive_failures += 1
-                logger.exception(
-                    "Monitor cycle failed (consecutive_failures=%d); sleeping %ds before retry",
-                    consecutive_failures,
-                    interval_seconds,
-                )
-            else:
-                if consecutive_failures:
-                    logger.info(
-                        "Monitor cycle recovered after %d consecutive failure(s)",
-                        consecutive_failures,
+        self._stop_requested = False
+        previous_sigterm = self._install_signal_handlers()
+        try:
+            consecutive_failures = 0
+            while not self._stop_requested:
+                cycle_started_at = time.monotonic()
+                try:
+                    cycle = self.run_cycle(
+                        drift_threshold=drift_threshold,
+                        refresh_prices=refresh_prices,
+                        portfolio_ids=portfolio_ids,
+                        include_sentiment=include_sentiment,
+                        sentiment_lookback_days=sentiment_lookback_days,
                     )
-                consecutive_failures = 0
-                yield cycle
-                self.state.last_run_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                except KeyboardInterrupt:
+                    raise
+                except Exception:
+                    consecutive_failures += 1
+                    logger.exception(
+                        "Monitor cycle failed (consecutive_failures=%d); sleeping %ds before retry",
+                        consecutive_failures,
+                        interval_seconds,
+                    )
+                else:
+                    if consecutive_failures:
+                        logger.info(
+                            "Monitor cycle recovered after %d consecutive failure(s)",
+                            consecutive_failures,
+                        )
+                    consecutive_failures = 0
+                    yield cycle
+                    self.state.last_run_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
-            elapsed = time.monotonic() - cycle_started_at
-            time.sleep(max(0.0, interval_seconds - elapsed))
+                if self._stop_requested:
+                    break
+                elapsed = time.monotonic() - cycle_started_at
+                time.sleep(max(0.0, interval_seconds - elapsed))
+            logger.info("Monitor stopped cleanly")
+        finally:
+            self._restore_signal_handlers(previous_sigterm)
 
     def _dedupe(self, recommendations: list[Recommendation]) -> list[Recommendation]:
         emitted: list[Recommendation] = []
