@@ -1,6 +1,10 @@
 from decimal import Decimal
 
-from cli.finance_agent_cli.agent import PortfolioMonitorAgent
+from cli.finance_agent_cli.agent import (
+    SEVERITY_BUCKET,
+    PortfolioMonitorAgent,
+    _severity_bucket_str,
+)
 from cli.finance_agent_cli.state import AgentState
 
 
@@ -56,6 +60,13 @@ class StubClient:
             ],
             "summary": "Reduce equity overweight.",
         }
+
+
+def test_severity_bucket_quantizes_to_two_decimal_places():
+    assert _severity_bucket_str(Decimal("1.014")) == "1.01"
+    assert _severity_bucket_str(Decimal("1.015")) == "1.02"  # ROUND_HALF_EVEN bumps .015 -> .02
+    assert _severity_bucket_str(Decimal("1.0")) == "1.00"
+    assert SEVERITY_BUCKET == Decimal("0.01")
 
 
 def test_monitor_dedupes_identical_recommendations():

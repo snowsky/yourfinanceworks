@@ -1,6 +1,24 @@
 from pathlib import Path
 
-from cli.finance_agent_cli.config import load_profile
+import pytest
+
+from cli.finance_agent_cli.config import _normalize_api_base_url, load_profile
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("https://demo", "https://demo/api/v1"),
+        ("https://demo/", "https://demo/api/v1"),
+        ("https://demo/api", "https://demo/api/v1"),
+        ("https://demo/api/", "https://demo/api/v1"),
+        ("https://demo/api/v1", "https://demo/api/v1"),
+        ("https://demo/api/v1/", "https://demo/api/v1"),
+        ("http://localhost:8000", "http://localhost:8000/api/v1"),
+    ],
+)
+def test_normalize_api_base_url_canonicalizes_input(raw, expected):
+    assert _normalize_api_base_url(raw) == expected
 
 
 def test_load_profile_normalizes_base_url(tmp_path: Path, monkeypatch):

@@ -43,7 +43,7 @@ class AgentState:
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
-            "last_run_at": self.last_run_at or datetime.now(timezone.utc).isoformat(),
+            "last_run_at": self.last_run_at,
             "recommendations": self.recommendations,
         }
         path.write_text(json.dumps(payload, indent=2, sort_keys=True))
