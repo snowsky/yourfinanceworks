@@ -10,28 +10,24 @@ from typing import Any, Dict, List
 
 import httpx
 
+from MCP._base_client import BaseAPIClient
+
 logger = logging.getLogger(__name__)
 
 
 # Helper class for authenticated API requests
-class AuthenticatedAPIClient:
-    def __init__(self, base_url: str, jwt_token: str):
-        self.base_url = base_url
+class AuthenticatedAPIClient(BaseAPIClient):
+    def __init__(self, base_url: str, jwt_token: str, *, http_client: httpx.AsyncClient = None):
+        super().__init__(base_url, http_client=http_client)
         self.jwt_token = jwt_token
-        self._client = httpx.AsyncClient(timeout=30.0)
+
+    async def _get_auth_headers(self) -> Dict[str, str]:
+        return {"Authorization": f"Bearer {self.jwt_token}"}
 
     async def _make_request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
         """Make authenticated request using JWT token"""
         try:
-            headers = {"Authorization": f"Bearer {self.jwt_token}"}
-            headers.update(kwargs.pop('headers', {}))
-
-            response = await self._client.request(
-                method=method,
-                url=f"{self.base_url}{endpoint}",
-                headers=headers,
-                **kwargs
-            )
+            response = await self._execute_request(method, endpoint, **kwargs)
             response.raise_for_status()
             return response.json()
 
