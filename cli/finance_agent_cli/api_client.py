@@ -48,16 +48,34 @@ class APIError(RuntimeError):
 
 
 class InvestmentAPIClient:
-    """Small synchronous REST client for investment endpoints."""
+    """Small synchronous REST client for investment endpoints.
 
-    def __init__(self, profile: Profile, timeout: int = 30):
+    Pass ``http_client`` to swap in a test fake or a pre-configured
+    ``httpx.Client`` (with custom transport, mounts, proxies, etc.). When
+    you supply your own client, ``close()`` will leave it open — ownership
+    stays with the caller.
+    """
+
+    def __init__(
+        self,
+        profile: Profile,
+        timeout: int = 30,
+        *,
+        http_client: Any | None = None,
+    ):
         self.profile = profile
-        self._client = httpx.Client(timeout=timeout)
+        if http_client is None:
+            self._client = httpx.Client(timeout=timeout)
+            self._owns_client = True
+        else:
+            self._client = http_client
+            self._owns_client = False
         self._token: str | None = profile.token
         self._token_expires: datetime | None = None
 
     def close(self) -> None:
-        self._client.close()
+        if self._owns_client:
+            self._client.close()
 
     def __enter__(self) -> "InvestmentAPIClient":
         return self

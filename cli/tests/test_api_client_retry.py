@@ -76,43 +76,41 @@ def no_sleep(monkeypatch):
 
 
 def test_get_retries_on_502_then_succeeds(tmp_path, no_sleep):
-    client = InvestmentAPIClient(_profile(tmp_path))
-    client._client = ScriptedHttpClient(
-        [StubResponse(502), StubResponse(200, payload={"items": []})]
-    )
+    fake = ScriptedHttpClient([StubResponse(502), StubResponse(200, payload={"items": []})])
+    client = InvestmentAPIClient(_profile(tmp_path), http_client=fake)
 
     result = client.list_portfolios()
 
     assert result == {"items": []}
-    assert len(client._client.calls) == 2
+    assert len(fake.calls) == 2
 
 
 def test_get_retries_on_request_error(tmp_path, no_sleep):
-    client = InvestmentAPIClient(_profile(tmp_path))
     request = httpx.Request("GET", "http://localhost:8000/api/v1/investments/portfolios")
-    client._client = ScriptedHttpClient(
+    fake = ScriptedHttpClient(
         [
             httpx.ConnectError("connection reset", request=request),
             StubResponse(200, payload={"items": [1]}),
         ]
     )
+    client = InvestmentAPIClient(_profile(tmp_path), http_client=fake)
 
     result = client.list_portfolios()
 
     assert result == {"items": [1]}
-    assert len(client._client.calls) == 2
+    assert len(fake.calls) == 2
 
 
 def test_get_retries_on_429_with_retry_after_header(tmp_path, monkeypatch):
     sleeps: list[float] = []
     monkeypatch.setattr("cli.finance_agent_cli.api_client.time.sleep", sleeps.append)
-    client = InvestmentAPIClient(_profile(tmp_path))
-    client._client = ScriptedHttpClient(
+    fake = ScriptedHttpClient(
         [
             StubResponse(429, headers={"Retry-After": "2"}),
             StubResponse(200, payload={"items": []}),
         ]
     )
+    client = InvestmentAPIClient(_profile(tmp_path), http_client=fake)
 
     client.list_portfolios()
 
@@ -120,36 +118,36 @@ def test_get_retries_on_429_with_retry_after_header(tmp_path, monkeypatch):
 
 
 def test_post_does_not_retry_on_502(tmp_path, no_sleep):
-    client = InvestmentAPIClient(_profile(tmp_path))
-    client._client = ScriptedHttpClient([StubResponse(502)])
+    fake = ScriptedHttpClient([StubResponse(502)])
+    client = InvestmentAPIClient(_profile(tmp_path), http_client=fake)
 
     with pytest.raises(APIError) as exc_info:
         client.ai_chat("hello")
 
     assert exc_info.value.status_code == 502
-    assert len(client._client.calls) == 1
+    assert len(fake.calls) == 1
 
 
 def test_get_does_not_retry_on_404(tmp_path, no_sleep):
-    client = InvestmentAPIClient(_profile(tmp_path))
-    client._client = ScriptedHttpClient([StubResponse(404)])
+    fake = ScriptedHttpClient([StubResponse(404)])
+    client = InvestmentAPIClient(_profile(tmp_path), http_client=fake)
 
     with pytest.raises(APIError) as exc_info:
         client.list_portfolios()
 
     assert exc_info.value.status_code == 404
-    assert len(client._client.calls) == 1
+    assert len(fake.calls) == 1
 
 
 def test_get_raises_after_max_attempts(tmp_path, no_sleep):
-    client = InvestmentAPIClient(_profile(tmp_path))
-    client._client = ScriptedHttpClient([StubResponse(503)] * MAX_ATTEMPTS)
+    fake = ScriptedHttpClient([StubResponse(503)] * MAX_ATTEMPTS)
+    client = InvestmentAPIClient(_profile(tmp_path), http_client=fake)
 
     with pytest.raises(APIError) as exc_info:
         client.list_portfolios()
 
     assert exc_info.value.status_code == 503
-    assert len(client._client.calls) == MAX_ATTEMPTS
+    assert len(fake.calls) == MAX_ATTEMPTS
 
 
 def test_retry_delay_honors_retry_after_header():
@@ -165,6 +163,32 @@ def test_retry_delay_falls_back_to_exponential_when_header_absent():
         delay = _retry_delay(attempt, None)
         upper_bound = min(1.0 * (2 ** attempt), 30.0)
         assert 0 < delay <= upper_bound
+
+
+def test_injected_http_client_is_not_closed_by_context_manager(tmp_path):
+    fake = ScriptedHttpClient([])
+    fake.closed = False
+
+    def mark_closed():
+        fake.closed = True
+
+    fake.close = mark_closed  # type: ignore[method-assign]
+
+    with InvestmentAPIClient(_profile(tmp_path), http_client=fake):
+        pass
+
+    assert fake.closed is False, "context manager exit must not close a caller-owned client"
+
+
+def test_default_http_client_is_closed_by_context_manager(tmp_path):
+    client = InvestmentAPIClient(_profile(tmp_path))
+    real_client = client._client
+    assert isinstance(real_client, httpx.Client)
+
+    with client:
+        pass
+
+    assert real_client.is_closed, "context manager exit must close a client we own"
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX-only permission semantics")
