@@ -10,6 +10,7 @@ side effect is the single source of truth.
 from commercial.ai.routers.intent_registry import default_registry
 from commercial.ai.routers.intents import (
     analyze_patterns,
+    cashflow,
     currencies,
     expenses,
     investments,
@@ -34,6 +35,7 @@ for module in (
     payments,
     invoices,
     expenses,
+    cashflow,
 ):
     module.register(default_registry)
 
