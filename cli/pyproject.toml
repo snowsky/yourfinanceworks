@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "finance-agent-cli"
+version = "0.1.0"
+description = "REST-first investment monitoring CLI for YourFinanceWORKS"
+requires-python = ">=3.10"
+dependencies = ["httpx>=0.28,<0.29"]
+
+[project.scripts]
+finance-agent = "finance_agent_cli.app:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["finance_agent_cli*"]

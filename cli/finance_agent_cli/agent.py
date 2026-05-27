@@ -16,6 +16,15 @@ from .state import AgentState, append_history, write_snapshot
 
 logger = get_logger("monitor")
 
+# Recommendations are re-emitted when their severity moves by at least this
+# bucket. Smaller drifts (e.g. 1.014 -> 1.015) are treated as the same
+# recommendation; jitter at the 0.001 scale won't spam the alerting path.
+SEVERITY_BUCKET = Decimal("0.01")
+
+
+def _severity_bucket_str(severity: Decimal) -> str:
+    return str(severity.quantize(SEVERITY_BUCKET))
+
 
 class PortfolioMonitorAgent:
     """Runs monitor cycles and deduplicates recommendations."""
@@ -215,7 +224,7 @@ class PortfolioMonitorAgent:
 
         for recommendation in recommendations:
             previous = self.state.recommendations.get(recommendation.fingerprint)
-            current = f"{recommendation.severity:.2f}"
+            current = _severity_bucket_str(recommendation.severity)
             if previous != current:
                 emitted.append(recommendation)
             self.state.recommendations[recommendation.fingerprint] = current
