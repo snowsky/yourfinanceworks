@@ -1,3 +1,5 @@
+import logging
+
 from cli.finance_agent_cli.config import Profile
 from cli.finance_agent_cli.document_classifier import DocumentClassifier
 
@@ -43,3 +45,21 @@ def test_classifier_scans_supported_files_only(tmp_path):
     files = DocumentClassifier(_profile(tmp_path)).scan(tmp_path)
 
     assert [path.name for path in files] == ["receipt.pdf"]
+
+
+def test_classifier_logs_warning_when_csv_read_fails(tmp_path, caplog, monkeypatch):
+    path = tmp_path / "broken.csv"
+    path.write_text("symbol,quantity\nAAPL,10\n")
+
+    def boom(*_args, **_kwargs):
+        raise OSError("simulated read failure")
+
+    monkeypatch.setattr("pathlib.Path.open", boom)
+
+    with caplog.at_level(logging.WARNING, logger="finance_agent_cli.classifier"):
+        DocumentClassifier(_profile(tmp_path)).classify(path)
+
+    assert any(
+        "Could not read CSV" in record.message and "broken.csv" in record.message
+        for record in caplog.records
+    )

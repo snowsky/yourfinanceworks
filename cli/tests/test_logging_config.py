@@ -10,14 +10,6 @@ import pytest
 from cli.finance_agent_cli.logging_config import LOGGER_NAME, configure_logging
 
 
-@pytest.fixture(autouse=True)
-def reset_logger():
-    yield
-    logger = logging.getLogger(LOGGER_NAME)
-    for handler in list(logger.handlers):
-        logger.removeHandler(handler)
-
-
 def test_default_format_is_human_readable(monkeypatch, capsys):
     monkeypatch.delenv("FINANCE_AGENT_LOG_FORMAT", raising=False)
     monkeypatch.delenv("FINANCE_AGENT_LOG_LEVEL", raising=False)
