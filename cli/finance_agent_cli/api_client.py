@@ -7,6 +7,7 @@ import mimetypes
 import os
 import random
 import time
+import uuid
 import webbrowser
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -243,11 +244,19 @@ class InvestmentAPIClient:
             raise APIError("YFW API key is required. Set FINANCE_AGENT_YFW_API_KEY, YFW_API_KEY, or profile.yfw_api_key.")
         return {"Accept": "application/json", "X-API-Key": self.profile.yfw_api_key}
 
+    def _headers_with_idempotency(self, base_headers: dict[str, str]) -> dict[str, str]:
+        """Attach a fresh Idempotency-Key unless the caller already supplied one."""
+        headers = dict(base_headers)
+        headers.setdefault("Idempotency-Key", str(uuid.uuid4()))
+        return headers
+
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         upper_method = method.upper()
         retriable_method = upper_method == "GET"
         url = f"{self.profile.api_base_url}{path}"
-        extra_headers = kwargs.pop("headers", {})
+        extra_headers = dict(kwargs.pop("headers", {}))
+        if upper_method != "GET" and "Idempotency-Key" not in extra_headers:
+            extra_headers["Idempotency-Key"] = str(uuid.uuid4())
 
         for attempt in range(MAX_ATTEMPTS):
             try:
@@ -440,7 +449,7 @@ class InvestmentAPIClient:
 
             response = self._client.post(
                 f"{self.profile.api_base_url}/external-transactions/batch-processing/upload-authenticated",
-                headers=self._get_headers(),
+                headers=self._headers_with_idempotency(self._get_headers()),
                 data=data,
                 files=multipart,
             )
@@ -479,7 +488,7 @@ class InvestmentAPIClient:
                 multipart.append(("files", (path.name, handle, content_type)))
             response = self._client.post(
                 f"{self.profile.api_base_url}/investments/portfolios/{portfolio_id}/holdings-files",
-                headers=self._get_headers(),
+                headers=self._headers_with_idempotency(self._get_headers()),
                 files=multipart,
             )
             if response.status_code >= 400:

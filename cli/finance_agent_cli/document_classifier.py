@@ -3,16 +3,22 @@
 from __future__ import annotations
 
 import csv
+import hashlib
+import json
 import mimetypes
 from pathlib import Path
 from typing import Iterable
 
 from .config import Profile
+from .logging_config import get_logger
 from .models import ClassifiedDocument, to_decimal
 
 
+logger = get_logger("classifier")
+
 SUPPORTED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".csv"}
 DOCUMENT_TYPES = {"expense", "invoice", "statement", "portfolio"}
+LLM_CACHE_FILENAME = "classify-cache.json"
 
 
 class DocumentClassifier:
@@ -27,6 +33,7 @@ class DocumentClassifier:
 
     def __init__(self, profile: Profile):
         self.profile = profile
+        self._llm_cache: dict[str, str] | None = None
 
     def scan(self, folder: Path, *, recursive: bool = True) -> list[Path]:
         pattern = "**/*" if recursive else "*"
@@ -76,10 +83,6 @@ class DocumentClassifier:
     def _classify_with_llm(self, path: Path, sample: str) -> str | None:
         if not self.profile.llm_model:
             return None
-        try:
-            from litellm import completion
-        except ImportError:
-            return None
 
         prompt = (
             "Classify this financial document as exactly one of: "
@@ -90,6 +93,16 @@ class DocumentClassifier:
             f"MIME: {mimetypes.guess_type(path.name)[0] or 'unknown'}\n"
             f"Extracted text:\n{sample[:4000]}"
         )
+        cache_key = self._llm_cache_key(prompt)
+        cached = self._cache_lookup(cache_key)
+        if cached is not None:
+            return cached
+
+        try:
+            from litellm import completion
+        except ImportError:
+            return None
+
         kwargs = {
             "model": self._model_name(),
             "messages": [{"role": "user", "content": prompt}],
@@ -105,8 +118,44 @@ class DocumentClassifier:
         content = response.choices[0].message.content.strip().lower()
         for doc_type in DOCUMENT_TYPES:
             if doc_type in content:
+                self._cache_store(cache_key, doc_type)
                 return doc_type
         return None
+
+    def _llm_cache_key(self, prompt: str) -> str:
+        digest = hashlib.sha256(f"{self._model_name()}|{prompt}".encode("utf-8")).hexdigest()
+        return digest
+
+    def _llm_cache_path(self) -> Path:
+        return self.profile.state_path.parent / LLM_CACHE_FILENAME
+
+    def _load_llm_cache(self) -> dict[str, str]:
+        if self._llm_cache is not None:
+            return self._llm_cache
+        path = self._llm_cache_path()
+        if not path.exists():
+            self._llm_cache = {}
+            return self._llm_cache
+        try:
+            data = json.loads(path.read_text())
+            self._llm_cache = {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            logger.warning("Could not load classify cache from %s: %s", path, exc)
+            self._llm_cache = {}
+        return self._llm_cache
+
+    def _cache_lookup(self, key: str) -> str | None:
+        return self._load_llm_cache().get(key)
+
+    def _cache_store(self, key: str, value: str) -> None:
+        cache = self._load_llm_cache()
+        cache[key] = value
+        path = self._llm_cache_path()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(cache, sort_keys=True, indent=2))
+        except OSError as exc:
+            logger.warning("Could not write classify cache to %s: %s", path, exc)
 
     def _model_name(self) -> str:
         provider = (self.profile.llm_provider or "").strip().lower()
