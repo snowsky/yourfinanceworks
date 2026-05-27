@@ -8,8 +8,11 @@ from pathlib import Path
 from typing import Iterable
 
 from .config import Profile
+from .logging_config import get_logger
 from .models import ClassifiedDocument, to_decimal
 
+
+logger = get_logger("classifier")
 
 SUPPORTED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".csv"}
 DOCUMENT_TYPES = {"expense", "invoice", "statement", "portfolio"}
@@ -132,7 +135,8 @@ class DocumentClassifier:
                     lines.append(",".join(row[:20]))
                     if index >= 20:
                         break
-        except OSError:
+        except OSError as exc:
+            logger.warning("Could not read CSV %s: %s", path, exc)
             return ""
         return "\n".join(lines)
 
@@ -151,7 +155,8 @@ class DocumentClassifier:
         try:
             reader = PdfReader(str(path))
             return "\n".join((page.extract_text() or "") for page in reader.pages[:3])[:5000]
-        except Exception:
+        except Exception as exc:
+            logger.warning("pypdf failed to extract text from %s: %s", path, exc)
             return ""
 
     def _sample_pdf_with_pymupdf(self, path: Path) -> str:
@@ -162,7 +167,8 @@ class DocumentClassifier:
         try:
             doc = fitz.open(str(path))
             return "\n".join(doc[index].get_text() for index in range(min(3, len(doc))))[:5000]
-        except Exception:
+        except Exception as exc:
+            logger.warning("pymupdf failed to extract text from %s: %s", path, exc)
             return ""
 
 
