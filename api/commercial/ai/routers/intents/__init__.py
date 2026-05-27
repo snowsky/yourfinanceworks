@@ -8,8 +8,27 @@ side effect is the single source of truth.
 """
 
 from commercial.ai.routers.intent_registry import default_registry
-from commercial.ai.routers.intents import investments
+from commercial.ai.routers.intents import (
+    analyze_patterns,
+    currencies,
+    investments,
+    outstanding,
+    overdue,
+    statements,
+    statistics,
+    suggest_actions,
+)
 
-investments.register(default_registry)
+for module in (
+    investments,
+    analyze_patterns,
+    suggest_actions,
+    currencies,
+    outstanding,
+    overdue,
+    statements,
+    statistics,
+):
+    module.register(default_registry)
 
 __all__ = ["default_registry"]
