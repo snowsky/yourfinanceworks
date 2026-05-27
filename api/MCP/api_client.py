@@ -9,34 +9,45 @@ import logging
 import os
 import mimetypes
 
+from ._base_client import BaseAPIClient
 from .auth_client import InvoiceAPIAuthClient, AuthenticationError
 from .config import config
 
 logger = logging.getLogger(__name__)
 
 
-class InvoiceAPIClient:
+class InvoiceAPIClient(BaseAPIClient):
     """Client for interacting with the Invoice API"""
 
-    def __init__(self, base_url: str = None, email: str = None, password: str = None):
-        self.base_url = base_url or config.API_BASE_URL
+    def __init__(
+        self,
+        base_url: str = None,
+        email: str = None,
+        password: str = None,
+        *,
+        http_client: AsyncClient = None,
+    ):
+        super().__init__(
+            base_url or config.API_BASE_URL,
+            timeout=config.REQUEST_TIMEOUT,
+            http_client=http_client,
+        )
         self.auth_client = InvoiceAPIAuthClient(base_url, email, password)
-        self._client = AsyncClient(timeout=config.REQUEST_TIMEOUT)
+
+    async def _get_auth_headers(self) -> Dict[str, str]:
+        return await self.auth_client.get_auth_headers()
+
+    async def close(self) -> None:
+        """Close both the HTTP client (if we own it) and the auth client."""
+        await super().close()
+        await self.auth_client.close()
 
     async def _make_request(
         self, method: str, endpoint: str, **kwargs
     ) -> Dict[str, Any]:
         """Make authenticated request to the API"""
         try:
-            headers = await self.auth_client.get_auth_headers()
-            headers.update(kwargs.pop("headers", {}))
-
-            response = await self._client.request(
-                method=method,
-                url=f"{self.base_url}{endpoint}",
-                headers=headers,
-                **kwargs
-            )
+            response = await self._execute_request(method, endpoint, **kwargs)
             response.raise_for_status()
             return response.json()
 
@@ -1209,14 +1220,3 @@ class InvoiceAPIClient:
     async def update_prices(self) -> Dict[str, Any]:
         """Trigger market price refresh for all tenant holdings."""
         return await self._make_request("POST", "/investments/holdings/update-prices")
-
-    async def close(self):
-        """Close the HTTP client and auth client"""
-        await self._client.aclose()
-        await self.auth_client.close()
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.close()
