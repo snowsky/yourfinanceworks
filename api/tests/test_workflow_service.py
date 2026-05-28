@@ -8,6 +8,7 @@ from core.models.models_per_tenant import (
     WorkflowDefinition,
     WorkflowExecutionLog,
     Invoice,
+    Payment,
     Reminder,
     User,
     Client
@@ -511,16 +512,237 @@ class TestWorkflowService:
                 "skipped_count": 0,
                 "errors": [],
             },
+        ), patch.object(
+            service,
+            "process_payment_received_workflows",
+            return_value={
+                "processed_count": 4,
+                "created_task_count": 1,
+                "notification_count": 1,
+                "skipped_count": 2,
+                "errors": [],
+            },
         ):
             stats = service.process_all_workflows()
 
-            assert stats["processed_count"] == 5
-            assert stats["created_task_count"] == 3
-            assert stats["notification_count"] == 3
-            assert stats["skipped_count"] == 1
+            assert stats["processed_count"] == 9
+            assert stats["created_task_count"] == 4
+            assert stats["notification_count"] == 4
+            assert stats["skipped_count"] == 3
             assert stats["errors"] == ["overdue err"]
 
+    # ---------- payment_received trigger ----------
+
+    @pytest.fixture
+    def sample_payment(self, sample_invoice):
+        """Payment created recently, linked to sample_invoice."""
+        return Payment(
+            id=303,
+            invoice_id=sample_invoice.id,
+            amount=500.0,
+            currency="USD",
+            payment_method="ach",
+            payment_date=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
+        )
+
+    @pytest.fixture
+    def sample_payment_received_workflow(self):
+        return WorkflowDefinition(
+            id=4,
+            name="On payment received",
+            key="payment-received-ack",
+            description="Acknowledge each payment with a thank-you and a reconcile task.",
+            trigger_type="payment_received",
+            conditions={},
+            actions={
+                "send_internal_notification": True,
+                "create_internal_task": True,
+                "task_type": "reminder",
+                "task_title_template": "Acknowledge payment on invoice #{invoice_number}",
+                "task_due_in_days": 2,
+            },
+            is_enabled=True,
+            is_system=False,
+            is_default=False,
+            created_at=datetime.now(timezone.utc) - timedelta(hours=2),
+        )
+
+    def test_catalog_includes_payment_received_trigger(self, service):
+        catalog = service.get_catalog()
+        trigger_ids = {trigger["id"] for trigger in catalog["triggers"]}
+        assert "payment_received" in trigger_ids
+
+    def test_create_workflow_accepts_payment_received_trigger(self, service, mock_db):
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+        with patch.object(service, "ensure_default_workflows"):
+            workflow = service.create_workflow(
+                name="Payment Ack",
+                description="",
+                trigger_type="payment_received",
+                action_ids=["send_internal_notification"],
+            )
+            assert workflow.trigger_type == "payment_received"
+
+    def test_process_payment_received_workflows_success(
+        self,
+        service,
+        mock_db,
+        sample_payment_received_workflow,
+        sample_payment,
+        sample_invoice,
+        sample_user,
+        sample_client,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=False), \
+             patch.object(service, "_resolve_assigned_user", return_value=sample_user), \
+             patch("core.services.workflow_service.send_notification") as mock_notification:
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_payment_received_workflow])))),
+                Payment: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_payment])))),
+                Invoice: Mock(filter=Mock(return_value=Mock(first=Mock(return_value=sample_invoice)))),
+                Client: Mock(filter=Mock(return_value=Mock(first=Mock(return_value=sample_client)))),
+            }[model]
+
+            mock_reminder = Reminder(id=1010)
+            with patch.object(service, "_create_internal_task", return_value=mock_reminder) as mock_task:
+                stats = service.process_payment_received_workflows()
+
+            assert stats["processed_count"] == 1
+            assert stats["created_task_count"] == 1
+            assert stats["notification_count"] == 1
+            assert stats["errors"] == []
+
+            # Notification fires with payment_created event type and resource_type=payment.
+            kwargs = mock_notification.call_args.kwargs
+            assert kwargs["event_type"] == "payment_created"
+            assert kwargs["resource_type"] == "payment"
+            assert kwargs["resource_id"] == str(sample_payment.id)
+            assert kwargs["details"]["payment_amount"] == sample_payment.amount
+
+            # Task helper receives payment-aware template vars + extra_metadata.
+            task_kwargs = mock_task.call_args.kwargs
+            assert task_kwargs["template_vars"]["payment_amount"] == sample_payment.amount
+            assert task_kwargs["extra_metadata"] == {"payment_id": sample_payment.id}
+
+            # Execution log uses the :payment_received event-key suffix and payment entity_type.
+            added = [call[0][0] for call in mock_db.add.call_args_list]
+            logs = [obj for obj in added if isinstance(obj, WorkflowExecutionLog)]
+            assert len(logs) == 1
+            assert logs[0].status == "success"
+            assert logs[0].entity_type == "payment"
+            assert logs[0].event_key.endswith(":payment_received")
+
+    def test_process_payment_received_workflows_skips_when_log_exists(
+        self,
+        service,
+        mock_db,
+        sample_payment_received_workflow,
+        sample_payment,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=True):
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_payment_received_workflow])))),
+                Payment: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_payment])))),
+            }[model]
+
+            stats = service.process_payment_received_workflows()
+
+            assert stats["processed_count"] == 1
+            assert stats["skipped_count"] == 1
+            assert stats["created_task_count"] == 0
+
+    def test_process_payment_received_workflows_skips_payment_without_invoice(
+        self,
+        service,
+        mock_db,
+        sample_payment_received_workflow,
+    ):
+        """A payment with no invoice has no actionable owner; skip silently."""
+        orphan_payment = Payment(
+            id=404,
+            invoice_id=None,
+            amount=99.0,
+            currency="USD",
+            payment_method="cash",
+            payment_date=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
+        )
+
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=False):
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_payment_received_workflow])))),
+                Payment: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[orphan_payment])))),
+            }[model]
+
+            stats = service.process_payment_received_workflows()
+
+            assert stats["processed_count"] == 1
+            assert stats["skipped_count"] == 1
+            assert stats["created_task_count"] == 0
+            assert stats["notification_count"] == 0
+            assert stats["errors"] == []
+
+    def test_process_payment_received_workflows_failure_logged(
+        self,
+        service,
+        mock_db,
+        sample_payment_received_workflow,
+        sample_payment,
+        sample_invoice,
+        sample_client,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=False), \
+             patch.object(service, "_resolve_assigned_user", return_value=None):
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_payment_received_workflow])))),
+                Payment: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_payment])))),
+                Invoice: Mock(filter=Mock(return_value=Mock(first=Mock(return_value=sample_invoice)))),
+                Client: Mock(filter=Mock(return_value=Mock(first=Mock(return_value=sample_client)))),
+            }[model]
+
+            stats = service.process_payment_received_workflows()
+
+            assert stats["processed_count"] == 1
+            assert len(stats["errors"]) == 1
+            added = [call[0][0] for call in mock_db.add.call_args_list]
+            failed = [obj for obj in added if isinstance(obj, WorkflowExecutionLog) and obj.status == "failed"]
+            assert len(failed) == 1
+            assert failed[0].entity_type == "payment"
+            assert failed[0].event_key.endswith(":payment_received")
+
+    def test_run_workflow_now_dispatches_to_payment_received_processor(
+        self, service, mock_db, sample_payment_received_workflow
+    ):
+        mock_db.query.return_value.filter.return_value.first.return_value = sample_payment_received_workflow
+        sentinel = {"processed_count": 7, "created_task_count": 0, "notification_count": 0, "skipped_count": 0, "errors": []}
+
+        with patch.object(service, "process_payment_received_workflows", return_value=sentinel) as mock_processor, \
+             patch.object(service, "process_due_invoice_workflows") as overdue_processor, \
+             patch.object(service, "process_invoice_created_workflows") as created_processor:
+            result = service.run_workflow_now(sample_payment_received_workflow.id)
+
+            mock_processor.assert_called_once()
+            overdue_processor.assert_not_called()
+            created_processor.assert_not_called()
+            assert result is sentinel
+
     def test_process_all_workflows_continues_when_one_processor_raises(self, service):
+        empty_stats = {
+            "processed_count": 0,
+            "created_task_count": 0,
+            "notification_count": 0,
+            "skipped_count": 0,
+            "errors": [],
+        }
         with patch.object(
             service,
             "process_due_invoice_workflows",
@@ -535,10 +757,14 @@ class TestWorkflowService:
                 "skipped_count": 0,
                 "errors": [],
             },
+        ), patch.object(
+            service,
+            "process_payment_received_workflows",
+            return_value=empty_stats,
         ):
             stats = service.process_all_workflows()
 
-            # Created processor still ran.
+            # Other processors still ran.
             assert stats["processed_count"] == 1
             # Overdue's exception is captured in errors.
             assert any("invoice_became_overdue" in err for err in stats["errors"])

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from core.models.models_per_tenant import (
     Client,
     Invoice,
+    Payment,
     Reminder,
     ReminderPriority,
     ReminderStatus,
@@ -50,6 +51,16 @@ SUPPORTED_TRIGGERS = {
         "default_task_title_template": "Review newly created invoice #{invoice_number}",
         "task_tag": "invoice-created",
         "event_key_suffix": "created",
+    },
+    "payment_received": {
+        "label": "Payment is received",
+        "description": "Runs once when a payment is recorded against an invoice (and not retroactively for payments that pre-date the workflow).",
+        "trigger_type": "payment_received",
+        "conditions": {},
+        "notification_event_type": "payment_created",
+        "default_task_title_template": "Acknowledge payment on invoice #{invoice_number}",
+        "task_tag": "payment-received",
+        "event_key_suffix": "payment_received",
     },
 }
 
@@ -423,6 +434,157 @@ class WorkflowService:
 
         return stats
 
+    def process_payment_received_workflows(self) -> Dict[str, Any]:
+        """Fire `payment_received` workflows for payments not yet processed.
+
+        Considers only payments created on/after the workflow's own
+        ``created_at`` so deploying a new workflow doesn't retroactively
+        fire for years of pre-existing payments. The execution-log row
+        per (workflow, payment) keeps the scan idempotent across reruns.
+
+        Payments without a linked invoice are skipped — the existing
+        notification + task templates reference the invoice number, and
+        an orphan payment has no actionable owner anyway.
+        """
+        stats = {
+            "processed_count": 0,
+            "created_task_count": 0,
+            "notification_count": 0,
+            "skipped_count": 0,
+            "errors": [],
+        }
+
+        workflows = self.db.query(WorkflowDefinition).filter(
+            WorkflowDefinition.trigger_type == "payment_received",
+            WorkflowDefinition.is_enabled == True,
+        ).all()
+
+        if not workflows:
+            return stats
+
+        now = datetime.now(timezone.utc)
+        trigger_meta = SUPPORTED_TRIGGERS["payment_received"]
+
+        for workflow in workflows:
+            payments = self.db.query(Payment).filter(
+                Payment.created_at.isnot(None),
+                Payment.created_at >= workflow.created_at,
+            ).all()
+
+            for payment in payments:
+                stats["processed_count"] += 1
+                event_key = f"payment:{payment.id}:{trigger_meta['event_key_suffix']}"
+
+                if self._has_execution_log(workflow.id, event_key):
+                    stats["skipped_count"] += 1
+                    continue
+
+                invoice = (
+                    self.db.query(Invoice).filter(Invoice.id == payment.invoice_id).first()
+                    if payment.invoice_id is not None
+                    else None
+                )
+                if invoice is None:
+                    # No actionable owner without an invoice; skip silently.
+                    stats["skipped_count"] += 1
+                    continue
+
+                try:
+                    assigned_user = self._resolve_assigned_user(invoice)
+                    if assigned_user is None:
+                        raise ValueError(
+                            f"No eligible user found to own payment {payment.id} workflow task"
+                        )
+
+                    client = self.db.query(Client).filter(Client.id == invoice.client_id).first()
+                    details = {
+                        "payment_id": payment.id,
+                        "payment_amount": payment.amount,
+                        "payment_currency": payment.currency,
+                        "payment_method": payment.payment_method,
+                        "payment_date": payment.payment_date.isoformat() if payment.payment_date else None,
+                        "invoice_id": invoice.id,
+                        "invoice_number": invoice.number,
+                        "client_name": client.name if client else None,
+                        "amount": invoice.amount,
+                        "currency": invoice.currency,
+                        "workflow_key": workflow.key,
+                    }
+
+                    if workflow.actions and workflow.actions.get("send_internal_notification", True):
+                        send_notification(
+                            db=self.db,
+                            event_type=trigger_meta["notification_event_type"],
+                            user_id=assigned_user.id,
+                            resource_type="payment",
+                            resource_id=str(payment.id),
+                            resource_name=invoice.number,
+                            details=details,
+                        )
+                        stats["notification_count"] += 1
+
+                    task_id = None
+                    if workflow.actions and workflow.actions.get("create_internal_task", True):
+                        reminder = self._create_internal_task(
+                            workflow=workflow,
+                            invoice=invoice,
+                            assigned_user=assigned_user,
+                            details=details,
+                            default_title_template=trigger_meta["default_task_title_template"],
+                            task_tag=trigger_meta["task_tag"],
+                            description_template=(
+                                "Payment of {payment_amount} {payment_currency} received "
+                                "on invoice #{invoice_number} for {client_name}. "
+                                "Acknowledge with the client and reconcile."
+                            ),
+                            template_vars={
+                                "payment_amount": payment.amount,
+                                "payment_currency": payment.currency,
+                            },
+                            extra_metadata={"payment_id": payment.id},
+                        )
+                        task_id = reminder.id
+                        stats["created_task_count"] += 1
+
+                    execution_log = WorkflowExecutionLog(
+                        workflow_id=workflow.id,
+                        event_key=event_key,
+                        entity_type="payment",
+                        entity_id=str(payment.id),
+                        status="success",
+                        details={**details, "task_id": task_id, "assigned_user_id": assigned_user.id},
+                    )
+                    self.db.add(execution_log)
+                    workflow.last_run_at = now
+                    self.db.commit()
+                except Exception as exc:
+                    self.db.rollback()
+                    error = f"Workflow {workflow.key} failed for payment {payment.id}: {exc}"
+                    logger.error(error)
+                    stats["errors"].append(error)
+
+                    try:
+                        failed_log = WorkflowExecutionLog(
+                            workflow_id=workflow.id,
+                            event_key=event_key,
+                            entity_type="payment",
+                            entity_id=str(payment.id),
+                            status="failed",
+                            details={
+                                "payment_id": payment.id,
+                                "invoice_id": invoice.id if invoice else None,
+                                "error": str(exc),
+                                "workflow_key": workflow.key,
+                            },
+                        )
+                        self.db.add(failed_log)
+                        self.db.commit()
+                    except Exception as log_exc:
+                        self.db.rollback()
+                        logger.error(f"Failed to record failed workflow execution log: {log_exc}")
+
+        return stats
+
     # Dispatch table: trigger_type -> bound processor method. Used by both the
     # background runner and the manual ``run_workflow_now`` endpoint so a new
     # trigger only needs to be added once.
@@ -431,6 +593,7 @@ class WorkflowService:
         return {
             "invoice_became_overdue": self.process_due_invoice_workflows,
             "invoice_created": self.process_invoice_created_workflows,
+            "payment_received": self.process_payment_received_workflows,
         }
 
     def process_all_workflows(self) -> Dict[str, Any]:
@@ -503,6 +666,8 @@ class WorkflowService:
         default_title_template: str,
         task_tag: str,
         description_template: str,
+        template_vars: Optional[Dict[str, Any]] = None,
+        extra_metadata: Optional[Dict[str, Any]] = None,
     ) -> Reminder:
         now = datetime.now(timezone.utc)
         due_in_days = 1
@@ -514,11 +679,19 @@ class WorkflowService:
             title_template = workflow.actions.get("task_title_template", title_template)
 
         client_name = details.get("client_name") or "Unknown client"
+        # Default vars cover the invoice-only triggers; per-trigger callers can
+        # extend (or override) via ``template_vars`` to thread in payment-side
+        # context like {payment_amount} / {currency}.
+        format_vars: Dict[str, Any] = {
+            "invoice_number": invoice.number,
+            "client_name": client_name,
+        }
+        if template_vars:
+            format_vars.update(template_vars)
+
         reminder = Reminder(
-            title=title_template.format(invoice_number=invoice.number),
-            description=description_template.format(
-                invoice_number=invoice.number, client_name=client_name
-            ),
+            title=title_template.format(**format_vars),
+            description=description_template.format(**format_vars),
             due_date=now + timedelta(days=due_in_days),
             status=ReminderStatus.PENDING,
             priority=ReminderPriority.HIGH,
@@ -531,6 +704,7 @@ class WorkflowService:
                 "invoice_id": invoice.id,
                 "invoice_number": invoice.number,
                 "task_kind": "internal_follow_up",
+                **(extra_metadata or {}),
             },
         )
         self.db.add(reminder)
