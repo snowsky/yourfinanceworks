@@ -1751,6 +1751,236 @@ class TestWorkflowService:
             # Notification fires for the override user, not the default-resolved one.
             assert mock_notification.call_args.kwargs["user_id"] == target.id
 
+    # ---------- send_client_email action ----------
+
+    def test_catalog_includes_send_client_email_action(self, service):
+        catalog = service.get_catalog()
+        action_ids = {action["id"] for action in catalog["actions"]}
+        assert "send_client_email" in action_ids
+
+    def test_create_workflow_persists_send_client_email_flag(self, service, mock_db):
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+        with patch.object(service, "ensure_default_workflows"):
+            workflow = service.create_workflow(
+                name="With Client Email",
+                description="",
+                trigger_type="invoice_became_overdue",
+                action_ids=["send_internal_notification", "send_client_email"],
+            )
+            assert workflow.actions["send_client_email"] is True
+            assert workflow.actions["add_client_note"] is False
+
+    def test_send_client_email_helper_no_op_without_client(
+        self, service, mock_db, sample_user
+    ):
+        workflow = WorkflowDefinition(id=10, key="demo-key")
+        result = service._send_client_email(
+            client=None,
+            workflow=workflow,
+            subject_template="anything",
+            body_template="anything",
+            template_vars={},
+        )
+        assert result is False
+        mock_db.query.assert_not_called()
+
+    def test_send_client_email_helper_no_op_without_email_address(
+        self, service, mock_db, sample_client, caplog
+    ):
+        workflow = WorkflowDefinition(id=10, key="demo-key")
+        sample_client.email = None
+
+        with caplog.at_level("WARNING"):
+            result = service._send_client_email(
+                client=sample_client,
+                workflow=workflow,
+                subject_template="anything",
+                body_template="anything",
+                template_vars={},
+            )
+
+        assert result is False
+        mock_db.query.assert_not_called()
+        assert any("has no email" in r.message for r in caplog.records)
+
+    def test_send_client_email_helper_no_op_without_provider_config(
+        self, service, mock_db, sample_client, caplog
+    ):
+        workflow = WorkflowDefinition(id=10, key="demo-key")
+        sample_client.email = "client@example.com"
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+
+        with caplog.at_level("WARNING"):
+            result = service._send_client_email(
+                client=sample_client,
+                workflow=workflow,
+                subject_template="anything",
+                body_template="anything",
+                template_vars={},
+            )
+
+        assert result is False
+        assert any(
+            "email_provider_config not set" in r.message for r in caplog.records
+        )
+
+    def test_send_client_email_helper_happy_path(
+        self, service, mock_db, sample_client
+    ):
+        from core.models.models_per_tenant import Settings
+
+        workflow = WorkflowDefinition(id=10, key="demo-key")
+        sample_client.email = "client@example.com"
+
+        settings_row = Settings(
+            key="email_provider_config",
+            value={
+                "provider": "aws_ses",
+                "from_email": "noreply@yfw.test",
+                "from_name": "YFW",
+                "aws_access_key_id": "AKIA",
+                "aws_secret_access_key": "secret",
+                "aws_region": "us-east-1",
+            },
+        )
+        mock_db.query.return_value.filter.return_value.first.return_value = settings_row
+
+        with patch("core.services.email_service.EmailService") as mock_email_service_cls:
+            mock_provider = Mock()
+            mock_provider.send_email.return_value = True
+            mock_email_service_cls.return_value = mock_provider
+
+            result = service._send_client_email(
+                client=sample_client,
+                workflow=workflow,
+                subject_template="Hi {client_name} (workflow {workflow_key})",
+                body_template="Invoice #{invoice_number}",
+                template_vars={"invoice_number": "INV-2026-001"},
+            )
+
+        assert result is True
+        mock_email_service_cls.assert_called_once()
+        sent_message = mock_provider.send_email.call_args.args[0]
+        assert sent_message.to_email == "client@example.com"
+        assert "ACME Corp" in sent_message.subject
+        assert "demo-key" in sent_message.subject
+        assert "INV-2026-001" in sent_message.html_body
+
+    def test_process_due_invoice_workflows_sends_client_email_when_enabled(
+        self,
+        service,
+        mock_db,
+        sample_invoice,
+        sample_user,
+        sample_client,
+    ):
+        from core.models.models_per_tenant import Settings
+
+        sample_client.email = "client@example.com"
+        workflow = WorkflowDefinition(
+            id=99,
+            key="overdue-with-email",
+            trigger_type="invoice_became_overdue",
+            conditions={"invoice_statuses": ["sent"]},
+            actions={
+                "send_internal_notification": False,
+                "create_internal_task": False,
+                "send_client_email": True,
+            },
+            is_enabled=True,
+            is_system=False,
+            is_default=False,
+            created_at=datetime.now(timezone.utc) - timedelta(days=1),
+        )
+
+        settings_row = Settings(
+            key="email_provider_config",
+            value={
+                "provider": "mailgun",
+                "from_email": "noreply@yfw.test",
+                "from_name": "YFW",
+                "mailgun_api_key": "key-x",
+                "mailgun_domain": "yfw.test",
+            },
+        )
+
+        def query_side_effect(model):
+            return {
+                WorkflowDefinition: Mock(
+                    filter=Mock(return_value=Mock(all=Mock(return_value=[workflow])))
+                ),
+                Invoice: Mock(
+                    filter=Mock(return_value=Mock(all=Mock(return_value=[sample_invoice])))
+                ),
+                Client: Mock(
+                    filter=Mock(return_value=Mock(first=Mock(return_value=sample_client)))
+                ),
+                Settings: Mock(
+                    filter=Mock(return_value=Mock(first=Mock(return_value=settings_row)))
+                ),
+            }[model]
+
+        with patch(
+            "core.services.workflow_service.FeatureConfigService.is_enabled",
+            return_value=True,
+        ), patch.object(service, "ensure_default_workflows"), patch.object(
+            service, "_has_execution_log", return_value=False
+        ), patch.object(
+            service, "_resolve_assigned_user", return_value=sample_user
+        ), patch(
+            "core.services.email_service.EmailService"
+        ) as mock_email_service_cls:
+            mock_provider = Mock()
+            mock_provider.send_email.return_value = True
+            mock_email_service_cls.return_value = mock_provider
+            mock_db.query.side_effect = query_side_effect
+
+            stats = service.process_due_invoice_workflows()
+
+        assert stats["client_email_count"] == 1
+        assert stats["notification_count"] == 0
+        assert stats["created_task_count"] == 0
+
+        sent_message = mock_provider.send_email.call_args.args[0]
+        assert sent_message.to_email == "client@example.com"
+        assert "INV-2026-001" in sent_message.subject
+
+        added = [call[0][0] for call in mock_db.add.call_args_list]
+        logs = [obj for obj in added if isinstance(obj, WorkflowExecutionLog)]
+        assert logs[0].details["client_email_sent"] is True
+
+    def test_process_all_workflows_aggregates_client_email_count(self, service):
+        empty_stats = {
+            "processed_count": 0,
+            "created_task_count": 0,
+            "notification_count": 0,
+            "client_note_count": 0,
+            "client_email_count": 0,
+            "skipped_count": 0,
+            "errors": [],
+        }
+        with patch.object(
+            service,
+            "process_due_invoice_workflows",
+            return_value={**empty_stats, "client_email_count": 2},
+        ), patch.object(
+            service, "process_invoice_created_workflows", return_value=empty_stats
+        ), patch.object(
+            service,
+            "process_payment_received_workflows",
+            return_value={**empty_stats, "client_email_count": 1},
+        ), patch.object(
+            service, "process_client_created_workflows", return_value=empty_stats
+        ), patch.object(
+            service, "process_expense_created_workflows", return_value=empty_stats
+        ), patch.object(
+            service,
+            "process_expense_submitted_for_approval_workflows",
+            return_value=empty_stats,
+        ):
+            stats = service.process_all_workflows()
+            assert stats["client_email_count"] == 3
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

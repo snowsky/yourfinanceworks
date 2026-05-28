@@ -42,10 +42,10 @@ For each new trigger:
 
 ## Action Backlog
 
-- Add `send_client_email`
-- Add `assign_to_specific_user`
-- Add `add_client_note`
-- Add `create_client_timeline_event`
+- Add `send_client_email` (done)
+- Add `assign_to_specific_user` (done, PR #302)
+- Add `add_client_note` (done, PR #301)
+- Add `create_client_timeline_event` (covered by `add_client_note`; the client timeline is a read-only aggregator over existing tables and already surfaces workflow-generated client notes as `event_type=note`. A dedicated event row is not required until the UI needs to render workflow events distinctly from manual notes.)
 - Add `send_slack_notification`
 
 For each new action:
