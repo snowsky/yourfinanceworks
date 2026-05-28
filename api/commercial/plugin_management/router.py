@@ -72,6 +72,38 @@ def _validate_plugin_id(plugin_id: str, field_name: str = "plugin_id") -> str:
     return normalized
 
 
+def _validate_plugin_user_token(
+    access_token: str,
+    tenant_id: int,
+    plugin_user_id: int,
+) -> None:
+    """Verify that ``access_token`` is bound to ``(tenant_id, plugin_user_id)``.
+
+    Raises 401 on a missing/undecodable token, 403 on a claim mismatch. The
+    same check is used by every public-paywall endpoint that reads or mutates
+    billing state — without it, the ``tenant_id`` and ``plugin_user_id`` taken
+    from the request body are entirely caller-controlled and any anonymous
+    request can read or modify another user's usage counter and subscription.
+    """
+    from jose import jwt, JWTError
+    from core.routers.auth import SECRET_KEY, ALGORITHM
+
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Plugin access token required")
+    try:
+        token_data = jwt.decode(access_token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired plugin token")
+    if (
+        token_data.get("plugin_user_id") != plugin_user_id
+        or token_data.get("tenant_id") != tenant_id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Token does not match the requested plugin user",
+        )
+
+
 @router.post("/token/{plugin_id}", tags=["plugin_auth"])
 async def generate_plugin_sidecar_token(
     plugin_id: str,
@@ -142,10 +174,37 @@ async def generate_plugin_sidecar_token(
 @router.get("/registry")
 async def get_plugin_registry():
     """
-    Return metadata for all plugins discovered on disk.
-    This is public metadata — no authentication required.
-    Used by the frontend to populate the plugin list dynamically.
+    Return SAFE metadata for all plugins discovered on disk.
+
+    This endpoint is exempt from auth (the UI uses it to bootstrap the
+    plugin sidebar before login). Sensitive fields — private git URLs,
+    raw load-error strings, ``permitted_core_tables`` capability lists —
+    are stripped; a boolean ``has_load_error`` replaces the error string
+    so the UI can still render a generic failure state.
+
+    Admin consumers that need the full payload (e.g. the super-admin
+    Plugins tab, which renders the reinstall button) call
+    ``GET /plugins/registry/full`` below.
     """
+    return {"plugins": plugin_loader.get_public_registry()}
+
+
+@router.get("/registry/full")
+async def get_plugin_registry_full(
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """
+    Return the full plugin manifest including ``git_source``, raw
+    ``load_error`` strings, and ``permitted_core_tables``.
+
+    Authenticated users only. The CRITICAL the public ``/registry`` endpoint
+    fixes was an unauthenticated leak, not authenticated-user visibility —
+    any logged-in user is already part of the platform's trust boundary, so
+    gating this further (e.g. admin-only) would force the authenticated
+    plugin sidebar to handle the stripped public payload for no real
+    security gain.
+    """
+    _ = current_user  # FastAPI dependency consumed; user identity not otherwise needed.
     return {"plugins": plugin_loader.get_registry()}
 
 
@@ -1256,6 +1315,7 @@ def get_tenant_payment_settings(tenant_id: int):
 class CheckoutRequest(BaseModel):
     tenant_id: int
     plugin_user_id: int
+    access_token: str
 
 class PortalRequest(BaseModel):
     tenant_id: int
@@ -1266,6 +1326,7 @@ class PortalRequest(BaseModel):
 class IncrementUsageRequest(BaseModel):
     tenant_id: int
     plugin_user_id: int
+    access_token: str
     amount: int = 1
 
 # --- Plugin Payment & Paywall Endpoints ---
@@ -1277,6 +1338,7 @@ async def plugin_paywall_checkout(
     request: Request,
     db: Session = Depends(get_master_db)
 ):
+    _validate_plugin_user_token(payload.access_token, payload.tenant_id, payload.plugin_user_id)
     # Normalize plugin ID to match config keys (e.g. "statement_tools" -> "statement-tools")
     plugin_id = _normalize_plugin_id(plugin_id)
 
@@ -1364,19 +1426,7 @@ async def create_plugin_payment_portal(
     Only allows users who already have a Stripe customer ID (i.e., have attempted checkout before).
     Requires a valid plugin access token to verify the caller owns the plugin_user_id.
     """
-    from jose import jwt, JWTError
-    from core.routers.auth import SECRET_KEY, ALGORITHM
-
-    # Verify the plugin access token belongs to the claimed plugin_user_id
-    try:
-        token_data = jwt.decode(payload.access_token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired plugin token")
-
-    token_plugin_user_id = token_data.get("plugin_user_id")
-    token_tenant_id = token_data.get("tenant_id")
-    if token_plugin_user_id != payload.plugin_user_id or token_tenant_id != payload.tenant_id:
-        raise HTTPException(status_code=403, detail="Token does not match the requested plugin user")
+    _validate_plugin_user_token(payload.access_token, payload.tenant_id, payload.plugin_user_id)
 
     plugin_id = _normalize_plugin_id(plugin_id)
 
@@ -1433,6 +1483,7 @@ async def plugin_paywall_status(
     payload: CheckoutRequest,
     db: Session = Depends(get_master_db)
 ):
+    _validate_plugin_user_token(payload.access_token, payload.tenant_id, payload.plugin_user_id)
     # Normalize plugin ID
     plugin_id = _normalize_plugin_id(plugin_id)
 
@@ -1487,6 +1538,7 @@ async def increment_plugin_usage(
     """
     Increment the usage count for a plugin user.
     """
+    _validate_plugin_user_token(payload.access_token, payload.tenant_id, payload.plugin_user_id)
     plugin_id = _normalize_plugin_id(plugin_id)
 
     plugin_user = db.query(PluginUser).filter(

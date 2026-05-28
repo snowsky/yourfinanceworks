@@ -223,3 +223,54 @@ def test_discovery_is_cached(tmp_path, loader):
 
     assert first is second  # same list object — not re-scanned
     assert len(second) == 1
+
+
+# 13. get_public_registry strips sensitive metadata
+def test_get_public_registry_strips_sensitive_fields(tmp_path, loader):
+    """The public registry endpoint is exempt from auth; sensitive fields
+    that help an attacker map the install surface (private git URLs, raw
+    load-error text, permitted-core-tables capability lists) must not appear
+    in the response."""
+    make_plugin(tmp_path, "leaky-plugin", VALID_MANIFEST)
+
+    with patch("plugins.loader._PLUGINS_DIR", tmp_path):
+        # Simulate a load error and a permitted_core_tables manifest field —
+        # these are the kinds of payload an attacker would want to read.
+        loader._load_errors["leaky-plugin"] = (
+            "Traceback (most recent call last):\n  File \"/internal/path/...\""
+        )
+        for p in loader.discover():
+            if p.plugin_id == "leaky-plugin":
+                p.manifest["permitted_core_tables"] = ["users", "tenants"]
+                p.manifest["git_source"] = {"git_url": "git@private:org/secret.git", "ref": "main"}
+
+        public = loader.get_public_registry()
+        full = loader.get_registry()
+
+    assert len(public) == 1
+    entry = public[0]
+    # Sensitive fields are stripped.
+    assert "git_source" not in entry
+    assert "load_error" not in entry
+    assert "permitted_core_tables" not in entry
+    # Replacement boolean is present so the UI still renders an error state.
+    assert entry["has_load_error"] is True
+    # Manifest basics survive — UI still needs them for sidebar rendering.
+    assert entry["name"] == "leaky-plugin"
+
+    # Sanity: the admin-facing registry still carries the sensitive fields.
+    full_entry = next(e for e in full if e.get("name") == "leaky-plugin")
+    assert full_entry["load_error"].startswith("Traceback")
+    assert full_entry["git_source"]["git_url"] == "git@private:org/secret.git"
+    assert full_entry["permitted_core_tables"] == ["users", "tenants"]
+
+
+# 14. get_public_registry without a load error reports has_load_error = False
+def test_get_public_registry_has_load_error_false_for_healthy_plugin(tmp_path, loader):
+    make_plugin(tmp_path, "healthy-plugin", VALID_MANIFEST)
+
+    with patch("plugins.loader._PLUGINS_DIR", tmp_path):
+        public = loader.get_public_registry()
+
+    assert len(public) == 1
+    assert public[0]["has_load_error"] is False

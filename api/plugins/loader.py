@@ -296,13 +296,18 @@ class PluginLoader:
         return any(p.plugin_id == plugin_id and p.is_sidecar for p in self._discovered)
 
     def get_registry(self) -> list[dict]:
-        """Return a list of manifest dicts suitable for the /plugins/registry endpoint.
+        """Return a list of manifest dicts suitable for admin consumers.
 
         Plugins that failed to load are included with a ``load_error`` field so the
         frontend can show an error state on the plugin card instead of hiding them.
         Dynamic (externally installed) plugins also expose ``is_external`` and
         ``git_source`` fields so the frontend can show a reinstall button.
         Sidecar plugins expose ``is_sidecar`` so the frontend knows they are external services.
+
+        This payload includes sensitive metadata (private git URLs, raw
+        ``load_error`` strings, ``permitted_core_tables`` capability lists).
+        It must only be served to authenticated admins — see
+        :meth:`get_public_registry` for the public-facing variant.
         """
         result = []
         for p in self.discover():
@@ -320,6 +325,41 @@ class PluginLoader:
                         entry["git_source"] = {"git_url": meta.get("git_url"), "ref": meta.get("ref")}
                     except Exception:
                         pass
+            result.append(entry)
+        return result
+
+    # Fields that must be stripped from the public registry response.
+    # ``git_source`` reveals private install URLs; ``load_error`` strings may
+    # contain stack frames or filesystem paths; ``permitted_core_tables`` is a
+    # capability map an attacker can use to plan tenant-isolation bypass.
+    _SENSITIVE_REGISTRY_FIELDS = (
+        "git_source",
+        "load_error",
+        "permitted_core_tables",
+    )
+
+    def get_public_registry(self) -> list[dict]:
+        """Return the registry stripped of sensitive metadata.
+
+        The /plugins/registry endpoint is exempt from auth (the UI needs to
+        bootstrap the plugin sidebar before login completes), so the response
+        must not carry anything that helps an unauthenticated caller map the
+        installed-plugin surface for further attack. Replaces the full
+        ``load_error`` string with a boolean ``has_load_error`` so the UI can
+        still render a generic failure state without leaking error detail.
+        """
+        result = []
+        for p in self.discover():
+            entry = {
+                k: v
+                for k, v in p.manifest.items()
+                if k not in self._SENSITIVE_REGISTRY_FIELDS
+            }
+            entry["has_load_error"] = p.plugin_id in self._load_errors
+            if p.is_sidecar:
+                entry["is_sidecar"] = True
+            elif self.is_dynamic_plugin(p.plugin_id):
+                entry["is_external"] = True
             result.append(entry)
         return result
 

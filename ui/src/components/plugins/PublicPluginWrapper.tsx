@@ -134,7 +134,8 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
             method: 'POST',
             body: JSON.stringify({
                tenant_id: parseInt(explicitTenantId || String(tokenData.tenant_id), 10),
-               plugin_user_id: tokenData.user.id
+               plugin_user_id: tokenData.user.id,
+               access_token: tokenData.access_token,
             })
           });
           setStatus(res);
@@ -167,6 +168,7 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
         body: JSON.stringify({
           tenant_id: parseInt(explicitTenantId || String(tokenData.tenant_id), 10),
           plugin_user_id: tokenData.user.id,
+          access_token: tokenData.access_token,
           amount
         })
       });
