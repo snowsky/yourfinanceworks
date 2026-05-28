@@ -18,6 +18,7 @@ from core.schemas.workflows import (
     WorkflowUpdateRequest,
 )
 from core.services.workflow_service import WorkflowService
+from core.utils.audit import log_audit_event
 from core.utils.feature_gate import require_feature
 from core.utils.rbac import require_admin
 
@@ -26,6 +27,16 @@ router = APIRouter(
     tags=["workflows"],
     dependencies=[Depends(lambda db=Depends(get_db): require_feature("workflow_automation")(lambda: None)())]
 )
+
+
+def _workflow_audit_details(workflow: WorkflowDefinition) -> dict:
+    """Compact audit payload — trigger + flags + enabled state, no PII."""
+    return {
+        "trigger_type": workflow.trigger_type,
+        "is_enabled": workflow.is_enabled,
+        "is_system": workflow.is_system,
+        "actions": workflow.actions or {},
+    }
 
 
 @router.get("/", response_model=list[WorkflowDefinitionResponse])
@@ -65,7 +76,33 @@ async def create_workflow(
             assigned_user_id=payload.assigned_user_id,
         )
     except ValueError as exc:
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="CREATE",
+            resource_type="workflow",
+            resource_id=None,
+            resource_name=payload.name,
+            details={
+                "trigger_type": payload.trigger_type,
+                "action_ids": payload.action_ids,
+            },
+            status="error",
+            error_message=str(exc),
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="CREATE",
+        resource_type="workflow",
+        resource_id=str(workflow.id),
+        resource_name=workflow.name,
+        details=_workflow_audit_details(workflow),
+    )
     return workflow
 
 
@@ -81,9 +118,25 @@ async def toggle_workflow(
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
+    previous_state = workflow.is_enabled
     workflow.is_enabled = payload.is_enabled
     db.commit()
     db.refresh(workflow)
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="TOGGLE",
+        resource_type="workflow",
+        resource_id=str(workflow.id),
+        resource_name=workflow.name,
+        details={
+            "trigger_type": workflow.trigger_type,
+            "previous_enabled": previous_state,
+            "new_enabled": workflow.is_enabled,
+        },
+    )
     return workflow
 
 
@@ -99,7 +152,36 @@ async def run_workflow_now(
     try:
         result = service.run_workflow_now(workflow_id)
     except ValueError as exc:
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="RUN_NOW",
+            resource_type="workflow",
+            resource_id=str(workflow_id),
+            resource_name=None,
+            details=None,
+            status="error",
+            error_message=str(exc),
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="RUN_NOW",
+        resource_type="workflow",
+        resource_id=str(workflow_id),
+        resource_name=None,
+        details={
+            "processed_count": result["processed_count"],
+            "created_task_count": result["created_task_count"],
+            "notification_count": result["notification_count"],
+            "skipped_count": result["skipped_count"],
+            "error_count": len(result["errors"]),
+        },
+    )
 
     return WorkflowRunNowResponse(
         workflow_id=workflow_id,
@@ -148,7 +230,7 @@ async def update_workflow(
     require_admin(current_user)
     service = WorkflowService(db)
     try:
-        return service.update_workflow(
+        workflow = service.update_workflow(
             workflow_id=workflow_id,
             name=payload.name,
             description=payload.description,
@@ -156,7 +238,31 @@ async def update_workflow(
             assigned_user_id=payload.assigned_user_id,
         )
     except ValueError as exc:
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE",
+            resource_type="workflow",
+            resource_id=str(workflow_id),
+            resource_name=payload.name,
+            details={"action_ids": payload.action_ids},
+            status="error",
+            error_message=str(exc),
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="UPDATE",
+        resource_type="workflow",
+        resource_id=str(workflow.id),
+        resource_name=workflow.name,
+        details=_workflow_audit_details(workflow),
+    )
+    return workflow
 
 
 @router.delete("/{workflow_id}", status_code=204)
@@ -167,10 +273,36 @@ async def delete_workflow(
 ):
     require_admin(current_user)
     service = WorkflowService(db)
+    target = db.query(WorkflowDefinition).filter(WorkflowDefinition.id == workflow_id).first()
+    target_name = target.name if target else None
+    target_trigger = target.trigger_type if target else None
     try:
         service.delete_workflow(workflow_id)
     except ValueError as exc:
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="DELETE",
+            resource_type="workflow",
+            resource_id=str(workflow_id),
+            resource_name=target_name,
+            details={"trigger_type": target_trigger} if target_trigger else None,
+            status="error",
+            error_message=str(exc),
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="DELETE",
+        resource_type="workflow",
+        resource_id=str(workflow_id),
+        resource_name=target_name,
+        details={"trigger_type": target_trigger} if target_trigger else None,
+    )
     return None
 
 
@@ -183,7 +315,33 @@ async def duplicate_workflow(
     require_admin(current_user)
     service = WorkflowService(db)
     try:
-        return service.duplicate_workflow(workflow_id)
+        clone = service.duplicate_workflow(workflow_id)
     except ValueError as exc:
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="DUPLICATE",
+            resource_type="workflow",
+            resource_id=str(workflow_id),
+            resource_name=None,
+            details={"source_workflow_id": workflow_id},
+            status="error",
+            error_message=str(exc),
+        )
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="DUPLICATE",
+        resource_type="workflow",
+        resource_id=str(clone.id),
+        resource_name=clone.name,
+        details={
+            "source_workflow_id": workflow_id,
+            **_workflow_audit_details(clone),
+        },
+    )
+    return clone
