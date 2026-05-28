@@ -13,7 +13,8 @@ from core.models.models_per_tenant import (
     Payment,
     Reminder,
     User,
-    Client
+    Client,
+    ClientNote,
 )
 
 
@@ -1438,6 +1439,170 @@ class TestWorkflowService:
             result = service._resolve_user_for_expense_approval(approval)
             fallback.assert_called_once()
             assert result is sample_user
+
+    # ---------- add_client_note action ----------
+
+    def test_catalog_includes_add_client_note_action(self, service):
+        catalog = service.get_catalog()
+        action_ids = {action["id"] for action in catalog["actions"]}
+        assert "add_client_note" in action_ids
+
+    def test_create_workflow_persists_add_client_note_flag(self, service, mock_db):
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+        with patch.object(service, "ensure_default_workflows"):
+            workflow = service.create_workflow(
+                name="With Note",
+                description="",
+                trigger_type="invoice_became_overdue",
+                action_ids=["send_internal_notification", "add_client_note"],
+            )
+            assert workflow.actions["add_client_note"] is True
+            # Unselected actions stay False so older readers see a stable dict shape.
+            assert workflow.actions["create_internal_task"] is False
+
+    def test_add_client_note_helper_inserts_attributed_row(self, service, mock_db, sample_client, sample_user):
+        workflow = WorkflowDefinition(id=10, key="demo-key")
+        note = service._add_client_note(
+            client=sample_client,
+            workflow=workflow,
+            assigned_user=sample_user,
+            note_template="[Workflow {workflow_key}] Invoice #{invoice_number} is now overdue.",
+            note_vars={"invoice_number": "INV-2026-001"},
+        )
+
+        assert isinstance(note, ClientNote)
+        assert note.client_id == sample_client.id
+        assert note.user_id == sample_user.id
+        assert note.note == "[Workflow demo-key] Invoice #INV-2026-001 is now overdue."
+        mock_db.add.assert_called()
+        mock_db.flush.assert_called()
+
+    def test_add_client_note_helper_no_op_without_client(self, service, mock_db, sample_user):
+        workflow = WorkflowDefinition(id=10, key="demo-key")
+        result = service._add_client_note(
+            client=None,
+            workflow=workflow,
+            assigned_user=sample_user,
+            note_template="anything {workflow_key}",
+            note_vars={},
+        )
+        assert result is None
+        # Nothing was inserted.
+        added = [call[0][0] for call in mock_db.add.call_args_list]
+        assert not any(isinstance(obj, ClientNote) for obj in added)
+
+    def test_process_due_invoice_workflows_adds_client_note_when_enabled(
+        self,
+        service,
+        mock_db,
+        sample_invoice,
+        sample_user,
+        sample_client,
+    ):
+        workflow = WorkflowDefinition(
+            id=99,
+            key="overdue-with-note",
+            trigger_type="invoice_became_overdue",
+            conditions={"invoice_statuses": ["sent"]},
+            actions={
+                "send_internal_notification": False,
+                "create_internal_task": False,
+                "add_client_note": True,
+            },
+            is_enabled=True,
+            is_system=False,
+            is_default=False,
+            created_at=datetime.now(timezone.utc) - timedelta(days=1),
+        )
+
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "ensure_default_workflows"), \
+             patch.object(service, "_has_execution_log", return_value=False), \
+             patch.object(service, "_resolve_assigned_user", return_value=sample_user):
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[workflow])))),
+                Invoice: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_invoice])))),
+                Client: Mock(filter=Mock(return_value=Mock(first=Mock(return_value=sample_client)))),
+            }[model]
+
+            stats = service.process_due_invoice_workflows()
+
+            assert stats["client_note_count"] == 1
+            assert stats["created_task_count"] == 0
+            assert stats["notification_count"] == 0
+
+            added = [call[0][0] for call in mock_db.add.call_args_list]
+            notes = [obj for obj in added if isinstance(obj, ClientNote)]
+            assert len(notes) == 1
+            assert notes[0].client_id == sample_client.id
+            assert notes[0].user_id == sample_user.id
+            assert "Invoice #INV-2026-001 is now overdue" in notes[0].note
+
+            logs = [obj for obj in added if isinstance(obj, WorkflowExecutionLog)]
+            assert logs[0].details["client_note_id"] == notes[0].id
+
+    def test_process_expense_created_workflows_skips_note_when_no_client(
+        self,
+        service,
+        mock_db,
+        sample_user,
+        sample_expense_created_workflow,
+    ):
+        """Expenses without a client link should silently skip the note (and not bump count)."""
+        # Override the action set to include add_client_note.
+        sample_expense_created_workflow.actions = {
+            **sample_expense_created_workflow.actions,
+            "add_client_note": True,
+        }
+        expense_no_client = Expense(
+            id=910,
+            amount=25.0,
+            currency="USD",
+            expense_date=datetime.now(timezone.utc),
+            category="meals",
+            vendor="Cafe",
+            status="recorded",
+            created_by_user_id=1,
+            client_id=None,
+            is_deleted=False,
+            created_at=datetime.now(timezone.utc),
+        )
+
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=False), \
+             patch.object(service, "_resolve_user_for_expense", return_value=sample_user):
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_expense_created_workflow])))),
+                Expense: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[expense_no_client])))),
+            }[model]
+
+            mock_reminder = Reminder(id=5050)
+            with patch.object(service, "_create_internal_task", return_value=mock_reminder):
+                stats = service.process_expense_created_workflows()
+
+            assert stats["client_note_count"] == 0
+            added = [call[0][0] for call in mock_db.add.call_args_list]
+            assert not any(isinstance(obj, ClientNote) for obj in added)
+
+    def test_process_all_workflows_aggregates_client_note_count(self, service):
+        empty_stats = {
+            "processed_count": 0,
+            "created_task_count": 0,
+            "notification_count": 0,
+            "client_note_count": 0,
+            "skipped_count": 0,
+            "errors": [],
+        }
+        with patch.object(service, "process_due_invoice_workflows", return_value={**empty_stats, "client_note_count": 2}), \
+             patch.object(service, "process_invoice_created_workflows", return_value=empty_stats), \
+             patch.object(service, "process_payment_received_workflows", return_value={**empty_stats, "client_note_count": 1}), \
+             patch.object(service, "process_client_created_workflows", return_value=empty_stats), \
+             patch.object(service, "process_expense_created_workflows", return_value=empty_stats), \
+             patch.object(service, "process_expense_submitted_for_approval_workflows", return_value=empty_stats):
+            stats = service.process_all_workflows()
+            assert stats["client_note_count"] == 3
 
 
 if __name__ == "__main__":

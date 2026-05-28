@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.models.models_per_tenant import (
     Client,
+    ClientNote,
     Expense,
     ExpenseApproval,
     Invoice,
@@ -43,6 +44,9 @@ SUPPORTED_TRIGGERS = {
         "default_task_title_template": "Follow up on overdue invoice #{invoice_number}",
         "task_tag": "invoice-overdue",
         "event_key_suffix": "overdue",
+        "client_note_template": (
+            "[Workflow {workflow_key}] Invoice #{invoice_number} is now overdue."
+        ),
     },
     "invoice_created": {
         "label": "Invoice is created",
@@ -53,6 +57,9 @@ SUPPORTED_TRIGGERS = {
         "default_task_title_template": "Review newly created invoice #{invoice_number}",
         "task_tag": "invoice-created",
         "event_key_suffix": "created",
+        "client_note_template": (
+            "[Workflow {workflow_key}] Invoice #{invoice_number} was created."
+        ),
     },
     "payment_received": {
         "label": "Payment is received",
@@ -63,6 +70,10 @@ SUPPORTED_TRIGGERS = {
         "default_task_title_template": "Acknowledge payment on invoice #{invoice_number}",
         "task_tag": "payment-received",
         "event_key_suffix": "payment_received",
+        "client_note_template": (
+            "[Workflow {workflow_key}] Payment of {payment_amount} {payment_currency} "
+            "received on invoice #{invoice_number}."
+        ),
     },
     "client_created": {
         "label": "Client is created",
@@ -73,6 +84,9 @@ SUPPORTED_TRIGGERS = {
         "default_task_title_template": "Onboard new client {client_name}",
         "task_tag": "client-created",
         "event_key_suffix": "client_created",
+        "client_note_template": (
+            "[Workflow {workflow_key}] Client record opened — onboarding workflow fired."
+        ),
     },
     "expense_created": {
         "label": "Expense is recorded",
@@ -83,6 +97,10 @@ SUPPORTED_TRIGGERS = {
         "default_task_title_template": "Review newly recorded expense from {vendor}",
         "task_tag": "expense-created",
         "event_key_suffix": "expense_created",
+        "client_note_template": (
+            "[Workflow {workflow_key}] Expense from {vendor} ({amount} {currency}) "
+            "was recorded."
+        ),
     },
     "expense_submitted_for_approval": {
         "label": "Expense is submitted for approval",
@@ -93,6 +111,10 @@ SUPPORTED_TRIGGERS = {
         "default_task_title_template": "Approve expense from {vendor}",
         "task_tag": "expense-approval-pending",
         "event_key_suffix": "submitted_for_approval",
+        "client_note_template": (
+            "[Workflow {workflow_key}] Expense from {vendor} ({amount} {currency}) "
+            "submitted for approval (level {approval_level})."
+        ),
     },
 }
 
@@ -104,6 +126,13 @@ SUPPORTED_ACTIONS = {
     "create_internal_task": {
         "label": "Create internal task",
         "description": "Create a reminder-backed task assigned to the responsible teammate.",
+    },
+    "add_client_note": {
+        "label": "Add a note to the client record",
+        "description": (
+            "Append an audit-trail note on the affected client. Skipped when the "
+            "trigger has no client context (e.g. expenses without a linked client)."
+        ),
     },
 }
 
@@ -191,6 +220,7 @@ class WorkflowService:
         actions = {
             "send_internal_notification": "send_internal_notification" in normalized_actions,
             "create_internal_task": "create_internal_task" in normalized_actions,
+            "add_client_note": "add_client_note" in normalized_actions,
             "task_type": "reminder",
             "task_title_template": "Follow up on overdue invoice #{invoice_number}",
             "task_due_in_days": 1,
@@ -217,6 +247,7 @@ class WorkflowService:
             "processed_count": 0,
             "created_task_count": 0,
             "notification_count": 0,
+            "client_note_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -299,13 +330,33 @@ class WorkflowService:
                         task_id = reminder.id
                         stats["created_task_count"] += 1
 
+                    client_note_id = None
+                    if workflow.actions and workflow.actions.get("add_client_note", False):
+                        note = self._add_client_note(
+                            client=client,
+                            workflow=workflow,
+                            assigned_user=assigned_user,
+                            note_template=SUPPORTED_TRIGGERS["invoice_became_overdue"][
+                                "client_note_template"
+                            ],
+                            note_vars={"invoice_number": invoice.number},
+                        )
+                        if note is not None:
+                            client_note_id = note.id
+                            stats["client_note_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
                         entity_type="invoice",
                         entity_id=str(invoice.id),
                         status="success",
-                        details={**details, "task_id": task_id, "assigned_user_id": assigned_user.id},
+                        details={
+                            **details,
+                            "task_id": task_id,
+                            "client_note_id": client_note_id,
+                            "assigned_user_id": assigned_user.id,
+                        },
                     )
                     self.db.add(execution_log)
                     workflow.last_run_at = now
@@ -350,6 +401,7 @@ class WorkflowService:
             "processed_count": 0,
             "created_task_count": 0,
             "notification_count": 0,
+            "client_note_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -427,13 +479,31 @@ class WorkflowService:
                         task_id = reminder.id
                         stats["created_task_count"] += 1
 
+                    client_note_id = None
+                    if workflow.actions and workflow.actions.get("add_client_note", False):
+                        note = self._add_client_note(
+                            client=client,
+                            workflow=workflow,
+                            assigned_user=assigned_user,
+                            note_template=trigger_meta["client_note_template"],
+                            note_vars={"invoice_number": invoice.number},
+                        )
+                        if note is not None:
+                            client_note_id = note.id
+                            stats["client_note_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
                         entity_type="invoice",
                         entity_id=str(invoice.id),
                         status="success",
-                        details={**details, "task_id": task_id, "assigned_user_id": assigned_user.id},
+                        details={
+                            **details,
+                            "task_id": task_id,
+                            "client_note_id": client_note_id,
+                            "assigned_user_id": assigned_user.id,
+                        },
                     )
                     self.db.add(execution_log)
                     workflow.last_run_at = now
@@ -482,6 +552,7 @@ class WorkflowService:
             "processed_count": 0,
             "created_task_count": 0,
             "notification_count": 0,
+            "client_note_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -578,13 +649,35 @@ class WorkflowService:
                         task_id = reminder.id
                         stats["created_task_count"] += 1
 
+                    client_note_id = None
+                    if workflow.actions and workflow.actions.get("add_client_note", False):
+                        note = self._add_client_note(
+                            client=client,
+                            workflow=workflow,
+                            assigned_user=assigned_user,
+                            note_template=trigger_meta["client_note_template"],
+                            note_vars={
+                                "invoice_number": invoice.number,
+                                "payment_amount": payment.amount,
+                                "payment_currency": payment.currency,
+                            },
+                        )
+                        if note is not None:
+                            client_note_id = note.id
+                            stats["client_note_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
                         entity_type="payment",
                         entity_id=str(payment.id),
                         status="success",
-                        details={**details, "task_id": task_id, "assigned_user_id": assigned_user.id},
+                        details={
+                            **details,
+                            "task_id": task_id,
+                            "client_note_id": client_note_id,
+                            "assigned_user_id": assigned_user.id,
+                        },
                     )
                     self.db.add(execution_log)
                     workflow.last_run_at = now
@@ -630,6 +723,7 @@ class WorkflowService:
             "processed_count": 0,
             "created_task_count": 0,
             "notification_count": 0,
+            "client_note_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -705,13 +799,32 @@ class WorkflowService:
                         task_id = reminder.id
                         stats["created_task_count"] += 1
 
+                    client_note_id = None
+                    if workflow.actions and workflow.actions.get("add_client_note", False):
+                        # For client_created, the trigger entity *is* the client.
+                        note = self._add_client_note(
+                            client=client,
+                            workflow=workflow,
+                            assigned_user=assigned_user,
+                            note_template=trigger_meta["client_note_template"],
+                            note_vars={},
+                        )
+                        if note is not None:
+                            client_note_id = note.id
+                            stats["client_note_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
                         entity_type="client",
                         entity_id=str(client.id),
                         status="success",
-                        details={**details, "task_id": task_id, "assigned_user_id": assigned_user.id},
+                        details={
+                            **details,
+                            "task_id": task_id,
+                            "client_note_id": client_note_id,
+                            "assigned_user_id": assigned_user.id,
+                        },
                     )
                     self.db.add(execution_log)
                     workflow.last_run_at = now
@@ -756,6 +869,7 @@ class WorkflowService:
             "processed_count": 0,
             "created_task_count": 0,
             "notification_count": 0,
+            "client_note_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -842,13 +956,40 @@ class WorkflowService:
                         task_id = reminder.id
                         stats["created_task_count"] += 1
 
+                    client_note_id = None
+                    if (
+                        workflow.actions
+                        and workflow.actions.get("add_client_note", False)
+                        and getattr(expense, "client_id", None) is not None
+                    ):
+                        client = self.db.query(Client).filter(Client.id == expense.client_id).first()
+                        note = self._add_client_note(
+                            client=client,
+                            workflow=workflow,
+                            assigned_user=assigned_user,
+                            note_template=trigger_meta["client_note_template"],
+                            note_vars={
+                                "vendor": vendor,
+                                "amount": expense.amount if expense.amount is not None else 0,
+                                "currency": expense.currency or "USD",
+                            },
+                        )
+                        if note is not None:
+                            client_note_id = note.id
+                            stats["client_note_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
                         entity_type="expense",
                         entity_id=str(expense.id),
                         status="success",
-                        details={**details, "task_id": task_id, "assigned_user_id": assigned_user.id},
+                        details={
+                            **details,
+                            "task_id": task_id,
+                            "client_note_id": client_note_id,
+                            "assigned_user_id": assigned_user.id,
+                        },
                     )
                     self.db.add(execution_log)
                     workflow.last_run_at = now
@@ -903,6 +1044,7 @@ class WorkflowService:
             "processed_count": 0,
             "created_task_count": 0,
             "notification_count": 0,
+            "client_note_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -1007,13 +1149,41 @@ class WorkflowService:
                         task_id = reminder.id
                         stats["created_task_count"] += 1
 
+                    client_note_id = None
+                    if (
+                        workflow.actions
+                        and workflow.actions.get("add_client_note", False)
+                        and getattr(expense, "client_id", None) is not None
+                    ):
+                        client = self.db.query(Client).filter(Client.id == expense.client_id).first()
+                        note = self._add_client_note(
+                            client=client,
+                            workflow=workflow,
+                            assigned_user=assigned_user,
+                            note_template=trigger_meta["client_note_template"],
+                            note_vars={
+                                "vendor": vendor,
+                                "amount": expense.amount if expense.amount is not None else 0,
+                                "currency": expense.currency or "USD",
+                                "approval_level": approval.approval_level,
+                            },
+                        )
+                        if note is not None:
+                            client_note_id = note.id
+                            stats["client_note_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
                         entity_type="expense_approval",
                         entity_id=str(approval.id),
                         status="success",
-                        details={**details, "task_id": task_id, "assigned_user_id": assigned_user.id},
+                        details={
+                            **details,
+                            "task_id": task_id,
+                            "client_note_id": client_note_id,
+                            "assigned_user_id": assigned_user.id,
+                        },
                     )
                     self.db.add(execution_log)
                     workflow.last_run_at = now
@@ -1073,6 +1243,7 @@ class WorkflowService:
             "processed_count": 0,
             "created_task_count": 0,
             "notification_count": 0,
+            "client_note_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -1083,7 +1254,13 @@ class WorkflowService:
                 logger.exception("Workflow processor for %s raised", trigger_type)
                 combined["errors"].append(f"{trigger_type}: {exc}")
                 continue
-            for key in ("processed_count", "created_task_count", "notification_count", "skipped_count"):
+            for key in (
+                "processed_count",
+                "created_task_count",
+                "notification_count",
+                "client_note_count",
+                "skipped_count",
+            ):
                 combined[key] += stats.get(key, 0)
             combined["errors"].extend(stats.get("errors", []))
         return combined
@@ -1247,6 +1424,36 @@ class WorkflowService:
         self.db.flush()
         return reminder
 
+    def _add_client_note(
+        self,
+        client: Optional[Client],
+        workflow: WorkflowDefinition,
+        assigned_user: User,
+        note_template: str,
+        note_vars: Dict[str, Any],
+    ) -> Optional[ClientNote]:
+        """Append a workflow-attributed note to the client record.
+
+        Returns the new ``ClientNote`` on success, or ``None`` if there's no
+        client to attach to (the action is silently skipped for triggers
+        whose entity doesn't have a client association). Attribution
+        (``ClientNote.user_id``) is the workflow's resolved assigned user —
+        same actor who owns the notification + task — so the note shows up
+        in their activity feed and the existing CRM permission checks work
+        without modification.
+        """
+        if client is None:
+            return None
+        note_text = note_template.format(workflow_key=workflow.key, **note_vars)
+        note = ClientNote(
+            client_id=client.id,
+            user_id=assigned_user.id,
+            note=note_text,
+        )
+        self.db.add(note)
+        self.db.flush()
+        return note
+
     def _build_workflow_key(self, name: str) -> str:
         base = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
         if not base:
@@ -1328,6 +1535,7 @@ class WorkflowService:
         actions = {
             "send_internal_notification": "send_internal_notification" in normalized_actions,
             "create_internal_task": "create_internal_task" in normalized_actions,
+            "add_client_note": "add_client_note" in normalized_actions,
             "task_type": "reminder",
             "task_title_template": "Follow up on overdue invoice #{invoice_number}",
             "task_due_in_days": 1,
