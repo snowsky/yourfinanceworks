@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_OVERDUE_WORKFLOW_KEY = "invoice-overdue-reminder-task"
 
+# Trigger registry. Each entry carries the user-facing label/description plus
+# runtime metadata the processor needs: the notification event type to emit,
+# the default task title template, the task tag, and the per-trigger event-key
+# suffix that powers idempotent dedup against ``WorkflowExecutionLog``.
 SUPPORTED_TRIGGERS = {
     "invoice_became_overdue": {
         "label": "Invoice becomes overdue",
@@ -32,6 +36,20 @@ SUPPORTED_TRIGGERS = {
             "invoice_statuses": ["sent", "pending", "partially_paid", "overdue"],
             "exclude_statuses": ["paid", "cancelled", "draft"],
         },
+        "notification_event_type": "invoice_overdue",
+        "default_task_title_template": "Follow up on overdue invoice #{invoice_number}",
+        "task_tag": "invoice-overdue",
+        "event_key_suffix": "overdue",
+    },
+    "invoice_created": {
+        "label": "Invoice is created",
+        "description": "Runs once when a new invoice is created (and not retroactively for invoices that pre-date the workflow).",
+        "trigger_type": "invoice_created",
+        "conditions": {},
+        "notification_event_type": "invoice_created",
+        "default_task_title_template": "Review newly created invoice #{invoice_number}",
+        "task_tag": "invoice-created",
+        "event_key_suffix": "created",
     },
 }
 
@@ -226,6 +244,14 @@ class WorkflowService:
                             invoice=invoice,
                             assigned_user=assigned_user,
                             details=details,
+                            default_title_template=SUPPORTED_TRIGGERS["invoice_became_overdue"][
+                                "default_task_title_template"
+                            ],
+                            task_tag=SUPPORTED_TRIGGERS["invoice_became_overdue"]["task_tag"],
+                            description_template=(
+                                "Invoice #{invoice_number} for {client_name} is overdue. "
+                                "Reach out and document the follow-up."
+                            ),
                         )
                         task_id = reminder.id
                         stats["created_task_count"] += 1
@@ -269,15 +295,179 @@ class WorkflowService:
 
         return stats
 
+    def process_invoice_created_workflows(self) -> Dict[str, Any]:
+        """Fire `invoice_created` workflows for invoices not yet processed.
+
+        Considers only invoices created on/after the workflow's own
+        ``created_at`` so deploying a new workflow doesn't retroactively
+        fire for years of pre-existing invoices. The execution-log row
+        per (workflow, invoice) keeps the scan idempotent across reruns.
+        """
+        stats = {
+            "processed_count": 0,
+            "created_task_count": 0,
+            "notification_count": 0,
+            "skipped_count": 0,
+            "errors": [],
+        }
+
+        workflows = self.db.query(WorkflowDefinition).filter(
+            WorkflowDefinition.trigger_type == "invoice_created",
+            WorkflowDefinition.is_enabled == True,
+        ).all()
+
+        if not workflows:
+            return stats
+
+        now = datetime.now(timezone.utc)
+        trigger_meta = SUPPORTED_TRIGGERS["invoice_created"]
+
+        for workflow in workflows:
+            invoices = self.db.query(Invoice).filter(
+                Invoice.is_deleted == False,
+                Invoice.created_at.isnot(None),
+                Invoice.created_at >= workflow.created_at,
+            ).all()
+
+            for invoice in invoices:
+                stats["processed_count"] += 1
+                event_key = f"invoice:{invoice.id}:{trigger_meta['event_key_suffix']}"
+
+                if self._has_execution_log(workflow.id, event_key):
+                    stats["skipped_count"] += 1
+                    continue
+
+                try:
+                    assigned_user = self._resolve_assigned_user(invoice)
+                    if assigned_user is None:
+                        raise ValueError(
+                            f"No eligible user found to own invoice {invoice.id} workflow task"
+                        )
+
+                    client = self.db.query(Client).filter(Client.id == invoice.client_id).first()
+                    details = {
+                        "invoice_id": invoice.id,
+                        "invoice_number": invoice.number,
+                        "client_name": client.name if client else None,
+                        "amount": invoice.amount,
+                        "currency": invoice.currency,
+                        "created_at": invoice.created_at.isoformat() if invoice.created_at else None,
+                        "workflow_key": workflow.key,
+                    }
+
+                    if workflow.actions and workflow.actions.get("send_internal_notification", True):
+                        send_notification(
+                            db=self.db,
+                            event_type=trigger_meta["notification_event_type"],
+                            user_id=assigned_user.id,
+                            resource_type="invoice",
+                            resource_id=str(invoice.id),
+                            resource_name=invoice.number,
+                            details=details,
+                        )
+                        stats["notification_count"] += 1
+
+                    task_id = None
+                    if workflow.actions and workflow.actions.get("create_internal_task", True):
+                        reminder = self._create_internal_task(
+                            workflow=workflow,
+                            invoice=invoice,
+                            assigned_user=assigned_user,
+                            details=details,
+                            default_title_template=trigger_meta["default_task_title_template"],
+                            task_tag=trigger_meta["task_tag"],
+                            description_template=(
+                                "Invoice #{invoice_number} for {client_name} was just created. "
+                                "Review the draft and send to the client if it's ready."
+                            ),
+                        )
+                        task_id = reminder.id
+                        stats["created_task_count"] += 1
+
+                    execution_log = WorkflowExecutionLog(
+                        workflow_id=workflow.id,
+                        event_key=event_key,
+                        entity_type="invoice",
+                        entity_id=str(invoice.id),
+                        status="success",
+                        details={**details, "task_id": task_id, "assigned_user_id": assigned_user.id},
+                    )
+                    self.db.add(execution_log)
+                    workflow.last_run_at = now
+                    self.db.commit()
+                except Exception as exc:
+                    self.db.rollback()
+                    error = f"Workflow {workflow.key} failed for invoice {invoice.id}: {exc}"
+                    logger.error(error)
+                    stats["errors"].append(error)
+
+                    try:
+                        failed_log = WorkflowExecutionLog(
+                            workflow_id=workflow.id,
+                            event_key=event_key,
+                            entity_type="invoice",
+                            entity_id=str(invoice.id),
+                            status="failed",
+                            details={
+                                "invoice_id": invoice.id,
+                                "invoice_number": invoice.number,
+                                "error": str(exc),
+                                "workflow_key": workflow.key,
+                            },
+                        )
+                        self.db.add(failed_log)
+                        self.db.commit()
+                    except Exception as log_exc:
+                        self.db.rollback()
+                        logger.error(f"Failed to record failed workflow execution log: {log_exc}")
+
+        return stats
+
+    # Dispatch table: trigger_type -> bound processor method. Used by both the
+    # background runner and the manual ``run_workflow_now`` endpoint so a new
+    # trigger only needs to be added once.
+    @property
+    def _trigger_processors(self) -> Dict[str, Any]:
+        return {
+            "invoice_became_overdue": self.process_due_invoice_workflows,
+            "invoice_created": self.process_invoice_created_workflows,
+        }
+
+    def process_all_workflows(self) -> Dict[str, Any]:
+        """Run every registered trigger's processor for the current tenant.
+
+        Called by the per-tenant background runner. Per-trigger stats are
+        merged into a single dict for the runner log.
+        """
+        combined: Dict[str, Any] = {
+            "processed_count": 0,
+            "created_task_count": 0,
+            "notification_count": 0,
+            "skipped_count": 0,
+            "errors": [],
+        }
+        for trigger_type, processor in self._trigger_processors.items():
+            try:
+                stats = processor()
+            except Exception as exc:
+                logger.exception("Workflow processor for %s raised", trigger_type)
+                combined["errors"].append(f"{trigger_type}: {exc}")
+                continue
+            for key in ("processed_count", "created_task_count", "notification_count", "skipped_count"):
+                combined[key] += stats.get(key, 0)
+            combined["errors"].extend(stats.get("errors", []))
+        return combined
+
     def run_workflow_now(self, workflow_id: int) -> Dict[str, Any]:
         workflow = self.db.query(WorkflowDefinition).filter(WorkflowDefinition.id == workflow_id).first()
         if not workflow:
             raise ValueError("Workflow not found")
 
-        if workflow.trigger_type != "invoice_became_overdue":
-            raise ValueError("Manual runs are only supported for invoice overdue workflows")
+        processor = self._trigger_processors.get(workflow.trigger_type)
+        if processor is None:
+            raise ValueError(f"Manual runs are not supported for trigger {workflow.trigger_type!r}")
 
-        return self.process_due_invoice_workflows()
+        return processor()
 
     def _has_execution_log(self, workflow_id: int, event_key: str) -> bool:
         return self.db.query(WorkflowExecutionLog).filter(
@@ -309,28 +499,32 @@ class WorkflowService:
         invoice: Invoice,
         assigned_user: User,
         details: Dict[str, Any],
+        *,
+        default_title_template: str,
+        task_tag: str,
+        description_template: str,
     ) -> Reminder:
         now = datetime.now(timezone.utc)
         due_in_days = 1
         if workflow.actions:
             due_in_days = int(workflow.actions.get("task_due_in_days", 1))
 
-        title_template = "Follow up on overdue invoice #{invoice_number}"
+        title_template = default_title_template
         if workflow.actions:
             title_template = workflow.actions.get("task_title_template", title_template)
 
+        client_name = details.get("client_name") or "Unknown client"
         reminder = Reminder(
             title=title_template.format(invoice_number=invoice.number),
-            description=(
-                f"Invoice #{invoice.number} for {details.get('client_name') or 'Unknown client'} "
-                f"is overdue. Reach out and document the follow-up."
+            description=description_template.format(
+                invoice_number=invoice.number, client_name=client_name
             ),
             due_date=now + timedelta(days=due_in_days),
             status=ReminderStatus.PENDING,
             priority=ReminderPriority.HIGH,
             created_by_id=assigned_user.id,
             assigned_to_id=assigned_user.id,
-            tags=["workflow-task", "invoice-overdue"],
+            tags=["workflow-task", task_tag],
             extra_metadata={
                 "workflow_key": workflow.key,
                 "workflow_id": workflow.id,
