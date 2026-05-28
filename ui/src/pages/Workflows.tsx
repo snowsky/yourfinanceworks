@@ -18,8 +18,28 @@ import {
   ExternalLink,
 } from 'lucide-react';
 
-import { workflowsApi, type WorkflowDefinition, type WorkflowExecutionLog } from '@/lib/api';
+import { workflowsApi, userApi, type WorkflowDefinition, type WorkflowExecutionLog } from '@/lib/api';
 import { getErrorMessage } from '@/lib/api';
+import type { User } from '@/types';
+
+const ALL_ACTION_FLAGS = [
+  'send_internal_notification',
+  'create_internal_task',
+  'add_client_note',
+  'assign_to_specific_user',
+  'send_client_email',
+  'send_slack_notification',
+] as const;
+
+const extractActionIds = (actions: Record<string, unknown> | null | undefined): string[] => {
+  if (!actions) return [];
+  return ALL_ACTION_FLAGS.filter((flag) => actions[flag] === true);
+};
+
+const formatUserOption = (user: User): string => {
+  const trimmed = (user.name || '').trim();
+  return trimmed.length > 0 ? `${trimmed} <${user.email}>` : user.email;
+};
 import { PageHeader, ContentSection } from '@/components/ui/professional-layout';
 import { FeatureGate } from '@/components/FeatureGate';
 import {
@@ -69,17 +89,29 @@ const WorkflowBuilder: React.FC = () => {
     'send_internal_notification',
     'create_internal_task',
   ]);
+  const [assignedUserId, setAssignedUserId] = React.useState<number | null>(null);
 
   const { data: catalog } = useQuery({
     queryKey: ['workflow-catalog'],
     queryFn: () => workflowsApi.catalog(),
   });
 
+  const { data: users = [] } = useQuery({
+    queryKey: ['workflow-user-picker'],
+    queryFn: () => userApi.getUsers(),
+  });
+  const activeUsers = React.useMemo(
+    () => users.filter((u) => u.is_active !== false),
+    [users],
+  );
+
   React.useEffect(() => {
     if (!triggerType && catalog?.triggers?.length) {
       setTriggerType(catalog.triggers[0].id);
     }
   }, [catalog, triggerType]);
+
+  const assignToSpecificUserChecked = selectedActions.includes('assign_to_specific_user');
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -88,12 +120,14 @@ const WorkflowBuilder: React.FC = () => {
         description,
         trigger_type: triggerType,
         action_ids: selectedActions,
+        assigned_user_id: assignToSpecificUserChecked ? assignedUserId : null,
       }),
     onSuccess: () => {
       toast.success(t('workflows.create_success', { defaultValue: 'Workflow created' }));
       setName('');
       setDescription('');
       setSelectedActions(['send_internal_notification', 'create_internal_task']);
+      setAssignedUserId(null);
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
     },
     onError: (error) => {
@@ -108,9 +142,16 @@ const WorkflowBuilder: React.FC = () => {
       }
       return current.filter((item) => item !== actionId);
     });
+    if (actionId === 'assign_to_specific_user' && !checked) {
+      setAssignedUserId(null);
+    }
   };
 
-  const canCreate = name.trim().length > 1 && triggerType && selectedActions.length > 0;
+  const canCreate =
+    name.trim().length > 1 &&
+    triggerType &&
+    selectedActions.length > 0 &&
+    (!assignToSpecificUserChecked || assignedUserId !== null);
 
   return (
     <ProfessionalCard variant="elevated" className="border-primary/20">
@@ -191,6 +232,35 @@ const WorkflowBuilder: React.FC = () => {
               );
             })}
           </div>
+
+          {assignToSpecificUserChecked && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {t('workflows.assigned_user', { defaultValue: 'Assigned teammate' })}
+              </label>
+              <Select
+                value={assignedUserId !== null ? String(assignedUserId) : ''}
+                onValueChange={(value) => setAssignedUserId(value ? Number(value) : null)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a teammate to assign workflow tasks to" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeUsers.map((user) => (
+                    <SelectItem key={user.id} value={String(user.id)}>
+                      {formatUserOption(user)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {t('workflows.assigned_user_help', {
+                  defaultValue:
+                    'When this user is inactive at execution time, the workflow falls back to the default owner resolver.',
+                })}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end">
@@ -215,19 +285,30 @@ const EditWorkflowDialog: React.FC<EditWorkflowDialogProps> = ({ workflow, isOpe
   const [name, setName] = React.useState(workflow.name);
   const [description, setDescription] = React.useState(workflow.description || '');
 
-  const initialActions: string[] = [];
-  if (workflow.actions?.send_internal_notification) {
-    initialActions.push('send_internal_notification');
-  }
-  if (workflow.actions?.create_internal_task) {
-    initialActions.push('create_internal_task');
-  }
-  const [selectedActions, setSelectedActions] = React.useState<string[]>(initialActions);
+  const [selectedActions, setSelectedActions] = React.useState<string[]>(
+    extractActionIds(workflow.actions),
+  );
+  const initialAssignedUserId =
+    typeof workflow.actions?.assigned_user_id === 'number'
+      ? (workflow.actions.assigned_user_id as number)
+      : null;
+  const [assignedUserId, setAssignedUserId] = React.useState<number | null>(initialAssignedUserId);
 
   const { data: catalog } = useQuery({
     queryKey: ['workflow-catalog'],
     queryFn: () => workflowsApi.catalog(),
   });
+
+  const { data: users = [] } = useQuery({
+    queryKey: ['workflow-user-picker'],
+    queryFn: () => userApi.getUsers(),
+  });
+  const activeUsers = React.useMemo(
+    () => users.filter((u) => u.is_active !== false),
+    [users],
+  );
+
+  const assignToSpecificUserChecked = selectedActions.includes('assign_to_specific_user');
 
   const toggleAction = (actionId: string, checked: boolean) => {
     setSelectedActions((current) => {
@@ -236,6 +317,9 @@ const EditWorkflowDialog: React.FC<EditWorkflowDialogProps> = ({ workflow, isOpe
       }
       return current.filter((item) => item !== actionId);
     });
+    if (actionId === 'assign_to_specific_user' && !checked) {
+      setAssignedUserId(null);
+    }
   };
 
   const updateMutation = useMutation({
@@ -244,6 +328,7 @@ const EditWorkflowDialog: React.FC<EditWorkflowDialogProps> = ({ workflow, isOpe
         name,
         description,
         action_ids: selectedActions,
+        assigned_user_id: assignToSpecificUserChecked ? assignedUserId : null,
       }),
     onSuccess: () => {
       toast.success(t('workflows.update_success', { defaultValue: 'Workflow updated successfully' }));
@@ -255,7 +340,10 @@ const EditWorkflowDialog: React.FC<EditWorkflowDialogProps> = ({ workflow, isOpe
     },
   });
 
-  const canSave = name.trim().length > 1 && selectedActions.length > 0;
+  const canSave =
+    name.trim().length > 1 &&
+    selectedActions.length > 0 &&
+    (!assignToSpecificUserChecked || assignedUserId !== null);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -317,6 +405,35 @@ const EditWorkflowDialog: React.FC<EditWorkflowDialogProps> = ({ workflow, isOpe
                   );
                 })}
               </div>
+
+              {assignToSpecificUserChecked && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    {t('workflows.assigned_user', { defaultValue: 'Assigned teammate' })}
+                  </label>
+                  <Select
+                    value={assignedUserId !== null ? String(assignedUserId) : ''}
+                    onValueChange={(value) => setAssignedUserId(value ? Number(value) : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a teammate to assign workflow tasks to" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeUsers.map((user) => (
+                        <SelectItem key={user.id} value={String(user.id)}>
+                          {formatUserOption(user)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {t('workflows.assigned_user_help', {
+                      defaultValue:
+                        'When this user is inactive at execution time, the workflow falls back to the default owner resolver.',
+                    })}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
