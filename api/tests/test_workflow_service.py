@@ -522,12 +522,22 @@ class TestWorkflowService:
                 "skipped_count": 2,
                 "errors": [],
             },
+        ), patch.object(
+            service,
+            "process_client_created_workflows",
+            return_value={
+                "processed_count": 2,
+                "created_task_count": 1,
+                "notification_count": 1,
+                "skipped_count": 0,
+                "errors": [],
+            },
         ):
             stats = service.process_all_workflows()
 
-            assert stats["processed_count"] == 9
-            assert stats["created_task_count"] == 4
-            assert stats["notification_count"] == 4
+            assert stats["processed_count"] == 11
+            assert stats["created_task_count"] == 5
+            assert stats["notification_count"] == 5
             assert stats["skipped_count"] == 3
             assert stats["errors"] == ["overdue err"]
 
@@ -761,6 +771,10 @@ class TestWorkflowService:
             service,
             "process_payment_received_workflows",
             return_value=empty_stats,
+        ), patch.object(
+            service,
+            "process_client_created_workflows",
+            return_value=empty_stats,
         ):
             stats = service.process_all_workflows()
 
@@ -768,6 +782,183 @@ class TestWorkflowService:
             assert stats["processed_count"] == 1
             # Overdue's exception is captured in errors.
             assert any("invoice_became_overdue" in err for err in stats["errors"])
+
+    # ---------- client_created trigger ----------
+
+    @pytest.fixture
+    def sample_new_client(self):
+        return Client(
+            id=505,
+            name="Brand New LLC",
+            email="contact@brandnew.example",
+            owner_user_id=1,
+            stage="active_client",
+            created_at=datetime.now(timezone.utc),
+        )
+
+    @pytest.fixture
+    def sample_client_created_workflow(self):
+        return WorkflowDefinition(
+            id=5,
+            name="Welcome new clients",
+            key="client-created-welcome",
+            description="When a new client is added, notify the owner and create an onboarding task.",
+            trigger_type="client_created",
+            conditions={},
+            actions={
+                "send_internal_notification": True,
+                "create_internal_task": True,
+                "task_type": "reminder",
+                "task_title_template": "Onboard new client {client_name}",
+                "task_due_in_days": 3,
+            },
+            is_enabled=True,
+            is_system=False,
+            is_default=False,
+            created_at=datetime.now(timezone.utc) - timedelta(hours=4),
+        )
+
+    def test_catalog_includes_client_created_trigger(self, service):
+        catalog = service.get_catalog()
+        trigger_ids = {trigger["id"] for trigger in catalog["triggers"]}
+        assert "client_created" in trigger_ids
+
+    def test_create_workflow_accepts_client_created_trigger(self, service, mock_db):
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+        with patch.object(service, "ensure_default_workflows"):
+            workflow = service.create_workflow(
+                name="Welcome Clients",
+                description="",
+                trigger_type="client_created",
+                action_ids=["send_internal_notification"],
+            )
+            assert workflow.trigger_type == "client_created"
+
+    def test_process_client_created_workflows_success(
+        self,
+        service,
+        mock_db,
+        sample_client_created_workflow,
+        sample_new_client,
+        sample_user,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=False), \
+             patch.object(service, "_resolve_user_for_client", return_value=sample_user), \
+             patch("core.services.workflow_service.send_notification") as mock_notification:
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_client_created_workflow])))),
+                Client: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_new_client])))),
+            }[model]
+
+            mock_reminder = Reminder(id=2020)
+            with patch.object(service, "_create_internal_task", return_value=mock_reminder) as mock_task:
+                stats = service.process_client_created_workflows()
+
+            assert stats["processed_count"] == 1
+            assert stats["created_task_count"] == 1
+            assert stats["notification_count"] == 1
+            assert stats["errors"] == []
+
+            # Notification uses the client_created event type, resource_type=client.
+            kwargs = mock_notification.call_args.kwargs
+            assert kwargs["event_type"] == "client_created"
+            assert kwargs["resource_type"] == "client"
+            assert kwargs["resource_id"] == str(sample_new_client.id)
+
+            # _create_internal_task receives invoice=None and the client metadata.
+            task_kwargs = mock_task.call_args.kwargs
+            assert task_kwargs["invoice"] is None
+            assert task_kwargs["extra_metadata"] == {"client_id": sample_new_client.id}
+
+            # Execution log uses client entity_type + :client_created suffix.
+            added = [call[0][0] for call in mock_db.add.call_args_list]
+            logs = [obj for obj in added if isinstance(obj, WorkflowExecutionLog)]
+            assert len(logs) == 1
+            assert logs[0].status == "success"
+            assert logs[0].entity_type == "client"
+            assert logs[0].event_key.endswith(":client_created")
+
+    def test_process_client_created_workflows_skips_when_log_exists(
+        self,
+        service,
+        mock_db,
+        sample_client_created_workflow,
+        sample_new_client,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=True):
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_client_created_workflow])))),
+                Client: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_new_client])))),
+            }[model]
+
+            stats = service.process_client_created_workflows()
+
+            assert stats["processed_count"] == 1
+            assert stats["skipped_count"] == 1
+            assert stats["created_task_count"] == 0
+
+    def test_process_client_created_workflows_failure_logged(
+        self,
+        service,
+        mock_db,
+        sample_client_created_workflow,
+        sample_new_client,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=False), \
+             patch.object(service, "_resolve_user_for_client", return_value=None):
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_client_created_workflow])))),
+                Client: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_new_client])))),
+            }[model]
+
+            stats = service.process_client_created_workflows()
+
+            assert stats["processed_count"] == 1
+            assert len(stats["errors"]) == 1
+            added = [call[0][0] for call in mock_db.add.call_args_list]
+            failed = [obj for obj in added if isinstance(obj, WorkflowExecutionLog) and obj.status == "failed"]
+            assert len(failed) == 1
+            assert failed[0].entity_type == "client"
+            assert failed[0].event_key.endswith(":client_created")
+
+    def test_run_workflow_now_dispatches_to_client_created_processor(
+        self, service, mock_db, sample_client_created_workflow
+    ):
+        mock_db.query.return_value.filter.return_value.first.return_value = sample_client_created_workflow
+        sentinel = {"processed_count": 3, "created_task_count": 0, "notification_count": 0, "skipped_count": 0, "errors": []}
+
+        with patch.object(service, "process_client_created_workflows", return_value=sentinel) as mock_processor, \
+             patch.object(service, "process_due_invoice_workflows") as overdue_processor, \
+             patch.object(service, "process_invoice_created_workflows") as created_processor, \
+             patch.object(service, "process_payment_received_workflows") as payment_processor:
+            result = service.run_workflow_now(sample_client_created_workflow.id)
+
+            mock_processor.assert_called_once()
+            overdue_processor.assert_not_called()
+            created_processor.assert_not_called()
+            payment_processor.assert_not_called()
+            assert result is sentinel
+
+    def test_resolve_user_for_client_uses_owner_id(self, service, mock_db, sample_user):
+        client = Client(id=99, name="X", owner_user_id=7)
+        mock_db.query.return_value.filter.return_value.first.return_value = sample_user
+
+        result = service._resolve_user_for_client(client)
+        assert result is sample_user
+
+    def test_resolve_user_for_client_falls_back_to_admin(self, service, mock_db, sample_user):
+        client = Client(id=99, name="X", owner_user_id=None)
+        # First branch returns None (no owner). Fallback queries admin.
+        with patch.object(service, "_fallback_admin_user", return_value=sample_user) as fallback:
+            result = service._resolve_user_for_client(client)
+            fallback.assert_called_once()
+            assert result is sample_user
 
 
 if __name__ == "__main__":
