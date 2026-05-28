@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from core.models.models_per_tenant import (
     Client,
     Expense,
+    ExpenseApproval,
     Invoice,
     Payment,
     Reminder,
@@ -82,6 +83,16 @@ SUPPORTED_TRIGGERS = {
         "default_task_title_template": "Review newly recorded expense from {vendor}",
         "task_tag": "expense-created",
         "event_key_suffix": "expense_created",
+    },
+    "expense_submitted_for_approval": {
+        "label": "Expense is submitted for approval",
+        "description": "Runs once when an expense is submitted for approval (one fire per ExpenseApproval row; multi-level approvals fire per level).",
+        "trigger_type": "expense_submitted_for_approval",
+        "conditions": {},
+        "notification_event_type": "expense_submitted_for_approval",
+        "default_task_title_template": "Approve expense from {vendor}",
+        "task_tag": "expense-approval-pending",
+        "event_key_suffix": "submitted_for_approval",
     },
 }
 
@@ -869,6 +880,175 @@ class WorkflowService:
 
         return stats
 
+    def process_expense_submitted_for_approval_workflows(self) -> Dict[str, Any]:
+        """Fire `expense_submitted_for_approval` workflows for new approval rows.
+
+        Status-change semantics, scan-poll implementation: the trigger fires
+        once per ``ExpenseApproval`` row (the per-level row is created when
+        the expense is submitted). The (workflow, expense_approval_id)
+        execution log keeps reruns idempotent across the background tick,
+        so a multi-level approval naturally fires once per level as each
+        new row appears.
+
+        Retroactive guard uses ``ExpenseApproval.submitted_at`` (when the
+        request was created — not ``created_at`` on the row, which is the
+        bookkeeping insert time and matches in practice but the trigger is
+        a workflow-domain event so we key off the submission timestamp).
+
+        Approvals whose underlying expense was deleted are silently
+        skipped — without an expense there's no actionable owner or
+        meaningful template payload.
+        """
+        stats = {
+            "processed_count": 0,
+            "created_task_count": 0,
+            "notification_count": 0,
+            "skipped_count": 0,
+            "errors": [],
+        }
+
+        workflows = self.db.query(WorkflowDefinition).filter(
+            WorkflowDefinition.trigger_type == "expense_submitted_for_approval",
+            WorkflowDefinition.is_enabled == True,
+        ).all()
+
+        if not workflows:
+            return stats
+
+        now = datetime.now(timezone.utc)
+        trigger_meta = SUPPORTED_TRIGGERS["expense_submitted_for_approval"]
+
+        for workflow in workflows:
+            approvals = self.db.query(ExpenseApproval).filter(
+                ExpenseApproval.submitted_at.isnot(None),
+                ExpenseApproval.submitted_at >= workflow.created_at,
+            ).all()
+
+            for approval in approvals:
+                stats["processed_count"] += 1
+                event_key = (
+                    f"expense_approval:{approval.id}:{trigger_meta['event_key_suffix']}"
+                )
+
+                if self._has_execution_log(workflow.id, event_key):
+                    stats["skipped_count"] += 1
+                    continue
+
+                expense = (
+                    self.db.query(Expense).filter(Expense.id == approval.expense_id).first()
+                    if approval.expense_id is not None
+                    else None
+                )
+                if expense is None or getattr(expense, "is_deleted", False):
+                    stats["skipped_count"] += 1
+                    continue
+
+                try:
+                    assigned_user = self._resolve_user_for_expense_approval(approval)
+                    if assigned_user is None:
+                        raise ValueError(
+                            f"No eligible user found to own approval {approval.id} workflow task"
+                        )
+
+                    vendor = expense.vendor or "Unknown vendor"
+                    details = {
+                        "expense_approval_id": approval.id,
+                        "expense_id": expense.id,
+                        "vendor": vendor,
+                        "category": expense.category,
+                        "amount": expense.amount,
+                        "currency": expense.currency,
+                        "approval_level": approval.approval_level,
+                        "is_current_level": approval.is_current_level,
+                        "approval_status": approval.status,
+                        "submitted_at": approval.submitted_at.isoformat() if approval.submitted_at else None,
+                        "workflow_key": workflow.key,
+                    }
+
+                    if workflow.actions and workflow.actions.get("send_internal_notification", True):
+                        send_notification(
+                            db=self.db,
+                            event_type=trigger_meta["notification_event_type"],
+                            user_id=assigned_user.id,
+                            resource_type="expense",
+                            resource_id=str(expense.id),
+                            resource_name=vendor,
+                            details=details,
+                        )
+                        stats["notification_count"] += 1
+
+                    task_id = None
+                    if workflow.actions and workflow.actions.get("create_internal_task", True):
+                        reminder = self._create_internal_task(
+                            workflow=workflow,
+                            invoice=None,
+                            assigned_user=assigned_user,
+                            details=details,
+                            default_title_template=trigger_meta["default_task_title_template"],
+                            task_tag=trigger_meta["task_tag"],
+                            description_template=(
+                                "Expense from {vendor} in category {category} "
+                                "({amount} {currency}) is awaiting your approval "
+                                "(level {approval_level}). Review and decide."
+                            ),
+                            template_vars={
+                                "vendor": vendor,
+                                "category": expense.category or "Uncategorized",
+                                "amount": expense.amount if expense.amount is not None else 0,
+                                "currency": expense.currency or "USD",
+                                "approval_level": approval.approval_level,
+                            },
+                            extra_metadata={
+                                "expense_id": expense.id,
+                                "expense_approval_id": approval.id,
+                                "approval_level": approval.approval_level,
+                            },
+                        )
+                        task_id = reminder.id
+                        stats["created_task_count"] += 1
+
+                    execution_log = WorkflowExecutionLog(
+                        workflow_id=workflow.id,
+                        event_key=event_key,
+                        entity_type="expense_approval",
+                        entity_id=str(approval.id),
+                        status="success",
+                        details={**details, "task_id": task_id, "assigned_user_id": assigned_user.id},
+                    )
+                    self.db.add(execution_log)
+                    workflow.last_run_at = now
+                    self.db.commit()
+                except Exception as exc:
+                    self.db.rollback()
+                    error = (
+                        f"Workflow {workflow.key} failed for expense approval "
+                        f"{approval.id}: {exc}"
+                    )
+                    logger.error(error)
+                    stats["errors"].append(error)
+
+                    try:
+                        failed_log = WorkflowExecutionLog(
+                            workflow_id=workflow.id,
+                            event_key=event_key,
+                            entity_type="expense_approval",
+                            entity_id=str(approval.id),
+                            status="failed",
+                            details={
+                                "expense_approval_id": approval.id,
+                                "expense_id": expense.id if expense else None,
+                                "error": str(exc),
+                                "workflow_key": workflow.key,
+                            },
+                        )
+                        self.db.add(failed_log)
+                        self.db.commit()
+                    except Exception as log_exc:
+                        self.db.rollback()
+                        logger.error(f"Failed to record failed workflow execution log: {log_exc}")
+
+        return stats
+
     # Dispatch table: trigger_type -> bound processor method. Used by both the
     # background runner and the manual ``run_workflow_now`` endpoint so a new
     # trigger only needs to be added once.
@@ -880,6 +1060,7 @@ class WorkflowService:
             "payment_received": self.process_payment_received_workflows,
             "client_created": self.process_client_created_workflows,
             "expense_created": self.process_expense_created_workflows,
+            "expense_submitted_for_approval": self.process_expense_submitted_for_approval_workflows,
         }
 
     def process_all_workflows(self) -> Dict[str, Any]:
@@ -964,6 +1145,25 @@ class WorkflowService:
         if created_by:
             user = self.db.query(User).filter(
                 User.id == created_by,
+                User.is_active == True,
+            ).first()
+            if user:
+                return user
+
+        return self._fallback_admin_user()
+
+    def _resolve_user_for_expense_approval(self, approval: ExpenseApproval) -> Optional[User]:
+        """Resolve the responsible user for an expense-approval workflow.
+
+        The approver is the natural owner of "approve this expense" tasks —
+        they're the one who has to act. Falls back to the standard admin
+        chain if the approver row is missing or the user is inactive
+        (rare, but a workflow shouldn't silently fail because of it).
+        """
+        approver_id = getattr(approval, "approver_id", None)
+        if approver_id:
+            user = self.db.query(User).filter(
+                User.id == approver_id,
                 User.is_active == True,
             ).first()
             if user:
