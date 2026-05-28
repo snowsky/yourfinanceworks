@@ -50,7 +50,11 @@ export function PluginPaywall({ pluginId, tenantId, open, onOpenChange }: Plugin
     try {
       const session = await apiRequest<{ checkout_url: string }>(`/plugins/${pluginId}/public-paywall/checkout`, {
         method: 'POST',
-        body: JSON.stringify({ tenant_id: parseInt(resolvedTenantId, 10), plugin_user_id: tokenData.user.id })
+        body: JSON.stringify({
+          tenant_id: parseInt(resolvedTenantId, 10),
+          plugin_user_id: tokenData.user.id,
+          access_token: tokenData.access_token,
+        })
       });
       window.location.href = session.checkout_url;
     } catch (err: any) {

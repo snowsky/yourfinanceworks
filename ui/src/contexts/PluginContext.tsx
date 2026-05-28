@@ -332,7 +332,12 @@ class PluginDiscovery {
 
     try {
       const { apiRequest } = await import('@/lib/api');
-      const data = await apiRequest<{ plugins: any[] }>('/plugins/registry', { method: 'GET' });
+      // PluginContext runs inside the authenticated dashboard, so call the
+      // full registry endpoint to receive admin-relevant fields (git_source,
+      // load_error string, permitted_core_tables). The public /plugins/registry
+      // endpoint strips those so anonymous bootstrap callers cannot map the
+      // install surface — see usePluginModules.ts for the public path.
+      const data = await apiRequest<{ plugins: any[] }>('/plugins/registry/full', { method: 'GET' });
 
       return (data.plugins || []).map((p: any): PluginMetadata & { load_error?: string } => {
         const rawId = p.name as string;

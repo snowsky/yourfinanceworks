@@ -120,14 +120,30 @@ const queryClient = new QueryClient({
 // This catch-all handles sidecar plugins when their route is not yet registered
 // (e.g. unauthenticated visitors); PublicPluginWrapper resolves the iframe URL
 // from the no-auth config API (public_page.ui_entry in plugin.json).
+// Restrict ``?next=`` redirects to same-origin paths. A raw attacker-controlled
+// next URL passed to window.location.href is an open redirect — phishing
+// targets land on evil.com immediately after the SSO callback plants a token,
+// without ever seeing the dashboard. Allow only absolute-path strings; reject
+// anything that could resolve cross-origin: schemes (``http:``, ``javascript:``),
+// protocol-relative URLs (``//evil.com/...``), bare hostnames, or empty values.
+const isSafeNextPath = (next: string | null): next is string => {
+  if (!next) return false;
+  if (!next.startsWith('/')) return false;
+  if (next.startsWith('//')) return false;
+  if (next.startsWith('/\\')) return false; // some browsers treat \ as /
+  return true;
+};
+
 const PublicPluginCatchAll = () => {
   const { pluginId } = useParams<{ pluginId: string }>();
-  
+
   if (window.location.pathname.endsWith('/auth-callback')) {
     const searchParams = new URLSearchParams(window.location.search);
     const tokenData = searchParams.get('token_data');
-    const nextUrl = searchParams.get('next') || `/p/${pluginId}`;
-    
+    const rawNext = searchParams.get('next');
+    const fallback = pluginId ? `/p/${pluginId}` : '/';
+    const nextUrl = isSafeNextPath(rawNext) ? rawNext : fallback;
+
     if (tokenData && pluginId) {
       try {
         const decoded = JSON.parse(atob(tokenData));
@@ -135,10 +151,10 @@ const PublicPluginCatchAll = () => {
         window.location.href = nextUrl;
       } catch (err) {
         console.error("Failed to parse SSO token", err);
-        window.location.href = `/p/${pluginId}`;
+        window.location.href = fallback;
       }
     } else {
-      window.location.href = `/p/${pluginId}`;
+      window.location.href = fallback;
     }
     return null;
   }
