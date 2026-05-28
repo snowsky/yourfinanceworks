@@ -1981,6 +1981,248 @@ class TestWorkflowService:
             stats = service.process_all_workflows()
             assert stats["client_email_count"] == 3
 
+    # ---------- send_slack_notification action ----------
+
+    def test_catalog_includes_send_slack_notification_action(self, service):
+        catalog = service.get_catalog()
+        action_ids = {action["id"] for action in catalog["actions"]}
+        assert "send_slack_notification" in action_ids
+
+    def test_create_workflow_persists_send_slack_notification_flag(self, service, mock_db):
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+        with patch.object(service, "ensure_default_workflows"):
+            workflow = service.create_workflow(
+                name="With Slack",
+                description="",
+                trigger_type="invoice_became_overdue",
+                action_ids=["send_internal_notification", "send_slack_notification"],
+            )
+            assert workflow.actions["send_slack_notification"] is True
+            assert workflow.actions["send_client_email"] is False
+
+    def test_send_slack_notification_helper_no_op_without_config(
+        self, service, mock_db, caplog
+    ):
+        workflow = WorkflowDefinition(id=10, key="demo-key")
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+
+        with caplog.at_level("WARNING"):
+            result = service._send_slack_notification(
+                workflow=workflow,
+                message_template="hello {workflow_key}",
+                template_vars={},
+            )
+
+        assert result is False
+        assert any(
+            "slack_webhook_config not set" in r.message for r in caplog.records
+        )
+
+    def test_send_slack_notification_helper_no_op_without_url(
+        self, service, mock_db, caplog
+    ):
+        from core.models.models_per_tenant import Settings
+
+        workflow = WorkflowDefinition(id=10, key="demo-key")
+        settings_row = Settings(key="slack_webhook_config", value={})
+        mock_db.query.return_value.filter.return_value.first.return_value = settings_row
+
+        with caplog.at_level("WARNING"):
+            result = service._send_slack_notification(
+                workflow=workflow,
+                message_template="hello {workflow_key}",
+                template_vars={},
+            )
+
+        assert result is False
+        assert any("webhook_url missing" in r.message for r in caplog.records)
+
+    def test_send_slack_notification_helper_happy_path(self, service, mock_db):
+        from core.models.models_per_tenant import Settings
+
+        workflow = WorkflowDefinition(id=10, key="demo-key")
+        settings_row = Settings(
+            key="slack_webhook_config",
+            value={"webhook_url": "https://hooks.slack.com/services/T/B/X"},
+        )
+        mock_db.query.return_value.filter.return_value.first.return_value = settings_row
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+
+        with patch("requests.post", return_value=mock_response) as mock_post:
+            result = service._send_slack_notification(
+                workflow=workflow,
+                message_template="hello {workflow_key} for invoice #{invoice_number}",
+                template_vars={"invoice_number": "INV-2026-001"},
+            )
+
+        assert result is True
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args.kwargs
+        assert call_kwargs["json"]["text"] == "hello demo-key for invoice #INV-2026-001"
+        assert call_kwargs["timeout"] == 10
+        assert mock_post.call_args.args[0] == "https://hooks.slack.com/services/T/B/X"
+
+    def test_send_slack_notification_helper_non_2xx_is_failure(
+        self, service, mock_db, caplog
+    ):
+        from core.models.models_per_tenant import Settings
+
+        workflow = WorkflowDefinition(id=10, key="demo-key")
+        settings_row = Settings(
+            key="slack_webhook_config",
+            value={"webhook_url": "https://hooks.slack.com/services/T/B/X"},
+        )
+        mock_db.query.return_value.filter.return_value.first.return_value = settings_row
+
+        mock_response = Mock()
+        mock_response.status_code = 503
+
+        with patch("requests.post", return_value=mock_response):
+            with caplog.at_level("WARNING"):
+                result = service._send_slack_notification(
+                    workflow=workflow,
+                    message_template="anything",
+                    template_vars={},
+                )
+
+        assert result is False
+        assert any("non-2xx response 503" in r.message for r in caplog.records)
+
+    def test_send_slack_notification_helper_network_error_is_failure(
+        self, service, mock_db, caplog
+    ):
+        from core.models.models_per_tenant import Settings
+
+        workflow = WorkflowDefinition(id=10, key="demo-key")
+        settings_row = Settings(
+            key="slack_webhook_config",
+            value={"webhook_url": "https://hooks.slack.com/services/T/B/X"},
+        )
+        mock_db.query.return_value.filter.return_value.first.return_value = settings_row
+
+        with patch(
+            "requests.post", side_effect=ConnectionError("dns lookup failed")
+        ):
+            with caplog.at_level("WARNING"):
+                result = service._send_slack_notification(
+                    workflow=workflow,
+                    message_template="anything",
+                    template_vars={},
+                )
+
+        assert result is False
+        assert any("network error" in r.message for r in caplog.records)
+
+    def test_process_due_invoice_workflows_sends_slack_when_enabled(
+        self,
+        service,
+        mock_db,
+        sample_invoice,
+        sample_user,
+        sample_client,
+    ):
+        from core.models.models_per_tenant import Settings
+
+        workflow = WorkflowDefinition(
+            id=99,
+            key="overdue-with-slack",
+            trigger_type="invoice_became_overdue",
+            conditions={"invoice_statuses": ["sent"]},
+            actions={
+                "send_internal_notification": False,
+                "create_internal_task": False,
+                "send_slack_notification": True,
+            },
+            is_enabled=True,
+            is_system=False,
+            is_default=False,
+            created_at=datetime.now(timezone.utc) - timedelta(days=1),
+        )
+        settings_row = Settings(
+            key="slack_webhook_config",
+            value={"webhook_url": "https://hooks.slack.com/services/T/B/X"},
+        )
+
+        def query_side_effect(model):
+            return {
+                WorkflowDefinition: Mock(
+                    filter=Mock(return_value=Mock(all=Mock(return_value=[workflow])))
+                ),
+                Invoice: Mock(
+                    filter=Mock(return_value=Mock(all=Mock(return_value=[sample_invoice])))
+                ),
+                Client: Mock(
+                    filter=Mock(return_value=Mock(first=Mock(return_value=sample_client)))
+                ),
+                Settings: Mock(
+                    filter=Mock(return_value=Mock(first=Mock(return_value=settings_row)))
+                ),
+            }[model]
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+
+        with patch(
+            "core.services.workflow_service.FeatureConfigService.is_enabled",
+            return_value=True,
+        ), patch.object(service, "ensure_default_workflows"), patch.object(
+            service, "_has_execution_log", return_value=False
+        ), patch.object(
+            service, "_resolve_assigned_user", return_value=sample_user
+        ), patch(
+            "requests.post", return_value=mock_response
+        ) as mock_post:
+            mock_db.query.side_effect = query_side_effect
+
+            stats = service.process_due_invoice_workflows()
+
+        assert stats["slack_notification_count"] == 1
+        assert stats["notification_count"] == 0
+        assert stats["created_task_count"] == 0
+
+        slack_text = mock_post.call_args.kwargs["json"]["text"]
+        assert "INV-2026-001" in slack_text
+        assert "ACME Corp" in slack_text
+
+        added = [call[0][0] for call in mock_db.add.call_args_list]
+        logs = [obj for obj in added if isinstance(obj, WorkflowExecutionLog)]
+        assert logs[0].details["slack_notification_sent"] is True
+
+    def test_process_all_workflows_aggregates_slack_notification_count(self, service):
+        empty_stats = {
+            "processed_count": 0,
+            "created_task_count": 0,
+            "notification_count": 0,
+            "client_note_count": 0,
+            "client_email_count": 0,
+            "slack_notification_count": 0,
+            "skipped_count": 0,
+            "errors": [],
+        }
+        with patch.object(
+            service,
+            "process_due_invoice_workflows",
+            return_value={**empty_stats, "slack_notification_count": 2},
+        ), patch.object(
+            service, "process_invoice_created_workflows", return_value=empty_stats
+        ), patch.object(
+            service,
+            "process_payment_received_workflows",
+            return_value={**empty_stats, "slack_notification_count": 1},
+        ), patch.object(
+            service, "process_client_created_workflows", return_value=empty_stats
+        ), patch.object(
+            service, "process_expense_created_workflows", return_value=empty_stats
+        ), patch.object(
+            service,
+            "process_expense_submitted_for_approval_workflows",
+            return_value=empty_stats,
+        ):
+            stats = service.process_all_workflows()
+            assert stats["slack_notification_count"] == 3
+
 
 if __name__ == "__main__":
     pytest.main([__file__])
