@@ -789,8 +789,30 @@ const WorkflowCard: React.FC<{
 
 const ExecutionLogItem: React.FC<{ log: WorkflowExecutionLog }> = ({ log }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const queryClient = useQueryClient();
 
   const isSuccess = log.status === 'success';
+  const errorText = typeof log.details?.error === 'string' ? log.details.error : null;
+  // ~110-char preview keeps the collapsed row scannable without truncating
+  // short-but-meaningful errors. Full text remains in the expanded panel.
+  const errorPreview =
+    errorText && errorText.length > 110 ? `${errorText.slice(0, 107)}...` : errorText;
+
+  const rerunMutation = useMutation({
+    mutationFn: () => workflowsApi.runNow(log.workflow_id),
+    onSuccess: (result) => {
+      toast.success(
+        `Reran workflow — processed ${result.processed_count}, ` +
+        `created ${result.created_task_count} task(s), ` +
+        `notified ${result.notification_count} teammate(s).`,
+      );
+      queryClient.invalidateQueries({ queryKey: ['workflow-executions'] });
+      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, (key) => key));
+    },
+  });
 
   return (
     <div className="border border-border/50 rounded-xl bg-card overflow-hidden shadow-sm transition-all duration-200 hover:border-border/80">
@@ -810,7 +832,7 @@ const ExecutionLogItem: React.FC<{ log: WorkflowExecutionLog }> = ({ log }) => {
               Failed
             </Badge>
           )}
-          <div>
+          <div className="min-w-0">
             <h4 className="font-semibold text-foreground text-sm">
               {log.workflow_name || log.workflow_key || 'Unknown Workflow'}
             </h4>
@@ -818,6 +840,11 @@ const ExecutionLogItem: React.FC<{ log: WorkflowExecutionLog }> = ({ log }) => {
               <Calendar className="h-3 w-3" />
               {new Date(log.created_at).toLocaleString()}
             </p>
+            {!isSuccess && errorPreview && (
+              <p className="text-xs text-destructive/90 mt-1 font-mono truncate max-w-[420px]">
+                {errorPreview}
+              </p>
+            )}
           </div>
         </div>
 
@@ -855,10 +882,34 @@ const ExecutionLogItem: React.FC<{ log: WorkflowExecutionLog }> = ({ log }) => {
           {!isSuccess && log.details?.error && (
             <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive flex gap-3">
               <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold">Execution Error</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-semibold">Execution Error</p>
+                  <ProfessionalButton
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      rerunMutation.mutate();
+                    }}
+                    disabled={rerunMutation.isPending}
+                    className="border-destructive/30 hover:bg-destructive/10 text-destructive h-7 px-2 text-xs shrink-0"
+                  >
+                    {rerunMutation.isPending ? (
+                      <RefreshCw className="h-3 w-3 animate-spin mr-1.5" />
+                    ) : (
+                      <Play className="h-3 w-3 mr-1.5" />
+                    )}
+                    Rerun workflow
+                  </ProfessionalButton>
+                </div>
                 <p className="mt-1 font-mono text-xs bg-black/5 dark:bg-black/20 p-2.5 rounded border border-destructive/10 overflow-x-auto whitespace-pre-wrap">
                   {log.details.error}
+                </p>
+                <p className="mt-2 text-xs text-destructive/80">
+                  Rerun re-processes every event matching this workflow's trigger; the
+                  per-event execution log keeps already-successful events idempotent, so
+                  only this and other still-pending events will fire.
                 </p>
               </div>
             </div>
