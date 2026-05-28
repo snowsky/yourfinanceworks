@@ -62,6 +62,7 @@ async def create_workflow(
             description=payload.description,
             trigger_type=payload.trigger_type,
             action_ids=payload.action_ids,
+            assigned_user_id=payload.assigned_user_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -152,6 +153,7 @@ async def update_workflow(
             name=payload.name,
             description=payload.description,
             action_ids=payload.action_ids,
+            assigned_user_id=payload.assigned_user_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

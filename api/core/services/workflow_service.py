@@ -134,6 +134,15 @@ SUPPORTED_ACTIONS = {
             "trigger has no client context (e.g. expenses without a linked client)."
         ),
     },
+    "assign_to_specific_user": {
+        "label": "Assign to a specific teammate",
+        "description": (
+            "Override the auto-resolved owner with a specific user. The workflow "
+            "must declare the target via ``assigned_user_id`` in its actions dict; "
+            "if the target user is missing or inactive at execution time, the "
+            "default resolver (creator → admin → any active user) is used instead."
+        ),
+    },
 }
 
 
@@ -201,6 +210,7 @@ class WorkflowService:
         description: Optional[str],
         trigger_type: str,
         action_ids: list[str],
+        assigned_user_id: Optional[int] = None,
     ) -> WorkflowDefinition:
         self.ensure_default_workflows()
 
@@ -217,10 +227,17 @@ class WorkflowService:
         if not normalized_actions:
             raise ValueError("Select at least one workflow action")
 
+        if "assign_to_specific_user" in normalized_actions and not assigned_user_id:
+            raise ValueError(
+                "assign_to_specific_user requires assigned_user_id to be set"
+            )
+
         actions = {
             "send_internal_notification": "send_internal_notification" in normalized_actions,
             "create_internal_task": "create_internal_task" in normalized_actions,
             "add_client_note": "add_client_note" in normalized_actions,
+            "assign_to_specific_user": "assign_to_specific_user" in normalized_actions,
+            "assigned_user_id": assigned_user_id,
             "task_type": "reminder",
             "task_title_template": "Follow up on overdue invoice #{invoice_number}",
             "task_due_in_days": 1,
@@ -283,7 +300,7 @@ class WorkflowService:
                     continue
 
                 try:
-                    assigned_user = self._resolve_assigned_user(invoice)
+                    assigned_user = self._apply_assignment_override(workflow, self._resolve_assigned_user(invoice))
                     if assigned_user is None:
                         raise ValueError(f"No eligible user found to own invoice {invoice.id} workflow task")
 
@@ -433,7 +450,7 @@ class WorkflowService:
                     continue
 
                 try:
-                    assigned_user = self._resolve_assigned_user(invoice)
+                    assigned_user = self._apply_assignment_override(workflow, self._resolve_assigned_user(invoice))
                     if assigned_user is None:
                         raise ValueError(
                             f"No eligible user found to own invoice {invoice.id} workflow task"
@@ -593,7 +610,7 @@ class WorkflowService:
                     continue
 
                 try:
-                    assigned_user = self._resolve_assigned_user(invoice)
+                    assigned_user = self._apply_assignment_override(workflow, self._resolve_assigned_user(invoice))
                     if assigned_user is None:
                         raise ValueError(
                             f"No eligible user found to own payment {payment.id} workflow task"
@@ -754,7 +771,7 @@ class WorkflowService:
                     continue
 
                 try:
-                    assigned_user = self._resolve_user_for_client(client)
+                    assigned_user = self._apply_assignment_override(workflow, self._resolve_user_for_client(client))
                     if assigned_user is None:
                         raise ValueError(
                             f"No eligible user found to own client {client.id} workflow task"
@@ -901,7 +918,7 @@ class WorkflowService:
                     continue
 
                 try:
-                    assigned_user = self._resolve_user_for_expense(expense)
+                    assigned_user = self._apply_assignment_override(workflow, self._resolve_user_for_expense(expense))
                     if assigned_user is None:
                         raise ValueError(
                             f"No eligible user found to own expense {expense.id} workflow task"
@@ -1086,7 +1103,7 @@ class WorkflowService:
                     continue
 
                 try:
-                    assigned_user = self._resolve_user_for_expense_approval(approval)
+                    assigned_user = self._apply_assignment_override(workflow, self._resolve_user_for_expense_approval(approval))
                     if assigned_user is None:
                         raise ValueError(
                             f"No eligible user found to own approval {approval.id} workflow task"
@@ -1358,6 +1375,46 @@ class WorkflowService:
 
         return self.db.query(User).filter(User.is_active == True).order_by(User.id.asc()).first()
 
+    def _apply_assignment_override(
+        self,
+        workflow: WorkflowDefinition,
+        default_user: Optional[User],
+    ) -> Optional[User]:
+        """Honor the ``assign_to_specific_user`` action when it's enabled.
+
+        Wraps every processor's per-entity resolver call. The override is
+        applied only when:
+          * ``workflow.actions["assign_to_specific_user"]`` is truthy
+          * ``workflow.actions["assigned_user_id"]`` resolves to an active user
+
+        Inactive or missing override targets silently fall through to the
+        default resolver so a deleted user can't break a long-lived workflow.
+        ``create_workflow`` / ``update_workflow`` already reject enabling the
+        action without an ``assigned_user_id``, so seeing one here means the
+        target was active at edit time but has since been deactivated.
+        """
+        if not workflow.actions:
+            return default_user
+        if not workflow.actions.get("assign_to_specific_user"):
+            return default_user
+        override_id = workflow.actions.get("assigned_user_id")
+        if not override_id:
+            return default_user
+
+        override_user = self.db.query(User).filter(
+            User.id == override_id,
+            User.is_active == True,
+        ).first()
+        if override_user is None:
+            logger.warning(
+                "Workflow %s assign_to_specific_user target %s is missing or inactive; "
+                "falling back to default resolver.",
+                workflow.key,
+                override_id,
+            )
+            return default_user
+        return override_user
+
     def _create_internal_task(
         self,
         workflow: WorkflowDefinition,
@@ -1511,6 +1568,7 @@ class WorkflowService:
         name: str,
         description: Optional[str],
         action_ids: list[str],
+        assigned_user_id: Optional[int] = None,
     ) -> WorkflowDefinition:
         workflow = self.db.query(WorkflowDefinition).filter(WorkflowDefinition.id == workflow_id).first()
         if not workflow:
@@ -1532,10 +1590,17 @@ class WorkflowService:
         if not normalized_actions:
             raise ValueError("Select at least one workflow action")
 
+        if "assign_to_specific_user" in normalized_actions and not assigned_user_id:
+            raise ValueError(
+                "assign_to_specific_user requires assigned_user_id to be set"
+            )
+
         actions = {
             "send_internal_notification": "send_internal_notification" in normalized_actions,
             "create_internal_task": "create_internal_task" in normalized_actions,
             "add_client_note": "add_client_note" in normalized_actions,
+            "assign_to_specific_user": "assign_to_specific_user" in normalized_actions,
+            "assigned_user_id": assigned_user_id,
             "task_type": "reminder",
             "task_title_template": "Follow up on overdue invoice #{invoice_number}",
             "task_due_in_days": 1,

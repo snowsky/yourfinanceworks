@@ -57,7 +57,7 @@ export interface WorkflowExecutionLogListResponse {
 export const workflowsApi = {
   list: () => apiRequest<WorkflowDefinition[]>('/workflows/'),
   catalog: () => apiRequest<WorkflowCatalogResponse>('/workflows/catalog'),
-  create: (payload: { name: string; description?: string; trigger_type: string; action_ids: string[] }) =>
+  create: (payload: { name: string; description?: string; trigger_type: string; action_ids: string[]; assigned_user_id?: number | null }) =>
     apiRequest<WorkflowDefinition>('/workflows/', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -87,7 +87,7 @@ export const workflowsApi = {
     const query = searchParams.toString();
     return apiRequest<WorkflowExecutionLogListResponse>(`/workflows/${workflowId}/executions${query ? `?${query}` : ''}`);
   },
-  update: (id: number, payload: { name: string; description?: string | null; action_ids: string[] }) =>
+  update: (id: number, payload: { name: string; description?: string | null; action_ids: string[]; assigned_user_id?: number | null }) =>
     apiRequest<WorkflowDefinition>(`/workflows/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),

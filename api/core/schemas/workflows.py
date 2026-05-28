@@ -27,6 +27,7 @@ class WorkflowCreateRequest(BaseModel):
     description: Optional[str] = None
     trigger_type: str
     action_ids: list[str]
+    assigned_user_id: Optional[int] = None
 
 
 class WorkflowToggleRequest(BaseModel):
@@ -77,4 +78,5 @@ class WorkflowUpdateRequest(BaseModel):
     name: str
     description: Optional[str] = None
     action_ids: list[str]
+    assigned_user_id: Optional[int] = None
 
