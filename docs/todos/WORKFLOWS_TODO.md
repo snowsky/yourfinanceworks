@@ -16,11 +16,11 @@ Done:
 
 ## Immediate Next Tasks
 
-- Add workflow execution history endpoint and UI
-- Show recent workflow runs on the Workflows page
-- Add richer error reporting for failed workflow executions
-- Add deletion or archiving for user-created workflows
-- Add edit support for user-created workflows
+- Add workflow execution history endpoint and UI (done)
+- Show recent workflow runs on the Workflows page (done)
+- Add richer error reporting for failed workflow executions (done, PR #308 — inline error preview in the collapsed row plus a "Rerun workflow" affordance in the expanded view)
+- Add deletion or archiving for user-created workflows (done)
+- Add edit support for user-created workflows (done)
 
 ## Trigger Backlog
 
@@ -93,10 +93,10 @@ When to introduce a dedicated task model:
 
 ## Observability
 
-- Add audit log entries for workflow creation/update/toggle
+- Add audit log entries for workflow creation/update/toggle (done, PR #307 — covers CREATE / UPDATE / TOGGLE / DELETE / DUPLICATE / RUN_NOW, both success and failure paths)
 - Add execution metrics
 - Add failure counters
-- Add retry guidance for failed actions
+- Add retry guidance for failed actions (partial — the executions UI now exposes "Rerun workflow" with idempotency-aware guidance; system-level retry metrics still TBD)
 
 ## Testing Backlog
 
@@ -109,7 +109,7 @@ When to introduce a dedicated task model:
 
 ## Documentation Backlog
 
-- Add user guide for Workflows page
-- Add API reference for workflow endpoints
-- Add architecture note for reminder-backed internal tasks
-- Update feature overview docs when more triggers/actions ship
+- Add user guide for Workflows page (done — `docs/features/WORKFLOWS.md`)
+- Add API reference for workflow endpoints (done — `docs/features/WORKFLOWS.md` § API reference)
+- Add architecture note for reminder-backed internal tasks (done — `docs/features/WORKFLOWS.md` § Architecture note → Why tasks are reminder-backed)
+- Update feature overview docs when more triggers/actions ship (done — `docs/features/WORKFLOWS.md` reflects current state)
