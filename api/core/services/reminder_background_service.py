@@ -123,7 +123,7 @@ class ReminderBackgroundService:
                 upcoming_stats = scheduler.send_upcoming_reminders(advance_days=1)
                 logger.info(f"Processed upcoming reminders for tenant {tenant_id}: {upcoming_stats}")
 
-                workflow_stats = workflow_service.process_due_invoice_workflows()
+                workflow_stats = workflow_service.process_all_workflows()
                 logger.info(f"Processed workflows for tenant {tenant_id}: {workflow_stats}")
 
                 # Process expense digest schedule

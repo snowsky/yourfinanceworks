@@ -322,5 +322,227 @@ class TestWorkflowService:
             assert "No eligible user found" in failed_logs[0].details["error"]
 
 
+    # ---------- invoice_created trigger ----------
+
+    @pytest.fixture
+    def sample_created_invoice(self):
+        """Invoice created recently, eligible for the invoice_created trigger."""
+        return Invoice(
+            id=202,
+            number="INV-2026-NEW",
+            client_id=201,
+            amount=750.0,
+            currency="USD",
+            due_date=datetime.now(timezone.utc) + timedelta(days=14),
+            status="sent",
+            is_deleted=False,
+            created_by_user_id=1,
+            created_at=datetime.now(timezone.utc),
+        )
+
+    @pytest.fixture
+    def sample_invoice_created_workflow(self):
+        return WorkflowDefinition(
+            id=3,
+            name="Welcome new invoices",
+            key="invoice-created-welcome",
+            description="When a new invoice is created, notify the owner and create a review task.",
+            trigger_type="invoice_created",
+            conditions={},
+            actions={
+                "send_internal_notification": True,
+                "create_internal_task": True,
+                "task_type": "reminder",
+                "task_title_template": "Review newly created invoice #{invoice_number}",
+                "task_due_in_days": 1,
+            },
+            is_enabled=True,
+            is_system=False,
+            is_default=False,
+            created_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+
+    def test_catalog_includes_invoice_created_trigger(self, service):
+        catalog = service.get_catalog()
+        trigger_ids = {trigger["id"] for trigger in catalog["triggers"]}
+        assert "invoice_became_overdue" in trigger_ids
+        assert "invoice_created" in trigger_ids
+
+    def test_create_workflow_accepts_invoice_created_trigger(self, service, mock_db):
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+        with patch.object(service, "ensure_default_workflows"):
+            workflow = service.create_workflow(
+                name="On New Invoice",
+                description="",
+                trigger_type="invoice_created",
+                action_ids=["send_internal_notification"],
+            )
+            assert workflow.trigger_type == "invoice_created"
+
+    def test_process_invoice_created_workflows_success(
+        self,
+        service,
+        mock_db,
+        sample_invoice_created_workflow,
+        sample_created_invoice,
+        sample_user,
+        sample_client,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=False), \
+             patch.object(service, "_resolve_assigned_user", return_value=sample_user), \
+             patch("core.services.workflow_service.send_notification") as mock_notification:
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_invoice_created_workflow])))),
+                Invoice: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_created_invoice])))),
+                Client: Mock(filter=Mock(return_value=Mock(first=Mock(return_value=sample_client)))),
+            }[model]
+
+            mock_reminder = Reminder(id=999)
+            with patch.object(service, "_create_internal_task", return_value=mock_reminder):
+                stats = service.process_invoice_created_workflows()
+
+            assert stats["processed_count"] == 1
+            assert stats["created_task_count"] == 1
+            assert stats["notification_count"] == 1
+            assert stats["errors"] == []
+
+            # Notification uses the invoice_created event_type, not invoice_overdue.
+            assert mock_notification.call_args.kwargs["event_type"] == "invoice_created"
+
+            # Execution log uses the :created suffix.
+            added = [call[0][0] for call in mock_db.add.call_args_list]
+            logs = [obj for obj in added if isinstance(obj, WorkflowExecutionLog)]
+            assert len(logs) == 1
+            assert logs[0].status == "success"
+            assert logs[0].event_key.endswith(":created")
+
+    def test_process_invoice_created_workflows_skips_when_log_exists(
+        self,
+        service,
+        mock_db,
+        sample_invoice_created_workflow,
+        sample_created_invoice,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=True):  # already processed
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_invoice_created_workflow])))),
+                Invoice: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_created_invoice])))),
+            }[model]
+
+            stats = service.process_invoice_created_workflows()
+
+            assert stats["processed_count"] == 1
+            assert stats["skipped_count"] == 1
+            assert stats["created_task_count"] == 0
+            assert stats["notification_count"] == 0
+
+    def test_process_invoice_created_workflows_failure_logged(
+        self,
+        service,
+        mock_db,
+        sample_invoice_created_workflow,
+        sample_created_invoice,
+        sample_client,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=False), \
+             patch.object(service, "_resolve_assigned_user", return_value=None):
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_invoice_created_workflow])))),
+                Invoice: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_created_invoice])))),
+                Client: Mock(filter=Mock(return_value=Mock(first=Mock(return_value=sample_client)))),
+            }[model]
+
+            stats = service.process_invoice_created_workflows()
+
+            assert stats["processed_count"] == 1
+            assert len(stats["errors"]) == 1
+            added = [call[0][0] for call in mock_db.add.call_args_list]
+            failed = [obj for obj in added if isinstance(obj, WorkflowExecutionLog) and obj.status == "failed"]
+            assert len(failed) == 1
+            assert failed[0].event_key.endswith(":created")
+
+    # ---------- dispatch + combined runner ----------
+
+    def test_run_workflow_now_dispatches_to_invoice_created_processor(
+        self, service, mock_db, sample_invoice_created_workflow
+    ):
+        mock_db.query.return_value.filter.return_value.first.return_value = sample_invoice_created_workflow
+        sentinel = {"processed_count": 0, "created_task_count": 0, "notification_count": 0, "skipped_count": 0, "errors": []}
+
+        with patch.object(service, "process_invoice_created_workflows", return_value=sentinel) as mock_processor, \
+             patch.object(service, "process_due_invoice_workflows") as overdue_processor:
+            result = service.run_workflow_now(sample_invoice_created_workflow.id)
+
+            mock_processor.assert_called_once()
+            overdue_processor.assert_not_called()
+            assert result is sentinel
+
+    def test_run_workflow_now_rejects_unknown_trigger(self, service, mock_db):
+        workflow = WorkflowDefinition(id=99, trigger_type="some_future_trigger")
+        mock_db.query.return_value.filter.return_value.first.return_value = workflow
+
+        with pytest.raises(ValueError, match="some_future_trigger"):
+            service.run_workflow_now(99)
+
+    def test_process_all_workflows_combines_stats_from_each_trigger(self, service):
+        with patch.object(
+            service,
+            "process_due_invoice_workflows",
+            return_value={
+                "processed_count": 2,
+                "created_task_count": 1,
+                "notification_count": 1,
+                "skipped_count": 1,
+                "errors": ["overdue err"],
+            },
+        ), patch.object(
+            service,
+            "process_invoice_created_workflows",
+            return_value={
+                "processed_count": 3,
+                "created_task_count": 2,
+                "notification_count": 2,
+                "skipped_count": 0,
+                "errors": [],
+            },
+        ):
+            stats = service.process_all_workflows()
+
+            assert stats["processed_count"] == 5
+            assert stats["created_task_count"] == 3
+            assert stats["notification_count"] == 3
+            assert stats["skipped_count"] == 1
+            assert stats["errors"] == ["overdue err"]
+
+    def test_process_all_workflows_continues_when_one_processor_raises(self, service):
+        with patch.object(
+            service,
+            "process_due_invoice_workflows",
+            side_effect=RuntimeError("db blew up"),
+        ), patch.object(
+            service,
+            "process_invoice_created_workflows",
+            return_value={
+                "processed_count": 1,
+                "created_task_count": 1,
+                "notification_count": 1,
+                "skipped_count": 0,
+                "errors": [],
+            },
+        ):
+            stats = service.process_all_workflows()
+
+            # Created processor still ran.
+            assert stats["processed_count"] == 1
+            # Overdue's exception is captured in errors.
+            assert any("invoice_became_overdue" in err for err in stats["errors"])
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
