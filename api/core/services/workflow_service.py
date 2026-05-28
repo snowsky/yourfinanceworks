@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.models.models_per_tenant import (
     Client,
+    Expense,
     Invoice,
     Payment,
     Reminder,
@@ -71,6 +72,16 @@ SUPPORTED_TRIGGERS = {
         "default_task_title_template": "Onboard new client {client_name}",
         "task_tag": "client-created",
         "event_key_suffix": "client_created",
+    },
+    "expense_created": {
+        "label": "Expense is recorded",
+        "description": "Runs once when a new expense is recorded (and not retroactively for expenses that pre-date the workflow).",
+        "trigger_type": "expense_created",
+        "conditions": {},
+        "notification_event_type": "expense_created",
+        "default_task_title_template": "Review newly recorded expense from {vendor}",
+        "task_tag": "expense-created",
+        "event_key_suffix": "expense_created",
     },
 }
 
@@ -721,6 +732,143 @@ class WorkflowService:
 
         return stats
 
+    def process_expense_created_workflows(self) -> Dict[str, Any]:
+        """Fire `expense_created` workflows for expenses not yet processed.
+
+        Same retroactive guard as the other entity-scan triggers: only
+        non-deleted expenses with ``created_at >= workflow.created_at`` are
+        considered. The (workflow, expense) execution log keeps reruns
+        idempotent. Owner resolution prefers ``Expense.created_by_user_id``
+        with admin fallback.
+        """
+        stats = {
+            "processed_count": 0,
+            "created_task_count": 0,
+            "notification_count": 0,
+            "skipped_count": 0,
+            "errors": [],
+        }
+
+        workflows = self.db.query(WorkflowDefinition).filter(
+            WorkflowDefinition.trigger_type == "expense_created",
+            WorkflowDefinition.is_enabled == True,
+        ).all()
+
+        if not workflows:
+            return stats
+
+        now = datetime.now(timezone.utc)
+        trigger_meta = SUPPORTED_TRIGGERS["expense_created"]
+
+        for workflow in workflows:
+            expenses = self.db.query(Expense).filter(
+                Expense.is_deleted == False,
+                Expense.created_at.isnot(None),
+                Expense.created_at >= workflow.created_at,
+            ).all()
+
+            for expense in expenses:
+                stats["processed_count"] += 1
+                event_key = f"expense:{expense.id}:{trigger_meta['event_key_suffix']}"
+
+                if self._has_execution_log(workflow.id, event_key):
+                    stats["skipped_count"] += 1
+                    continue
+
+                try:
+                    assigned_user = self._resolve_user_for_expense(expense)
+                    if assigned_user is None:
+                        raise ValueError(
+                            f"No eligible user found to own expense {expense.id} workflow task"
+                        )
+
+                    vendor = expense.vendor or "Unknown vendor"
+                    details = {
+                        "expense_id": expense.id,
+                        "vendor": vendor,
+                        "category": expense.category,
+                        "amount": expense.amount,
+                        "currency": expense.currency,
+                        "expense_date": expense.expense_date.isoformat() if expense.expense_date else None,
+                        "created_at": expense.created_at.isoformat() if expense.created_at else None,
+                        "workflow_key": workflow.key,
+                    }
+
+                    if workflow.actions and workflow.actions.get("send_internal_notification", True):
+                        send_notification(
+                            db=self.db,
+                            event_type=trigger_meta["notification_event_type"],
+                            user_id=assigned_user.id,
+                            resource_type="expense",
+                            resource_id=str(expense.id),
+                            resource_name=vendor,
+                            details=details,
+                        )
+                        stats["notification_count"] += 1
+
+                    task_id = None
+                    if workflow.actions and workflow.actions.get("create_internal_task", True):
+                        reminder = self._create_internal_task(
+                            workflow=workflow,
+                            invoice=None,
+                            assigned_user=assigned_user,
+                            details=details,
+                            default_title_template=trigger_meta["default_task_title_template"],
+                            task_tag=trigger_meta["task_tag"],
+                            description_template=(
+                                "New expense from {vendor} in category {category} "
+                                "({amount} {currency}) was just recorded. Verify the "
+                                "receipt and assign the correct accounting code."
+                            ),
+                            template_vars={
+                                "vendor": vendor,
+                                "category": expense.category or "Uncategorized",
+                                "amount": expense.amount if expense.amount is not None else 0,
+                                "currency": expense.currency or "USD",
+                            },
+                            extra_metadata={"expense_id": expense.id},
+                        )
+                        task_id = reminder.id
+                        stats["created_task_count"] += 1
+
+                    execution_log = WorkflowExecutionLog(
+                        workflow_id=workflow.id,
+                        event_key=event_key,
+                        entity_type="expense",
+                        entity_id=str(expense.id),
+                        status="success",
+                        details={**details, "task_id": task_id, "assigned_user_id": assigned_user.id},
+                    )
+                    self.db.add(execution_log)
+                    workflow.last_run_at = now
+                    self.db.commit()
+                except Exception as exc:
+                    self.db.rollback()
+                    error = f"Workflow {workflow.key} failed for expense {expense.id}: {exc}"
+                    logger.error(error)
+                    stats["errors"].append(error)
+
+                    try:
+                        failed_log = WorkflowExecutionLog(
+                            workflow_id=workflow.id,
+                            event_key=event_key,
+                            entity_type="expense",
+                            entity_id=str(expense.id),
+                            status="failed",
+                            details={
+                                "expense_id": expense.id,
+                                "error": str(exc),
+                                "workflow_key": workflow.key,
+                            },
+                        )
+                        self.db.add(failed_log)
+                        self.db.commit()
+                    except Exception as log_exc:
+                        self.db.rollback()
+                        logger.error(f"Failed to record failed workflow execution log: {log_exc}")
+
+        return stats
+
     # Dispatch table: trigger_type -> bound processor method. Used by both the
     # background runner and the manual ``run_workflow_now`` endpoint so a new
     # trigger only needs to be added once.
@@ -731,6 +879,7 @@ class WorkflowService:
             "invoice_created": self.process_invoice_created_workflows,
             "payment_received": self.process_payment_received_workflows,
             "client_created": self.process_client_created_workflows,
+            "expense_created": self.process_expense_created_workflows,
         }
 
     def process_all_workflows(self) -> Dict[str, Any]:
@@ -797,6 +946,24 @@ class WorkflowService:
         if owner_id:
             user = self.db.query(User).filter(
                 User.id == owner_id,
+                User.is_active == True,
+            ).first()
+            if user:
+                return user
+
+        return self._fallback_admin_user()
+
+    def _resolve_user_for_expense(self, expense: Expense) -> Optional[User]:
+        """Resolve the responsible user for an expense-scoped workflow.
+
+        Uses ``Expense.created_by_user_id`` (legacy rows that pre-date this
+        attribution column will fall through to the admin / any-active-user
+        fallback so the task still lands on a real owner).
+        """
+        created_by = getattr(expense, "created_by_user_id", None)
+        if created_by:
+            user = self.db.query(User).filter(
+                User.id == created_by,
                 User.is_active == True,
             ).first()
             if user:
