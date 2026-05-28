@@ -55,6 +55,10 @@ SUPPORTED_TRIGGERS = {
             "past its due date. Please get in touch if you need help arranging "
             "payment.\n\nThanks."
         ),
+        "slack_message_template": (
+            ":warning: Invoice #{invoice_number} for {client_name} is overdue "
+            "(workflow {workflow_key})."
+        ),
     },
     "invoice_created": {
         "label": "Invoice is created",
@@ -73,6 +77,10 @@ SUPPORTED_TRIGGERS = {
             "Hi {client_name},\n\nInvoice #{invoice_number} has just been "
             "created on your account. The full details are available in your "
             "client portal.\n\nThanks."
+        ),
+        "slack_message_template": (
+            ":memo: Invoice #{invoice_number} created for {client_name} "
+            "(workflow {workflow_key})."
         ),
     },
     "payment_received": {
@@ -96,6 +104,11 @@ SUPPORTED_TRIGGERS = {
             "{payment_amount} {payment_currency} on invoice "
             "#{invoice_number}. Thank you."
         ),
+        "slack_message_template": (
+            ":moneybag: Payment of {payment_amount} {payment_currency} received "
+            "on invoice #{invoice_number} from {client_name} "
+            "(workflow {workflow_key})."
+        ),
     },
     "client_created": {
         "label": "Client is created",
@@ -113,6 +126,10 @@ SUPPORTED_TRIGGERS = {
         "client_email_body_template": (
             "Hi {client_name},\n\nYour account has been set up. Please reach "
             "out if you have any questions getting started."
+        ),
+        "slack_message_template": (
+            ":wave: New client {client_name} was added "
+            "(workflow {workflow_key})."
         ),
     },
     "expense_created": {
@@ -135,6 +152,10 @@ SUPPORTED_TRIGGERS = {
             "Hi {client_name},\n\nAn expense of {amount} {currency} from "
             "{vendor} has been recorded against your account."
         ),
+        "slack_message_template": (
+            ":receipt: Expense {amount} {currency} from {vendor} was recorded "
+            "(workflow {workflow_key})."
+        ),
     },
     "expense_submitted_for_approval": {
         "label": "Expense is submitted for approval",
@@ -156,6 +177,10 @@ SUPPORTED_TRIGGERS = {
             "Hi {client_name},\n\nAn expense of {amount} {currency} from "
             "{vendor} has been submitted for approval (level "
             "{approval_level})."
+        ),
+        "slack_message_template": (
+            ":eyes: Expense {amount} {currency} from {vendor} is awaiting "
+            "approval (level {approval_level}, workflow {workflow_key})."
         ),
     },
 }
@@ -193,6 +218,15 @@ SUPPORTED_ACTIONS = {
             "client context (e.g. expenses without a linked client), when the "
             "client has no email address, or when the tenant has not configured "
             "an email provider."
+        ),
+    },
+    "send_slack_notification": {
+        "label": "Send a Slack notification",
+        "description": (
+            "POST a per-trigger message to the tenant's Slack incoming webhook. "
+            "Silently skipped when the tenant has not configured a "
+            "``slack_webhook_config`` Settings row. Plain-text payload only "
+            "(no Block Kit); the message template can be customized per trigger."
         ),
     },
 }
@@ -290,6 +324,7 @@ class WorkflowService:
             "add_client_note": "add_client_note" in normalized_actions,
             "assign_to_specific_user": "assign_to_specific_user" in normalized_actions,
             "send_client_email": "send_client_email" in normalized_actions,
+            "send_slack_notification": "send_slack_notification" in normalized_actions,
             "assigned_user_id": assigned_user_id,
             "task_type": "reminder",
             "task_title_template": "Follow up on overdue invoice #{invoice_number}",
@@ -319,6 +354,7 @@ class WorkflowService:
             "notification_count": 0,
             "client_note_count": 0,
             "client_email_count": 0,
+            "slack_notification_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -432,6 +468,21 @@ class WorkflowService:
                         if client_email_sent:
                             stats["client_email_count"] += 1
 
+                    slack_notification_sent = False
+                    if workflow.actions and workflow.actions.get("send_slack_notification", False):
+                        slack_notification_sent = self._send_slack_notification(
+                            workflow=workflow,
+                            message_template=SUPPORTED_TRIGGERS["invoice_became_overdue"][
+                                "slack_message_template"
+                            ],
+                            template_vars={
+                                "invoice_number": invoice.number,
+                                "client_name": (client.name if client else "Unknown client"),
+                            },
+                        )
+                        if slack_notification_sent:
+                            stats["slack_notification_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
@@ -443,6 +494,7 @@ class WorkflowService:
                             "task_id": task_id,
                             "client_note_id": client_note_id,
                             "client_email_sent": client_email_sent,
+                            "slack_notification_sent": slack_notification_sent,
                             "assigned_user_id": assigned_user.id,
                         },
                     )
@@ -491,6 +543,7 @@ class WorkflowService:
             "notification_count": 0,
             "client_note_count": 0,
             "client_email_count": 0,
+            "slack_notification_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -593,6 +646,19 @@ class WorkflowService:
                         if client_email_sent:
                             stats["client_email_count"] += 1
 
+                    slack_notification_sent = False
+                    if workflow.actions and workflow.actions.get("send_slack_notification", False):
+                        slack_notification_sent = self._send_slack_notification(
+                            workflow=workflow,
+                            message_template=trigger_meta["slack_message_template"],
+                            template_vars={
+                                "invoice_number": invoice.number,
+                                "client_name": (client.name if client else "Unknown client"),
+                            },
+                        )
+                        if slack_notification_sent:
+                            stats["slack_notification_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
@@ -604,6 +670,7 @@ class WorkflowService:
                             "task_id": task_id,
                             "client_note_id": client_note_id,
                             "client_email_sent": client_email_sent,
+                            "slack_notification_sent": slack_notification_sent,
                             "assigned_user_id": assigned_user.id,
                         },
                     )
@@ -656,6 +723,7 @@ class WorkflowService:
             "notification_count": 0,
             "client_note_count": 0,
             "client_email_count": 0,
+            "slack_notification_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -785,6 +853,21 @@ class WorkflowService:
                         if client_email_sent:
                             stats["client_email_count"] += 1
 
+                    slack_notification_sent = False
+                    if workflow.actions and workflow.actions.get("send_slack_notification", False):
+                        slack_notification_sent = self._send_slack_notification(
+                            workflow=workflow,
+                            message_template=trigger_meta["slack_message_template"],
+                            template_vars={
+                                "invoice_number": invoice.number,
+                                "payment_amount": payment.amount,
+                                "payment_currency": payment.currency,
+                                "client_name": (client.name if client else "Unknown client"),
+                            },
+                        )
+                        if slack_notification_sent:
+                            stats["slack_notification_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
@@ -796,6 +879,7 @@ class WorkflowService:
                             "task_id": task_id,
                             "client_note_id": client_note_id,
                             "client_email_sent": client_email_sent,
+                            "slack_notification_sent": slack_notification_sent,
                             "assigned_user_id": assigned_user.id,
                         },
                     )
@@ -845,6 +929,7 @@ class WorkflowService:
             "notification_count": 0,
             "client_note_count": 0,
             "client_email_count": 0,
+            "slack_notification_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -946,6 +1031,16 @@ class WorkflowService:
                         if client_email_sent:
                             stats["client_email_count"] += 1
 
+                    slack_notification_sent = False
+                    if workflow.actions and workflow.actions.get("send_slack_notification", False):
+                        slack_notification_sent = self._send_slack_notification(
+                            workflow=workflow,
+                            message_template=trigger_meta["slack_message_template"],
+                            template_vars={"client_name": client.name or ""},
+                        )
+                        if slack_notification_sent:
+                            stats["slack_notification_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
@@ -957,6 +1052,7 @@ class WorkflowService:
                             "task_id": task_id,
                             "client_note_id": client_note_id,
                             "client_email_sent": client_email_sent,
+                            "slack_notification_sent": slack_notification_sent,
                             "assigned_user_id": assigned_user.id,
                         },
                     )
@@ -1005,6 +1101,7 @@ class WorkflowService:
             "notification_count": 0,
             "client_note_count": 0,
             "client_email_count": 0,
+            "slack_notification_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -1138,6 +1235,20 @@ class WorkflowService:
                         if client_email_sent:
                             stats["client_email_count"] += 1
 
+                    slack_notification_sent = False
+                    if workflow.actions and workflow.actions.get("send_slack_notification", False):
+                        slack_notification_sent = self._send_slack_notification(
+                            workflow=workflow,
+                            message_template=trigger_meta["slack_message_template"],
+                            template_vars={
+                                "vendor": vendor,
+                                "amount": expense.amount if expense.amount is not None else 0,
+                                "currency": expense.currency or "USD",
+                            },
+                        )
+                        if slack_notification_sent:
+                            stats["slack_notification_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
@@ -1149,6 +1260,7 @@ class WorkflowService:
                             "task_id": task_id,
                             "client_note_id": client_note_id,
                             "client_email_sent": client_email_sent,
+                            "slack_notification_sent": slack_notification_sent,
                             "assigned_user_id": assigned_user.id,
                         },
                     )
@@ -1207,6 +1319,7 @@ class WorkflowService:
             "notification_count": 0,
             "client_note_count": 0,
             "client_email_count": 0,
+            "slack_notification_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -1360,6 +1473,21 @@ class WorkflowService:
                         if client_email_sent:
                             stats["client_email_count"] += 1
 
+                    slack_notification_sent = False
+                    if workflow.actions and workflow.actions.get("send_slack_notification", False):
+                        slack_notification_sent = self._send_slack_notification(
+                            workflow=workflow,
+                            message_template=trigger_meta["slack_message_template"],
+                            template_vars={
+                                "vendor": vendor,
+                                "amount": expense.amount if expense.amount is not None else 0,
+                                "currency": expense.currency or "USD",
+                                "approval_level": approval.approval_level,
+                            },
+                        )
+                        if slack_notification_sent:
+                            stats["slack_notification_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
@@ -1371,6 +1499,7 @@ class WorkflowService:
                             "task_id": task_id,
                             "client_note_id": client_note_id,
                             "client_email_sent": client_email_sent,
+                            "slack_notification_sent": slack_notification_sent,
                             "assigned_user_id": assigned_user.id,
                         },
                     )
@@ -1434,6 +1563,7 @@ class WorkflowService:
             "notification_count": 0,
             "client_note_count": 0,
             "client_email_count": 0,
+            "slack_notification_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -1450,6 +1580,7 @@ class WorkflowService:
                 "notification_count",
                 "client_note_count",
                 "client_email_count",
+                "slack_notification_count",
                 "skipped_count",
             ):
                 combined[key] += stats.get(key, 0)
@@ -1792,6 +1923,89 @@ class WorkflowService:
         )
         return EmailService(provider_config).send_email(message)
 
+    def _send_slack_notification(
+        self,
+        workflow: WorkflowDefinition,
+        message_template: str,
+        template_vars: Dict[str, Any],
+    ) -> bool:
+        """POST a per-trigger plain-text message to the tenant's Slack webhook.
+
+        Returns ``True`` on a 2xx response, ``False`` when the action is
+        silently skipped (missing ``slack_webhook_config`` Settings row,
+        missing ``webhook_url``, missing template variable, or any network
+        error). The non-2xx case is treated as a failure and logged but does
+        not raise — the per-event execution log records the boolean so an
+        operator can surface failures in the existing executions UI.
+
+        Imports for ``requests`` and the tenant ``Settings`` model are
+        deferred to call-time to avoid widening top-level imports for an
+        action that not every tenant enables.
+        """
+        from core.models.models_per_tenant import Settings as _Settings
+
+        settings_row = (
+            self.db.query(_Settings).filter(_Settings.key == "slack_webhook_config").first()
+        )
+        if not settings_row or not settings_row.value:
+            logger.warning(
+                "Workflow %s send_slack_notification skipped: slack_webhook_config not set",
+                workflow.key,
+            )
+            return False
+
+        cfg = settings_row.value
+        webhook_url = cfg.get("webhook_url") or cfg.get("default_webhook_url")
+        if not webhook_url:
+            logger.warning(
+                "Workflow %s send_slack_notification skipped: webhook_url missing in slack_webhook_config",
+                workflow.key,
+            )
+            return False
+
+        format_vars: Dict[str, Any] = {"workflow_key": workflow.key}
+        format_vars.update(template_vars)
+
+        try:
+            text = message_template.format(**format_vars)
+        except KeyError as exc:
+            logger.warning(
+                "Workflow %s send_slack_notification template missing variable %s; skipped",
+                workflow.key,
+                exc,
+            )
+            return False
+
+        try:
+            import requests as _requests
+        except ImportError as exc:
+            logger.warning(
+                "Workflow %s send_slack_notification skipped: requests unavailable (%s)",
+                workflow.key,
+                exc,
+            )
+            return False
+
+        try:
+            response = _requests.post(webhook_url, json={"text": text}, timeout=10)
+        except Exception as exc:
+            logger.warning(
+                "Workflow %s send_slack_notification network error: %s",
+                workflow.key,
+                exc,
+            )
+            return False
+
+        if 200 <= response.status_code < 300:
+            return True
+
+        logger.warning(
+            "Workflow %s send_slack_notification got non-2xx response %s",
+            workflow.key,
+            response.status_code,
+        )
+        return False
+
     def _build_workflow_key(self, name: str) -> str:
         base = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
         if not base:
@@ -1882,6 +2096,7 @@ class WorkflowService:
             "add_client_note": "add_client_note" in normalized_actions,
             "assign_to_specific_user": "assign_to_specific_user" in normalized_actions,
             "send_client_email": "send_client_email" in normalized_actions,
+            "send_slack_notification": "send_slack_notification" in normalized_actions,
             "assigned_user_id": assigned_user_id,
             "task_type": "reminder",
             "task_title_template": "Follow up on overdue invoice #{invoice_number}",
