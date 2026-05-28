@@ -1604,6 +1604,153 @@ class TestWorkflowService:
             stats = service.process_all_workflows()
             assert stats["client_note_count"] == 3
 
+    # ---------- assign_to_specific_user action ----------
+
+    def test_catalog_includes_assign_to_specific_user_action(self, service):
+        catalog = service.get_catalog()
+        action_ids = {action["id"] for action in catalog["actions"]}
+        assert "assign_to_specific_user" in action_ids
+
+    def test_create_workflow_persists_assigned_user_id(self, service, mock_db):
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+        with patch.object(service, "ensure_default_workflows"):
+            workflow = service.create_workflow(
+                name="Pinned Owner",
+                description="",
+                trigger_type="invoice_became_overdue",
+                action_ids=["send_internal_notification", "assign_to_specific_user"],
+                assigned_user_id=42,
+            )
+            assert workflow.actions["assign_to_specific_user"] is True
+            assert workflow.actions["assigned_user_id"] == 42
+
+    def test_create_workflow_rejects_assign_action_without_user_id(self, service):
+        with patch.object(service, "ensure_default_workflows"):
+            with pytest.raises(ValueError, match="assign_to_specific_user requires assigned_user_id"):
+                service.create_workflow(
+                    name="Missing User",
+                    description="",
+                    trigger_type="invoice_became_overdue",
+                    action_ids=["send_internal_notification", "assign_to_specific_user"],
+                )
+
+    def test_update_workflow_rejects_assign_action_without_user_id(
+        self, service, mock_db, sample_custom_workflow
+    ):
+        mock_db.query.return_value.filter.return_value.first.return_value = sample_custom_workflow
+        with pytest.raises(ValueError, match="assign_to_specific_user requires assigned_user_id"):
+            service.update_workflow(
+                workflow_id=sample_custom_workflow.id,
+                name="No Override Provided",
+                description="",
+                action_ids=["send_internal_notification", "assign_to_specific_user"],
+            )
+
+    def test_update_workflow_clears_assigned_user_id_when_action_removed(
+        self, service, mock_db, sample_custom_workflow
+    ):
+        sample_custom_workflow.actions = {"assigned_user_id": 99, "assign_to_specific_user": True}
+        mock_db.query.return_value.filter.return_value.first.return_value = sample_custom_workflow
+
+        updated = service.update_workflow(
+            workflow_id=sample_custom_workflow.id,
+            name="Cleared Override",
+            description="",
+            action_ids=["send_internal_notification"],
+            assigned_user_id=None,
+        )
+        assert updated.actions["assign_to_specific_user"] is False
+        assert updated.actions["assigned_user_id"] is None
+
+    def test_apply_assignment_override_returns_default_when_action_disabled(
+        self, service, sample_user
+    ):
+        workflow = WorkflowDefinition(actions={"send_internal_notification": True})
+        result = service._apply_assignment_override(workflow, sample_user)
+        assert result is sample_user
+
+    def test_apply_assignment_override_returns_default_when_user_id_missing(
+        self, service, sample_user
+    ):
+        workflow = WorkflowDefinition(
+            actions={"assign_to_specific_user": True, "assigned_user_id": None}
+        )
+        result = service._apply_assignment_override(workflow, sample_user)
+        assert result is sample_user
+
+    def test_apply_assignment_override_uses_target_user(self, service, mock_db, sample_user):
+        target = User(id=42, email="target@example.com", is_active=True, role="admin")
+        workflow = WorkflowDefinition(
+            actions={"assign_to_specific_user": True, "assigned_user_id": 42}
+        )
+        mock_db.query.return_value.filter.return_value.first.return_value = target
+
+        result = service._apply_assignment_override(workflow, sample_user)
+        assert result is target
+
+    def test_apply_assignment_override_falls_back_when_target_inactive(
+        self, service, mock_db, sample_user, caplog
+    ):
+        """An override user who's been deactivated should silently fall back."""
+        workflow = WorkflowDefinition(
+            key="demo-workflow",
+            actions={"assign_to_specific_user": True, "assigned_user_id": 999},
+        )
+        # The query that filters by is_active=True returns None.
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+
+        with caplog.at_level("WARNING"):
+            result = service._apply_assignment_override(workflow, sample_user)
+
+        assert result is sample_user
+        assert any("missing or inactive" in record.message for record in caplog.records)
+
+    def test_process_due_invoice_workflows_uses_override_user(
+        self, service, mock_db, sample_invoice, sample_user, sample_client
+    ):
+        """End-to-end: the override user is the one wired into notifications + tasks."""
+        target = User(id=42, email="target@example.com", is_active=True, role="admin")
+        workflow = WorkflowDefinition(
+            id=99,
+            key="overdue-pinned",
+            trigger_type="invoice_became_overdue",
+            conditions={"invoice_statuses": ["sent"]},
+            actions={
+                "send_internal_notification": True,
+                "create_internal_task": False,
+                "assign_to_specific_user": True,
+                "assigned_user_id": 42,
+            },
+            is_enabled=True,
+            is_system=False,
+            is_default=False,
+            created_at=datetime.now(timezone.utc) - timedelta(days=1),
+        )
+
+        # Query side_effect: WorkflowDefinition/Invoice/Client are the model-keyed
+        # lookups; the override-user query keys off User and needs the explicit
+        # target row.
+        def query_side_effect(model):
+            return {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[workflow])))),
+                Invoice: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_invoice])))),
+                Client: Mock(filter=Mock(return_value=Mock(first=Mock(return_value=sample_client)))),
+                User: Mock(filter=Mock(return_value=Mock(first=Mock(return_value=target)))),
+            }[model]
+
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "ensure_default_workflows"), \
+             patch.object(service, "_has_execution_log", return_value=False), \
+             patch.object(service, "_resolve_assigned_user", return_value=sample_user), \
+             patch("core.services.workflow_service.send_notification") as mock_notification:
+            mock_db.query.side_effect = query_side_effect
+
+            stats = service.process_due_invoice_workflows()
+
+            assert stats["notification_count"] == 1
+            # Notification fires for the override user, not the default-resolved one.
+            assert mock_notification.call_args.kwargs["user_id"] == target.id
+
 
 if __name__ == "__main__":
     pytest.main([__file__])
