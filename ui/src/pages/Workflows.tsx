@@ -10,6 +10,7 @@ import {
   Sparkles,
   Edit,
   Trash2,
+  Copy,
   CheckCircle,
   AlertCircle,
   Calendar,
@@ -632,6 +633,21 @@ const WorkflowCard: React.FC<{
     },
   });
 
+  const duplicateMutation = useMutation({
+    mutationFn: () => workflowsApi.duplicate(workflow.id),
+    onSuccess: (clone) => {
+      toast.success(
+        t('workflows.duplicate_success', {
+          defaultValue: `Duplicated as "${clone.name}"`,
+        }),
+      );
+      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, (key) => key));
+    },
+  });
+
   const hasNotification = workflow.actions?.send_internal_notification === true;
   const hasTask = workflow.actions?.create_internal_task === true;
   const actionsList = [];
@@ -727,6 +743,16 @@ const WorkflowCard: React.FC<{
                   </ProfessionalButton>
                 </>
               )}
+
+              <ProfessionalButton
+                variant="outline"
+                onClick={() => duplicateMutation.mutate()}
+                disabled={duplicateMutation.isPending}
+                className="border-primary/20 hover:bg-primary/5 h-9"
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Duplicate
+              </ProfessionalButton>
 
               <ProfessionalButton
                 variant="outline"

@@ -173,3 +173,17 @@ async def delete_workflow(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return None
 
+
+@router.post("/{workflow_id}/duplicate", response_model=WorkflowDefinitionResponse)
+async def duplicate_workflow(
+    workflow_id: int,
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_admin(current_user)
+    service = WorkflowService(db)
+    try:
+        return service.duplicate_workflow(workflow_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+

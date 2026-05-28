@@ -2223,6 +2223,93 @@ class TestWorkflowService:
             stats = service.process_all_workflows()
             assert stats["slack_notification_count"] == 3
 
+    # ---------- duplicate_workflow ----------
+
+    def test_duplicate_workflow_raises_when_source_missing(self, service, mock_db):
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+        with pytest.raises(ValueError, match="Workflow not found"):
+            service.duplicate_workflow(999)
+
+    def test_duplicate_workflow_copies_payload_and_marks_user_owned(
+        self, service, mock_db, sample_system_workflow
+    ):
+        # Re-use the system fixture as the source so we also assert
+        # is_system/is_default are flipped on the clone.
+        sample_system_workflow.actions = {
+            "send_internal_notification": True,
+            "create_internal_task": False,
+            "add_client_note": True,
+            "assign_to_specific_user": True,
+            "assigned_user_id": 42,
+            "send_client_email": True,
+            "send_slack_notification": True,
+            "task_type": "reminder",
+            "task_due_in_days": 1,
+        }
+        sample_system_workflow.conditions = {"invoice_statuses": ["sent", "overdue"]}
+        sample_system_workflow.description = "Original description"
+        sample_system_workflow.is_enabled = False  # deliberately disabled source
+
+        # First .first() returns the source; subsequent .first()s used by
+        # _build_workflow_key to check name uniqueness return None.
+        mock_db.query.return_value.filter.return_value.first.side_effect = [
+            sample_system_workflow,
+            None,
+        ]
+
+        clone = service.duplicate_workflow(sample_system_workflow.id)
+
+        assert clone.name == f"{sample_system_workflow.name} (copy)"
+        assert clone.trigger_type == sample_system_workflow.trigger_type
+        assert clone.description == "Original description"
+        assert clone.conditions == {"invoice_statuses": ["sent", "overdue"]}
+        # Carries all action flags including assigned_user_id.
+        assert clone.actions["add_client_note"] is True
+        assert clone.actions["send_client_email"] is True
+        assert clone.actions["send_slack_notification"] is True
+        assert clone.actions["assigned_user_id"] == 42
+        # Clone is always user-owned and enabled regardless of source state.
+        assert clone.is_system is False
+        assert clone.is_default is False
+        assert clone.is_enabled is True
+        mock_db.add.assert_called()
+        mock_db.commit.assert_called()
+
+    def test_duplicate_workflow_handles_name_collision(
+        self, service, mock_db, sample_custom_workflow
+    ):
+        # _build_workflow_key suffixes -2 when the slugified name already
+        # exists. The fixture's name is "Custom Escalation", base slug is
+        # "custom-escalation-copy" → first lookup returns an existing row,
+        # second returns None.
+        existing = WorkflowDefinition(id=88, key="custom-escalation-copy")
+        mock_db.query.return_value.filter.return_value.first.side_effect = [
+            sample_custom_workflow,  # source load
+            existing,                 # slug "custom-escalation-copy" exists
+            None,                     # slug "custom-escalation-copy-2" free
+        ]
+
+        clone = service.duplicate_workflow(sample_custom_workflow.id)
+        assert clone.key == "custom-escalation-copy-2"
+
+    def test_duplicate_workflow_decouples_mutable_dicts(
+        self, service, mock_db, sample_custom_workflow
+    ):
+        sample_custom_workflow.actions = {"send_internal_notification": True}
+        sample_custom_workflow.conditions = {"invoice_statuses": ["sent"]}
+        mock_db.query.return_value.filter.return_value.first.side_effect = [
+            sample_custom_workflow,
+            None,
+        ]
+
+        clone = service.duplicate_workflow(sample_custom_workflow.id)
+        # Mutating the clone's dicts must not mutate the source — guards
+        # against accidental aliasing if SQLAlchemy returns the same dict.
+        clone.actions["new_flag"] = True
+        clone.conditions["new_cond"] = ["x"]
+        assert "new_flag" not in sample_custom_workflow.actions
+        assert "new_cond" not in sample_custom_workflow.conditions
+
 
 if __name__ == "__main__":
     pytest.main([__file__])
