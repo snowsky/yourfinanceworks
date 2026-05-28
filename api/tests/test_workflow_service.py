@@ -8,6 +8,7 @@ from core.models.models_per_tenant import (
     WorkflowDefinition,
     WorkflowExecutionLog,
     Invoice,
+    Expense,
     Payment,
     Reminder,
     User,
@@ -532,13 +533,23 @@ class TestWorkflowService:
                 "skipped_count": 0,
                 "errors": [],
             },
+        ), patch.object(
+            service,
+            "process_expense_created_workflows",
+            return_value={
+                "processed_count": 5,
+                "created_task_count": 3,
+                "notification_count": 3,
+                "skipped_count": 1,
+                "errors": [],
+            },
         ):
             stats = service.process_all_workflows()
 
-            assert stats["processed_count"] == 11
-            assert stats["created_task_count"] == 5
-            assert stats["notification_count"] == 5
-            assert stats["skipped_count"] == 3
+            assert stats["processed_count"] == 16
+            assert stats["created_task_count"] == 8
+            assert stats["notification_count"] == 8
+            assert stats["skipped_count"] == 4
             assert stats["errors"] == ["overdue err"]
 
     # ---------- payment_received trigger ----------
@@ -775,6 +786,10 @@ class TestWorkflowService:
             service,
             "process_client_created_workflows",
             return_value=empty_stats,
+        ), patch.object(
+            service,
+            "process_expense_created_workflows",
+            return_value=empty_stats,
         ):
             stats = service.process_all_workflows()
 
@@ -957,6 +972,190 @@ class TestWorkflowService:
         # First branch returns None (no owner). Fallback queries admin.
         with patch.object(service, "_fallback_admin_user", return_value=sample_user) as fallback:
             result = service._resolve_user_for_client(client)
+            fallback.assert_called_once()
+            assert result is sample_user
+
+    # ---------- expense_created trigger ----------
+
+    @pytest.fixture
+    def sample_new_expense(self):
+        return Expense(
+            id=606,
+            amount=125.50,
+            currency="USD",
+            expense_date=datetime.now(timezone.utc),
+            category="travel",
+            vendor="Acme Taxi",
+            status="recorded",
+            created_by_user_id=1,
+            is_deleted=False,
+            created_at=datetime.now(timezone.utc),
+        )
+
+    @pytest.fixture
+    def sample_expense_created_workflow(self):
+        return WorkflowDefinition(
+            id=6,
+            name="On expense recorded",
+            key="expense-created-review",
+            description="Notify the bookkeeper when a new expense is recorded; create a review task.",
+            trigger_type="expense_created",
+            conditions={},
+            actions={
+                "send_internal_notification": True,
+                "create_internal_task": True,
+                "task_type": "reminder",
+                "task_title_template": "Review newly recorded expense from {vendor}",
+                "task_due_in_days": 2,
+            },
+            is_enabled=True,
+            is_system=False,
+            is_default=False,
+            created_at=datetime.now(timezone.utc) - timedelta(hours=6),
+        )
+
+    def test_catalog_includes_expense_created_trigger(self, service):
+        catalog = service.get_catalog()
+        trigger_ids = {trigger["id"] for trigger in catalog["triggers"]}
+        assert "expense_created" in trigger_ids
+
+    def test_create_workflow_accepts_expense_created_trigger(self, service, mock_db):
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+        with patch.object(service, "ensure_default_workflows"):
+            workflow = service.create_workflow(
+                name="Expense Review",
+                description="",
+                trigger_type="expense_created",
+                action_ids=["send_internal_notification"],
+            )
+            assert workflow.trigger_type == "expense_created"
+
+    def test_process_expense_created_workflows_success(
+        self,
+        service,
+        mock_db,
+        sample_expense_created_workflow,
+        sample_new_expense,
+        sample_user,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=False), \
+             patch.object(service, "_resolve_user_for_expense", return_value=sample_user), \
+             patch("core.services.workflow_service.send_notification") as mock_notification:
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_expense_created_workflow])))),
+                Expense: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_new_expense])))),
+            }[model]
+
+            mock_reminder = Reminder(id=3030)
+            with patch.object(service, "_create_internal_task", return_value=mock_reminder) as mock_task:
+                stats = service.process_expense_created_workflows()
+
+            assert stats["processed_count"] == 1
+            assert stats["created_task_count"] == 1
+            assert stats["notification_count"] == 1
+            assert stats["errors"] == []
+
+            kwargs = mock_notification.call_args.kwargs
+            assert kwargs["event_type"] == "expense_created"
+            assert kwargs["resource_type"] == "expense"
+            assert kwargs["resource_id"] == str(sample_new_expense.id)
+            assert kwargs["resource_name"] == sample_new_expense.vendor
+
+            # _create_internal_task gets invoice=None and expense template vars + extra_metadata.
+            task_kwargs = mock_task.call_args.kwargs
+            assert task_kwargs["invoice"] is None
+            assert task_kwargs["template_vars"]["vendor"] == sample_new_expense.vendor
+            assert task_kwargs["template_vars"]["category"] == sample_new_expense.category
+            assert task_kwargs["template_vars"]["amount"] == sample_new_expense.amount
+            assert task_kwargs["extra_metadata"] == {"expense_id": sample_new_expense.id}
+
+            # Execution log uses expense entity_type + :expense_created suffix.
+            added = [call[0][0] for call in mock_db.add.call_args_list]
+            logs = [obj for obj in added if isinstance(obj, WorkflowExecutionLog)]
+            assert len(logs) == 1
+            assert logs[0].status == "success"
+            assert logs[0].entity_type == "expense"
+            assert logs[0].event_key.endswith(":expense_created")
+
+    def test_process_expense_created_workflows_skips_when_log_exists(
+        self,
+        service,
+        mock_db,
+        sample_expense_created_workflow,
+        sample_new_expense,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=True):
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_expense_created_workflow])))),
+                Expense: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_new_expense])))),
+            }[model]
+
+            stats = service.process_expense_created_workflows()
+
+            assert stats["processed_count"] == 1
+            assert stats["skipped_count"] == 1
+            assert stats["created_task_count"] == 0
+
+    def test_process_expense_created_workflows_failure_logged(
+        self,
+        service,
+        mock_db,
+        sample_expense_created_workflow,
+        sample_new_expense,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=False), \
+             patch.object(service, "_resolve_user_for_expense", return_value=None):
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_expense_created_workflow])))),
+                Expense: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_new_expense])))),
+            }[model]
+
+            stats = service.process_expense_created_workflows()
+
+            assert stats["processed_count"] == 1
+            assert len(stats["errors"]) == 1
+            added = [call[0][0] for call in mock_db.add.call_args_list]
+            failed = [obj for obj in added if isinstance(obj, WorkflowExecutionLog) and obj.status == "failed"]
+            assert len(failed) == 1
+            assert failed[0].entity_type == "expense"
+            assert failed[0].event_key.endswith(":expense_created")
+
+    def test_run_workflow_now_dispatches_to_expense_created_processor(
+        self, service, mock_db, sample_expense_created_workflow
+    ):
+        mock_db.query.return_value.filter.return_value.first.return_value = sample_expense_created_workflow
+        sentinel = {"processed_count": 4, "created_task_count": 0, "notification_count": 0, "skipped_count": 0, "errors": []}
+
+        with patch.object(service, "process_expense_created_workflows", return_value=sentinel) as mock_processor, \
+             patch.object(service, "process_due_invoice_workflows") as overdue_processor, \
+             patch.object(service, "process_invoice_created_workflows") as created_processor, \
+             patch.object(service, "process_payment_received_workflows") as payment_processor, \
+             patch.object(service, "process_client_created_workflows") as client_processor:
+            result = service.run_workflow_now(sample_expense_created_workflow.id)
+
+            mock_processor.assert_called_once()
+            overdue_processor.assert_not_called()
+            created_processor.assert_not_called()
+            payment_processor.assert_not_called()
+            client_processor.assert_not_called()
+            assert result is sentinel
+
+    def test_resolve_user_for_expense_uses_created_by_id(self, service, mock_db, sample_user):
+        expense = Expense(id=99, vendor="X", category="food", created_by_user_id=7)
+        mock_db.query.return_value.filter.return_value.first.return_value = sample_user
+        result = service._resolve_user_for_expense(expense)
+        assert result is sample_user
+
+    def test_resolve_user_for_expense_falls_back_to_admin(self, service, mock_db, sample_user):
+        expense = Expense(id=99, vendor="X", category="food", created_by_user_id=None)
+        with patch.object(service, "_fallback_admin_user", return_value=sample_user) as fallback:
+            result = service._resolve_user_for_expense(expense)
             fallback.assert_called_once()
             assert result is sample_user
 
