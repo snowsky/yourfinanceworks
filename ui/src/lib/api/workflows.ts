@@ -96,4 +96,8 @@ export const workflowsApi = {
     apiRequest<void>(`/workflows/${id}`, {
       method: 'DELETE',
     }),
+  duplicate: (id: number) =>
+    apiRequest<WorkflowDefinition>(`/workflows/${id}/duplicate`, {
+      method: 'POST',
+    }),
 };

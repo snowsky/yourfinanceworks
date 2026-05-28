@@ -2056,6 +2056,38 @@ class WorkflowService:
         self.db.delete(workflow)
         self.db.commit()
 
+    def duplicate_workflow(self, workflow_id: int) -> WorkflowDefinition:
+        """Clone an existing workflow as a fresh user-owned, enabled copy.
+
+        System workflows are intentionally clonable — that's the primary use
+        case (start from the built-in overdue follow-up template and edit
+        the clone). The new row drops ``is_system`` / ``is_default`` and is
+        always created enabled regardless of the source. Execution log rows
+        are not copied; the clone starts with no run history.
+        """
+        source = self.db.query(WorkflowDefinition).filter(
+            WorkflowDefinition.id == workflow_id
+        ).first()
+        if not source:
+            raise ValueError("Workflow not found")
+
+        new_name = f"{source.name} (copy)"
+        clone = WorkflowDefinition(
+            name=new_name,
+            key=self._build_workflow_key(new_name),
+            description=source.description,
+            trigger_type=source.trigger_type,
+            conditions=dict(source.conditions) if source.conditions else {},
+            actions=dict(source.actions) if source.actions else {},
+            is_enabled=True,
+            is_system=False,
+            is_default=False,
+        )
+        self.db.add(clone)
+        self.db.commit()
+        self.db.refresh(clone)
+        return clone
+
     def update_workflow(
         self,
         workflow_id: int,
