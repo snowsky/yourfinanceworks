@@ -47,6 +47,14 @@ SUPPORTED_TRIGGERS = {
         "client_note_template": (
             "[Workflow {workflow_key}] Invoice #{invoice_number} is now overdue."
         ),
+        "client_email_subject_template": (
+            "Reminder: invoice #{invoice_number} is overdue"
+        ),
+        "client_email_body_template": (
+            "Hi {client_name},\n\nOur records show invoice #{invoice_number} is "
+            "past its due date. Please get in touch if you need help arranging "
+            "payment.\n\nThanks."
+        ),
     },
     "invoice_created": {
         "label": "Invoice is created",
@@ -59,6 +67,12 @@ SUPPORTED_TRIGGERS = {
         "event_key_suffix": "created",
         "client_note_template": (
             "[Workflow {workflow_key}] Invoice #{invoice_number} was created."
+        ),
+        "client_email_subject_template": "Your new invoice #{invoice_number}",
+        "client_email_body_template": (
+            "Hi {client_name},\n\nInvoice #{invoice_number} has just been "
+            "created on your account. The full details are available in your "
+            "client portal.\n\nThanks."
         ),
     },
     "payment_received": {
@@ -74,6 +88,14 @@ SUPPORTED_TRIGGERS = {
             "[Workflow {workflow_key}] Payment of {payment_amount} {payment_currency} "
             "received on invoice #{invoice_number}."
         ),
+        "client_email_subject_template": (
+            "Payment received for invoice #{invoice_number}"
+        ),
+        "client_email_body_template": (
+            "Hi {client_name},\n\nWe've received your payment of "
+            "{payment_amount} {payment_currency} on invoice "
+            "#{invoice_number}. Thank you."
+        ),
     },
     "client_created": {
         "label": "Client is created",
@@ -86,6 +108,11 @@ SUPPORTED_TRIGGERS = {
         "event_key_suffix": "client_created",
         "client_note_template": (
             "[Workflow {workflow_key}] Client record opened — onboarding workflow fired."
+        ),
+        "client_email_subject_template": "Welcome, {client_name}",
+        "client_email_body_template": (
+            "Hi {client_name},\n\nYour account has been set up. Please reach "
+            "out if you have any questions getting started."
         ),
     },
     "expense_created": {
@@ -101,6 +128,13 @@ SUPPORTED_TRIGGERS = {
             "[Workflow {workflow_key}] Expense from {vendor} ({amount} {currency}) "
             "was recorded."
         ),
+        "client_email_subject_template": (
+            "Expense recorded: {vendor}"
+        ),
+        "client_email_body_template": (
+            "Hi {client_name},\n\nAn expense of {amount} {currency} from "
+            "{vendor} has been recorded against your account."
+        ),
     },
     "expense_submitted_for_approval": {
         "label": "Expense is submitted for approval",
@@ -114,6 +148,14 @@ SUPPORTED_TRIGGERS = {
         "client_note_template": (
             "[Workflow {workflow_key}] Expense from {vendor} ({amount} {currency}) "
             "submitted for approval (level {approval_level})."
+        ),
+        "client_email_subject_template": (
+            "Expense from {vendor} submitted for approval"
+        ),
+        "client_email_body_template": (
+            "Hi {client_name},\n\nAn expense of {amount} {currency} from "
+            "{vendor} has been submitted for approval (level "
+            "{approval_level})."
         ),
     },
 }
@@ -141,6 +183,16 @@ SUPPORTED_ACTIONS = {
             "must declare the target via ``assigned_user_id`` in its actions dict; "
             "if the target user is missing or inactive at execution time, the "
             "default resolver (creator → admin → any active user) is used instead."
+        ),
+    },
+    "send_client_email": {
+        "label": "Send an email to the client",
+        "description": (
+            "Send a per-trigger email to the affected client via the tenant's "
+            "configured email provider. Silently skipped when the trigger has no "
+            "client context (e.g. expenses without a linked client), when the "
+            "client has no email address, or when the tenant has not configured "
+            "an email provider."
         ),
     },
 }
@@ -237,6 +289,7 @@ class WorkflowService:
             "create_internal_task": "create_internal_task" in normalized_actions,
             "add_client_note": "add_client_note" in normalized_actions,
             "assign_to_specific_user": "assign_to_specific_user" in normalized_actions,
+            "send_client_email": "send_client_email" in normalized_actions,
             "assigned_user_id": assigned_user_id,
             "task_type": "reminder",
             "task_title_template": "Follow up on overdue invoice #{invoice_number}",
@@ -265,6 +318,7 @@ class WorkflowService:
             "created_task_count": 0,
             "notification_count": 0,
             "client_note_count": 0,
+            "client_email_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -362,6 +416,22 @@ class WorkflowService:
                             client_note_id = note.id
                             stats["client_note_count"] += 1
 
+                    client_email_sent = False
+                    if workflow.actions and workflow.actions.get("send_client_email", False):
+                        client_email_sent = self._send_client_email(
+                            client=client,
+                            workflow=workflow,
+                            subject_template=SUPPORTED_TRIGGERS["invoice_became_overdue"][
+                                "client_email_subject_template"
+                            ],
+                            body_template=SUPPORTED_TRIGGERS["invoice_became_overdue"][
+                                "client_email_body_template"
+                            ],
+                            template_vars={"invoice_number": invoice.number},
+                        )
+                        if client_email_sent:
+                            stats["client_email_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
@@ -372,6 +442,7 @@ class WorkflowService:
                             **details,
                             "task_id": task_id,
                             "client_note_id": client_note_id,
+                            "client_email_sent": client_email_sent,
                             "assigned_user_id": assigned_user.id,
                         },
                     )
@@ -419,6 +490,7 @@ class WorkflowService:
             "created_task_count": 0,
             "notification_count": 0,
             "client_note_count": 0,
+            "client_email_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -509,6 +581,18 @@ class WorkflowService:
                             client_note_id = note.id
                             stats["client_note_count"] += 1
 
+                    client_email_sent = False
+                    if workflow.actions and workflow.actions.get("send_client_email", False):
+                        client_email_sent = self._send_client_email(
+                            client=client,
+                            workflow=workflow,
+                            subject_template=trigger_meta["client_email_subject_template"],
+                            body_template=trigger_meta["client_email_body_template"],
+                            template_vars={"invoice_number": invoice.number},
+                        )
+                        if client_email_sent:
+                            stats["client_email_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
@@ -519,6 +603,7 @@ class WorkflowService:
                             **details,
                             "task_id": task_id,
                             "client_note_id": client_note_id,
+                            "client_email_sent": client_email_sent,
                             "assigned_user_id": assigned_user.id,
                         },
                     )
@@ -570,6 +655,7 @@ class WorkflowService:
             "created_task_count": 0,
             "notification_count": 0,
             "client_note_count": 0,
+            "client_email_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -683,6 +769,22 @@ class WorkflowService:
                             client_note_id = note.id
                             stats["client_note_count"] += 1
 
+                    client_email_sent = False
+                    if workflow.actions and workflow.actions.get("send_client_email", False):
+                        client_email_sent = self._send_client_email(
+                            client=client,
+                            workflow=workflow,
+                            subject_template=trigger_meta["client_email_subject_template"],
+                            body_template=trigger_meta["client_email_body_template"],
+                            template_vars={
+                                "invoice_number": invoice.number,
+                                "payment_amount": payment.amount,
+                                "payment_currency": payment.currency,
+                            },
+                        )
+                        if client_email_sent:
+                            stats["client_email_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
@@ -693,6 +795,7 @@ class WorkflowService:
                             **details,
                             "task_id": task_id,
                             "client_note_id": client_note_id,
+                            "client_email_sent": client_email_sent,
                             "assigned_user_id": assigned_user.id,
                         },
                     )
@@ -741,6 +844,7 @@ class WorkflowService:
             "created_task_count": 0,
             "notification_count": 0,
             "client_note_count": 0,
+            "client_email_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -830,6 +934,18 @@ class WorkflowService:
                             client_note_id = note.id
                             stats["client_note_count"] += 1
 
+                    client_email_sent = False
+                    if workflow.actions and workflow.actions.get("send_client_email", False):
+                        client_email_sent = self._send_client_email(
+                            client=client,
+                            workflow=workflow,
+                            subject_template=trigger_meta["client_email_subject_template"],
+                            body_template=trigger_meta["client_email_body_template"],
+                            template_vars={},
+                        )
+                        if client_email_sent:
+                            stats["client_email_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
@@ -840,6 +956,7 @@ class WorkflowService:
                             **details,
                             "task_id": task_id,
                             "client_note_id": client_note_id,
+                            "client_email_sent": client_email_sent,
                             "assigned_user_id": assigned_user.id,
                         },
                     )
@@ -887,6 +1004,7 @@ class WorkflowService:
             "created_task_count": 0,
             "notification_count": 0,
             "client_note_count": 0,
+            "client_email_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -973,15 +1091,20 @@ class WorkflowService:
                         task_id = reminder.id
                         stats["created_task_count"] += 1
 
+                    expense_client = None
+                    if getattr(expense, "client_id", None) is not None:
+                        expense_client = (
+                            self.db.query(Client).filter(Client.id == expense.client_id).first()
+                        )
+
                     client_note_id = None
                     if (
                         workflow.actions
                         and workflow.actions.get("add_client_note", False)
-                        and getattr(expense, "client_id", None) is not None
+                        and expense_client is not None
                     ):
-                        client = self.db.query(Client).filter(Client.id == expense.client_id).first()
                         note = self._add_client_note(
-                            client=client,
+                            client=expense_client,
                             workflow=workflow,
                             assigned_user=assigned_user,
                             note_template=trigger_meta["client_note_template"],
@@ -995,6 +1118,26 @@ class WorkflowService:
                             client_note_id = note.id
                             stats["client_note_count"] += 1
 
+                    client_email_sent = False
+                    if (
+                        workflow.actions
+                        and workflow.actions.get("send_client_email", False)
+                        and expense_client is not None
+                    ):
+                        client_email_sent = self._send_client_email(
+                            client=expense_client,
+                            workflow=workflow,
+                            subject_template=trigger_meta["client_email_subject_template"],
+                            body_template=trigger_meta["client_email_body_template"],
+                            template_vars={
+                                "vendor": vendor,
+                                "amount": expense.amount if expense.amount is not None else 0,
+                                "currency": expense.currency or "USD",
+                            },
+                        )
+                        if client_email_sent:
+                            stats["client_email_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
@@ -1005,6 +1148,7 @@ class WorkflowService:
                             **details,
                             "task_id": task_id,
                             "client_note_id": client_note_id,
+                            "client_email_sent": client_email_sent,
                             "assigned_user_id": assigned_user.id,
                         },
                     )
@@ -1062,6 +1206,7 @@ class WorkflowService:
             "created_task_count": 0,
             "notification_count": 0,
             "client_note_count": 0,
+            "client_email_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -1166,15 +1311,20 @@ class WorkflowService:
                         task_id = reminder.id
                         stats["created_task_count"] += 1
 
+                    expense_client = None
+                    if getattr(expense, "client_id", None) is not None:
+                        expense_client = (
+                            self.db.query(Client).filter(Client.id == expense.client_id).first()
+                        )
+
                     client_note_id = None
                     if (
                         workflow.actions
                         and workflow.actions.get("add_client_note", False)
-                        and getattr(expense, "client_id", None) is not None
+                        and expense_client is not None
                     ):
-                        client = self.db.query(Client).filter(Client.id == expense.client_id).first()
                         note = self._add_client_note(
-                            client=client,
+                            client=expense_client,
                             workflow=workflow,
                             assigned_user=assigned_user,
                             note_template=trigger_meta["client_note_template"],
@@ -1189,6 +1339,27 @@ class WorkflowService:
                             client_note_id = note.id
                             stats["client_note_count"] += 1
 
+                    client_email_sent = False
+                    if (
+                        workflow.actions
+                        and workflow.actions.get("send_client_email", False)
+                        and expense_client is not None
+                    ):
+                        client_email_sent = self._send_client_email(
+                            client=expense_client,
+                            workflow=workflow,
+                            subject_template=trigger_meta["client_email_subject_template"],
+                            body_template=trigger_meta["client_email_body_template"],
+                            template_vars={
+                                "vendor": vendor,
+                                "amount": expense.amount if expense.amount is not None else 0,
+                                "currency": expense.currency or "USD",
+                                "approval_level": approval.approval_level,
+                            },
+                        )
+                        if client_email_sent:
+                            stats["client_email_count"] += 1
+
                     execution_log = WorkflowExecutionLog(
                         workflow_id=workflow.id,
                         event_key=event_key,
@@ -1199,6 +1370,7 @@ class WorkflowService:
                             **details,
                             "task_id": task_id,
                             "client_note_id": client_note_id,
+                            "client_email_sent": client_email_sent,
                             "assigned_user_id": assigned_user.id,
                         },
                     )
@@ -1261,6 +1433,7 @@ class WorkflowService:
             "created_task_count": 0,
             "notification_count": 0,
             "client_note_count": 0,
+            "client_email_count": 0,
             "skipped_count": 0,
             "errors": [],
         }
@@ -1276,6 +1449,7 @@ class WorkflowService:
                 "created_task_count",
                 "notification_count",
                 "client_note_count",
+                "client_email_count",
                 "skipped_count",
             ):
                 combined[key] += stats.get(key, 0)
@@ -1511,6 +1685,113 @@ class WorkflowService:
         self.db.flush()
         return note
 
+    def _send_client_email(
+        self,
+        client: Optional[Client],
+        workflow: WorkflowDefinition,
+        subject_template: str,
+        body_template: str,
+        template_vars: Dict[str, Any],
+    ) -> bool:
+        """Send a per-trigger client email via the configured EmailService.
+
+        Returns ``True`` if the provider accepted the message, ``False`` when
+        the action is silently skipped (missing client, missing recipient
+        address, missing tenant email-provider config, or malformed config).
+        Any exception raised by the provider client itself bubbles up so the
+        per-event execution log captures the failure.
+
+        Imports for ``EmailService`` are deferred to call-time so the heavy
+        provider SDKs (boto3, azure-communication-email, jinja2) aren't
+        pulled in for tenants that never enable this action.
+        """
+        if client is None:
+            return False
+        recipient = getattr(client, "email", None)
+        if not recipient:
+            logger.warning(
+                "Workflow %s send_client_email skipped: client %s has no email address",
+                workflow.key,
+                client.id,
+            )
+            return False
+
+        from core.models.models_per_tenant import Settings as _Settings
+
+        settings_row = (
+            self.db.query(_Settings).filter(_Settings.key == "email_provider_config").first()
+        )
+        if not settings_row or not settings_row.value:
+            logger.warning(
+                "Workflow %s send_client_email skipped: email_provider_config not set",
+                workflow.key,
+            )
+            return False
+
+        cfg = settings_row.value
+        try:
+            from core.services.email_service import (
+                EmailMessage,
+                EmailProvider,
+                EmailProviderConfig,
+                EmailService,
+            )
+        except ImportError as exc:
+            logger.warning(
+                "Workflow %s send_client_email skipped: EmailService unavailable (%s)",
+                workflow.key,
+                exc,
+            )
+            return False
+
+        try:
+            provider_config = EmailProviderConfig(
+                provider=EmailProvider(cfg["provider"]),
+                from_email=cfg.get("from_email"),
+                from_name=cfg.get("from_name"),
+                aws_access_key_id=cfg.get("aws_access_key_id"),
+                aws_secret_access_key=cfg.get("aws_secret_access_key"),
+                aws_region=cfg.get("aws_region"),
+                azure_connection_string=cfg.get("azure_connection_string"),
+                mailgun_api_key=cfg.get("mailgun_api_key"),
+                mailgun_domain=cfg.get("mailgun_domain"),
+            )
+        except (KeyError, ValueError) as exc:
+            logger.warning(
+                "Workflow %s send_client_email skipped: invalid email_provider_config (%s)",
+                workflow.key,
+                exc,
+            )
+            return False
+
+        format_vars: Dict[str, Any] = {
+            "workflow_key": workflow.key,
+            "client_name": client.name or "",
+        }
+        format_vars.update(template_vars)
+
+        try:
+            subject = subject_template.format(**format_vars)
+            body = body_template.format(**format_vars)
+        except KeyError as exc:
+            logger.warning(
+                "Workflow %s send_client_email template missing variable %s; skipped",
+                workflow.key,
+                exc,
+            )
+            return False
+
+        message = EmailMessage(
+            to_email=recipient,
+            to_name=client.name or "",
+            subject=subject,
+            html_body=body,
+            text_body=body,
+            from_email=cfg.get("from_email") or "noreply@invoiceapp.com",
+            from_name=cfg.get("from_name") or workflow.key,
+        )
+        return EmailService(provider_config).send_email(message)
+
     def _build_workflow_key(self, name: str) -> str:
         base = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
         if not base:
@@ -1600,6 +1881,7 @@ class WorkflowService:
             "create_internal_task": "create_internal_task" in normalized_actions,
             "add_client_note": "add_client_note" in normalized_actions,
             "assign_to_specific_user": "assign_to_specific_user" in normalized_actions,
+            "send_client_email": "send_client_email" in normalized_actions,
             "assigned_user_id": assigned_user_id,
             "task_type": "reminder",
             "task_title_template": "Follow up on overdue invoice #{invoice_number}",
