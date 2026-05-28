@@ -9,6 +9,7 @@ from core.models.models_per_tenant import (
     WorkflowExecutionLog,
     Invoice,
     Expense,
+    ExpenseApproval,
     Payment,
     Reminder,
     User,
@@ -543,13 +544,23 @@ class TestWorkflowService:
                 "skipped_count": 1,
                 "errors": [],
             },
+        ), patch.object(
+            service,
+            "process_expense_submitted_for_approval_workflows",
+            return_value={
+                "processed_count": 3,
+                "created_task_count": 2,
+                "notification_count": 2,
+                "skipped_count": 1,
+                "errors": [],
+            },
         ):
             stats = service.process_all_workflows()
 
-            assert stats["processed_count"] == 16
-            assert stats["created_task_count"] == 8
-            assert stats["notification_count"] == 8
-            assert stats["skipped_count"] == 4
+            assert stats["processed_count"] == 19
+            assert stats["created_task_count"] == 10
+            assert stats["notification_count"] == 10
+            assert stats["skipped_count"] == 5
             assert stats["errors"] == ["overdue err"]
 
     # ---------- payment_received trigger ----------
@@ -789,6 +800,10 @@ class TestWorkflowService:
         ), patch.object(
             service,
             "process_expense_created_workflows",
+            return_value=empty_stats,
+        ), patch.object(
+            service,
+            "process_expense_submitted_for_approval_workflows",
             return_value=empty_stats,
         ):
             stats = service.process_all_workflows()
@@ -1156,6 +1171,271 @@ class TestWorkflowService:
         expense = Expense(id=99, vendor="X", category="food", created_by_user_id=None)
         with patch.object(service, "_fallback_admin_user", return_value=sample_user) as fallback:
             result = service._resolve_user_for_expense(expense)
+            fallback.assert_called_once()
+            assert result is sample_user
+
+    # ---------- expense_submitted_for_approval trigger ----------
+
+    @pytest.fixture
+    def sample_expense_approval(self, sample_new_expense):
+        return ExpenseApproval(
+            id=707,
+            expense_id=sample_new_expense.id,
+            approver_id=1,
+            status="pending",
+            submitted_at=datetime.now(timezone.utc),
+            approval_level=1,
+            is_current_level=True,
+        )
+
+    @pytest.fixture
+    def sample_expense_submitted_workflow(self):
+        return WorkflowDefinition(
+            id=7,
+            name="On expense submitted for approval",
+            key="expense-submitted-approval-task",
+            description="Notify the approver and create an approval task when an expense is submitted.",
+            trigger_type="expense_submitted_for_approval",
+            conditions={},
+            actions={
+                "send_internal_notification": True,
+                "create_internal_task": True,
+                "task_type": "reminder",
+                "task_title_template": "Approve expense from {vendor}",
+                "task_due_in_days": 1,
+            },
+            is_enabled=True,
+            is_system=False,
+            is_default=False,
+            created_at=datetime.now(timezone.utc) - timedelta(hours=8),
+        )
+
+    def test_catalog_includes_expense_submitted_trigger(self, service):
+        catalog = service.get_catalog()
+        trigger_ids = {trigger["id"] for trigger in catalog["triggers"]}
+        assert "expense_submitted_for_approval" in trigger_ids
+
+    def test_create_workflow_accepts_expense_submitted_trigger(self, service, mock_db):
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+        with patch.object(service, "ensure_default_workflows"):
+            workflow = service.create_workflow(
+                name="Approver Notify",
+                description="",
+                trigger_type="expense_submitted_for_approval",
+                action_ids=["send_internal_notification"],
+            )
+            assert workflow.trigger_type == "expense_submitted_for_approval"
+
+    def test_process_expense_submitted_for_approval_workflows_success(
+        self,
+        service,
+        mock_db,
+        sample_expense_submitted_workflow,
+        sample_expense_approval,
+        sample_new_expense,
+        sample_user,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=False), \
+             patch.object(service, "_resolve_user_for_expense_approval", return_value=sample_user), \
+             patch("core.services.workflow_service.send_notification") as mock_notification:
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_expense_submitted_workflow])))),
+                ExpenseApproval: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_expense_approval])))),
+                Expense: Mock(filter=Mock(return_value=Mock(first=Mock(return_value=sample_new_expense)))),
+            }[model]
+
+            mock_reminder = Reminder(id=4040)
+            with patch.object(service, "_create_internal_task", return_value=mock_reminder) as mock_task:
+                stats = service.process_expense_submitted_for_approval_workflows()
+
+            assert stats["processed_count"] == 1
+            assert stats["created_task_count"] == 1
+            assert stats["notification_count"] == 1
+            assert stats["errors"] == []
+
+            kwargs = mock_notification.call_args.kwargs
+            assert kwargs["event_type"] == "expense_submitted_for_approval"
+            assert kwargs["resource_type"] == "expense"
+            assert kwargs["resource_id"] == str(sample_new_expense.id)
+            assert kwargs["details"]["expense_approval_id"] == sample_expense_approval.id
+            assert kwargs["details"]["approval_level"] == sample_expense_approval.approval_level
+
+            # Task helper receives invoice=None and approval metadata threaded through.
+            task_kwargs = mock_task.call_args.kwargs
+            assert task_kwargs["invoice"] is None
+            assert task_kwargs["template_vars"]["vendor"] == sample_new_expense.vendor
+            assert task_kwargs["template_vars"]["approval_level"] == sample_expense_approval.approval_level
+            assert task_kwargs["extra_metadata"] == {
+                "expense_id": sample_new_expense.id,
+                "expense_approval_id": sample_expense_approval.id,
+                "approval_level": sample_expense_approval.approval_level,
+            }
+
+            # Execution log uses expense_approval entity_type + :submitted_for_approval suffix.
+            added = [call[0][0] for call in mock_db.add.call_args_list]
+            logs = [obj for obj in added if isinstance(obj, WorkflowExecutionLog)]
+            assert len(logs) == 1
+            assert logs[0].status == "success"
+            assert logs[0].entity_type == "expense_approval"
+            assert logs[0].entity_id == str(sample_expense_approval.id)
+            assert logs[0].event_key.endswith(":submitted_for_approval")
+
+    def test_process_expense_submitted_workflows_skips_when_log_exists(
+        self,
+        service,
+        mock_db,
+        sample_expense_submitted_workflow,
+        sample_expense_approval,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=True):
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_expense_submitted_workflow])))),
+                ExpenseApproval: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_expense_approval])))),
+            }[model]
+
+            stats = service.process_expense_submitted_for_approval_workflows()
+
+            assert stats["processed_count"] == 1
+            assert stats["skipped_count"] == 1
+            assert stats["created_task_count"] == 0
+
+    def test_process_expense_submitted_workflows_skips_when_underlying_expense_missing(
+        self,
+        service,
+        mock_db,
+        sample_expense_submitted_workflow,
+        sample_expense_approval,
+    ):
+        """An approval whose Expense has been deleted has no actionable owner — silent skip."""
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=False):
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_expense_submitted_workflow])))),
+                ExpenseApproval: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_expense_approval])))),
+                Expense: Mock(filter=Mock(return_value=Mock(first=Mock(return_value=None)))),
+            }[model]
+
+            stats = service.process_expense_submitted_for_approval_workflows()
+
+            assert stats["processed_count"] == 1
+            assert stats["skipped_count"] == 1
+            assert stats["created_task_count"] == 0
+            assert stats["notification_count"] == 0
+            assert stats["errors"] == []
+
+    def test_process_expense_submitted_workflows_skips_when_expense_is_deleted(
+        self,
+        service,
+        mock_db,
+        sample_expense_submitted_workflow,
+        sample_expense_approval,
+    ):
+        """If the expense is soft-deleted between submission and tick, skip silently."""
+        deleted_expense = Expense(
+            id=sample_expense_approval.expense_id,
+            vendor="Was Acme",
+            category="travel",
+            currency="USD",
+            amount=10,
+            is_deleted=True,
+            created_at=datetime.now(timezone.utc),
+        )
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=False):
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_expense_submitted_workflow])))),
+                ExpenseApproval: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_expense_approval])))),
+                Expense: Mock(filter=Mock(return_value=Mock(first=Mock(return_value=deleted_expense)))),
+            }[model]
+
+            stats = service.process_expense_submitted_for_approval_workflows()
+
+            assert stats["processed_count"] == 1
+            assert stats["skipped_count"] == 1
+            assert stats["created_task_count"] == 0
+
+    def test_process_expense_submitted_workflows_failure_logged(
+        self,
+        service,
+        mock_db,
+        sample_expense_submitted_workflow,
+        sample_expense_approval,
+        sample_new_expense,
+    ):
+        with patch("core.services.workflow_service.FeatureConfigService.is_enabled", return_value=True), \
+             patch.object(service, "_has_execution_log", return_value=False), \
+             patch.object(service, "_resolve_user_for_expense_approval", return_value=None):
+
+            mock_db.query.side_effect = lambda model: {
+                WorkflowDefinition: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_expense_submitted_workflow])))),
+                ExpenseApproval: Mock(filter=Mock(return_value=Mock(all=Mock(return_value=[sample_expense_approval])))),
+                Expense: Mock(filter=Mock(return_value=Mock(first=Mock(return_value=sample_new_expense)))),
+            }[model]
+
+            stats = service.process_expense_submitted_for_approval_workflows()
+
+            assert stats["processed_count"] == 1
+            assert len(stats["errors"]) == 1
+            added = [call[0][0] for call in mock_db.add.call_args_list]
+            failed = [obj for obj in added if isinstance(obj, WorkflowExecutionLog) and obj.status == "failed"]
+            assert len(failed) == 1
+            assert failed[0].entity_type == "expense_approval"
+            assert failed[0].event_key.endswith(":submitted_for_approval")
+
+    def test_run_workflow_now_dispatches_to_expense_submitted_processor(
+        self, service, mock_db, sample_expense_submitted_workflow
+    ):
+        mock_db.query.return_value.filter.return_value.first.return_value = sample_expense_submitted_workflow
+        sentinel = {"processed_count": 5, "created_task_count": 0, "notification_count": 0, "skipped_count": 0, "errors": []}
+
+        with patch.object(service, "process_expense_submitted_for_approval_workflows", return_value=sentinel) as mock_processor, \
+             patch.object(service, "process_due_invoice_workflows") as overdue_processor, \
+             patch.object(service, "process_invoice_created_workflows") as created_processor, \
+             patch.object(service, "process_payment_received_workflows") as payment_processor, \
+             patch.object(service, "process_client_created_workflows") as client_processor, \
+             patch.object(service, "process_expense_created_workflows") as expense_created_processor:
+            result = service.run_workflow_now(sample_expense_submitted_workflow.id)
+
+            mock_processor.assert_called_once()
+            overdue_processor.assert_not_called()
+            created_processor.assert_not_called()
+            payment_processor.assert_not_called()
+            client_processor.assert_not_called()
+            expense_created_processor.assert_not_called()
+            assert result is sentinel
+
+    def test_resolve_user_for_expense_approval_uses_approver_id(self, service, mock_db, sample_user):
+        approval = ExpenseApproval(
+            id=99,
+            expense_id=1,
+            approver_id=7,
+            status="pending",
+            submitted_at=datetime.now(timezone.utc),
+            approval_level=1,
+            is_current_level=True,
+        )
+        mock_db.query.return_value.filter.return_value.first.return_value = sample_user
+        result = service._resolve_user_for_expense_approval(approval)
+        assert result is sample_user
+
+    def test_resolve_user_for_expense_approval_falls_back_to_admin(self, service, mock_db, sample_user):
+        approval = ExpenseApproval(
+            id=99,
+            expense_id=1,
+            approver_id=None,
+            status="pending",
+            submitted_at=datetime.now(timezone.utc),
+            approval_level=1,
+            is_current_level=True,
+        )
+        with patch.object(service, "_fallback_admin_user", return_value=sample_user) as fallback:
+            result = service._resolve_user_for_expense_approval(approval)
             fallback.assert_called_once()
             assert result is sample_user
 
