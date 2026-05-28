@@ -193,18 +193,27 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
    */
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
+      // Reject ALL messages that don't originate from this plugin's iframe.
+      // Without this gate, any page that opens the public plugin portal in
+      // another window (or that's loaded as a top-level frame on a malicious
+      // site) can post {type: 'PLUGIN_INTERACTION', amount: 999} and drain a
+      // user's free-click quota or trigger billing increments at will. The
+      // event.source check is the same one PLUGIN_READY already relied on;
+      // we hoist it to gate every branch.
+      if (!iframeRef.current || event.source !== iframeRef.current.contentWindow) {
+        return;
+      }
+
       // 1. Handle Usage Tracking
       if (event.data?.type === 'PLUGIN_INTERACTION' || event.data?.type === 'plugin-public-usage') {
-        const amount = typeof event.data.amount === 'number' 
-          ? event.data.amount 
+        const amount = typeof event.data.amount === 'number'
+          ? event.data.amount
           : (typeof event.data.quantity === 'number' ? event.data.quantity : 1);
         handleIncrementUsage(amount);
       }
 
       // 2. Handle Auth Handshake (Securely pass token to iframe)
-      // Only accept PLUGIN_READY from our own iframe, not arbitrary origins
-      if (event.data?.type === 'PLUGIN_READY' && iframeRef.current) {
-        if (event.source !== iframeRef.current.contentWindow) return;
+      if (event.data?.type === 'PLUGIN_READY') {
         const tokenKey = `plugin_token_${pluginId}`;
         const tokenStr = localStorage.getItem(tokenKey);
         if (tokenStr) {

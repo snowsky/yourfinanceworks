@@ -79,6 +79,16 @@ class PluginLoader:
         self._load_errors: dict[str, str] = {}  # plugin_id → human-readable error
         self._plugin_route_map: dict[str, str] = {}  # route_prefix → plugin_id
         self._plugin_dir_cache: dict[str, Path] = {}  # plugin_id → plugin_dir
+        # Serializes mutations to ``_discovered`` / ``_plugin_dir_cache`` /
+        # ``_permissions_registry`` against ``_retry_sidecar_plugins`` running
+        # in a daemon thread. Reads on the main thread also acquire the lock
+        # to take a stable snapshot — without this guard, a ``.append`` from
+        # the retry thread mid-iteration of ``self._discovered`` raises
+        # ``RuntimeError: list changed size during iteration``. Re-entrant
+        # so helpers that re-acquire the lock (e.g. discover() → get_registry)
+        # don't deadlock.
+        import threading as _threading
+        self._mutation_lock = _threading.RLock()
 
     # ------------------------------------------------------------------
     # Public API
@@ -274,12 +284,14 @@ class PluginLoader:
     def get_plugin_dir(self, plugin_id: str) -> Optional[Path]:
         """Return the physical directory of a discovered plugin."""
         self.discover()  # ensure cache is populated
-        return self._plugin_dir_cache.get(plugin_id)
+        with self._mutation_lock:
+            return self._plugin_dir_cache.get(plugin_id)
 
     def get_permitted_core_tables(self, plugin_id: str) -> set[str]:
         """Return the set of core tables a plugin is explicitly permitted to access."""
         self.discover()  # ensure registry is populated
-        return self._permissions_registry.get(plugin_id, set())
+        with self._mutation_lock:
+            return self._permissions_registry.get(plugin_id, set())
 
     def is_dynamic_plugin(self, plugin_id: str) -> bool:
         """Return True if the plugin was loaded from the dynamic plugins directory."""
@@ -293,7 +305,9 @@ class PluginLoader:
     def is_sidecar_plugin(self, plugin_id: str) -> bool:
         """Return True if the plugin runs as a sidecar Docker service."""
         self.discover()
-        return any(p.plugin_id == plugin_id and p.is_sidecar for p in self._discovered)
+        with self._mutation_lock:
+            snapshot = list(self._discovered)
+        return any(p.plugin_id == plugin_id and p.is_sidecar for p in snapshot)
 
     def get_registry(self) -> list[dict]:
         """Return a list of manifest dicts suitable for admin consumers.
@@ -309,11 +323,17 @@ class PluginLoader:
         It must only be served to authenticated admins — see
         :meth:`get_public_registry` for the public-facing variant.
         """
+        self.discover()
+        # Snapshot under the lock so the retry thread can't grow ``_discovered``
+        # mid-iteration and trip ``RuntimeError: list changed size...``.
+        with self._mutation_lock:
+            snapshot = list(self._discovered)
+            load_errors_snapshot = dict(self._load_errors)
         result = []
-        for p in self.discover():
+        for p in snapshot:
             entry = dict(p.manifest)
-            if p.plugin_id in self._load_errors:
-                entry["load_error"] = self._load_errors[p.plugin_id]
+            if p.plugin_id in load_errors_snapshot:
+                entry["load_error"] = load_errors_snapshot[p.plugin_id]
             if p.is_sidecar:
                 entry["is_sidecar"] = True
             elif self.is_dynamic_plugin(p.plugin_id):
@@ -348,14 +368,18 @@ class PluginLoader:
         ``load_error`` string with a boolean ``has_load_error`` so the UI can
         still render a generic failure state without leaking error detail.
         """
+        self.discover()
+        with self._mutation_lock:
+            snapshot = list(self._discovered)
+            load_errors_snapshot = dict(self._load_errors)
         result = []
-        for p in self.discover():
+        for p in snapshot:
             entry = {
                 k: v
                 for k, v in p.manifest.items()
                 if k not in self._SENSITIVE_REGISTRY_FIELDS
             }
-            entry["has_load_error"] = p.plugin_id in self._load_errors
+            entry["has_load_error"] = p.plugin_id in load_errors_snapshot
             if p.is_sidecar:
                 entry["is_sidecar"] = True
             elif self.is_dynamic_plugin(p.plugin_id):
@@ -526,10 +550,15 @@ class PluginLoader:
             for name in remaining:
                 plugin = self._probe_sidecar(name, httpx)
                 if plugin:
-                    self._discovered.append(plugin)
-                    self._plugin_dir_cache[plugin.plugin_id] = plugin.plugin_dir
-                    permitted = set(plugin.manifest.get("permitted_core_tables", []))
-                    self._permissions_registry[plugin.plugin_id] = permitted
+                    # Mutate the three shared collections under the lock so the
+                    # main thread can iterate ``_discovered`` (and friends) on
+                    # ``get_registry`` / ``get_public_registry`` without ever
+                    # observing a partial state or a mid-iteration resize.
+                    with self._mutation_lock:
+                        self._discovered.append(plugin)
+                        self._plugin_dir_cache[plugin.plugin_id] = plugin.plugin_dir
+                        permitted = set(plugin.manifest.get("permitted_core_tables", []))
+                        self._permissions_registry[plugin.plugin_id] = permitted
                     logger.info(
                         "Sidecar plugin '%s' registered after %d retry attempt(s).",
                         name, attempt,

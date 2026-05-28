@@ -274,3 +274,69 @@ def test_get_public_registry_has_load_error_false_for_healthy_plugin(tmp_path, l
 
     assert len(public) == 1
     assert public[0]["has_load_error"] is False
+
+
+# 15. Concurrent reader + writer don't trip ``list changed size``
+def test_registry_readers_tolerate_concurrent_retry_thread_writes(tmp_path, loader):
+    """The sidecar retry thread appends to ``_discovered`` while the main
+    thread may be iterating it in ``get_registry`` / ``get_public_registry``.
+    Without lock-guarded snapshots this races into
+    ``RuntimeError: list changed size during iteration``. This test
+    hammers the readers in a loop while a background thread appends, and
+    asserts no exception escapes.
+    """
+    import threading
+    from plugins.loader import DiscoveredPlugin
+
+    # Seed a healthy plugin so the readers have something to iterate over.
+    make_plugin(tmp_path, "seed-plugin", VALID_MANIFEST)
+    with patch("plugins.loader._PLUGINS_DIR", tmp_path):
+        loader.discover()
+
+    stop = threading.Event()
+    errors: list[BaseException] = []
+
+    def appender() -> None:
+        i = 0
+        while not stop.is_set():
+            plugin = DiscoveredPlugin(
+                plugin_id=f"hot-{i}",
+                package="",
+                manifest={
+                    "name": f"hot-{i}",
+                    "version": "1.0.0",
+                    "description": "concurrent-append fuzz",
+                    "license_tier": "agpl",
+                },
+                plugin_dir=Path("/sidecar/hot"),
+                is_sidecar=True,
+            )
+            # Same code path the retry thread takes — wrap mutations in
+            # the same lock the production code uses.
+            with loader._mutation_lock:
+                loader._discovered.append(plugin)
+            i += 1
+
+    def reader() -> None:
+        try:
+            for _ in range(200):
+                loader.get_registry()
+                loader.get_public_registry()
+                loader.is_sidecar_plugin("seed-plugin")
+        except BaseException as exc:  # pragma: no cover - asserted below
+            errors.append(exc)
+
+    writer_thread = threading.Thread(target=appender, name="appender")
+    writer_thread.start()
+    try:
+        readers = [threading.Thread(target=reader, name=f"reader-{i}") for i in range(4)]
+        for t in readers:
+            t.start()
+        for t in readers:
+            t.join(timeout=15)
+            assert not t.is_alive(), "reader thread hung — possible deadlock"
+    finally:
+        stop.set()
+        writer_thread.join(timeout=5)
+
+    assert errors == [], f"readers raised under concurrent writes: {errors!r}"
