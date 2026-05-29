@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { expenseApi, type DeletedExpense } from "@/lib/api";
+import { getCurrentUser } from "@/utils/auth";
 import { toast } from "sonner";
 import { formatDate } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +18,9 @@ import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, Pagi
 
 const ExpenseRecycleBin = () => {
   const { t } = useTranslation();
+  // Permanent deletion and emptying the bin are admin-only on the backend
+  // (returns 403 otherwise); restore stays available to non-admins.
+  const isAdmin = getCurrentUser()?.role === 'admin';
   const [deletedExpenses, setDeletedExpenses] = useState<DeletedExpense[]>([]);
   const [loading, setLoading] = useState(true);
   const [permanentDeleteModalOpen, setPermanentDeleteModalOpen] = useState(false);
@@ -152,7 +156,7 @@ const ExpenseRecycleBin = () => {
             </h1>
             <p className="text-muted-foreground">{t('expenseRecycleBin.description')}</p>
           </div>
-          {deletedExpenses.length > 0 && (
+          {isAdmin && deletedExpenses.length > 0 && (
             <Button
               variant="destructive"
               onClick={handleEmptyRecycleBin}
@@ -241,10 +245,14 @@ const ExpenseRecycleBin = () => {
                               <DropdownMenuItem className="text-green-600 focus:text-green-600" onClick={() => handleRestore(expense.id)}>
                                 <RotateCcw className="mr-2 h-4 w-4" /> {t('expenseRecycleBin.restore_expense', 'Restore')}
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handlePermanentDelete(expense.id)}>
-                                <Trash2 className="mr-2 h-4 w-4" /> {t('expenseRecycleBin.permanently_delete', 'Delete permanently')}
-                              </DropdownMenuItem>
+                              {isAdmin && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handlePermanentDelete(expense.id)}>
+                                    <Trash2 className="mr-2 h-4 w-4" /> {t('expenseRecycleBin.permanently_delete', 'Delete permanently')}
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

@@ -20,6 +20,7 @@ import { formatDate } from '@/lib/utils';
 import type { DeletedExpense } from '@/lib/api';
 
 interface RecycleBinSectionProps {
+  isAdmin: boolean;
   showRecycleBin: boolean;
   setShowRecycleBin: (v: boolean) => void;
   recycleBinLoading: boolean;
@@ -39,6 +40,7 @@ interface RecycleBinSectionProps {
 }
 
 export function RecycleBinSection({
+  isAdmin,
   showRecycleBin,
   setShowRecycleBin,
   recycleBinLoading,
@@ -77,7 +79,7 @@ export function RecycleBinSection({
                     </p>
                   </div>
                 </div>
-                {deletedExpenses.length > 0 && (
+                {isAdmin && deletedExpenses.length > 0 && (
                   <ProfessionalButton
                     variant="destructive"
                     size="default"
@@ -136,15 +138,17 @@ export function RecycleBinSection({
                               >
                                 <RotateCcw className="h-4 w-4" />
                               </ProfessionalButton>
-                              <ProfessionalButton
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={() => onSetExpenseToPermanentlyDelete(expense.id)}
-                                title="Permanently delete"
-                                className="hover:bg-destructive/10 hover:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </ProfessionalButton>
+                              {isAdmin && (
+                                <ProfessionalButton
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => onSetExpenseToPermanentlyDelete(expense.id)}
+                                  title="Permanently delete"
+                                  className="hover:bg-destructive/10 hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </ProfessionalButton>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
