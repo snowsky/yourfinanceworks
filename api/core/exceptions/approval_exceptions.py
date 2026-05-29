@@ -33,21 +33,45 @@ class ApprovalException(Exception):
         }
 
 
-class ValidationError(ApprovalException):
-    """Raised when validation fails"""
+_UNSET = object()
 
-    def __init__(self, field: str, value: Any, reason: str, details: Optional[Dict[str, Any]] = None):
-        message = f"Validation failed for field '{field}' with value '{value}': {reason}"
-        user_message = f"Invalid {field}: {reason}"
-        super().__init__(
-            message,
-            "APPROVAL_VALIDATION_ERROR",
-            {
+
+class ValidationError(ApprovalException):
+    """Raised when validation fails.
+
+    Supports two call styles:
+
+    * ``ValidationError("a human-readable message")`` — a plain message, used
+      throughout ``approval_service`` for not-found / precondition failures.
+    * ``ValidationError(field, value, reason, details=...)`` — a structured
+      field/value/reason form, used by ``approval_validation_service``.
+    """
+
+    def __init__(
+        self,
+        field: str,
+        value: Any = _UNSET,
+        reason: Any = _UNSET,
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        if value is _UNSET and reason is _UNSET:
+            # Plain-message form.
+            message = str(field)
+            user_message = message
+            error_details = details or {}
+        else:
+            message = f"Validation failed for field '{field}' with value '{value}': {reason}"
+            user_message = f"Invalid {field}: {reason}"
+            error_details = {
                 "field": field,
                 "value": value,
                 "reason": reason,
                 **(details or {})
-            },
+            }
+        super().__init__(
+            message,
+            "APPROVAL_VALIDATION_ERROR",
+            error_details,
             user_message
         )
 
