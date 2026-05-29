@@ -4,12 +4,13 @@ WORKDIR /app
 
 RUN apk add curl
 
-# Copy package files
+# Copy package files (package-lock.json is committed for reproducible installs)
 COPY package*.json ./
 
-RUN rm -rf node_modules package-lock.json
-# Install dependencies
-RUN npm install
+# Install dependencies reproducibly from the committed lockfile.
+# npm ci fails loudly if package.json and package-lock.json drift,
+# surfacing missing deps at build time instead of at runtime.
+RUN npm ci
 
 # Copy the rest of the application
 COPY . .
