@@ -19,6 +19,7 @@ import { ExpenseApprovalStatus } from '@/components/approvals/ExpenseApprovalSta
 import { ReviewStatusCell } from '@/components/ReviewStatusCell';
 import { CreatedAtByCell } from '@/components/CreatedAtByCell';
 import { toast } from 'sonner';
+import { safeParseDateString } from './types';
 
 interface ExpenseTableProps {
   loading: boolean;
@@ -297,7 +298,10 @@ export function ExpenseTable({
                 <TableCell>
                   <div className="flex flex-col">
                     <div className="font-medium text-sm">
-                      {e.expense_date ? new Date(e.expense_date).toLocaleDateString(getLocale(), { timeZone: timezone }) : 'N/A'}
+                      {/* expense_date is a calendar date (no time-of-day); parse as
+                          local midnight and render without timezone conversion so it
+                          doesn't shift a day backward in behind-UTC zones. */}
+                      {e.expense_date ? safeParseDateString(e.expense_date).toLocaleDateString(getLocale()) : 'N/A'}
                     </div>
                     {e.receipt_timestamp && e.receipt_time_extracted && (
                       <span className="text-xs text-muted-foreground">

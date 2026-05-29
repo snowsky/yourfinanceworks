@@ -64,15 +64,26 @@ def check_expense_modification_allowed(expense: Expense) -> None:
         )
 
 
+def _normalize_vendor(vendor: Optional[str]) -> str:
+    """Normalize a vendor name for duplicate comparison (trim + lowercase)."""
+    return (vendor or "").strip().lower()
+
+
 def _find_potential_expense_duplicates(
     db: Session,
     amount: float,
     expense_date,
+    vendor: Optional[str] = None,
     date_window_days: int = 3,
     exclude_id: Optional[int] = None,
 ) -> list:
-    """SQL-filter expenses by amount + date window. Vendor comparison must be done
-    in Python because the vendor column uses EncryptedColumn.
+    """SQL-filter expenses by amount + date window, then match vendor in Python.
+
+    Vendor comparison must be done in Python because the vendor column uses
+    EncryptedColumn and cannot be filtered/indexed in SQL. Candidates must share
+    the same normalized vendor as the input expense to be considered duplicates;
+    matching on amount + date alone produces false positives across unrelated
+    vendors.
     """
     if not _is_expense_duplicate_detection_eligible_by_values(
         amount=amount,
@@ -97,6 +108,8 @@ def _find_potential_expense_duplicates(
     if exclude_id is not None:
         candidates = [e for e in candidates if e.id != exclude_id]
     candidates = [e for e in candidates if _is_expense_duplicate_detection_eligible(e)]
+    target_vendor = _normalize_vendor(vendor)
+    candidates = [e for e in candidates if _normalize_vendor(e.vendor) == target_vendor]
     return [
         {
             "id": e.id,

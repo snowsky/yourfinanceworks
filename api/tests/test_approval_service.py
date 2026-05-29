@@ -584,13 +584,13 @@ class TestApprovalService:
         mock_db.query.return_value.filter.return_value.first.return_value = sample_expense
         
         with patch.object(approval_service, 'submit_for_approval', return_value=[]) as mock_submit:
-            
-            # Execute
-            approval_service.resubmit_expense(1, 2, "Resubmitting with corrections")
-            
-            # Verify
+
+            # Execute (expense_id, submitter_id, approver_id, notes)
+            approval_service.resubmit_expense(1, 2, 3, "Resubmitting with corrections")
+
+            # Verify the approver_id is forwarded to submit_for_approval
             assert sample_expense.status == "resubmitted"
-            mock_submit.assert_called_once_with(1, 2, "Resubmitting with corrections")
+            mock_submit.assert_called_once_with(1, 2, 3, "Resubmitting with corrections")
     
     def test_resubmit_expense_wrong_status(self, approval_service, mock_db, sample_expense):
         """Test resubmission when expense is not rejected"""
@@ -599,7 +599,7 @@ class TestApprovalService:
         
         # Execute and verify exception
         with pytest.raises(InvalidApprovalState, match="cannot resubmit"):
-            approval_service.resubmit_expense(1, 2)
+            approval_service.resubmit_expense(1, 2, 3)
     
     def test_validate_expense_for_approval_invalid_amount(self, approval_service):
         """Test expense validation with invalid amount"""

@@ -68,6 +68,13 @@ async def upload_receipt(
         if len(contents) > _MAX_BYTES:
             raise HTTPException(status_code=400, detail="File too large. Maximum size is 10 MB")
 
+        # Verify the file's actual bytes match its declared content type. The
+        # extension and Content-Type header above are both client-supplied and
+        # can be spoofed (e.g. an HTML/SVG payload named receipt.pdf), which
+        # becomes a stored-XSS vector when the file is later served inline.
+        from core.utils.file_validation import validate_file_magic_bytes
+        validate_file_magic_bytes(contents, file.content_type)
+
         from core.models.database import get_tenant_context
         tenant_id = get_tenant_context()
         if not tenant_id:
@@ -204,9 +211,9 @@ async def upload_receipt(
 
         return {
             "message": "Attachment uploaded successfully",
+            "attachment_id": attachment_id,
             "filename": file.filename,
             "size": file_size,
-            "file_path": str(file_path),
         }
     except HTTPException:
         raise
@@ -401,6 +408,7 @@ async def download_expense_attachment(
 ):
     import mimetypes
     from io import BytesIO
+    from urllib.parse import quote
 
     from core.models.database import set_tenant_context
     set_tenant_context(current_user.tenant_id)
@@ -436,6 +444,29 @@ async def download_expense_attachment(
         guessed, _ = mimetypes.guess_type(filename or '')
         return guessed or 'application/octet-stream'
 
+    # Only these types may ever be rendered inline by the browser. Anything else
+    # (notably text/html, image/svg+xml) is forced to download as an opaque blob
+    # so a spoofed/crafted attachment cannot execute script in our origin.
+    _INLINE_SAFE_TYPES = frozenset({
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf',
+    })
+
+    def _serve_headers(media_type: str, content_length: int) -> tuple[str, dict]:
+        """Return the (effective_media_type, headers) for serving the attachment,
+        downgrading unsafe inline requests to a safe attachment download."""
+        serve_inline = inline and media_type in _INLINE_SAFE_TYPES
+        disposition = "inline" if serve_inline else "attachment"
+        effective_media_type = media_type if serve_inline else 'application/octet-stream'
+        # Strip characters that could break or inject into the header, then quote.
+        safe_name = re.sub(r'[\r\n"\\]', '_', att.filename or 'attachment')
+        quoted = quote(safe_name)
+        headers = {
+            "Content-Disposition": f'{disposition}; filename="{safe_name}"; filename*=UTF-8\'\'{quoted}',
+            "Content-Length": str(content_length),
+            "X-Content-Type-Options": "nosniff",
+        }
+        return effective_media_type, headers
+
     def _serve_local(file_path_str: str) -> StreamingResponse | None:
         try:
             from core.utils.file_validation import validate_file_path
@@ -446,15 +477,12 @@ async def download_expense_attachment(
             with open(validated, 'rb') as f:
                 content = f.read()
             media_type = _resolve_media_type(att.content_type, att.filename)
-            disposition = "inline" if inline else "attachment"
+            effective_media_type, headers = _serve_headers(media_type, len(content))
             logger.info(f"Serving local file: {validated} ({len(content)} bytes)")
             return StreamingResponse(
                 BytesIO(content),
-                media_type=media_type,
-                headers={
-                    "Content-Disposition": f"{disposition}; filename={att.filename}",
-                    "Content-Length": str(len(content)),
-                }
+                media_type=effective_media_type,
+                headers=headers,
             )
         except Exception as e:
             logger.warning(f"Local file serve failed for '{file_path_str}': {e}")
@@ -474,15 +502,12 @@ async def download_expense_attachment(
             )
             if result.success and result.file_content:
                 media_type = _resolve_media_type(att.content_type, att.filename)
-                disposition = "inline" if inline else "attachment"
+                effective_media_type, headers = _serve_headers(media_type, len(result.file_content))
                 logger.info(f"Serving cloud file: '{file_key}' ({len(result.file_content)} bytes)")
                 return StreamingResponse(
                     BytesIO(result.file_content),
-                    media_type=media_type,
-                    headers={
-                        "Content-Disposition": f"{disposition}; filename={att.filename}",
-                        "Content-Length": str(len(result.file_content)),
-                    }
+                    media_type=effective_media_type,
+                    headers=headers,
                 )
             logger.warning(f"Cloud retrieve returned no content for '{file_key}': {result.error_message}")
         except Exception as e:
