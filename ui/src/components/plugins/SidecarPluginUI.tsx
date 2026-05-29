@@ -56,6 +56,15 @@ export function SidecarPluginUI({ pluginId, uiEntry, title }: SidecarPluginUIPro
         src={uiEntry}
         style={{ width: '100%', height: '100%', border: 'none' }}
         title={title || pluginId}
+        // Sandbox restricts a sidecar to a small, well-understood capability
+        // set. Sidecars are cross-origin services so dropping
+        // ``allow-same-origin`` is safe — the auth handshake passes the token
+        // explicitly via postMessage, the sidecar never needs to read the
+        // host's cookies. ``allow-scripts`` is required (the sidecar runs JS),
+        // ``allow-forms`` and ``allow-popups`` cover the realistic interaction
+        // surface. A compromised sidecar can no longer navigate the top frame
+        // or open arbitrary windows with ``window.opener``.
+        sandbox="allow-scripts allow-forms allow-popups"
       />
     </div>
   );

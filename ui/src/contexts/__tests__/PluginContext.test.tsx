@@ -19,7 +19,6 @@ const TestComponent = () => {
     isPluginEnabled,
     loading,
     storageError,
-    storageWarnings,
     discoveryErrors,
     initializePlugin,
     getPluginInitializationStatus,
@@ -37,7 +36,6 @@ const TestComponent = () => {
       <div data-testid="plugin-count">{plugins.length}</div>
       <div data-testid="enabled-count">{enabledPlugins.length}</div>
       <div data-testid="storage-error">{storageError || 'none'}</div>
-      <div data-testid="storage-warnings">{storageWarnings.length}</div>
       <div data-testid="discovery-errors">{discoveryErrors.length}</div>
       <div data-testid="storage-quota-percentage">{storageStats.quotaInfo.percentage.toFixed(1)}</div>
       <div data-testid="storage-integrity-check">{storageStats.integrityCheckPassed.toString()}</div>
