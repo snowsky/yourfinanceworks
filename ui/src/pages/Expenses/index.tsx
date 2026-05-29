@@ -21,7 +21,7 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { expenseApi, Expense, ExpenseAttachmentMeta, settingsApi, DeletedExpense } from '@/lib/api';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
-import { canPerformActions } from '@/utils/auth';
+import { canPerformActions, getCurrentUser } from '@/utils/auth';
 import { usePermissionChecker } from '@/hooks/usePermissions';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
@@ -71,6 +71,8 @@ const Expenses = () => {
     canPerformActions() &&
     (permissionChecker.isLoading ||
       permissionChecker.hasPermission('expenses', 'user'));
+  // Emptying the bin and permanent deletion are admin-only on the backend.
+  const isAdmin = getCurrentUser()?.role === 'admin';
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const categoryOptions = EXPENSE_CATEGORY_OPTIONS;
@@ -743,6 +745,7 @@ const Expenses = () => {
 
         {/* Recycle Bin Section */}
         <RecycleBinSection
+          isAdmin={isAdmin}
           showRecycleBin={showRecycleBin}
           setShowRecycleBin={setShowRecycleBin}
           recycleBinLoading={recycleBinLoading}
