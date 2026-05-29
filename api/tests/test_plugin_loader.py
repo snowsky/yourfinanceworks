@@ -340,3 +340,78 @@ def test_registry_readers_tolerate_concurrent_retry_thread_writes(tmp_path, load
         writer_thread.join(timeout=5)
 
     assert errors == [], f"readers raised under concurrent writes: {errors!r}"
+
+
+# 17. register_all filters kwargs to match the plugin's actual signature
+def test_register_all_only_passes_declared_kwargs(tmp_path, loader):
+    """``register_fn`` used to be called with ``app=, mcp_registry=, feature_gate=``
+    unconditionally. A plugin defining ``register_plugin(app)`` (positional or
+    keyword) failed with ``TypeError: unexpected keyword argument 'mcp_registry'``.
+    The loader now uses ``inspect.signature`` to filter the kwargs."""
+    make_plugin(tmp_path, "narrow-plug", {**VALID_MANIFEST, "name": "narrow-plug"})
+
+    captured: dict = {}
+
+    def narrow_register_plugin(app):
+        captured["app"] = app
+        captured["kwargs_seen"] = set()
+        return {"name": "narrow-plug", "version": "1.0.0", "routes": []}
+
+    def fake_import(name: str):
+        if name == "plugins.narrow_plug":
+            mod = MagicMock(spec=["register_plugin"])
+            mod.register_plugin = narrow_register_plugin
+            return mod
+        raise ModuleNotFoundError(name)
+
+    mock_app = MagicMock()
+    sys.path.insert(0, str(tmp_path.parent))
+    try:
+        with patch("plugins.loader._PLUGINS_DIR", tmp_path):
+            with patch("plugins.loader.importlib.import_module", side_effect=fake_import):
+                # Should not raise — the loader filters out mcp_registry / feature_gate
+                # because narrow_register_plugin doesn't declare them.
+                loader.register_all(mock_app)
+    finally:
+        sys.path.pop(0)
+
+    assert captured.get("app") is mock_app, (
+        "Plugin's register_plugin(app) was not called — kwargs filter may have "
+        "stripped the 'app' parameter too."
+    )
+
+
+# 18. register_all still passes mcp_registry to plugins that declare it
+def test_register_all_passes_mcp_registry_when_declared(tmp_path, loader):
+    """Symmetric check: plugins that DO declare ``mcp_registry`` still receive
+    it. The kwargs filter must not silently drop wanted parameters."""
+    make_plugin(tmp_path, "wide-plug", {**VALID_MANIFEST, "name": "wide-plug"})
+
+    captured: dict = {}
+
+    def wide_register_plugin(app, mcp_registry=None, feature_gate=None):
+        captured["app"] = app
+        captured["mcp_registry"] = mcp_registry
+        captured["feature_gate"] = feature_gate
+        return {"name": "wide-plug", "version": "1.0.0", "routes": []}
+
+    def fake_import(name: str):
+        if name == "plugins.wide_plug":
+            mod = MagicMock(spec=["register_plugin"])
+            mod.register_plugin = wide_register_plugin
+            return mod
+        raise ModuleNotFoundError(name)
+
+    mock_app = MagicMock()
+    mock_mcp = object()
+    sys.path.insert(0, str(tmp_path.parent))
+    try:
+        with patch("plugins.loader._PLUGINS_DIR", tmp_path):
+            with patch("plugins.loader.importlib.import_module", side_effect=fake_import):
+                loader.register_all(mock_app, mcp_registry=mock_mcp)
+    finally:
+        sys.path.pop(0)
+
+    assert captured.get("app") is mock_app
+    assert captured.get("mcp_registry") is mock_mcp
+    assert "feature_gate" in captured, "declared feature_gate was filtered out"

@@ -248,11 +248,43 @@ class PluginLoader:
                 continue
 
             try:
-                plugin_info = register_fn(app=app, mcp_registry=mcp_registry or None, feature_gate=None)
+                # Call ``register_fn`` with only the keyword arguments it
+                # actually declares. Earlier code passed all three (``app``,
+                # ``mcp_registry``, ``feature_gate``) unconditionally, so
+                # plugins defining ``register_plugin(app)`` failed with
+                # ``TypeError: unexpected keyword argument 'mcp_registry'``
+                # at startup. ``inspect.signature`` lets us be permissive
+                # without paying the cost of every plugin author having to
+                # declare a wide signature.
+                import inspect as _inspect
+                candidate_kwargs = {
+                    "app": app,
+                    "mcp_registry": mcp_registry or None,
+                    "feature_gate": None,
+                }
+                try:
+                    sig = _inspect.signature(register_fn)
+                    accepts_kwargs = any(
+                        p.kind == _inspect.Parameter.VAR_KEYWORD
+                        for p in sig.parameters.values()
+                    )
+                    if accepts_kwargs:
+                        filtered_kwargs = candidate_kwargs
+                    else:
+                        filtered_kwargs = {
+                            k: v for k, v in candidate_kwargs.items() if k in sig.parameters
+                        }
+                except (TypeError, ValueError):
+                    # Some C-implemented callables don't expose a signature.
+                    # Fall through to passing the full set; if the call fails
+                    # it's caught by the outer try/except below.
+                    filtered_kwargs = candidate_kwargs
+
+                plugin_info = register_fn(**filtered_kwargs)
                 if plugin_info and "routes" in plugin_info:
                     for route in plugin_info["routes"]:
                         self._plugin_route_map[route] = plugin.plugin_id
-                
+
                 logger.info(
                     "Plugin '%s' registered — routes: %s",
                     plugin.plugin_id,

@@ -142,6 +142,11 @@ export const pluginApi = {
       plugin_id: string;
       enabled: boolean;
       require_login: boolean;
+      // ``has_paywall`` is a boolean signal sent by the unauthenticated
+      // ``/public-config`` endpoint in place of the actual ``stripe_price_id``;
+      // see the backend comment for the rationale.
+      has_paywall: boolean;
+      free_clicks: number;
       show_sidebar: boolean;
       show_header: boolean;
       manual_usage_tracking: boolean;
