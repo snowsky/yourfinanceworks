@@ -6,6 +6,7 @@ import traceback
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from core.constants.expense_status import ExpenseStatus
 from core.models.database import get_db
 from core.models.models import MasterUser
 from core.models.models_per_tenant import Expense, ExpenseAttachment
@@ -13,6 +14,7 @@ from core.routers.auth import get_current_user
 from core.schemas.expense import PaginatedDeletedExpenses, RecycleBinExpenseResponse, RestoreExpenseRequest
 from core.utils.audit import log_audit_event
 from core.utils.file_deletion import delete_file_from_storage
+from core.utils.rbac import require_admin, require_non_viewer
 from core.utils.timezone import get_tenant_timezone_aware_datetime
 
 logging.basicConfig(level=logging.INFO)
@@ -199,6 +201,19 @@ async def restore_expense(
 ):
     """Restore an expense from the recycle bin"""
     try:
+        require_non_viewer(current_user, "restore expenses")
+
+        # Restore target must be a real, non-approval-workflow status; an
+        # expense should not be restored straight into pending_approval/approved/
+        # rejected/resubmitted, and arbitrary strings must not reach the column.
+        allowed_restore_statuses = set(ExpenseStatus.get_non_approval_statuses())
+        if restore_request.new_status not in allowed_restore_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid restore status '{restore_request.new_status}'. "
+                       f"Allowed: {', '.join(sorted(allowed_restore_statuses))}",
+            )
+
         db_expense = db.query(Expense).filter(
             Expense.id == expense_id,
             Expense.is_deleted == True
@@ -252,8 +267,12 @@ async def permanently_delete_expense(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
-    """Permanently delete an expense from the recycle bin"""
+    """Permanently delete an expense from the recycle bin (admin only)"""
     try:
+        # Irreversible destruction — restrict to admins, consistent with the
+        # empty-recycle-bin endpoint.
+        require_admin(current_user, "permanently delete expenses")
+
         db_expense = db.query(Expense).filter(
             Expense.id == expense_id,
             Expense.is_deleted == True

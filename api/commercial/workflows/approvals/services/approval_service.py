@@ -214,6 +214,13 @@ class ApprovalService:
                 user_id=approver_id, required_permission="approve_expense", expense_id=approval.expense_id, approval_level=approval.approval_level
             )
 
+        # Segregation of duties: the expense owner may not decide on their own
+        # expense, even if designated as approver or reached via delegation.
+        if approval.expense and approval.expense.user_id == approver_id:
+            raise InsufficientApprovalPermissions(
+                user_id=approver_id, required_permission="approve_expense", expense_id=approval.expense_id, approval_level=approval.approval_level
+            )
+
         # Check approval state
         if approval.status != ApprovalStatus.PENDING:
             raise InvalidApprovalState(
@@ -302,6 +309,13 @@ class ApprovalService:
 
         # Verify approver permissions
         if not self._can_user_approve(approver_id, approval):
+            raise InsufficientApprovalPermissions(
+                user_id=approver_id, required_permission="approve_expense", expense_id=approval.expense_id, approval_level=approval.approval_level
+            )
+
+        # Segregation of duties: the expense owner may not decide on their own
+        # expense, even if designated as approver or reached via delegation.
+        if approval.expense and approval.expense.user_id == approver_id:
             raise InsufficientApprovalPermissions(
                 user_id=approver_id, required_permission="approve_expense", expense_id=approval.expense_id, approval_level=approval.approval_level
             )
