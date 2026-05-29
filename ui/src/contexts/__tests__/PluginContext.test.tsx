@@ -52,7 +52,7 @@ const TestComponent = () => {
           </span>
           <button
             data-testid={`toggle-${plugin.id}`}
-            onClick={() => togglePlugin(plugin.id, !plugin.enabled)}
+            onClick={() => togglePlugin(plugin.id, !plugin.enabled, true)}
           >
             Toggle {plugin.name}
           </button>
