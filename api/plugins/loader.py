@@ -297,11 +297,31 @@ class PluginLoader:
                 self._load_errors[plugin.plugin_id] = f"Registration failed: {exc}"
 
             # Auto-mount plugin Tools API router if present (api/plugins/<name>/tools/router.py)
+            #
+            # A bare ``app.include_router(tools_mod.router)`` exposes every route
+            # the plugin author declared regardless of whether they remembered
+            # to add an authentication dependency. We inject ``get_current_user``
+            # as a router-level dependency so the auto-mount convention is
+            # safe-by-default: if the plugin author already required auth on
+            # their routes, the dependency just runs the same check twice (no
+            # behavior change); if they forgot, the router-level dependency
+            # catches it. Plugins that genuinely need unauthenticated routes
+            # should register them through ``register_plugin`` directly rather
+            # than the auto-mount path.
             try:
                 tools_mod = importlib.import_module(f"{plugin.package}.tools.router")
                 if hasattr(tools_mod, "router"):
-                    app.include_router(tools_mod.router)
-                    logger.info("Plugin '%s': tools router registered.", plugin.plugin_id)
+                    from fastapi import Depends
+                    from core.routers.auth import get_current_user
+
+                    app.include_router(
+                        tools_mod.router,
+                        dependencies=[Depends(get_current_user)],
+                    )
+                    logger.info(
+                        "Plugin '%s': tools router registered (auth required by default).",
+                        plugin.plugin_id,
+                    )
             except ModuleNotFoundError:
                 pass  # No tools/router.py — optional, not an error
             except Exception as exc:
