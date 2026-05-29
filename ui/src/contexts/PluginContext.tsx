@@ -45,7 +45,6 @@ interface PluginContextType {
   getPlugin: (pluginId: string) => Plugin | undefined;
   loading: boolean;
   storageError: string | null;
-  storageWarnings: string[];
   initializePlugin: (pluginId: string) => Promise<boolean>;
   getPluginInitializationStatus: (pluginId: string) => {
     isInitialized: boolean;
@@ -178,16 +177,11 @@ class PluginValidator {
 
 // Plugin discovery system
 class PluginDiscovery {
-  private static readonly DISCOVERY_CACHE_KEY = 'pluginDiscoveryCache';
-
   static async discoverPlugins(): Promise<{ plugins: Plugin[]; errors: string[] }> {
     const errors: string[] = [];
     const discoveredPlugins: Plugin[] = [];
 
     try {
-      // Clear old cache to ensure fresh discovery
-      this.clearDiscoveryCache();
-
       // Built-in plugins registry
       const builtInPlugins = await this.getBuiltInPlugins();
 
@@ -250,9 +244,6 @@ class PluginDiscovery {
         console.warn('Failed to discover external plugins:', externalError);
         errors.push('Failed to discover external plugins - using built-in plugins only');
       }
-
-      // Cache the results
-      this.cacheDiscoveryResults({ plugins: discoveredPlugins, errors });
 
       console.log(`Discovered ${discoveredPlugins.length} plugins with ${errors.length} errors`);
       return { plugins: discoveredPlugins, errors };
@@ -368,28 +359,12 @@ class PluginDiscovery {
 
 
 
-  private static cacheDiscoveryResults(results: { plugins: Plugin[]; errors: string[] }): void {
-    if (!PluginStorage.isStorageAvailable()) {
-      return;
-    }
-
-    try {
-      const cacheData = {
-        timestamp: new Date().toISOString(),
-        data: results
-      };
-
-      localStorage.setItem(this.DISCOVERY_CACHE_KEY, JSON.stringify(cacheData));
-    } catch (error) {
-      console.warn('Failed to cache plugin discovery results:', error);
-    }
-  }
-
-  static clearDiscoveryCache(): void {
-    if (PluginStorage.isStorageAvailable()) {
-      localStorage.removeItem(this.DISCOVERY_CACHE_KEY);
-    }
-  }
+  // Note: a discovery cache (cacheDiscoveryResults / clearDiscoveryCache /
+  // DISCOVERY_CACHE_KEY) used to live here. The writer ran at the end of every
+  // discovery pass, and ``clearDiscoveryCache`` was called at the very start
+  // of the next discovery pass — so nothing ever read the cached value back.
+  // Removed in the FE MEDIUM cleanup; reintroduce only if there's a real
+  // read path that wants a TTL-based fast return.
 }
 class PluginStorage {
   private static readonly STORAGE_KEY = 'enabledPlugins';
@@ -770,9 +745,17 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [enabledPlugins, setEnabledPlugins] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [storageError, setStorageError] = useState<string | null>(null);
-  const [storageWarnings] = useState<string[]>([]);
   const [pluginInitializationErrors, setPluginInitializationErrors] = useState<Record<string, { error: string; lastAttempt: Date }>>({});
   const [discoveryErrors, setDiscoveryErrors] = useState<string[]>([]);
+
+  // Guards ``loadPluginStates`` against concurrent invocations. The effect
+  // runs once on mount and re-runs on every ``auth-changed`` / ``user-updated``
+  // DOM event; two rapid auth events used to race into overlapping discovery
+  // and settings-fetch passes that left state in an unpredictable order. The
+  // ref blocks re-entry while a load is in flight — the in-flight load's
+  // result still wins because subsequent fetches would have read the same
+  // backend state anyway.
+  const isLoadingPluginStatesRef = React.useRef(false);
 
   // Available plugins registry - will be populated by discovery
   const [plugins, setPlugins] = useState<Plugin[]>([]);
@@ -780,7 +763,13 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   // Load enabled plugins from API on mount and initialize them
   useEffect(() => {
     const loadPluginStates = async () => {
-      // Don't load if already loading to avoid double calls
+      if (isLoadingPluginStatesRef.current) {
+        // A concurrent invocation is already running — skip rather than
+        // race. The in-flight call will populate ``setLoading(false)``
+        // and finalize state.
+        return;
+      }
+      isLoadingPluginStatesRef.current = true;
       setLoading(true);
       try {
         console.log('Loading plugin system and states...');
@@ -871,6 +860,7 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         setEnabledPlugins([]);
       } finally {
         setLoading(false);
+        isLoadingPluginStatesRef.current = false;
       }
     };
 
@@ -1024,9 +1014,6 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const refreshPluginDiscovery = async (): Promise<void> => {
     try {
       console.log('Refreshing plugin discovery...');
-
-      // Clear discovery cache to force fresh discovery
-      PluginDiscovery.clearDiscoveryCache();
 
       // Discover plugins again
       const { plugins: discoveredPlugins, errors: discoveryErrors } = await PluginDiscovery.discoverPlugins();
@@ -1339,7 +1326,6 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       getPlugin,
       loading,
       storageError,
-      storageWarnings,
       initializePlugin,
       getPluginInitializationStatus,
       discoveryErrors,
