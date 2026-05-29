@@ -40,7 +40,7 @@ export interface PluginAccessRequirement {
 interface PluginContextType {
   plugins: Plugin[];
   enabledPlugins: string[];
-  togglePlugin: (pluginId: string, enabled: boolean, isAdmin?: boolean) => Promise<void>;
+  togglePlugin: (pluginId: string, enabled: boolean, isAdmin: boolean) => Promise<void>;
   isPluginEnabled: (pluginId: string) => boolean;
   getPlugin: (pluginId: string) => Plugin | undefined;
   loading: boolean;
@@ -972,18 +972,28 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         detail: { pluginId, error: errorMessage }
       }));
 
-      // Automatically disable the plugin if initialization fails
-      if (enabledPlugins.includes(pluginId)) {
-        console.log(`Automatically disabling failed plugin: ${plugin.name}`);
-        const updatedPlugins = enabledPlugins.filter(id => id !== pluginId);
-        setEnabledPlugins(updatedPlugins);
+      // Automatically disable the plugin if initialization fails.
+      //
+      // ``enabledPlugins`` is read from the closure here for the
+      // call-the-disable-API decision, but the actual state mutation uses the
+      // functional setter form so a concurrent enable/disable elsewhere can't
+      // be silently overwritten with a stale snapshot. The previous code did
+      // ``setEnabledPlugins(enabledPlugins.filter(...))`` which races with any
+      // other setter call queued after the closure captured ``enabledPlugins``.
+      let wasEnabledBeforeFailure = false;
+      setEnabledPlugins(prev => {
+        if (!prev.includes(pluginId)) {
+          return prev;
+        }
+        wasEnabledBeforeFailure = true;
+        return prev.filter(id => id !== pluginId);
+      });
 
-        // Set status to disabled
+      if (wasEnabledBeforeFailure) {
+        console.log(`Automatically disabling failed plugin: ${plugin.name}`);
         setPlugins(prev => prev.map(p =>
           p.id === pluginId ? { ...p, status: 'disabled' as const } : p
         ));
-
-        // Persist the disabled state via API so it applies across all browsers
         try {
           await apiRequest(`/plugins/settings/${pluginId}/disable`, { method: 'POST' });
         } catch (persistError) {
@@ -1066,8 +1076,13 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
-  const togglePlugin = async (pluginId: string, enabled: boolean, isAdmin: boolean = true): Promise<void> => {
-    // Validate admin access
+  // The third argument is intentionally required — the previous ``isAdmin = true``
+  // default meant any caller that omitted it (including DOM-event handlers
+  // dispatched by plugin iframes) sailed past the in-function admin check. The
+  // ``isAdmin`` check here is best-effort; the server-side ``/plugins/settings/.../enable``
+  // and ``/disable`` endpoints enforce admin authoritatively. Requiring the
+  // parameter just removes the silently-permissive failure mode.
+  const togglePlugin = async (pluginId: string, enabled: boolean, isAdmin: boolean): Promise<void> => {
     if (!isAdmin) {
       throw new Error('Unauthorized: Only administrators can manage plugins');
     }
@@ -1236,32 +1251,35 @@ export const PluginProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     };
 
-    const handlePluginErrorDisable = async (event: Event) => {
+    const handlePluginErrorDisable = (event: Event) => {
       const { pluginId, reason } = (event as CustomEvent).detail;
       console.warn(`Disabling plugin ${pluginId} due to error: ${reason}`);
 
-      if (enabledPlugins.includes(pluginId)) {
-        try {
-          // Disable the plugin
-          await togglePlugin(pluginId, false, true);
-
-          // Add to initialization errors to show the reason
-          setPluginInitializationErrors(prev => ({
-            ...prev,
-            [pluginId]: {
-              error: `Plugin disabled: ${reason}`,
-              lastAttempt: new Date()
-            }
-          }));
-
-          // Dispatch notification event
-          window.dispatchEvent(new CustomEvent('plugin-auto-disabled', {
-            detail: { pluginId, reason }
-          }));
-        } catch (error) {
-          console.error(`Failed to auto-disable plugin ${pluginId}:`, error);
+      // ``plugin-error-disable`` is a CustomEvent any in-page script can fire
+      // (including from inside a plugin iframe via ``allow-same-origin``).
+      // Previously this handler called ``togglePlugin(..., true)`` with a
+      // hardcoded admin flag, which (for an admin viewer) would persist the
+      // disable to the server — letting a misbehaving plugin force-disable
+      // another plugin tenant-wide. The handler is now strictly local: it
+      // marks the plugin as failed and removes it from the in-session
+      // ``enabledPlugins`` list so the UI hides it for this tab. The
+      // tenant-wide enabled state stays whatever the admin actually set;
+      // a real admin can persist the disable through the Settings UI if the
+      // plugin remains broken after a reload.
+      setEnabledPlugins(prev => prev.filter(id => id !== pluginId));
+      setPlugins(prev => prev.map(p =>
+        p.id === pluginId ? { ...p, status: 'error' as const } : p
+      ));
+      setPluginInitializationErrors(prev => ({
+        ...prev,
+        [pluginId]: {
+          error: `Plugin disabled: ${reason}`,
+          lastAttempt: new Date()
         }
-      }
+      }));
+      window.dispatchEvent(new CustomEvent('plugin-auto-disabled', {
+        detail: { pluginId, reason }
+      }));
     };
 
     // Add event listeners

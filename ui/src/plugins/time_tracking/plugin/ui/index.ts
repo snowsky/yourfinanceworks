@@ -32,7 +32,6 @@ export const pluginRoutes: PluginRouteConfig[] = [
     pluginId: 'time-tracking',
     pluginName: 'Projects & Time Tracking',
     label: 'Time Tracking',
-    errorBoundary: false,
   },
   {
     path: '/projects/:id',
@@ -41,7 +40,6 @@ export const pluginRoutes: PluginRouteConfig[] = [
     pluginName: 'Projects & Time Tracking',
     label: 'Project Detail',
     requiresRole: ['admin', 'user'],
-    errorBoundary: false,
   },
 ];
 

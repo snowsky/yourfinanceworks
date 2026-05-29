@@ -37,7 +37,7 @@ type ReinstallState = 'idle' | 'confirm' | 'running' | 'done' | 'failed';
 
 interface PluginCardProps {
   plugin: Plugin;
-  onToggle: (pluginId: string, enabled: boolean, isAdmin?: boolean) => Promise<void>;
+  onToggle: (pluginId: string, enabled: boolean, isAdmin: boolean) => Promise<void>;
   onUninstall?: (pluginId: string) => Promise<void>;
   onReinstall?: (pluginId: string, options?: { githubToken?: string; gitUrl?: string; ref?: string }) => Promise<string>;
   canToggle: boolean;
