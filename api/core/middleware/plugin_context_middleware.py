@@ -32,9 +32,22 @@ class PluginContextMiddleware(BaseHTTPMiddleware):
         # should not replace the route owner for DB isolation. A call from
         # docvault to /api/v1/investments/... must execute under investments'
         # table permissions after the access guard approves the caller.
+        #
+        # The header is attacker-controllable on any unauthenticated reach to
+        # the API, so we validate it against the discovered-plugin set before
+        # using it as the isolation context. ``require_plugin_access`` does
+        # the same check, but only on routes that opt into the dependency —
+        # routes without it would otherwise run under an unrecognized context.
         caller_header = request.headers.get("X-Plugin-Caller")
         if caller_header and not plugin_id:
-            plugin_id = caller_header.strip().lower().replace("_", "-")
+            normalized_caller = caller_header.strip().lower().replace("_", "-")
+            if normalized_caller in plugin_loader.get_valid_plugin_ids():
+                plugin_id = normalized_caller
+            else:
+                logger.warning(
+                    "Ignoring X-Plugin-Caller='%s' on %s: not a discovered plugin",
+                    caller_header, path,
+                )
 
         if plugin_id:
             # Set the context and LOCK it.

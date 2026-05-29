@@ -532,11 +532,12 @@ async def enable_plugin(
         )
 
     # Validate plugin ID
-    if plugin_id not in _valid_plugins():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid plugin ID: {plugin_id}"
-        )
+    # Normalize and validate. The previous bare ``plugin_id in _valid_plugins()``
+    # check accepted unnormalized variants like "investments_foo" because the
+    # discovered-plugin set is hyphen-normalized; ``_validate_plugin_id`` fixes
+    # that by normalizing first, so the allowlist check below operates on the
+    # same canonical form.
+    plugin_id = _validate_plugin_id(plugin_id)
 
     # Enforce super-admin allowlist for non-superusers
     if not _is_superuser(current_user):
@@ -647,11 +648,12 @@ async def get_plugin_config(
     tenant_id = current_user.tenant_id
 
     # Validate plugin ID
-    if plugin_id not in _valid_plugins():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid plugin ID: {plugin_id}"
-        )
+    # Normalize and validate. The previous bare ``plugin_id in _valid_plugins()``
+    # check accepted unnormalized variants like "investments_foo" because the
+    # discovered-plugin set is hyphen-normalized; ``_validate_plugin_id`` fixes
+    # that by normalizing first, so the allowlist check below operates on the
+    # same canonical form.
+    plugin_id = _validate_plugin_id(plugin_id)
 
     settings = db.query(TenantPluginSettings).filter(
         TenantPluginSettings.tenant_id == tenant_id
@@ -700,11 +702,12 @@ async def update_plugin_config(
             detail="Only administrators can manage plugin settings"
         )
 
-    if plugin_id not in _valid_plugins():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid plugin ID: {plugin_id}"
-        )
+    # Normalize and validate. The previous bare ``plugin_id in _valid_plugins()``
+    # check accepted unnormalized variants like "investments_foo" because the
+    # discovered-plugin set is hyphen-normalized; ``_validate_plugin_id`` fixes
+    # that by normalizing first, so the allowlist check below operates on the
+    # same canonical form.
+    plugin_id = _validate_plugin_id(plugin_id)
 
     config = payload.get("config", {})
     if not isinstance(config, dict):
