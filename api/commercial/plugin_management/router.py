@@ -937,11 +937,18 @@ async def get_plugin_public_config(
     pa = _get_public_access_config(settings.plugin_config if settings else None, plugin_id)
 
     manifest = next((p for p in plugin_loader.get_registry() if p.get("name") == plugin_id), {})
+    # ``stripe_price_id`` is intentionally not returned here. ``tenant_id`` is
+    # an integer that an attacker can enumerate via the ``?tenant_id=`` query
+    # param or by guessing subdomains, and the price ID is per-tenant pricing
+    # data the public portal does not need — the UI only checks whether a
+    # paywall is configured (truthiness) to decide whether to render the
+    # paywall affordance. ``has_paywall: bool`` preserves that signal without
+    # leaking the actual price ID.
     return {
         "plugin_id": plugin_id,
         "enabled": pa["enabled"],
         "require_login": pa["require_login"],
-        "stripe_price_id": pa.get("stripe_price_id"),
+        "has_paywall": bool(pa.get("stripe_price_id")),
         "free_clicks": pa.get("free_clicks", 0),
         "show_sidebar": pa.get("show_sidebar", False),
         "show_header": pa.get("show_header", False),

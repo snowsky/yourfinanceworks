@@ -58,7 +58,11 @@ function UserMenu({ email, pluginId, onSettings, onLogout }: UserMenuProps) {
 interface PublicAccessConfig {
   enabled: boolean;
   require_login: boolean;
-  stripe_price_id?: string | null;
+  // ``has_paywall`` is a boolean signal sent by the unauthenticated
+  // ``/public-config`` endpoint in place of the actual ``stripe_price_id``.
+  // The price ID itself is admin-only data — the public portal only needs
+  // to know whether a paywall is configured.
+  has_paywall: boolean;
   free_clicks: number;
   show_sidebar: boolean;
   show_header: boolean;
@@ -128,7 +132,7 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
       const tokenData = JSON.parse(tokenStr);
       setPluginUserData(tokenData.user);
 
-      if (cfg.stripe_price_id) {
+      if (cfg.has_paywall) {
         try {
           const res = await apiRequest<PaywallStatus>(`/plugins/${pluginId}/public-paywall/status`, {
             method: 'POST',
@@ -443,7 +447,7 @@ export function PublicPluginWrapper({ pluginId, children, iframeUrl }: Props) {
           )}
 
           {/* Paywall Modal */}
-          {status && config?.stripe_price_id && (
+          {status && config?.has_paywall && (
             <PluginPaywall 
               pluginId={pluginId} 
               tenantId={explicitTenantId} 

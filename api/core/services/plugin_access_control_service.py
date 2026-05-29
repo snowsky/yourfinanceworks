@@ -13,6 +13,7 @@ from typing import Any, Optional
 from uuid import uuid4
 import copy
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -333,6 +334,11 @@ class PluginAccessControlService:
             self._save_config(settings, config)
 
     def _get_or_create_settings(self, tenant_id: int) -> TenantPluginSettings:
+        # Two concurrent ``check_or_request_access`` calls for the same tenant
+        # both ran this method; both saw no row from the SELECT and both
+        # raced into an INSERT. The DB's ``UNIQUE(tenant_id)`` constraint
+        # rejected the second one with an IntegrityError. We re-query under
+        # the lock and surface the row the other transaction won.
         settings = (
             self.db.query(TenantPluginSettings)
             .filter(TenantPluginSettings.tenant_id == tenant_id)
@@ -347,7 +353,27 @@ class PluginAccessControlService:
             plugin_config={},
         )
         self.db.add(settings)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            # Another transaction inserted the same tenant_id between our
+            # SELECT and INSERT. Roll back our failed INSERT and re-read
+            # the winner under ``with_for_update`` so any caller mutating
+            # the returned row sees a row-level lock.
+            self.db.rollback()
+            settings = (
+                self.db.query(TenantPluginSettings)
+                .filter(TenantPluginSettings.tenant_id == tenant_id)
+                .with_for_update()
+                .first()
+            )
+            if settings is None:
+                # Pathological — the conflicting row was deleted between
+                # the IntegrityError and our re-read. Raise so the caller
+                # can decide whether to retry; silently inserting again
+                # would loop forever under a sustained delete-race.
+                raise
+            return settings
         self.db.refresh(settings)
         return settings
 
