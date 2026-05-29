@@ -198,10 +198,12 @@ class ApprovalService:
             InsufficientApprovalPermissions: If user cannot approve this expense
             InvalidApprovalState: If approval is not in pending state
         """
-        # Get the approval record
+        # Get the approval record. Lock the row for the duration of the
+        # transaction so two concurrent approve/reject calls for the same
+        # approval cannot both pass the PENDING check and double-decide.
         approval = self.db.query(ExpenseApproval).filter(
             ExpenseApproval.id == approval_id
-        ).first()
+        ).with_for_update().first()
 
         if not approval:
             raise ValidationError(f"Approval {approval_id} not found")
@@ -288,10 +290,12 @@ class ApprovalService:
         if not rejection_reason or not rejection_reason.strip():
             raise ValidationError("Rejection reason is required")
 
-        # Get the approval record
+        # Get the approval record. Lock the row for the duration of the
+        # transaction so two concurrent approve/reject calls for the same
+        # approval cannot both pass the PENDING check and double-decide.
         approval = self.db.query(ExpenseApproval).filter(
             ExpenseApproval.id == approval_id
-        ).first()
+        ).with_for_update().first()
 
         if not approval:
             raise ValidationError(f"Approval {approval_id} not found")

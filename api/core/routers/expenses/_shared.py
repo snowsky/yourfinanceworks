@@ -44,6 +44,34 @@ def _apply_creator_fallback(expenses: list, master_db: Session) -> None:
                 ex.__dict__['_creator_display_name'] = mu.email
 
 
+MOBILE_EXPENSE_APP_HEADER = "X-Mobile-Expense-App-ID"
+
+
+def is_mobile_expense_request(request) -> bool:
+    """True when the request originates from the mobile expense app.
+
+    Mobile-app users are scoped to only the expenses they created; this header
+    signals that scope so single-item endpoints can enforce the same restriction
+    the listing endpoint already applies.
+    """
+    return bool(request is not None and request.headers.get(MOBILE_EXPENSE_APP_HEADER))
+
+
+def mobile_scope_filter(user_id: int):
+    """SQLAlchemy predicate for the mobile per-user ownership scope."""
+    return sa.or_(
+        Expense.created_by_user_id == user_id,
+        sa.and_(Expense.created_by_user_id.is_(None), Expense.user_id == user_id),
+    )
+
+
+def user_owns_expense(expense: Expense, user_id: int) -> bool:
+    """Python-side equivalent of ``mobile_scope_filter`` for a loaded expense."""
+    return expense.created_by_user_id == user_id or (
+        expense.created_by_user_id is None and expense.user_id == user_id
+    )
+
+
 def validate_status_transition(current_status: str, new_status: str) -> bool:
     """Validate if a status transition is allowed"""
     try:
