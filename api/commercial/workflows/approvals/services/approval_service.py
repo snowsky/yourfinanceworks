@@ -726,9 +726,10 @@ class ApprovalService:
         )
 
     def resubmit_expense(
-        self, 
-        expense_id: int, 
-        submitter_id: int, 
+        self,
+        expense_id: int,
+        submitter_id: int,
+        approver_id: int,
         notes: Optional[str] = None
     ) -> List[ExpenseApproval]:
         """
@@ -737,6 +738,7 @@ class ApprovalService:
         Args:
             expense_id: ID of the expense to resubmit
             submitter_id: ID of the user resubmitting
+            approver_id: ID of the approver to route the resubmission to
             notes: Optional notes for resubmission
 
         Returns:
@@ -762,7 +764,7 @@ class ApprovalService:
         self.db.commit()
 
         # Submit for approval again
-        return self.submit_for_approval(expense_id, submitter_id, notes)
+        return self.submit_for_approval(expense_id, submitter_id, approver_id, notes)
 
     # Invoice Approval Methods
 

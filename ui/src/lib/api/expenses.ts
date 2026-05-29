@@ -25,7 +25,7 @@ export interface Expense {
   created_at: string;
   updated_at: string;
   imported_from_attachment?: boolean;
-  analysis_status?: 'not_started' | 'queued' | 'processing' | 'done' | 'failed' | 'cancelled';
+  analysis_status?: 'not_started' | 'pending' | 'queued' | 'processing' | 'done' | 'failed' | 'cancelled' | 'skipped';
   manual_override?: boolean;
   receipt_timestamp?: string | null;
   receipt_time_extracted?: boolean;

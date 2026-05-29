@@ -52,6 +52,25 @@ def validate_file_magic_bytes(content: bytes, content_type: str) -> None:
                 status_code=400,
                 detail="File content does not match declared type: expected a PDF file",
             )
+    elif content_type == "image/jpeg":
+        if not content.startswith(b"\xff\xd8\xff"):
+            raise HTTPException(
+                status_code=400,
+                detail="File content does not match declared type: expected a JPEG image",
+            )
+    elif content_type == "image/png":
+        if not content.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise HTTPException(
+                status_code=400,
+                detail="File content does not match declared type: expected a PNG image",
+            )
+    elif content_type in ("image/heic", "image/heif"):
+        # ISO-BMFF container: bytes 4-8 are the box type "ftyp" for HEIC/HEIF.
+        if len(content) < 12 or content[4:8] != b"ftyp":
+            raise HTTPException(
+                status_code=400,
+                detail="File content does not match declared type: expected a HEIC/HEIF image",
+            )
     elif content_type in ("text/csv", "application/vnd.ms-excel"):
         # Reject obvious binary content: check that the first 512 bytes are valid UTF-8 text
         sample = content[:512]

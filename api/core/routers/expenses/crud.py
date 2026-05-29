@@ -82,8 +82,6 @@ async def list_expenses(
         logger.info(f"list_expenses: current_user.id={current_user.id}, tenant_id={current_user.tenant_id}, search={search}, include_total={include_total}")
         from sqlalchemy.orm import joinedload
         query = db.query(Expense).options(joinedload(Expense.created_by)).filter(Expense.is_deleted == False)
-        base_count = query.count()
-        logger.info(f"list_expenses: current_user.id={current_user.id}, tenant_id={current_user.tenant_id}, search={search}")
         if request and request.headers.get("X-Mobile-Expense-App-ID"):
             query = query.filter(
                 sa.or_(
@@ -611,6 +609,7 @@ async def create_expense(
                     db=db,
                     amount=float(db_expense.amount or 0),
                     expense_date=exp_date,
+                    vendor=db_expense.vendor,
                     date_window_days=1,
                     exclude_id=db_expense.id,
                 )
@@ -706,10 +705,13 @@ async def bulk_create_expenses(
                     if total_amount is None:
                         total_amount = float(expense.amount) + float(tax_amount or 0)
 
+            resolved_client_id = expense.client_id
             if expense.invoice_id is not None:
                 inv = db.query(Invoice).filter(Invoice.id == expense.invoice_id).first()
                 if not inv:
                     raise HTTPException(status_code=400, detail=f"Invoice {expense.invoice_id} not found")
+                if resolved_client_id is None:
+                    resolved_client_id = inv.client_id
 
             input_labels = getattr(expense, "labels", None) or ([] if not getattr(expense, "label", None) else [getattr(expense, "label")])
             if input_labels:
@@ -746,6 +748,7 @@ async def bulk_create_expenses(
                 notes=expense.notes,
                 user_id=current_user.id,
                 invoice_id=expense.invoice_id,
+                client_id=resolved_client_id,
                 imported_from_attachment=bool(getattr(expense, "imported_from_attachment", False)),
                 analysis_status=getattr(expense, "analysis_status", "not_started"),
                 analysis_result=getattr(expense, "analysis_result", None),

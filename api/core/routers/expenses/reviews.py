@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.models.database import get_db
 from core.models.models import MasterUser
-from core.models.models_per_tenant import Expense, User
+from core.models.models_per_tenant import Expense
 from core.routers.auth import get_current_user
 from core.schemas.expense import Expense as ExpenseSchema
 from core.services.review_service import ReviewService
@@ -62,11 +62,14 @@ async def accept_review(
 async def reject_review(
     expense_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
 ):
     require_non_viewer(current_user, "review expenses")
 
-    expense = db.query(Expense).filter(Expense.id == expense_id).first()
+    from core.models.database import set_tenant_context
+    set_tenant_context(current_user.tenant_id)
+
+    expense = db.query(Expense).filter(Expense.id == expense_id, Expense.is_deleted == False).first()
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
 
