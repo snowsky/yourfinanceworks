@@ -315,6 +315,41 @@ class TestApprovalService:
             assert sample_expense.status == "rejected"
             mock_cancel.assert_called_once_with(1, 1)
             mock_db.commit.assert_called_once()
+
+    def test_approve_expense_blocks_self_approval(self, approval_service, mock_db, sample_expense, sample_user):
+        """The expense owner cannot approve their own expense (segregation of duties)."""
+        sample_expense.user_id = sample_user.id  # owner == approver
+        approval = ExpenseApproval(
+            id=1,
+            expense_id=1,
+            approver_id=sample_user.id,
+            status=ApprovalStatus.PENDING,
+            is_current_level=True,
+            approval_level=1,
+        )
+        approval.expense = sample_expense
+        mock_db.query.return_value.filter.return_value.first.return_value = approval
+
+        with patch.object(approval_service, '_can_user_approve', return_value=True):
+            with pytest.raises(InsufficientApprovalPermissions):
+                approval_service.approve_expense(1, sample_user.id, "Approved")
+
+    def test_reject_expense_blocks_self_approval(self, approval_service, mock_db, sample_expense, sample_user):
+        """The expense owner cannot reject their own expense (segregation of duties)."""
+        sample_expense.user_id = sample_user.id  # owner == approver
+        approval = ExpenseApproval(
+            id=1,
+            expense_id=1,
+            approver_id=sample_user.id,
+            status=ApprovalStatus.PENDING,
+            is_current_level=True,
+        )
+        approval.expense = sample_expense
+        mock_db.query.return_value.filter.return_value.first.return_value = approval
+
+        with patch.object(approval_service, '_can_user_approve', return_value=True):
+            with pytest.raises(InsufficientApprovalPermissions):
+                approval_service.reject_expense(1, sample_user.id, "Invalid receipt")
     
     def test_reject_expense_no_reason(self, approval_service, mock_db, sample_user):
         """Test rejection without reason"""
