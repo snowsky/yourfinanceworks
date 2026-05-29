@@ -47,10 +47,13 @@ async def upload_receipt(
 ):
     require_non_viewer(current_user, "upload receipts")
     try:
+        # Lock the parent expense row so the attachment-count check below and the
+        # subsequent insert are atomic; concurrent uploads to the same expense
+        # would otherwise each read count < 10 and exceed the limit (TOCTOU).
         expense = db.query(Expense).filter(
             Expense.id == expense_id,
             Expense.is_deleted == False
-        ).first()
+        ).with_for_update().first()
         if not expense:
             raise HTTPException(status_code=404, detail="Expense not found")
 

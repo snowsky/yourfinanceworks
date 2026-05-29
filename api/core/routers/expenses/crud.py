@@ -101,9 +101,14 @@ async def list_expenses(
             query = query.filter(Expense.invoice_id == invoice_id)
         if unlinked_only:
             query = query.filter(Expense.invoice_id.is_(None))
-        if exclude_status:
+        valid_statuses = set(ExpenseStatus.get_all_values())
+        if exclude_status and exclude_status != "all":
+            if exclude_status not in valid_statuses:
+                raise HTTPException(status_code=400, detail=f"Invalid exclude_status: {exclude_status}")
             query = query.filter(Expense.status != exclude_status)
-        if status:
+        if status and status != "all":
+            if status not in valid_statuses:
+                raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
             query = query.filter(Expense.status == status)
         if created_by_user_id is not None:
             query = query.filter(Expense.created_by_user_id == created_by_user_id)
@@ -197,6 +202,8 @@ async def list_expenses(
             "expenses": [ExpenseSchema.model_validate(ex) for ex in expenses],
             "total": total_count
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to list expenses: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch expenses")
@@ -943,6 +950,12 @@ async def update_expense(
 
         currency_service = CurrencyService(db)
         update_data = expense.model_dump(exclude_unset=True)
+
+        # Analysis/OCR state is owned by the receipt-processing pipeline, not the
+        # client. Drop these from a user-driven update so a caller cannot forge a
+        # "done" status or fabricate analysis_result to bypass OCR.
+        for _internal_field in ("analysis_status", "analysis_result", "analysis_error"):
+            update_data.pop(_internal_field, None)
 
         if "status" in update_data:
             new_status = update_data["status"]
