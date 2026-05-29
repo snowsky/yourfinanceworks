@@ -47,6 +47,9 @@ from ._shared import (
     _find_potential_expense_duplicates,
     _is_expense_duplicate_detection_eligible,
     check_expense_modification_allowed,
+    is_mobile_expense_request,
+    mobile_scope_filter,
+    user_owns_expense,
     validate_status_transition,
 )
 
@@ -82,13 +85,8 @@ async def list_expenses(
         logger.info(f"list_expenses: current_user.id={current_user.id}, tenant_id={current_user.tenant_id}, search={search}, include_total={include_total}")
         from sqlalchemy.orm import joinedload
         query = db.query(Expense).options(joinedload(Expense.created_by)).filter(Expense.is_deleted == False)
-        if request and request.headers.get("X-Mobile-Expense-App-ID"):
-            query = query.filter(
-                sa.or_(
-                    Expense.created_by_user_id == current_user.id,
-                    sa.and_(Expense.created_by_user_id.is_(None), Expense.user_id == current_user.id),
-                )
-            )
+        if is_mobile_expense_request(request):
+            query = query.filter(mobile_scope_filter(current_user.id))
         if category and category != "all":
             query = query.filter(Expense.category == category)
         if label:
@@ -285,6 +283,7 @@ async def get_potential_expense_duplicates(
 @router.get("/{expense_id:int}", response_model=ExpenseSchema)
 async def get_expense(
     expense_id: int,
+    request: Request = None,
     db: Session = Depends(get_db),
     master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user),
@@ -303,6 +302,12 @@ async def get_expense(
 
     if not expense:
         uvicorn_logger.warning(f"Expense {expense_id} not found for tenant {current_user.tenant_id}")
+        raise HTTPException(status_code=404, detail="Expense not found")
+
+    # Mobile-app users are scoped to their own expenses; hide others (404 rather
+    # than 403 to avoid disclosing existence) to match the listing scope.
+    if is_mobile_expense_request(request) and not user_owns_expense(expense, current_user.id):
+        uvicorn_logger.warning(f"Mobile user {current_user.id} denied access to expense {expense_id}")
         raise HTTPException(status_code=404, detail="Expense not found")
 
     uvicorn_logger.info(f"Successfully retrieved expense {expense_id}")
@@ -909,6 +914,7 @@ async def bulk_delete_expenses(
 async def update_expense(
     expense_id: int,
     expense: ExpenseUpdate,
+    request: Request = None,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
@@ -925,6 +931,10 @@ async def update_expense(
             Expense.is_deleted == False
         ).first()
         if not db_expense:
+            raise HTTPException(status_code=404, detail="Expense not found")
+
+        # Mobile-app users may only modify their own expenses (see get_expense).
+        if is_mobile_expense_request(request) and not user_owns_expense(db_expense, current_user.id):
             raise HTTPException(status_code=404, detail="Expense not found")
 
         check_expense_modification_allowed(db_expense)
@@ -1161,6 +1171,7 @@ async def update_expense(
 @router.delete("/{expense_id:int}", response_model=RecycleBinExpenseResponse)
 async def delete_expense(
     expense_id: int,
+    request: Request = None,
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
@@ -1191,6 +1202,10 @@ async def delete_expense(
 
         if not db_expense:
             uvicorn_logger.warning(f"Expense {expense_id} not found for deletion (tenant {current_user.tenant_id})")
+            raise HTTPException(status_code=404, detail="Expense not found")
+
+        # Mobile-app users may only delete their own expenses (see get_expense).
+        if is_mobile_expense_request(request) and not user_owns_expense(db_expense, current_user.id):
             raise HTTPException(status_code=404, detail="Expense not found")
 
         uvicorn_logger.info(f"Found expense {expense_id}, proceeding with deletion")

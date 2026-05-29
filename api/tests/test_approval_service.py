@@ -35,7 +35,12 @@ class TestApprovalService:
     @pytest.fixture
     def mock_db(self):
         """Mock database session"""
-        return Mock(spec=Session)
+        db = Mock(spec=Session)
+        # approve/reject lock the row via .with_for_update(); make it a passthrough
+        # so the existing .filter(...).first() mock chain still resolves.
+        filter_mock = db.query.return_value.filter.return_value
+        filter_mock.with_for_update.return_value = filter_mock
+        return db
     
     @pytest.fixture
     def mock_notification_service(self):
