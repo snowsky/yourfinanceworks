@@ -415,3 +415,65 @@ def test_register_all_passes_mcp_registry_when_declared(tmp_path, loader):
     assert captured.get("app") is mock_app
     assert captured.get("mcp_registry") is mock_mcp
     assert "feature_gate" in captured, "declared feature_gate was filtered out"
+
+
+# 19. tools/router.py auto-mount injects the default auth dependency
+def test_register_all_tools_router_is_mounted_with_auth_dependency(tmp_path, loader):
+    """A plugin's optional tools/router.py is auto-mounted by ``register_all``.
+    Without a router-level dependency, any route the plugin author forgot to
+    decorate with ``Depends(get_current_user)`` is exposed unauthenticated.
+    The loader now injects the dependency at mount time so the auto-mount
+    convention is safe-by-default."""
+    from fastapi.params import Depends as DependsParam
+    from core.routers.auth import get_current_user as expected_dep
+
+    make_plugin(tmp_path, "tools-plug", {**VALID_MANIFEST, "name": "tools-plug"})
+
+    mock_app = MagicMock()
+    tools_router = MagicMock(name="tools_router")
+
+    def fake_import(name: str):
+        # The plugin package — register_plugin returns the typical info dict.
+        if name == "plugins.tools_plug":
+            mod = MagicMock()
+            mod.register_plugin = MagicMock(
+                return_value={"name": "tools-plug", "version": "1.0.0", "routes": []}
+            )
+            return mod
+        # The tools sub-module — exposes a router attribute the loader picks up.
+        if name == "plugins.tools_plug.tools.router":
+            mod = MagicMock()
+            mod.router = tools_router
+            return mod
+        raise ModuleNotFoundError(name)
+
+    sys.path.insert(0, str(tmp_path.parent))
+    try:
+        with patch("plugins.loader._PLUGINS_DIR", tmp_path):
+            with patch("plugins.loader.importlib.import_module", side_effect=fake_import):
+                loader.register_all(mock_app)
+    finally:
+        sys.path.pop(0)
+
+    # Locate the include_router call that mounted the tools router (vs. any
+    # other include_router the plugin's register_plugin may have triggered).
+    tools_mount_calls = [
+        call for call in mock_app.include_router.call_args_list
+        if call.args and call.args[0] is tools_router
+    ]
+    assert tools_mount_calls, "tools router was not mounted at all"
+    assert len(tools_mount_calls) == 1
+
+    mount_kwargs = tools_mount_calls[0].kwargs
+    deps = mount_kwargs.get("dependencies")
+    assert deps, (
+        "tools router was mounted with no router-level dependencies — any "
+        "route the plugin author forgot to protect is now public on the API. "
+        "Default auth dependency must be injected at mount time."
+    )
+    # The injected dependency is Depends(get_current_user). A FastAPI Depends
+    # wrapper's ``dependency`` attribute is the bound callable.
+    assert any(
+        isinstance(d, DependsParam) and d.dependency is expected_dep
+        for d in deps
+    ), f"expected Depends(get_current_user) among tools-router deps, got {deps!r}"
