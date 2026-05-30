@@ -550,6 +550,22 @@ class EmailService:
             user_name=user_name,
             reset_url=reset_url
         )
+        text_body = text_template.render(
+            company_name=company_name,
+            user_name=user_name,
+            reset_url=reset_url
+        )
+
+        # Create email message
+        return EmailMessage(
+            subject=f"Password Reset - {company_name}",
+            from_name=from_name,
+            from_email=from_email,
+            to_name=user_name,
+            to_email=user_email,
+            html_body=html_body,
+            text_body=text_body
+        )
 
     def _create_invitation_message(
         self,
@@ -634,24 +650,7 @@ class EmailService:
             html_body=html_body,
             text_body=text_body
         )
-        
-        text_body = text_template.render(
-            company_name=company_name,
-            user_name=user_name,
-            reset_url=reset_url
-        )
-        
-        # Create email message
-        return EmailMessage(
-            subject=f"Password Reset - {company_name}",
-            from_name=from_name,
-            from_email=from_email,
-            to_name=user_name,
-            to_email=user_email,
-            html_body=html_body,
-            text_body=text_body
-        )
-    
+
     def _create_invoice_message(
         self,
         invoice_data: Dict[str, Any],
