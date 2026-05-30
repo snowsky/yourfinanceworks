@@ -355,7 +355,7 @@ async def create_payment(
         # Convert payment_date to datetime if it's a date
         payment_date = payment.payment_date
         if isinstance(payment_date, date):
-            payment_date = datetime.combine(payment_date, datetime.min.time())
+            payment_date = datetime.combine(payment_date, datetime.min.time(), tzinfo=timezone.utc)
         
         # Create payment using ORM
         db_payment = Payment(
@@ -438,7 +438,7 @@ async def update_payment(
             if field == 'amount':
                 value = float(value)
             elif field == 'payment_date' and isinstance(value, date):
-                value = datetime.combine(value, datetime.min.time())
+                value = datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc)
             elif field == 'currency':
                 # Validate currency code
                 if not currency_service.validate_currency_code(value):
