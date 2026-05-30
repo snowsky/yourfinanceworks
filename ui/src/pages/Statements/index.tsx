@@ -13,6 +13,7 @@ import {
   expenseApi, clientApi, DeletedBankStatement, settingsApi
 } from '@/lib/api';
 import { TransactionLinkInfo } from '@/lib/api/bank-statements';
+import { csvRow, csvField } from '@/lib/csv';
 import { LinkTransferModal } from '@/components/statements/LinkTransferModal';
 import { RollupExpenseModal } from '@/components/statements/RollupExpenseModal';
 import { InvoiceForm } from '@/components/invoices/InvoiceForm';
@@ -655,7 +656,7 @@ export default function Statements() {
     if (rows.length === 0) { toast.error(t('statements.export.no_transactions', { defaultValue: 'No transactions to export' })); return; }
     const headers = ['Date', 'Description', 'Amount', 'Type', 'Balance', 'Category', 'Notes', 'Reference'];
     let csvContent = [
-      headers.join(','),
+      csvRow(headers),
       ...rows.map(row => {
         const refs: string[] = [];
         if ((row as any).expense_id) refs.push(`EXP #${(row as any).expense_id}`);
@@ -668,10 +669,11 @@ export default function Statements() {
           const url = statementId ? `${window.location.origin}/statements?id=${statementId}` : '';
           refs.push(`${linkType}${filename ? ` (${filename})` : ''}${url ? ` ${url}` : ''}`);
         }
-        return [row.date, `"${row.description.replace(/"/g, '""')}"`, row.amount, row.transaction_type, row.balance ?? '', row.category ?? '', `"${((row as any).notes || '').replace(/"/g, '""')}"`, refs.join('; ')].join(',');
+        // Every field is quoted and formula-escaped (CSV injection + embedded commas/newlines).
+        return csvRow([row.date, row.description, row.amount, row.transaction_type, row.balance ?? '', row.category ?? '', (row as any).notes || '', refs.join('; ')]);
       })
     ].join('\n');
-    if (statementNotes) csvContent += `\n\n"Notes: ${statementNotes.replace(/"/g, '""')}"`;
+    if (statementNotes) csvContent += `\n\n${csvField(`Notes: ${statementNotes}`)}`;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);

@@ -39,10 +39,32 @@ def parse_number(value: Any) -> Optional[float]:
 
         s = re.sub(r"[^0-9,.]", "", s)
 
-        if "," in s and "." in s:
-            s = s.replace(",", "")
-        elif "," in s:
-            s = s.replace(",", ".")
+        # Locale-aware separator handling. The decimal separator is whichever of
+        # ',' / '.' appears LAST; the other is a thousands separator. This fixes
+        # European-formatted amounts (e.g. "1.234,56" -> 1234.56) which were
+        # previously mis-parsed ~1000x too small.
+        has_comma = "," in s
+        has_dot = "." in s
+        if has_comma and has_dot:
+            if s.rfind(",") > s.rfind("."):
+                # European: dot=thousands, comma=decimal -> "1.234,56" => 1234.56
+                s = s.replace(".", "").replace(",", ".")
+            else:
+                # US/UK: comma=thousands, dot=decimal -> "1,234.56" => 1234.56
+                s = s.replace(",", "")
+        elif has_comma:
+            # Only commas. Distinguish thousands grouping from a decimal comma.
+            parts = s.split(",")
+            if len(parts) > 2 or (len(parts) == 2 and len(parts[0]) > 0 and len(parts[1]) == 3):
+                # "1,234,567" or "1,234" -> thousands grouping
+                s = s.replace(",", "")
+            else:
+                # "123,45" / "1234,5" -> comma is the decimal separator
+                s = s.replace(",", ".")
+        elif has_dot and len(s.split(".")) > 2:
+            # Only dots, more than one -> thousands grouping ("1.234.567" => 1234567)
+            s = s.replace(".", "")
+        # A single dot is left untouched: dot-as-decimal is the dominant default.
 
         if not s or s == ".":
             return None
