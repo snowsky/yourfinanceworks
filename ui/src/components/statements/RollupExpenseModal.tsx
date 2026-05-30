@@ -21,6 +21,7 @@ import {
   RollupConflictDetail,
 } from '@/lib/api/bank-statements';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
+import { formatMoney } from '@/lib/money';
 
 interface RollupExpenseModalProps {
   isOpen: boolean;
@@ -31,7 +32,7 @@ interface RollupExpenseModalProps {
 }
 
 const formatAmount = (amount: number, currency: string) =>
-  `${currency} ${amount.toFixed(2)}`;
+  `${currency} ${formatMoney(amount)}`;
 
 export function RollupExpenseModal({
   isOpen,
@@ -229,7 +230,7 @@ export function RollupExpenseModal({
                             </Badge>
                           )}
                           <span className="font-mono text-sm">
-                            {d.amount.toFixed(2)}
+                            {formatMoney(d.amount)}
                           </span>
                         </div>
                       </li>
