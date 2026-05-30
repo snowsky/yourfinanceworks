@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import Dict, Any, List
 import logging
 
-from core.models.database import get_db
+from core.models.database import get_db, get_master_db
 from core.models.models import Tenant, MasterUser
 from core.models.models_per_tenant import Invoice, Client, User, Settings
 from core.services.tenant_database_manager import tenant_db_manager
@@ -68,6 +68,7 @@ def get_email_service(
 async def send_invoice_email(
     request: SendInvoiceEmailRequest,
     db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db),
     current_user: User = Depends(get_current_user),
     email_service: EmailService = Depends(get_email_service)
 ):
@@ -96,8 +97,9 @@ async def send_invoice_email(
                 detail="Client not found"
             )
         
-        # Get company/tenant info
-        tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+        # Get company/tenant info from the master DB (Tenant lives there, not in
+        # the per-tenant DB that `db` is bound to)
+        tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
         
         # Prepare invoice data
         invoice_data = {
