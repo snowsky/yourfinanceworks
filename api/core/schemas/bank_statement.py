@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
 
 
@@ -105,7 +105,10 @@ class RecycleBinStatementResponse(BaseModel):
 
 class RestoreStatementRequest(BaseModel):
     """Request schema for restoring a statement"""
-    new_status: Optional[str] = "processed"  # Status to set when restoring
+    # Constrain to safe, idle target states. Notably excludes "processing" (would imply an
+    # in-flight OCR job that doesn't exist) and "merged" (a special lifecycle state), so a
+    # client can't drive a restored statement into an invalid state.
+    new_status: Literal["pending", "uploaded", "processed", "failed"] = "processed"
 
 class PaginatedDeletedBankStatements(BaseModel):
     items: List[DeletedBankStatement]

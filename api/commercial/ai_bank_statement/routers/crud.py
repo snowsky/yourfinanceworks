@@ -33,6 +33,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Valid values for the BankStatement.status column (see model: uploaded|processing|
+# processed|failed, plus pending and the merge lifecycle state).
+VALID_STATEMENT_STATUSES = {"pending", "uploaded", "processing", "processed", "failed", "merged"}
+
 
 def _safe_float(value: Optional[float], default: Optional[float] = None) -> Optional[float]:
     if value is None:
@@ -71,6 +75,11 @@ async def list_statements(
 
     # Apply status filter if provided
     if status:
+        if status not in VALID_STATEMENT_STATUSES:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid status filter: {status!r}. Allowed: {sorted(VALID_STATEMENT_STATUSES)}",
+            )
         query = query.filter(BankStatement.status == status)
 
     # Apply label filter if provided
@@ -385,6 +394,7 @@ async def get_deleted_statements(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Get all deleted statements in the recycle bin"""
+    require_component_permission(db, current_user, "bank_statements", "viewer", "view recycle bin")
     tenant_id = get_tenant_id()
 
     try:
@@ -463,13 +473,8 @@ async def empty_statement_recycle_bin(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Empty the entire statement recycle bin (admin only)"""
+    require_component_permission(db, current_user, "bank_statements", "admin", "empty recycle bin")
     try:
-        # Only admins can empty the recycle bin
-        if current_user.role != "admin":
-            raise HTTPException(
-                status_code=403, detail="Only admins can empty the recycle bin"
-            )
-
         tenant_id = get_tenant_id()
     except HTTPException:
         raise
@@ -891,6 +896,7 @@ async def restore_statement(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Restore a statement from the recycle bin"""
+    require_component_permission(db, current_user, "bank_statements", "user", "restore bank statement")
     tenant_id = get_tenant_id()
 
     # Find the deleted statement
@@ -943,6 +949,7 @@ async def permanently_delete_statement(
     current_user: MasterUser = Depends(get_current_user),
 ):
     """Permanently delete a statement from the recycle bin"""
+    require_component_permission(db, current_user, "bank_statements", "admin", "permanently delete bank statement")
     tenant_id = get_tenant_id()
 
     # Find the deleted statement

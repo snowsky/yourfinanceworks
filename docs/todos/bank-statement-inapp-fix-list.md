@@ -79,24 +79,27 @@
 
 ## P2 — Authz & input hardening (in-app, tenant-scoped)
 
-- [ ] **Recycle-bin authz inconsistency** ✅ ⚠️(downgraded from CRIT; tenant-scoped, not cross-tenant)
-  - `crud.py:887` `restore_statement` — no `require_component_permission`
-  - `crud.py:940` `permanently_delete_statement` — no `require_component_permission`
-  - `crud.py:468` `empty` — hand-rolled `role == "admin"` instead of RBAC helper
-  **Fix:** add `require_component_permission(db, current_user, "bank_statements", <level>, ...)`;
-  use `"admin"` for permanent-delete/empty, `"user"` for restore, matching soft-delete (1032).
+- [x] **Recycle-bin authz inconsistency** ✅ **DONE (2026-05-30)**
+  Added `require_component_permission` (component levels: viewer<user<admin):
+  - `get_deleted_statements` → `viewer` (was no check)
+  - `restore_statement` → `user` (matches soft-delete)
+  - `permanently_delete_statement` → `admin` (irreversible)
+  - `empty_statement_recycle_bin` → `admin` (replaced hand-rolled `role == "admin"`)
+  Verified no tenant-admin lockout: `_effective(role, None)` returns the role itself, so a
+  `role == "admin"` user resolves to `admin` level with no explicit grant.
 
 - [ ] **Mass-assignment of `invoice_id` / `expense_id` without ownership check** ◻︎
   `routers/transactions.py` `replace_statement_transactions` (~194) and
   `patch_statement_transaction` (~140) accept these from payload unchecked.
   **Fix:** verify referenced invoice/expense belongs to this tenant before writing.
 
-- [ ] **Open-string fields that should be enums** ◻︎
-  - `RestoreStatementRequest.new_status` (`schemas/bank_statement.py:106`) — restore into any
-    state, including `processing`; constrain to `Literal["pending","processed","failed"]`.
-  - `list_statements` `status` filter (`crud.py:~74`) — allowlist.
-  - upload `card_type` (`upload.py:35`) — `Literal["debit","credit","auto"]`.
-  - external `format`/`card_type` (`external_router.py:86-87`).
+- [x] **Open-string fields that should be enums** ✅ **DONE (2026-05-30, in-app)**
+  - `RestoreStatementRequest.new_status` → `Literal["pending","uploaded","processed","failed"]`
+    (excludes `processing`/`merged`). Tests: `api/tests/test_restore_status_schema.py` (11).
+  - `list_statements` `status` filter → 422 unless in `VALID_STATEMENT_STATUSES`.
+  - upload `card_type` → 422 unless `debit`/`credit`/`auto`.
+  - FOLLOW-UP: external `format`/`card_type` (`external_router.py`) — same treatment, but
+    that's the external API surface; fold into the external-API hardening task.
 
 - [ ] **`created_by_user_id` filter not scoped for non-admins** ◻︎ `crud.py:69-71`
   Mirror the expenses per-user-scope fix (commit `dc90e20b`): non-admin may only filter by
