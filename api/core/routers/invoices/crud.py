@@ -867,6 +867,8 @@ async def get_deleted_invoices(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Get all deleted invoices in the recycle bin"""
+    # Raise before the try so a 403 is not swallowed by the broad except below
+    require_component_permission(db, current_user, "invoices", "user", "view the recycle bin")
     try:
         query = db.query(Invoice).filter(
             Invoice.is_deleted == True
@@ -1053,6 +1055,7 @@ async def restore_invoice(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Restore an invoice from the recycle bin"""
+    require_component_permission(db, current_user, "invoices", "user", "restore invoices")
     try:
         # Find the deleted invoice
         db_invoice = db.query(Invoice).filter(
