@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { bankStatementApi, expenseApi, invoiceApi, BankStatementDetail } from '@/lib/api';
+import { sumMoney, roundMoney } from '@/lib/money';
 import { BankRow, CATEGORY_OPTIONS, formatDateToISO, safeParseDateString, formatRowDate } from './types';
 import { CardTypeBadge } from './CardTypeBadge';
 import { PdfHighlightViewer } from '@/components/pdf/PdfHighlightViewer';
@@ -109,9 +110,10 @@ export function StatementDetailView({
   const isCompleted = (s: { status?: string }) =>
     s.status === 'processed' || s.status === 'done' || s.status === 'failed' || s.status === 'uploaded' || s.status === 'merged';
 
-  const totalIncome = rows.filter(r => r.transaction_type === 'credit').reduce((sum, r) => sum + r.amount, 0);
-  const totalExpense = rows.filter(r => r.transaction_type === 'debit').reduce((sum, r) => sum + Math.abs(r.amount), 0);
-  const netAmount = totalIncome - totalExpense;
+  // Accumulate in integer cents (sumMoney) so the summary figures don't show float drift.
+  const totalIncome = sumMoney(rows.filter(r => r.transaction_type === 'credit').map(r => r.amount));
+  const totalExpense = sumMoney(rows.filter(r => r.transaction_type === 'debit').map(r => Math.abs(r.amount)));
+  const netAmount = roundMoney(totalIncome - totalExpense);
 
   const copyToClipboard = async (value: string, successMsg: string) => {
     try {

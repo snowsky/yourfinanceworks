@@ -20,6 +20,7 @@ from core.models.models_per_tenant import (
     BankStatementTransaction,
     Expense,
 )
+from core.utils.money import sum_money
 from core.utils.timezone import get_tenant_timezone_aware_datetime
 
 
@@ -191,7 +192,9 @@ def build_preview(
     debits = _get_debit_rows(db, statement_id)
     user_tags = user_tags or []
 
-    total = sum(d.amount for d in debits)
+    # Decimal accumulation rounded to cents — this total is persisted to Expense.amount,
+    # so float drift (0.1 + 0.2 -> 0.30000000000000004) must not leak into it.
+    total = sum_money(d.amount for d in debits)
     # BankStatement has no currency column today; default USD. Override via future schema.
     currency = "USD"
     latest_date: Optional[datetime] = max((d.date for d in debits), default=None)

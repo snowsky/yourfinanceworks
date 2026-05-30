@@ -62,12 +62,14 @@
     helper; `StatementDetailView` renders the fallback (`—` / "Pick a date") instead of today.
   Tests: `api/tests/test_transaction_date_parsing.py` (7), `ui/src/pages/Statements/types.test.ts` (5).
 
-- [ ] **Float money math** ◻︎ (root cause ✅ in parse_number) — accumulates into persisted
-  `Expense.amount`
-  - `api/commercial/ai_bank_statement/services/statement_rollup_service.py:194` (`sum(float)`)
-  - `ui/src/pages/Statements/StatementDetailView.tsx:113-115` summary cards
-  - `ui/src/components/statements/RollupExpenseModal.tsx` `toFixed` (also no locale grouping)
-  **Fix:** accumulate in `Decimal`/integer cents server-side; round before display in UI.
+- [x] **Float money math** ✅ **DONE (2026-05-30)** — no more accumulation drift in persisted/displayed totals
+  - API: new `api/core/utils/money.py` (`round_money`/`sum_money`, Decimal, half-up to cents);
+    `statement_rollup_service.build_preview` now uses `sum_money` for the total that becomes
+    `Expense.amount`. Tests: `api/tests/test_money.py` (8).
+  - UI: new `ui/src/lib/money.ts` (`roundMoney`/`sumMoney` integer-cents/`formatMoney` locale);
+    `StatementDetailView` summary cards use `sumMoney`/`roundMoney`; `RollupExpenseModal`
+    `formatAmount` + per-debit display use `formatMoney` (fixes `toFixed` edge bug + adds
+    thousands grouping). Tests: `ui/src/lib/money.test.ts` (6).
 
 - [ ] **File size checked AFTER full read** ◻︎ — memory-exhaustion DoS
   `api/commercial/ai_bank_statement/external_router.py:119` (`await file.read()` then len check)
