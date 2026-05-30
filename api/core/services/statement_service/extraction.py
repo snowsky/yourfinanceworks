@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from commercial.ai.services.ocr_service import track_ai_usage, track_ocr_usage, parse_number
 from commercial.prompt_management.services.prompt_service import get_prompt_service
 from core.utils.file_validation import validate_file_path
+from core.utils.json_extract import extract_json_payload
 
 from ._shared import (
     BankLLMUnavailableError,
@@ -522,40 +523,23 @@ class UniversalBankTransactionExtractor:
             # Clean the response
             response = response.strip()
 
-            # Remove any markdown formatting
-            response = re.sub(r'```json\s*', '', response)
-            response = re.sub(r'```\s*', '', response)
+            # Extract JSON robustly (nesting-aware; tolerates ']' inside values and prose).
+            data = extract_json_payload(response)
 
-            # Find JSON content
-            json_patterns = [
-                r'\[[\s\S]*?\]',  # Standard JSON array
-                r'\{[\s\S]*?\}',  # Single JSON object
-            ]
-
-            for pattern in json_patterns:
-                matches = re.findall(pattern, response)
-                for match in matches:
-                    try:
-                        data = json.loads(match)
-
-                        if isinstance(data, list):
-                            # Validate and filter transactions
-                            valid_txns = []
-                            for txn in data:
-                                if isinstance(txn, dict) and txn.get('date'):
-                                    valid_txns.append(txn)
-                                else:
-                                    logger.warning(f"Skipping invalid transaction (missing date): {txn}")
-                            return valid_txns
-                        elif isinstance(data, dict):
-                            if data.get('date'):
-                                return [data]
-                            else:
-                                logger.warning(f"Skipping invalid transaction (missing date): {data}")
-                                return []
-
-                    except json.JSONDecodeError:
-                        continue
+            if isinstance(data, list):
+                # Validate and filter transactions
+                valid_txns = []
+                for txn in data:
+                    if isinstance(txn, dict) and txn.get('date'):
+                        valid_txns.append(txn)
+                    else:
+                        logger.warning(f"Skipping invalid transaction (missing date): {txn}")
+                return valid_txns
+            elif isinstance(data, dict):
+                if data.get('date'):
+                    return [data]
+                logger.warning(f"Skipping invalid transaction (missing date): {data}")
+                return []
 
             # If no JSON found, log and return empty
             logger.warning("No valid JSON content found in LLM response")
@@ -1604,29 +1588,13 @@ JSON:"""
             # Clean the response
             response = response.strip()
 
-            # Remove any markdown formatting
-            response = re.sub(r'```json\s*', '', response)
-            response = re.sub(r'```\s*', '', response)
+            # Extract JSON robustly (nesting-aware; tolerates ']' inside values and prose).
+            data = extract_json_payload(response)
 
-            # Find JSON content - be more flexible with local model responses
-            json_patterns = [
-                r'\[[\s\S]*?\]',  # Standard JSON array
-                r'\{[\s\S]*?\}',  # Single JSON object
-            ]
-
-            for pattern in json_patterns:
-                matches = re.findall(pattern, response)
-                for match in matches:
-                    try:
-                        data = json.loads(match)
-
-                        if isinstance(data, list):
-                            return data
-                        elif isinstance(data, dict):
-                            return [data]
-
-                    except json.JSONDecodeError:
-                        continue
+            if isinstance(data, list):
+                return data
+            elif isinstance(data, dict):
+                return [data]
 
             # If no JSON found, log and return empty. Do NOT fall back to regex silently.
             logger.warning("No JSON content found in LLM response")

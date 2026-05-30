@@ -126,13 +126,23 @@
 
 ## P2 — Worker / extraction robustness
 
+> **DEFERRED (need Docker stack up to verify):** the remaining items below live in the
+> async OCR worker / extraction pipeline. They can't be exercised by local unit tests (heavy
+> import chain, no local worker harness) and several (lock-release semantics, OCR timeout
+> mechanism) carry real regression risk if changed blind. Do these in a session with the
+> stack running so behaviour can be observed. The JSON-truncation fix above was done because
+> its logic could be extracted to a pure, unit-tested helper.
+
 - [ ] **Processing lock leaked on error path** ◻︎
   `core/services/statement_service/extraction.py:~821,1130` — lock released only on success.
   Move release into `finally`. (Also batch path: `bank_statement_handler.py:~93,194`.)
 
-- [ ] **Greedy/non-greedy JSON array regex grabs wrong fragment** ◻︎
-  `extraction.py:~530,1612` — `\[[\s\S]*?\]` non-greedy can match an inner/empty array and
-  silently truncate transactions. Use `raw_decode` or greedy-longest-match.
+- [x] **Greedy/non-greedy JSON array regex grabs wrong fragment** ✅ **DONE (2026-05-30)**
+  New pure `core/utils/json_extract.py` `extract_json_payload()` uses `json.raw_decode`
+  (nesting-aware, tolerates `]` inside values + trailing prose) and scores candidates so the
+  transaction array (non-empty list of objects) wins over stray `[42]`/`{...}` in the prose.
+  Wired into both `_parse_response` and `_parse_ollama_response`. Tests:
+  `api/tests/test_json_extract.py` (9).
 
 - [ ] **No amount sanity validation on LLM output** ◻︎ `extraction.py:~541` — run parsed
   dicts through `TransactionModel` / bound amount to a plausible range.
