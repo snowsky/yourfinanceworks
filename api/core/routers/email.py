@@ -73,22 +73,21 @@ async def send_invoice_email(
 ):
     """Send an invoice via email"""
     try:
-        # Get invoice
+        # Get invoice (tenant isolation is enforced by the per-tenant DB session;
+        # Invoice/Client have no tenant_id column)
         invoice = db.query(Invoice).options(joinedload(Invoice.items)).filter(
-            Invoice.id == request.invoice_id,
-            Invoice.tenant_id == current_user.tenant_id
+            Invoice.id == request.invoice_id
         ).first()
-        
+
         if not invoice:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Invoice not found"
             )
-        
+
         # Get client
         client = db.query(Client).filter(
-            Client.id == invoice.client_id,
-            Client.tenant_id == current_user.tenant_id
+            Client.id == invoice.client_id
         ).first()
         
         if not client:
