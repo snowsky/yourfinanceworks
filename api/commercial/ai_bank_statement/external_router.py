@@ -23,6 +23,7 @@ from core.services.external_api_auth_service import ExternalAPIAuthService, Auth
 from core.decorators.sandbox_validation import require_production_auth_context
 from core.services.statement_service import process_bank_pdf_with_llm, BankLLMUnavailableError, is_bank_llm_reachable
 from core.utils.audit import log_audit_event
+from core.utils.csv_safety import escape_csv_formula
 from core.utils.file_validation import validate_file_magic_bytes
 
 router = APIRouter(prefix="/external", tags=["external-api"])
@@ -407,13 +408,16 @@ def _create_csv_response(transactions: List[Dict[str, Any]], original_filename: 
         # Write transaction data
         for transaction in transactions:
             # Ensure all required fields are present
+            # Escape against spreadsheet formula injection: description/category are
+            # LLM-extracted from arbitrary uploaded documents and could contain a
+            # leading =, +, -, @, tab or CR that Excel/Sheets would execute.
             row = {
-                'date': transaction.get('date', ''),
-                'description': transaction.get('description', ''),
-                'amount': transaction.get('amount', 0),
-                'transaction_type': transaction.get('transaction_type', 'debit'),
-                'category': transaction.get('category', ''),
-                'balance': transaction.get('balance', '')
+                'date': escape_csv_formula(transaction.get('date', '')),
+                'description': escape_csv_formula(transaction.get('description', '')),
+                'amount': escape_csv_formula(transaction.get('amount', 0)),
+                'transaction_type': escape_csv_formula(transaction.get('transaction_type', 'debit')),
+                'category': escape_csv_formula(transaction.get('category', '')),
+                'balance': escape_csv_formula(transaction.get('balance', '')),
             }
             writer.writerow(row)
 

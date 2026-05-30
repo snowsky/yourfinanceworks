@@ -362,21 +362,28 @@ class ExternalAPIAuthService:
         api_client: APIClient,
         current_time: Optional[datetime] = None,
     ) -> Tuple[bool, Optional[str], Optional[int]]:
-        """Check rate limits for an API client."""
+        """Enforce per-client minute/hour/day rate limits.
 
-        if not current_time:
-            current_time = datetime.now(timezone.utc)
+        Delegates to the shared :class:`RateLimiterService`, which uses a Redis
+        sliding-window (INCR + EXPIRE) when ``REDIS_URL`` is configured and falls back
+        to an in-memory window otherwise. Returns ``(allowed, message, retry_after)``.
 
-        # This is a simplified rate limiting check
-        # In production, you'd want to use Redis or a proper rate limiting service
+        Fails open: if the limiter itself errors we allow the request rather than block
+        all traffic on an infrastructure hiccup. (Redis unavailability is already handled
+        inside the limiter via the in-memory fallback.)
+        """
+        try:
+            from core.services.rate_limiter_service import get_rate_limiter
 
-        # For now, we'll implement a basic check based on request counts
-        # This should be replaced with a proper rate limiter in production
-
-        # Check if we have recent usage data (this would be stored in Redis in production)
-        # For now, we'll allow all requests and rely on middleware rate limiting
-
-        return True, None, None
+            return get_rate_limiter().check_rate_limit(
+                api_client_id=str(api_client.client_id),
+                rate_limit_per_minute=api_client.rate_limit_per_minute,
+                rate_limit_per_hour=api_client.rate_limit_per_hour,
+                rate_limit_per_day=api_client.rate_limit_per_day,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(f"Rate limit check failed, allowing request (fail-open): {exc}")
+            return True, None, None
 
     def create_oauth_access_token(
         self, client_id: str, user_id: int, scopes: List[str], expires_in: int = 3600
