@@ -39,6 +39,9 @@ async def upload_statements(
     """Accept up to 12 PDF/CSV files, create one Statement per file, enqueue processing, and return created statements."""
     require_component_permission(db, current_user, "bank_statements", "user", "upload statements")
 
+    if card_type not in ("debit", "credit", "auto"):
+        raise HTTPException(status_code=422, detail=f"Invalid card_type: {card_type!r}. Allowed: debit, credit, auto")
+
     if not files:
         raise HTTPException(status_code=400, detail="At least one file is required")
     if len(files) > 12:
