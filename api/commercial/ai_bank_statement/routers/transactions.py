@@ -2,7 +2,7 @@
 
 import logging
 from datetime import date
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -12,7 +12,7 @@ from core.routers.auth import get_current_user
 from core.models.models import MasterUser
 from core.utils.rbac import require_component_permission
 from core.utils.feature_gate import require_feature
-from core.models.models_per_tenant import BankStatement, BankStatementTransaction
+from core.models.models_per_tenant import BankStatement, BankStatementTransaction, Expense, Invoice
 from core.schemas.bank_statement import TransactionLinkCreate
 from core.services import transaction_link_service
 from core.utils.audit import log_audit_event
@@ -22,6 +22,24 @@ from ._shared import get_tenant_id
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _resolve_linked_id(db: Session, model, value, field_name: str) -> Optional[int]:
+    """Coerce an optional expense/invoice id and confirm it exists in this tenant's DB.
+
+    The session is already tenant-scoped (database-per-tenant), so existence here is the
+    ownership check — a client cannot link a transaction to another tenant's record.
+    Returns None for blank input; raises 422 for malformed or unknown ids.
+    """
+    if value in (None, ""):
+        return None
+    try:
+        rid = int(value)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail=f"Invalid {field_name}: {value!r}")
+    if db.query(model.id).filter(model.id == rid).first() is None:
+        raise HTTPException(status_code=422, detail=f"Unknown {field_name}: {rid}")
+    return rid
 
 
 # ── Duplicate Detection ───────────────────────────────────────────────────────
@@ -142,11 +160,10 @@ async def patch_statement_transaction(
     for field, value in payload.items():
         if field not in allowed_fields:
             continue
-        if field in ("expense_id", "invoice_id"):
-            try:
-                setattr(txn, field, int(value) if value not in (None, "") else None)
-            except Exception:
-                setattr(txn, field, None)
+        if field == "expense_id":
+            setattr(txn, field, _resolve_linked_id(db, Expense, value, "expense_id"))
+        elif field == "invoice_id":
+            setattr(txn, field, _resolve_linked_id(db, Invoice, value, "invoice_id"))
         else:
             setattr(txn, field, value)
 
@@ -215,9 +232,12 @@ async def replace_statement_transactions(
     if not isinstance(items, list):
         raise HTTPException(status_code=400, detail="transactions must be an array")
 
-    # Validate every date BEFORE the destructive delete below, so one bad row cannot wipe
-    # existing transactions. Dates are never silently coerced to "today".
+    # Validate every row BEFORE the destructive delete below, so one bad row cannot wipe
+    # existing transactions. Dates are never silently coerced to "today"; expense/invoice
+    # links are confirmed to exist in this tenant.
     parsed_dates: List[date] = []
+    parsed_invoice_ids: List[Optional[int]] = []
+    parsed_expense_ids: List[Optional[int]] = []
     for idx, t in enumerate(items):
         if not isinstance(t, dict):
             raise HTTPException(status_code=400, detail=f"transaction at index {idx} must be an object")
@@ -228,6 +248,8 @@ async def replace_statement_transactions(
                 detail=f"Transaction at index {idx} has a missing or invalid date: {t.get('date')!r}",
             )
         parsed_dates.append(parsed)
+        parsed_invoice_ids.append(_resolve_linked_id(db, Invoice, t.get("invoice_id"), "invoice_id"))
+        parsed_expense_ids.append(_resolve_linked_id(db, Expense, t.get("expense_id"), "expense_id"))
 
     try:
         # Snapshot previous transactions for audit summary
@@ -269,16 +291,8 @@ async def replace_statement_transactions(
                 category=t.get("category") or None,
                 notes=t.get("notes", None),
             )
-            inv_id = t.get("invoice_id")
-            try:
-                new_txn.invoice_id = int(inv_id) if inv_id not in (None, "") else None
-            except Exception:
-                new_txn.invoice_id = None
-            exp_id = t.get("expense_id")
-            try:
-                new_txn.expense_id = int(exp_id) if exp_id not in (None, "") else None
-            except Exception:
-                new_txn.expense_id = None
+            new_txn.invoice_id = parsed_invoice_ids[idx]
+            new_txn.expense_id = parsed_expense_ids[idx]
             db.add(new_txn)
             count += 1
 

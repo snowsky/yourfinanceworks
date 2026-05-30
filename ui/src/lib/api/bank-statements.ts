@@ -27,8 +27,6 @@ export interface BankTransactionEntry {
 export interface BankStatementSummary {
   id: number;
   original_filename: string;
-  stored_filename: string;
-  file_path: string;
   status: string;
   extracted_count: number;
   extraction_method?: string | null;

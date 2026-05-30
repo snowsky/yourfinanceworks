@@ -88,10 +88,12 @@
   Verified no tenant-admin lockout: `_effective(role, None)` returns the role itself, so a
   `role == "admin"` user resolves to `admin` level with no explicit grant.
 
-- [ ] **Mass-assignment of `invoice_id` / `expense_id` without ownership check** ◻︎
-  `routers/transactions.py` `replace_statement_transactions` (~194) and
-  `patch_statement_transaction` (~140) accept these from payload unchecked.
-  **Fix:** verify referenced invoice/expense belongs to this tenant before writing.
+- [x] **Mass-assignment of `invoice_id` / `expense_id` without ownership check** ✅ **DONE (2026-05-30)**
+  New `_resolve_linked_id(db, model, value, field)` in `transactions.py` coerces + confirms
+  the id exists in this tenant's DB (existence = ownership under DB-per-tenant); 422 on
+  malformed/unknown. Applied in `patch_statement_transaction` and in the `replace_statement_transactions`
+  PRE-delete validation pass (so a bad id can't wipe existing rows). Returns 422 instead of
+  the previous 500/dangling-FK behaviour.
 
 - [x] **Open-string fields that should be enums** ✅ **DONE (2026-05-30, in-app)**
   - `RestoreStatementRequest.new_status` → `Literal["pending","uploaded","processed","failed"]`
@@ -101,15 +103,20 @@
   - FOLLOW-UP: external `format`/`card_type` (`external_router.py`) — same treatment, but
     that's the external API surface; fold into the external-API hardening task.
 
-- [ ] **`created_by_user_id` filter not scoped for non-admins** ◻︎ `crud.py:69-71`
-  Mirror the expenses per-user-scope fix (commit `dc90e20b`): non-admin may only filter by
-  own id.
+- [~] **`created_by_user_id` filter not scoped for non-admins** — **N/A (dropped)**
+  Investigated: `list_statements` is intentionally **tenant-wide** (only `tenant_id` +
+  `is_deleted` filters; responses expose creator name/email — statements are shared within
+  the tenant). So filtering by another user's id reveals nothing not already listable. Not a
+  leak under this design; adding per-user scoping would change the feature. No action.
 
-- [ ] **Internal `file_path` leaked in responses** ◻︎ `upload.py:217-232`, plus get/list/
-  recycle-bin payloads. Mirror commit `9bc753b6` (guarded internal OCR fields). Stop
-  serializing `file_path`/`stored_filename`.
+- [x] **Internal `file_path` leaked in responses** ✅ **DONE (2026-05-30)**
+  Removed `file_path` + `stored_filename` from all client-facing responses: `list_statements`,
+  `get_statement`, `update_statement_meta`, recycle-bin listing, and the `upload` created
+  payload; dropped both from the `BankStatementSummary` UI type (UI never used them). Internal
+  uses (Kafka task payloads, cloud-storage metadata, delete-file logic) retained.
 
-- [ ] **Pagination unbounded** ◻︎ `crud.py:47-51, 380-385` — add `Query(ge=0, le=500)`.
+- [x] **Pagination unbounded** ✅ **DONE (2026-05-30)**
+  `list_statements` and `get_deleted_statements` now use `Query(0, ge=0)` / `Query(100, ge=1, le=500)`.
 
 - [ ] **reprocess TOCTOU on processing lock** ◻︎ `routers/processing.py:43-108` — acquire
   lock atomically (DB unique constraint / `ON CONFLICT`) before statement reads; merge the

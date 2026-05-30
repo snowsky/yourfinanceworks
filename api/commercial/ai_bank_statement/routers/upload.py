@@ -221,8 +221,6 @@ async def upload_statements(
                 {
                     "id": statement.id,
                     "original_filename": statement.original_filename,
-                    "stored_filename": statement.stored_filename,
-                    "file_path": statement.file_path,
                     "status": statement.status,
                     "extracted_count": statement.extracted_count,
                     "created_at": (
