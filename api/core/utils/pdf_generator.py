@@ -7,6 +7,7 @@ from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
 from typing import Dict, Any, List
 import io
 from datetime import datetime
+from xml.sax.saxutils import escape as xml_escape
 import logging
 from sqlalchemy.orm import Session
 from core.models.database import get_db
@@ -147,7 +148,7 @@ class InvoicePDFGenerator:
         
         # Company name
         company_name = company_data.get('name', 'Your Company')
-        elements.append(Paragraph(company_name, self.styles['CompanyName']))
+        elements.append(Paragraph(xml_escape(company_name), self.styles['CompanyName']))
         
         # Company details
         company_info = []
@@ -161,7 +162,7 @@ class InvoicePDFGenerator:
             company_info.append(f"Tax ID: {company_data['tax_id']}")
         
         if company_info:
-            elements.append(Paragraph('<br/>'.join(company_info), self.styles['Normal']))
+            elements.append(Paragraph('<br/>'.join(xml_escape(line) for line in company_info), self.styles['Normal']))
         
         return elements
     
@@ -210,7 +211,7 @@ class InvoicePDFGenerator:
         if client_data.get('address'):
             client_info.append(client_data['address'])
         
-        elements.append(Paragraph('<br/>'.join(client_info), self.styles['Normal']))
+        elements.append(Paragraph('<br/>'.join(xml_escape(line) for line in client_info), self.styles['Normal']))
         
         return elements
     
@@ -377,7 +378,7 @@ class InvoicePDFGenerator:
         elements = []
         
         elements.append(Paragraph("Notes:", self.styles['SectionHeader']))
-        elements.append(Paragraph(notes, self.styles['Normal']))
+        elements.append(Paragraph(xml_escape(notes), self.styles['Normal']))
         
         return elements
     
@@ -390,8 +391,8 @@ class InvoicePDFGenerator:
         footer_text = "Thank you for your business!"
         if company_data.get('name'):
             footer_text = f"Thank you for choosing {company_data['name']}!"
-        
-        elements.append(Paragraph(footer_text, self.styles['Normal']))
+
+        elements.append(Paragraph(xml_escape(footer_text), self.styles['Normal']))
         
         return elements
     
