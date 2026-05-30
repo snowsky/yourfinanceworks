@@ -49,12 +49,18 @@
   - NOTE: `yfw-statement-tools` `_build_csv` has the same flaw but is the separate client →
     tracked in `yfw-statement-tools-security-todo.md`, not fixed here.
 
-- [ ] **Silent bad-date → today substitution** ◻︎ (corrupts transaction dates permanently)
-  - `api/workers/ocr/bank_statement_handler.py:541-544`
-  - `api/commercial/ai_bank_statement/routers/transactions.py:241`
-  - `ui/src/pages/Statements/types.ts` `safeParseDateString` (returns `new Date()`)
-  **Fix:** skip + flag invalid dates (worker/API) and surface a validation error; in the UI
-  return null and render `—` / disable the picker rather than defaulting to today.
+- [x] **Silent bad-date → today substitution** ✅ **DONE (2026-05-30)**
+  Shared pure helper `api/core/utils/date_parsing.py` `parse_transaction_date()` returns
+  `None` (never fabricates). `BankStatementTransaction.date` is `NOT NULL`, so per site:
+  - Worker `bank_statement_handler.py` `_save_transactions`: skips + logs rows with bad
+    dates (was `datetime.utcnow()`); `extracted_count` now reflects rows actually saved.
+  - Router `transactions.py` `replace_statement_transactions`: validates ALL dates BEFORE
+    the destructive delete and returns HTTP 422 with the offending row index (so one bad
+    row can't wipe existing data, and dates are never coerced to today). Normal UI flow
+    always sends valid ISO (new rows/date-picker), so no UX regression.
+  - UI `types.ts` `safeParseDateString` now returns `Date | null`; added `formatRowDate()`
+    helper; `StatementDetailView` renders the fallback (`—` / "Pick a date") instead of today.
+  Tests: `api/tests/test_transaction_date_parsing.py` (7), `ui/src/pages/Statements/types.test.ts` (5).
 
 - [ ] **Float money math** ◻︎ (root cause ✅ in parse_number) — accumulates into persisted
   `Expense.amount`

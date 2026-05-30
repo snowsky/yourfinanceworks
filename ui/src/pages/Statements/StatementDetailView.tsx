@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,7 +23,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { bankStatementApi, expenseApi, invoiceApi, BankStatementDetail } from '@/lib/api';
-import { BankRow, CATEGORY_OPTIONS, formatDateToISO, safeParseDateString } from './types';
+import { BankRow, CATEGORY_OPTIONS, formatDateToISO, safeParseDateString, formatRowDate } from './types';
 import { CardTypeBadge } from './CardTypeBadge';
 import { PdfHighlightViewer } from '@/components/pdf/PdfHighlightViewer';
 
@@ -630,15 +629,15 @@ export function StatementDetailView({
                                 <PopoverTrigger asChild>
                                   <Button variant="outline" className="w-full justify-start text-left font-normal h-9 border-border/50 bg-muted/20" disabled={readOnly}>
                                     <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                                    {r.date ? format(safeParseDateString(r.date), 'PPP') : 'Pick a date'}
+                                    {formatRowDate(r.date, 'PPP', 'Pick a date')}
                                   </Button>
                                 </PopoverTrigger>
                                 {!readOnly && (
                                   <PopoverContent className="w-auto p-0" align="start">
                                     <Calendar
                                       mode="single"
-                                      selected={r.date ? safeParseDateString(r.date) : undefined}
-                                      defaultMonth={r.date ? safeParseDateString(r.date) : undefined}
+                                      selected={safeParseDateString(r.date) ?? undefined}
+                                      defaultMonth={safeParseDateString(r.date) ?? undefined}
                                       onSelect={(d) => {
                                         if (!d) return;
                                         const iso = formatDateToISO(d);
@@ -650,7 +649,7 @@ export function StatementDetailView({
                                 )}
                               </Popover>
                             ) : (
-                              <span className="text-sm font-medium">{r.date ? format(safeParseDateString(r.date), 'PP') : '-'}</span>
+                              <span className="text-sm font-medium">{formatRowDate(r.date, 'PP', '-')}</span>
                             )}
                           </TableCell>
                           <TableCell>
