@@ -74,6 +74,8 @@ export function InvoiceForm({
 
   // Form state
   const [sendingEmail, setSendingEmail] = useState(false);
+  // Monotonic counter for stable React keys on new (non-persisted) line items
+  const [itemKeyCounter, setItemKeyCounter] = useState(0);
   const [selectedTemplate, setSelectedTemplate] = useState<string>(() => {
     return localStorage.getItem('invoice-template') || 'modern';
   });
@@ -512,8 +514,8 @@ export function InvoiceForm({
             isEdit={isEdit}
             isInvoicePaid={false}
             submitting={invoiceForm.submitting}
-            itemKeyCounter={0}
-            setItemKeyCounter={() => { }}
+            itemKeyCounter={itemKeyCounter}
+            setItemKeyCounter={setItemKeyCounter}
           />
 
           {/* Discount Section */}
