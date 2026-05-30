@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 
@@ -50,8 +50,8 @@ def _safe_float(value: Optional[float], default: Optional[float] = None) -> Opti
 
 @router.get("/", response_model=PaginatedBankStatements)
 async def list_statements(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     label: Optional[str] = None,
     search: Optional[str] = None,
     status: Optional[str] = None,
@@ -146,8 +146,6 @@ async def list_statements(
             {
                 "id": s.id,
                 "original_filename": s.original_filename,
-                "stored_filename": s.stored_filename,
-                "file_path": s.file_path,
                 "status": s.status,
                 "extracted_count": s.extracted_count,
                 "extraction_method": getattr(s, "extraction_method", None),
@@ -388,8 +386,8 @@ async def get_file_duplicate_groups(
 
 @router.get("/recycle-bin", response_model=PaginatedDeletedBankStatements)
 async def get_deleted_statements(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user),
 ):
@@ -436,8 +434,6 @@ async def get_deleted_statements(
             statement_dict = {
                 "id": statement.id,
                 "original_filename": statement.original_filename,
-                "stored_filename": statement.stored_filename,
-                "file_path": statement.file_path,
                 "status": statement.status,
                 "extracted_count": statement.extracted_count,
                 "notes": statement.notes,
@@ -679,8 +675,6 @@ async def get_statement(
         "statement": {
             "id": s.id,
             "original_filename": s.original_filename,
-            "stored_filename": s.stored_filename,
-            "file_path": s.file_path,
             "status": s.status,
             "extracted_count": s.extracted_count,
             "extraction_method": getattr(s, "extraction_method", None),
@@ -824,8 +818,6 @@ async def update_statement_meta(
             "statement": {
                 "id": s.id,
                 "original_filename": s.original_filename,
-                "stored_filename": s.stored_filename,
-                "file_path": s.file_path,
                 "status": s.status,
                 "extracted_count": s.extracted_count,
                 "labels": getattr(s, "labels", None),
