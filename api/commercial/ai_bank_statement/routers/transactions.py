@@ -1,8 +1,8 @@
 """Transaction CRUD and cross-statement transaction link endpoints."""
 
 import logging
-from datetime import datetime
-from typing import Dict, Any
+from datetime import date
+from typing import Dict, Any, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -16,6 +16,7 @@ from core.models.models_per_tenant import BankStatement, BankStatementTransactio
 from core.schemas.bank_statement import TransactionLinkCreate
 from core.services import transaction_link_service
 from core.utils.audit import log_audit_event
+from core.utils.date_parsing import parse_transaction_date
 from ._shared import get_tenant_id
 
 logger = logging.getLogger(__name__)
@@ -214,6 +215,20 @@ async def replace_statement_transactions(
     if not isinstance(items, list):
         raise HTTPException(status_code=400, detail="transactions must be an array")
 
+    # Validate every date BEFORE the destructive delete below, so one bad row cannot wipe
+    # existing transactions. Dates are never silently coerced to "today".
+    parsed_dates: List[date] = []
+    for idx, t in enumerate(items):
+        if not isinstance(t, dict):
+            raise HTTPException(status_code=400, detail=f"transaction at index {idx} must be an object")
+        parsed = parse_transaction_date(t.get("date"))
+        if parsed is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Transaction at index {idx} has a missing or invalid date: {t.get('date')!r}",
+            )
+        parsed_dates.append(parsed)
+
     try:
         # Snapshot previous transactions for audit summary
         prev_rows = (
@@ -236,11 +251,8 @@ async def replace_statement_transactions(
         ).delete()
 
         count = 0
-        for t in items:
-            try:
-                dt = datetime.fromisoformat(t.get("date", "")).date()
-            except Exception:
-                dt = datetime.utcnow().date()
+        for idx, t in enumerate(items):
+            dt = parsed_dates[idx]
             new_txn = BankStatementTransaction(
                 statement_id=s.id,
                 date=dt,

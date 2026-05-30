@@ -1,4 +1,4 @@
-import { parseISO, isValid } from 'date-fns';
+import { parseISO, isValid, format } from 'date-fns';
 import { BankTransactionEntry } from '@/lib/api';
 import { TransactionLinkInfo } from '@/lib/api/bank-statements';
 import type { ColumnDef } from '@/hooks/useColumnVisibility';
@@ -47,13 +47,21 @@ export const formatDateToISO = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-export const safeParseDateString = (dateString?: string): Date => {
-  if (!dateString) return new Date();
+// Returns null (not today's date) for a missing/invalid date so callers can render a
+// placeholder instead of silently presenting a fabricated date that could be saved back.
+export const safeParseDateString = (dateString?: string): Date | null => {
+  if (!dateString) return null;
   try {
     const parsedDate = parseISO(dateString);
-    return isValid(parsedDate) ? parsedDate : new Date();
+    return isValid(parsedDate) ? parsedDate : null;
   } catch (error) {
     console.warn('Failed to parse date:', dateString, error);
-    return new Date();
+    return null;
   }
+};
+
+// Format a transaction date string, or return the fallback when it is missing/invalid.
+export const formatRowDate = (dateString: string | undefined, fmt: string, fallback: string): string => {
+  const parsed = safeParseDateString(dateString);
+  return parsed ? format(parsed, fmt) : fallback;
 };

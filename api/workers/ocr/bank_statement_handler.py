@@ -524,7 +524,7 @@ class BankStatementMessageHandler(BaseMessageHandler):
 
     async def _save_transactions(self, db, stmt, transactions: List[Dict[str, Any]], method: str = "unknown"):
         """Save extracted transactions to database"""
-        from datetime import datetime as dt
+        from core.utils.date_parsing import parse_transaction_date
 
         # Delete existing transactions
         db.query(BankStatementTransaction).filter(
@@ -537,11 +537,18 @@ class BankStatementMessageHandler(BaseMessageHandler):
 
         # Add new transactions
         count = 0
+        skipped_bad_date = 0
         for txn_data in transactions:
-            try:
-                transaction_date = dt.fromisoformat(txn_data.get("date", "")).date()
-            except Exception:
-                transaction_date = dt.utcnow().date()
+            # Never fabricate a date: a transaction whose date cannot be parsed is skipped
+            # (and logged) rather than silently stamped with today's date.
+            transaction_date = parse_transaction_date(txn_data.get("date"))
+            if transaction_date is None:
+                skipped_bad_date += 1
+                self.logger.warning(
+                    f"Skipping transaction with missing/invalid date for statement {stmt.id}: "
+                    f"date={txn_data.get('date')!r}, description={txn_data.get('description')!r}"
+                )
+                continue
 
             db.add(BankStatementTransaction(
                 statement_id=stmt.id,
@@ -561,6 +568,12 @@ class BankStatementMessageHandler(BaseMessageHandler):
                 category=txn_data.get("category"),
             ))
             count += 1
+
+        if skipped_bad_date:
+            self.logger.warning(
+                f"Statement {stmt.id}: skipped {skipped_bad_date} transaction(s) with "
+                f"unparseable dates ({count} saved)"
+            )
 
         stmt.status = ProcessingStatus.PROCESSED.value
         stmt.extracted_count = count
