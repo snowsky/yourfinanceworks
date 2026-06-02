@@ -29,3 +29,49 @@ def sum_money(values: Iterable[Optional[float]]) -> float:
     """Sum amounts in Decimal and round the result to cents. Skips ``None`` entries."""
     total = sum((_to_decimal(v) for v in values if v is not None), Decimal("0"))
     return float(total.quantize(_CENTS, rounding=ROUND_HALF_UP))
+
+
+# --- Invoice line/total helpers -------------------------------------------------
+# Compute invoice money in Decimal and return float for the Numeric columns. This
+# removes binary-float drift from line totals/subtotals/discounts without forcing
+# the ORM to return Decimal (which would break float arithmetic elsewhere).
+
+def line_amount(quantity: object, price: object) -> float:
+    """Rounded amount for a single line item (quantity * price)."""
+    return round_money(_to_decimal(quantity) * _to_decimal(price))
+
+
+def subtotal_from_items(items: Iterable) -> float:
+    """Subtotal as the sum of per-line rounded amounts.
+
+    ``items`` is an iterable of ``(quantity, price)`` pairs. Rounding each line
+    before summing keeps the subtotal equal to the sum of the line amounts shown
+    to the user.
+    """
+    return sum_money(line_amount(quantity, price) for quantity, price in items)
+
+
+def compute_discount(subtotal: object, discount_type: Optional[str], discount_value: object) -> float:
+    """Discount amount in cents, never exceeding the subtotal."""
+    sub = _to_decimal(subtotal)
+    value = _to_decimal(discount_value)
+    if value <= 0:
+        return 0.0
+    if discount_type == "fixed":
+        amount = value
+    else:  # "percentage" (default)
+        amount = sub * value / Decimal("100")
+    amount = amount.quantize(_CENTS, rounding=ROUND_HALF_UP)
+    if amount > sub:
+        amount = sub.quantize(_CENTS, rounding=ROUND_HALF_UP)
+    return float(amount)
+
+
+def invoice_total(subtotal: object, discount_type: Optional[str], discount_value: object) -> float:
+    """Invoice amount = subtotal - discount, floored at zero."""
+    sub = _to_decimal(subtotal)
+    discount = _to_decimal(compute_discount(subtotal, discount_type, discount_value))
+    total = sub - discount
+    if total < 0:
+        total = Decimal("0")
+    return float(total.quantize(_CENTS, rounding=ROUND_HALF_UP))
