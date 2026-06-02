@@ -1,6 +1,28 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
+
+# Complete set of statuses an invoice may legitimately hold: lifecycle
+# (draft/sent/overdue/cancelled), payment-driven (paid/partially_paid),
+# approval-workflow (pending_approval/approved/rejected), and the legacy
+# "pending" still present in older data. Used to validate inbound writes only;
+# response models stay permissive so existing rows always serialize.
+INVOICE_STATUSES = frozenset({
+    "draft", "sent", "paid", "partially_paid", "overdue", "cancelled",
+    "pending_approval", "approved", "rejected", "pending",
+})
+
+
+def _ensure_valid_status(value: Optional[str]) -> Optional[str]:
+    """Reject unknown invoice statuses on write paths (create/update/restore)."""
+    if value is None:
+        return value
+    if value not in INVOICE_STATUSES:
+        raise ValueError(
+            f"Invalid invoice status '{value}'. Allowed values: "
+            f"{', '.join(sorted(INVOICE_STATUSES))}"
+        )
+    return value
 
 class InvoiceItemBase(BaseModel):
     description: str
@@ -65,6 +87,11 @@ class InvoiceCreate(InvoiceBase):
     number: Optional[str] = Field(None, description="Invoice number (optional - will be auto-generated if not provided)")
     items: Optional[List[InvoiceItemCreate]] = None
 
+    @field_validator("status")
+    @classmethod
+    def _validate_status(cls, v: str) -> str:
+        return _ensure_valid_status(v)
+
 class InvoiceUpdate(BaseModel):
     amount: Optional[float] = Field(None, description="Total amount of the invoice")
     currency: Optional[str] = Field(None, description="Currency code for the invoice")
@@ -86,6 +113,11 @@ class InvoiceUpdate(BaseModel):
     attachment_filename: Optional[str] = Field(None, description="Attachment filename; set to null to delete attachment")
     payer: Optional[str] = Field(None, description="Who is paying the invoice: 'You' or 'Client'")
     labels: Optional[List[str]] = Field(None, description="Invoice labels")
+
+    @field_validator("status")
+    @classmethod
+    def _validate_status(cls, v: Optional[str]) -> Optional[str]:
+        return _ensure_valid_status(v)
 
 class Invoice(InvoiceBase):
     id: int
@@ -166,6 +198,11 @@ class RecycleBinResponse(BaseModel):
 class RestoreInvoiceRequest(BaseModel):
     """Request schema for restoring an invoice"""
     new_status: Optional[str] = "draft"  # Status to set when restoring
+
+    @field_validator("new_status")
+    @classmethod
+    def _validate_new_status(cls, v: Optional[str]) -> Optional[str]:
+        return _ensure_valid_status(v)
 
 class PaginatedDeletedInvoices(BaseModel):
     items: List[DeletedInvoice]
