@@ -1674,6 +1674,15 @@ async def update_invoice(
 
         logger.info(f"[DEBUG] After setting fields, custom_fields in DB: {db_invoice.custom_fields}")
 
+        # A paid invoice's financial record must not be mutated via line items.
+        # The guard above allows the request through when "status" is present in
+        # the payload, so block item edits here explicitly.
+        if db_invoice.status == "paid" and invoice.items is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="Line items on a paid invoice cannot be modified"
+            )
+
         items_were_updated = invoice.items is not None
 
         # Handle items update if provided

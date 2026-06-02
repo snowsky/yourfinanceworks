@@ -5,7 +5,7 @@ from enum import Enum
 import boto3
 from azure.communication.email import EmailClient
 import requests
-from jinja2 import Template
+from jinja2 import Template, Environment
 import logging
 from pydantic import BaseModel
 import os
@@ -13,6 +13,11 @@ from datetime import datetime, timezone
 from config import APP_NAME, config
 
 logger = logging.getLogger(__name__)
+
+# Autoescaping Jinja2 environment for HTML email bodies. Prevents HTML/script
+# injection from user-controlled fields (invoice notes, client/company names).
+# Plain-text bodies intentionally keep the non-escaping Template.
+_html_env = Environment(autoescape=True)
 
 class EmailProvider(str, Enum):
     AWS_SES = "aws_ses"
@@ -417,7 +422,7 @@ class EmailService:
         reset_url = f"{config.UI_BASE_URL}/reset-password?token={reset_token}"
         
         # Create HTML template
-        html_template = Template("""
+        html_template = _html_env.from_string("""
         <!DOCTYPE html>
         <html>
         <head>
@@ -579,7 +584,7 @@ class EmailService:
         role: str
     ) -> EmailMessage:
         """Create invitation email message"""
-        html_template = Template("""
+        html_template = _html_env.from_string("""
         <!DOCTYPE html>
         <html>
         <head>
@@ -674,7 +679,7 @@ class EmailService:
         }
         
         # Render templates
-        html_body = Template(html_template).render(**context)
+        html_body = _html_env.from_string(html_template).render(**context)
         text_body = Template(text_template).render(**context)
         
         # Create PDF attachment
