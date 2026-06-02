@@ -100,6 +100,10 @@ class Invoice(Base):
     currency = Column(String, default="USD", nullable=False)
     due_date = Column(DateTime, nullable=False)
     status = Column(String, nullable=False, default="draft", index=True)
+    # Status the invoice held before its first payment moved it to a payment-driven
+    # status (paid/partially_paid). Restored when all payments are removed; null
+    # when the invoice is not currently in a payment-driven status.
+    pre_payment_status = Column(String, nullable=True)
     notes = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     # No tenant_id needed since each tenant has its own database
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
