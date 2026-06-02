@@ -17,6 +17,7 @@ from core.routers.auth import get_current_user
 from core.services.tenant_database_manager import tenant_db_manager
 from core.services.currency_service import CurrencyService
 from core.utils.audit import log_audit_event
+from core.utils.payment_status import resolve_invoice_status
 from core.constants.error_codes import FAILED_TO_CREATE_PAYMENT, FAILED_TO_FETCH_PAYMENTS
 from core.utils.timezone import get_tenant_timezone_aware_datetime
 
@@ -109,16 +110,15 @@ def sync_invoice_status(db: Session, invoice_id: int):
         # Calculate total paid directly from DB to avoid relationship caching issues
         total_paid = db.query(func.sum(Payment.amount)).filter(Payment.invoice_id == invoice_id).scalar() or 0
 
-        # Determine status
+        # Determine status. The pure transition logic lives in
+        # core.utils.payment_status so it can be unit-tested without a DB session.
         old_status = invoice.status
-        if total_paid >= invoice.amount:
-            invoice.status = "paid"
-        elif total_paid > 0:
-            invoice.status = "partially_paid"
-        else:
-            # If no payments, revert to pending if it was previously paid
-            if invoice.status in ["paid", "partially_paid"]:
-                invoice.status = "pending"
+        invoice.status, invoice.pre_payment_status = resolve_invoice_status(
+            current_status=invoice.status,
+            pre_payment_status=invoice.pre_payment_status,
+            total_paid=total_paid,
+            amount=invoice.amount,
+        )
 
         db.commit()
         # Expire to ensure next access sees the updated status
