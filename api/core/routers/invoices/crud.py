@@ -25,6 +25,7 @@ from core.services.tenant_database_manager import tenant_db_manager
 from core.services.currency_service import CurrencyService
 from core.utils.invoice import generate_invoice_number
 from core.utils.rbac import require_component_permission
+from core.utils.money import round_money, sum_money, line_amount, subtotal_from_items, invoice_total
 from core.utils.audit import log_audit_event
 from core.utils.file_deletion import delete_file_from_storage
 from core.constants.error_codes import FAILED_TO_CREATE_INVOICE, FAILED_TO_FETCH_INVOICE
@@ -135,14 +136,14 @@ async def create_invoice(
             created_by_user_id=current_user.id  # User attribution
         )
 
-        # Calculate subtotal and amount
+        # Calculate subtotal and amount in Decimal (avoids binary-float drift)
         items_list = invoice.items or []
         if items_list:
-            calculated_subtotal = sum(
-                float(item_data.quantity) * float(item_data.price) for item_data in items_list
+            calculated_subtotal = subtotal_from_items(
+                (item_data.quantity, item_data.price) for item_data in items_list
             )
         else:
-            calculated_subtotal = float(invoice.amount)
+            calculated_subtotal = round_money(invoice.amount)
         db_invoice.subtotal = calculated_subtotal
 
         # Apply discount if provided; if no items were provided, keep the provided amount
@@ -150,16 +151,11 @@ async def create_invoice(
         db_invoice.discount_value = float(invoice.discount_value or 0)
 
         if items_list:
-            if db_invoice.discount_value > 0:
-                if db_invoice.discount_type == "percentage":
-                    discount_amount = (calculated_subtotal * db_invoice.discount_value) / 100
-                else:  # fixed
-                    discount_amount = db_invoice.discount_value
-                db_invoice.amount = calculated_subtotal - discount_amount
-            else:
-                db_invoice.amount = calculated_subtotal
+            db_invoice.amount = invoice_total(
+                calculated_subtotal, db_invoice.discount_type, db_invoice.discount_value
+            )
         else:
-            db_invoice.amount = float(invoice.amount)
+            db_invoice.amount = round_money(invoice.amount)
 
         # Ensure due_date default if not provided
         if db_invoice.due_date is None:
@@ -243,7 +239,7 @@ async def create_invoice(
                 description=description,
                 quantity=float(item_data.quantity),
                 price=price,
-                amount=float(item_data.quantity) * price,
+                amount=line_amount(item_data.quantity, price),
                 unit_of_measure=unit_of_measure
             )
             db.add(db_item)
@@ -554,9 +550,11 @@ async def clone_invoice(
 
         # If the original has items, recalc subtotal/amount like create endpoint
         if source_items:
-            calculated_subtotal = sum(float(item.quantity) * float(item.price) for item in source_items)
+            calculated_subtotal = subtotal_from_items(
+                (item.quantity, item.price) for item in source_items
+            )
         else:
-            calculated_subtotal = float(source_invoice.amount)
+            calculated_subtotal = round_money(source_invoice.amount)
         cloned_invoice.subtotal = calculated_subtotal
 
         # Copy discount fields and recalc total
@@ -564,16 +562,11 @@ async def clone_invoice(
         cloned_invoice.discount_value = float(source_invoice.discount_value or 0)
 
         if source_items:
-            if cloned_invoice.discount_value > 0:
-                if cloned_invoice.discount_type == "percentage":
-                    discount_amount = (calculated_subtotal * cloned_invoice.discount_value) / 100
-                else:
-                    discount_amount = cloned_invoice.discount_value
-                cloned_invoice.amount = calculated_subtotal - discount_amount
-            else:
-                cloned_invoice.amount = calculated_subtotal
+            cloned_invoice.amount = invoice_total(
+                calculated_subtotal, cloned_invoice.discount_type, cloned_invoice.discount_value
+            )
         else:
-            cloned_invoice.amount = float(source_invoice.amount)
+            cloned_invoice.amount = round_money(source_invoice.amount)
 
         # Persist invoice
         db.add(cloned_invoice)
@@ -586,7 +579,7 @@ async def clone_invoice(
                 description=s_item.description,
                 quantity=float(s_item.quantity),
                 price=float(s_item.price),
-                amount=float(s_item.quantity) * float(s_item.price),
+                amount=line_amount(s_item.quantity, s_item.price),
                 inventory_item_id=s_item.inventory_item_id,
                 unit_of_measure=s_item.unit_of_measure
             )
@@ -1591,11 +1584,11 @@ async def update_invoice(
                     # Calculate current total paid from existing payments
                     from core.models.models_per_tenant import Payment as PaymentModel
                     existing_payments = db.query(PaymentModel).filter(PaymentModel.invoice_id == db_invoice.id).all()
-                    current_paid = sum(p.amount for p in existing_payments) if existing_payments else 0
+                    current_paid = sum_money(p.amount for p in existing_payments)
 
-                    # Calculate incremental payment amount
+                    # Calculate incremental payment amount (Decimal-rounded)
                     new_paid_amount = float(value)
-                    incremental_amount = new_paid_amount - current_paid
+                    incremental_amount = round_money(new_paid_amount - current_paid)
 
                     # Only create payment if there's an actual increase
                     if incremental_amount > 0:
@@ -1628,7 +1621,7 @@ async def update_invoice(
                     elif incremental_amount < 0:
                         # Handle payment decrease - remove payments from most recent to oldest
                         try:
-                            amount_to_remove = abs(incremental_amount)
+                            amount_to_remove = round_money(abs(incremental_amount))
                             payments_to_adjust = db.query(PaymentModel).filter(
                                 PaymentModel.invoice_id == db_invoice.id
                             ).order_by(PaymentModel.payment_date.desc()).all()
@@ -1643,12 +1636,12 @@ async def update_invoice(
                                 if payment.amount <= remaining_to_remove:
                                     # Remove entire payment
                                     removed_payments.append(f"${payment.amount:.2f} ({payment.reference_number})")
-                                    remaining_to_remove -= payment.amount
+                                    remaining_to_remove = round_money(remaining_to_remove - payment.amount)
                                     db.delete(payment)
                                 else:
                                     # Partially reduce this payment
                                     old_amount = payment.amount
-                                    payment.amount = payment.amount - remaining_to_remove
+                                    payment.amount = round_money(payment.amount - remaining_to_remove)
                                     removed_payments.append(f"${remaining_to_remove:.2f} from ${old_amount:.2f} ({payment.reference_number})")
                                     remaining_to_remove = 0
 
@@ -1716,7 +1709,7 @@ async def update_invoice(
                     existing_item.description = getattr(item_data, 'description', existing_item.description)
                     existing_item.quantity = float(getattr(item_data, 'quantity', existing_item.quantity))
                     existing_item.price = float(getattr(item_data, 'price', existing_item.price))
-                    existing_item.amount = float(getattr(item_data, 'quantity', existing_item.quantity)) * float(getattr(item_data, 'price', existing_item.price))
+                    existing_item.amount = line_amount(existing_item.quantity, existing_item.price)
                     existing_item.updated_at = get_tenant_timezone_aware_datetime(db)
                     updated_item_ids.add(item_data.id)
                 else:
@@ -1727,7 +1720,7 @@ async def update_invoice(
                         description=item_data.description,
                         quantity=float(item_data.quantity),
                         price=float(item_data.price),
-                        amount=float(item_data.quantity) * float(item_data.price)
+                        amount=line_amount(item_data.quantity, item_data.price)
                     )
                     db.add(db_item)
 
@@ -1749,22 +1742,18 @@ async def update_invoice(
         logger.info(f"Verified {len(updated_items)} items in database after commit: {[(item.id, item.description[:30] + '...' if len(item.description) > 30 else item.description) for item in updated_items]}")
 
         if items_were_updated:
-            recalculated_subtotal = db.query(
-                sa.func.coalesce(sa.func.sum(InvoiceItem.quantity * InvoiceItem.price), 0)
-            ).filter(InvoiceItem.invoice_id == invoice_id).scalar()
-            db_invoice.subtotal = float(recalculated_subtotal or 0)
+            # Recompute from the persisted items in Decimal (per-line rounding),
+            # consistent with the create/clone paths.
+            db_invoice.subtotal = subtotal_from_items(
+                (it.quantity, it.price) for it in updated_items
+            )
 
             db_invoice.discount_type = invoice.discount_type or db_invoice.discount_type or "percentage"
             db_invoice.discount_value = float(invoice.discount_value) if invoice.discount_value is not None else float(db_invoice.discount_value or 0)
 
-            if db_invoice.discount_value > 0:
-                if db_invoice.discount_type == "percentage":
-                    discount_amount = (db_invoice.subtotal * db_invoice.discount_value) / 100
-                else:
-                    discount_amount = db_invoice.discount_value
-                db_invoice.amount = max(0, db_invoice.subtotal - discount_amount)
-            else:
-                db_invoice.amount = db_invoice.subtotal
+            db_invoice.amount = invoice_total(
+                db_invoice.subtotal, db_invoice.discount_type, db_invoice.discount_value
+            )
 
             db_invoice.updated_at = get_tenant_timezone_aware_datetime(db)
             db.commit()
