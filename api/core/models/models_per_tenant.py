@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Date, DateTime, Boolean, JSON, Text, UniqueConstraint, Enum
+from sqlalchemy import Column, Integer, String, Float, Numeric, ForeignKey, Date, DateTime, Boolean, JSON, Text, UniqueConstraint, Enum
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from sqlalchemy.orm import declarative_base
@@ -96,7 +96,9 @@ class Invoice(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     number = Column(String, unique=True, index=True, nullable=False)  # Unique within tenant database
-    amount = Column(Float, nullable=False)
+    # Money: Numeric for exact fixed-precision storage. asdecimal=False keeps the
+    # ORM returning float for now (Phase 1); Phase 2 switches to Decimal math.
+    amount = Column(Numeric(15, 4, asdecimal=False), nullable=False)
     currency = Column(String, default="USD", nullable=False)
     due_date = Column(DateTime, nullable=False)
     status = Column(String, nullable=False, default="draft", index=True)
@@ -110,8 +112,8 @@ class Invoice(Base):
     is_recurring = Column(Boolean, default=False)
     recurring_frequency = Column(String, nullable=True)
     discount_type = Column(String, default="percentage", nullable=False)  # percentage or fixed
-    discount_value = Column(Float, default=0.0, nullable=False)  # percentage or fixed amount
-    subtotal = Column(Float, nullable=False)  # Amount before discount
+    discount_value = Column(Numeric(15, 4, asdecimal=False), default=0.0, nullable=False)  # percentage or fixed amount
+    subtotal = Column(Numeric(15, 4, asdecimal=False), nullable=False)  # Amount before discount
     custom_fields = Column(EncryptedJSON(),nullable=True)  # Encrypted JSON for sensitive custom data
     show_discount_in_pdf = Column(Boolean, default=True, nullable=False)
     payer = Column(String, default="Client", nullable=False)  # Who is paying the invoice: 'You' or 'Client'
@@ -183,7 +185,7 @@ class Payment(Base):
     # No tenant_id needed since each tenant has its own database
 
     invoice_id = Column(Integer, ForeignKey("invoices.id"), index=True)
-    amount = Column(Float, nullable=False)
+    amount = Column(Numeric(15, 4, asdecimal=False), nullable=False)
     currency = Column(String, default="USD", nullable=False)
     payment_date = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     payment_method = Column(String, nullable=False, default="system")
@@ -411,9 +413,9 @@ class InvoiceItem(Base):
     invoice_id = Column(Integer, ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
     inventory_item_id = Column(Integer, ForeignKey("inventory_items.id"), nullable=True)  # Optional link to inventory item
     description = Column(String, nullable=False)
-    quantity = Column(Float, nullable=False, default=1.0)
-    price = Column(Float, nullable=False, default=0.0)
-    amount = Column(Float, nullable=False, default=0.0)
+    quantity = Column(Numeric(15, 4, asdecimal=False), nullable=False, default=1.0)
+    price = Column(Numeric(15, 4, asdecimal=False), nullable=False, default=0.0)
+    amount = Column(Numeric(15, 4, asdecimal=False), nullable=False, default=0.0)
     unit_of_measure = Column(String, nullable=True)  # Unit of measure from inventory item
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
