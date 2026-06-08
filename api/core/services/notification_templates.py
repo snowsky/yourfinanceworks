@@ -796,3 +796,55 @@ APPROVAL_DIGEST_TEXT_TEMPLATE = Template("""
         This is your daily approval digest from {{ company_name }}.
         You can change your notification preferences in your account settings.
         """)
+
+
+# Client-facing "thank you for your payment" email, sent when an invoice is
+# fully paid. Plain and warm; no action required by the recipient.
+THANK_YOU_HTML_TEMPLATE = Template("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Thank you for your payment</title>
+            <style>
+                body { font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; color: #1f2937; }
+                .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 32px; border-radius: 12px; }
+                .header { text-align: center; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb; }
+                .badge { display: inline-block; background: #ecfdf5; color: #047857; font-weight: 600; padding: 6px 14px; border-radius: 999px; font-size: 13px; }
+                .amount { font-size: 28px; font-weight: 700; color: #047857; margin: 20px 0 4px; text-align: center; }
+                .meta { text-align: center; color: #6b7280; font-size: 14px; }
+                .footer { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px; text-align: center; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <span class="badge">Payment received</span>
+                </div>
+                <p>Hello {{ client_name }},</p>
+                <p>Thank you for your payment. We're writing to confirm that invoice
+                   <strong>{{ invoice_number }}</strong> has been paid in full.</p>
+                <div class="amount">{{ currency }} {{ amount }}</div>
+                <div class="meta">Invoice {{ invoice_number }} &middot; Paid in full</div>
+                <p style="margin-top:24px;">We appreciate your business.</p>
+                <p>— {{ company_name }}</p>
+                <div class="footer">This is an automated confirmation from {{ company_name }}.</div>
+            </div>
+        </body>
+        </html>
+        """)
+
+THANK_YOU_TEXT_TEMPLATE = Template("""
+        Hello {{ client_name }},
+
+        Thank you for your payment. Invoice {{ invoice_number }} has been paid in full.
+
+        Amount: {{ currency }} {{ amount }}
+
+        We appreciate your business.
+
+        — {{ company_name }}
+
+        This is an automated confirmation from {{ company_name }}.
+        """)

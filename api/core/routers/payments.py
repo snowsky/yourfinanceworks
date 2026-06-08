@@ -126,6 +126,14 @@ def sync_invoice_status(db: Session, invoice_id: int):
 
         if old_status != invoice.status:
             logger.info(f"Updated status for invoice {invoice_id}: {old_status} -> {invoice.status} (total_paid=${total_paid:.2f})")
+            # On the transition into "paid", thank the client (best-effort, gated
+            # by invoice_settings.thank_you_email; never fails the payment).
+            if invoice.status == "paid" and old_status != "paid":
+                try:
+                    from core.services.thank_you_email import send_invoice_paid_thank_you
+                    send_invoice_paid_thank_you(db, invoice)
+                except Exception as e:
+                    logger.warning(f"Thank-you email trigger failed for invoice {invoice_id}: {e}")
         else:
             logger.debug(f"Status for invoice {invoice_id} remains {invoice.status} (total_paid=${total_paid:.2f})")
     except Exception as e:
