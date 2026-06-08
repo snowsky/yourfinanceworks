@@ -31,4 +31,10 @@ export const anomaliesApi = {
     const qs = q.toString();
     return apiRequest<AnomalyListResponse>(`/anomalies${qs ? `?${qs}` : ''}`);
   },
+
+  dismiss: (id: number, notes?: string) =>
+    apiRequest<{ id: number; is_dismissed: boolean }>(`/anomalies/${id}/dismiss`, {
+      method: 'PATCH',
+      body: JSON.stringify({ notes: notes ?? null }),
+    }),
 };

@@ -26,6 +26,7 @@ from core.services.currency_service import CurrencyService
 from core.utils.invoice import generate_invoice_number
 from core.utils.rbac import require_component_permission
 from core.utils.audit import log_audit_event
+from core.utils.anomaly_trigger import trigger_anomaly_audit
 from core.utils.file_deletion import delete_file_from_storage
 from core.constants.error_codes import FAILED_TO_CREATE_INVOICE, FAILED_TO_FETCH_INVOICE
 from core.utils.timezone import get_tenant_timezone_aware_datetime
@@ -273,6 +274,9 @@ async def create_invoice(
 
         db.commit()
         db.refresh(db_invoice)
+
+        # Re-score the new invoice for anomalies/fraud (best-effort, out of band)
+        trigger_anomaly_audit(current_user.tenant_id, "invoice", db_invoice.id, db=db)
 
         # Send notification
         try:
@@ -1895,6 +1899,9 @@ async def update_invoice(
             db_invoice.updated_at = get_tenant_timezone_aware_datetime(db)
             db.commit()
             db.refresh(db_invoice)
+
+            # Re-score the updated invoice for anomalies/fraud (best-effort, out of band)
+            trigger_anomaly_audit(current_user.tenant_id, "invoice", db_invoice.id, db=db)
             logger.info(f"[DEBUG] Saved custom_fields in DB (update): {db_invoice.custom_fields}")
 
             # Add audit log for invoice update

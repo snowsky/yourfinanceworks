@@ -8,9 +8,11 @@ dashboard. Read-only and licensing-gated.
 """
 
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -93,3 +95,34 @@ async def list_anomalies(
             for a in items
         ],
     }
+
+
+class DismissAnomalyRequest(BaseModel):
+    notes: Optional[str] = None
+
+
+@router.patch("/{anomaly_id}/dismiss")
+async def dismiss_anomaly(
+    anomaly_id: int,
+    payload: DismissAnomalyRequest = DismissAnomalyRequest(),
+    db: Session = Depends(get_db),
+    current_user: TenantUser = Depends(get_current_user),
+):
+    """Dismiss (acknowledge) one of the current tenant's anomalies."""
+    if not FeatureConfigService.is_enabled("anomaly_detection", db=db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Anomaly detection is not available in your current license",
+        )
+
+    anomaly = db.query(Anomaly).filter(Anomaly.id == anomaly_id).first()
+    if not anomaly:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
+
+    anomaly.is_dismissed = True
+    anomaly.dismissed_at = datetime.now(timezone.utc)
+    anomaly.dismissed_by_id = current_user.id
+    anomaly.dismiss_notes = payload.notes
+    db.commit()
+
+    return {"id": anomaly.id, "is_dismissed": True}
