@@ -32,6 +32,7 @@ import {
   Users,
   UserCheck,
   ShieldCheck,
+  ShieldAlert,
   ListChecks,
   Moon,
   Sun,
@@ -402,6 +403,12 @@ export function AppSidebar() {
       label: t('navigation.cashflow', { defaultValue: 'Cash Flow' }),
       icon: <TrendingUp className="w-5 h-5" />,
       tourId: 'nav-cashflow'
+    }] : []),
+    ...(isFeatureEnabled('anomaly_detection') ? [{
+      path: '/anomalies',
+      label: t('navigation.anomalies', { defaultValue: 'Fraud Checks' }),
+      icon: <ShieldAlert className="w-5 h-5" />,
+      tourId: 'nav-anomalies'
     }] : []),
     ...(isFeatureEnabled('subscription_detection') ? [{
       path: '/subscriptions',
