@@ -139,6 +139,12 @@ async def test_dismiss_sets_fields(db_session, create_test_user, feature_on):
     assert refreshed.dismissed_at is not None
     assert refreshed.dismiss_notes == "confirmed duplicate"
 
+    # Drop the anomaly -> users FK link before the shared fixture teardown,
+    # which deletes the users table and would otherwise hit a FK violation
+    # (and leak rows into later tests).
+    db_session.delete(refreshed)
+    db_session.commit()
+
 
 @pytest.mark.asyncio
 async def test_dismiss_unknown_id_raises_404(db_session, user, feature_on):
