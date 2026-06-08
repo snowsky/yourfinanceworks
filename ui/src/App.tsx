@@ -10,6 +10,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { ThemeSync } from "@/components/ui/ThemeSync";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { RoleProtectedRoute } from "./components/auth/RoleProtectedRoute";
 import { TenantProtectedRoute } from "./components/auth/TenantProtectedRoute";
@@ -51,6 +52,7 @@ const ExpensesEdit = React.lazy(() => import("./pages/ExpensesEdit"));
 const ExpensesView = React.lazy(() => import("./pages/ExpensesView"));
 const Expenses = React.lazy(() => import("./pages/Expenses"));
 const Statements = React.lazy(() => import("./pages/Statements"));
+const Anomalies = React.lazy(() => import("./pages/Anomalies"));
 const Settings = React.lazy(() => import("./pages/Settings"));
 const Users = React.lazy(() => import("./pages/Users"));
 const SuperAdmin = React.lazy(() => import("./pages/SuperAdmin"));
@@ -294,6 +296,7 @@ const AppContent = () => {
                     <Route path="/expenses/edit/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesEdit /></RoleProtectedRoute>} />
                     <Route path="/expenses/:id" element={<ExpenseRedirect />} />
                     <Route path="/expenses" element={<Expenses />} />
+                    <Route path="/anomalies" element={<Anomalies />} />
                     <Route path="/payments" element={<Payments />} />
                     <Route path="/reminders" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Reminders /></RoleProtectedRoute>} />
                     <Route path="/workflows" element={<RoleProtectedRoute allowedRoles={['admin']}><Workflows /></RoleProtectedRoute>} />
@@ -396,6 +399,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <I18nextProvider i18n={i18n}>
         <ThemeProvider defaultTheme="system" storageKey="invoice-app-theme">
+          <ThemeSync />
           <AppContent />
         </ThemeProvider>
       </I18nextProvider>

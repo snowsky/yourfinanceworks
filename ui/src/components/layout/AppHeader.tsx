@@ -3,6 +3,7 @@ import { useSearch } from "@/components/search/SearchProvider";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import { InAppNotifications } from "@/components/reminders";
+import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 import { useTranslation } from "react-i18next";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAppearanceSettings } from "@/hooks/useAppearanceSettings";
@@ -61,6 +62,7 @@ export function AppHeader() {
             )}
           </div>
         )}
+        <ThemeSwitcher />
         <InAppNotifications />
         <Button
           variant="outline"

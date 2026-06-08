@@ -9,6 +9,7 @@ import {
     ProfessionalCardTitle,
     ProfessionalCardContent,
 } from "@/components/ui/professional-card";
+import { ThemePicker } from "@/components/settings/ThemePicker";
 import { useListDensity } from "@/hooks/use-list-density";
 import { useAppearanceSettings } from "@/hooks/useAppearanceSettings";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -39,6 +40,9 @@ export const AppearanceTab: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            {/* Theme */}
+            <ThemePicker />
+
             {/* Tables */}
             <ProfessionalCard variant="elevated">
                 <ProfessionalCardHeader>
