@@ -120,20 +120,22 @@ async def test_list_feature_disabled_raises_403(db_session, user, feature_off):
 
 
 @pytest.mark.asyncio
-async def test_dismiss_sets_fields(db_session, user, feature_on):
+async def test_dismiss_sets_fields(db_session, create_test_user, feature_on):
+    # dismissed_by_id is a real FK to users.id, so persist a user first.
+    actor = create_test_user(email="dismisser@example.com")
     a = _make_anomaly(db_session, entity_id=11)
 
     result = await dismiss_anomaly(
         anomaly_id=a.id,
         payload=DismissAnomalyRequest(notes="confirmed duplicate"),
         db=db_session,
-        current_user=user,
+        current_user=actor,
     )
 
     assert result == {"id": a.id, "is_dismissed": True}
     refreshed = db_session.query(Anomaly).filter(Anomaly.id == a.id).first()
     assert refreshed.is_dismissed is True
-    assert refreshed.dismissed_by_id == user.id
+    assert refreshed.dismissed_by_id == actor.id
     assert refreshed.dismissed_at is not None
     assert refreshed.dismiss_notes == "confirmed duplicate"
 
