@@ -253,6 +253,61 @@
   }
 
   /*
+   * Amber Terminal — a variant that COMPOSES with `.theme-terminal`. The
+   * element carries both classes (`theme-terminal theme-terminal-amber`), so
+   * it inherits every scoped flourish — monospace, scanlines, phosphor glow,
+   * blinking caret, sharp `--radius` — and only swaps the color variables to
+   * amber here. This block must come AFTER `.theme-terminal` to win the
+   * equal-specificity cascade.
+   */
+  .theme-terminal-amber {
+    --background: 28 32% 4%;
+    --foreground: 40 86% 72%;
+
+    --card: 28 28% 6%;
+    --card-foreground: 40 86% 74%;
+
+    --popover: 28 32% 5%;
+    --popover-foreground: 40 86% 74%;
+
+    /* Bright amber phosphor */
+    --primary: 38 96% 56%;
+    --primary-foreground: 30 45% 6%;
+
+    --secondary: 30 24% 12%;
+    --secondary-foreground: 40 80% 74%;
+
+    --muted: 28 20% 10%;
+    --muted-foreground: 36 32% 54%;
+
+    /* Green accent — the second phosphor color, mirroring the green theme */
+    --accent: 142 72% 50%;
+    --accent-foreground: 142 45% 6%;
+
+    --destructive: 0 90% 62%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 78% 48%;
+    --success-foreground: 142 45% 6%;
+
+    --warning: 38 96% 56%;
+    --warning-foreground: 30 45% 6%;
+
+    --border: 34 44% 16%;
+    --input: 34 44% 14%;
+    --ring: 38 96% 56%;
+
+    --sidebar-background: 30 36% 3%;
+    --sidebar-foreground: 40 82% 72%;
+    --sidebar-primary: 38 96% 58%;
+    --sidebar-primary-foreground: 30 45% 6%;
+    --sidebar-accent: 30 28% 8%;
+    --sidebar-accent-foreground: 40 86% 74%;
+    --sidebar-border: 30 30% 12%;
+    --sidebar-ring: 38 96% 56%;
+  }
+
+  /*
    * Sepia theme — warm paper and ink. A light-based theme (Tailwind dark
    * variants stay off) proving that adding a theme is just a registry entry
    * plus this variable block; no bespoke component CSS required.

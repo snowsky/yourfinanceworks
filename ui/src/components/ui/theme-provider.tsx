@@ -13,7 +13,13 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
  * theme-specific CSS-variable overrides on top of that base.
  */
 
-export type ThemeId = 'light' | 'dark' | 'system' | 'terminal' | 'sepia';
+export type ThemeId =
+  | 'light'
+  | 'dark'
+  | 'system'
+  | 'terminal'
+  | 'amber-terminal'
+  | 'sepia';
 
 // Backwards-compatible alias — older code imported `Theme`.
 export type Theme = ThemeId;
@@ -54,6 +60,16 @@ export const THEMES: ThemeDefinition[] = [
     base: 'dark',
     className: 'theme-terminal',
     preview: { bg: '#060c08', surface: '#0c150f', accent: '#22e06a', text: '#7df0a3' },
+  },
+  {
+    id: 'amber-terminal',
+    label: 'Amber Terminal',
+    description: 'Vintage amber phosphor console with a green accent.',
+    base: 'dark',
+    // Composes with the green terminal: inherits its scoped flourishes
+    // (mono font, scanlines, caret) and overrides only the color variables.
+    className: 'theme-terminal theme-terminal-amber',
+    preview: { bg: '#0a0703', surface: '#140d05', accent: '#f5a623', text: '#f0c878' },
   },
   {
     id: 'sepia',

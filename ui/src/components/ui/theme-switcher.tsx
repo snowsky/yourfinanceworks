@@ -3,6 +3,7 @@ import {
   Sun,
   Monitor,
   TerminalSquare,
+  Flame,
   BookOpen,
   Palette,
   Check,
@@ -24,6 +25,7 @@ const THEME_ICONS: Record<ThemeId, LucideIcon> = {
   light: Sun,
   dark: Moon,
   terminal: TerminalSquare,
+  'amber-terminal': Flame,
   sepia: BookOpen,
   system: Monitor,
 };
