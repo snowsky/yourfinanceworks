@@ -16,11 +16,14 @@ export function entityHref(a: Anomaly): string | null {
     case 'expense':
       return `/expenses/view/${a.entity_id}`;
     // The audit pipeline stores bank items as "bank_statement_transaction";
-    // "bank_transaction" is an older alias. No per-transaction route exists,
-    // so link to the statements list.
+    // "bank_transaction" is an older alias. When the parent statement is known
+    // we deep-link to it and highlight the transaction; otherwise fall back to
+    // the statements list.
     case 'bank_transaction':
     case 'bank_statement_transaction':
-      return '/statements';
+      return a.statement_id
+        ? `/statements?id=${a.statement_id}&txn=${a.entity_id}`
+        : '/statements';
     default:
       return null;
   }

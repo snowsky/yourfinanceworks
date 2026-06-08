@@ -63,6 +63,25 @@ async def list_anomalies(
         .all()
     )
 
+    # Resolve the parent statement id for bank-transaction anomalies so the UI
+    # can deep-link to the exact statement + transaction (entity_id is the
+    # transaction id, which isn't routable on its own).
+    statement_by_txn: dict[int, int] = {}
+    bank_txn_ids = [
+        a.entity_id for a in items if a.entity_type == "bank_statement_transaction"
+    ]
+    if bank_txn_ids:
+        from core.models.models_per_tenant import BankStatementTransaction
+
+        rows = (
+            db.query(
+                BankStatementTransaction.id, BankStatementTransaction.statement_id
+            )
+            .filter(BankStatementTransaction.id.in_(bank_txn_ids))
+            .all()
+        )
+        statement_by_txn = {txn_id: stmt_id for txn_id, stmt_id in rows}
+
     # Open-anomaly counts by risk level, in one grouped query.
     summary = {level: 0 for level in RISK_LEVELS}
     rows = (
@@ -91,6 +110,7 @@ async def list_anomalies(
                 "rule_id": a.rule_id,
                 "details": a.details,
                 "created_at": a.created_at,
+                "statement_id": statement_by_txn.get(a.entity_id),
             }
             for a in items
         ],
