@@ -75,6 +75,7 @@ def ensure_required_columns(database_url):
                 required_columns = {
                     "must_reset_password": "BOOLEAN NOT NULL DEFAULT FALSE",
                     "show_analytics": "BOOLEAN NOT NULL DEFAULT FALSE",
+                    "theme": "VARCHAR DEFAULT 'system'",
                     "count_against_license": "BOOLEAN NOT NULL DEFAULT TRUE",
                     "azure_ad_id": "VARCHAR(255)",
                     "azure_tenant_id": "VARCHAR(255)",
@@ -205,6 +206,18 @@ def ensure_tenant_required_columns(tenant_db_url: str, tenant_id: int) -> bool:
                             "ADD COLUMN rollup_expense_id INTEGER "
                             "REFERENCES expenses(id) ON DELETE SET NULL"
                         )
+                    )
+                    conn.commit()
+
+            # users: theme preference (mirrors models_per_tenant default).
+            # The /auth/me update path writes the tenant user's theme, so
+            # pre-existing tenant DBs need this column or the write will fail.
+            if "users" in inspector.get_table_names():
+                existing = {c["name"] for c in inspector.get_columns("users")}
+                if "theme" not in existing:
+                    logger.info(f"[tenant {tenant_id}] Adding users.theme")
+                    conn.execute(
+                        text("ALTER TABLE users ADD COLUMN theme VARCHAR DEFAULT 'system'")
                     )
                     conn.commit()
         return True
