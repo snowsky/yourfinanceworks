@@ -34,6 +34,7 @@ from core.services.currency_service import CurrencyService
 from core.services.review_service import ReviewService
 from core.services.search_service import search_service
 from core.utils.audit import log_audit_event
+from core.utils.anomaly_trigger import trigger_anomaly_audit
 from core.utils.file_deletion import delete_file_from_storage
 from core.utils.rbac import require_component_permission
 from core.utils.timezone import get_tenant_timezone_aware_datetime
@@ -530,6 +531,9 @@ async def create_expense(
 
         db.commit()
         uvicorn_logger.info(f"Expense committed with ID: {expense_id}")
+
+        # Re-score the new expense for anomalies/fraud (best-effort, out of band)
+        trigger_anomaly_audit(current_user.tenant_id, "expense", expense_id, db=db)
 
         db_expense = db.query(Expense).filter(Expense.id == expense_id).first()
         if not db_expense:
@@ -1127,6 +1131,9 @@ async def update_expense(
         db_expense.updated_at = get_tenant_timezone_aware_datetime(db)
         db.commit()
         db.refresh(db_expense)
+
+        # Re-score the updated expense for anomalies/fraud (best-effort, out of band)
+        trigger_anomaly_audit(current_user.tenant_id, "expense", db_expense.id, db=db)
         if "invoice_id" in update_data:
             uvicorn_logger.info(f"Updated expense {expense_id} persisted with invoice_id={db_expense.invoice_id}")
 

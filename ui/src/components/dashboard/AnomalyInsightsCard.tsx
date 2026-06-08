@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { ShieldAlert, ShieldCheck, ArrowRight } from 'lucide-react';
+import { toast } from 'sonner';
+import { ShieldAlert, ShieldCheck, ArrowRight, X } from 'lucide-react';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +30,7 @@ function entityHref(a: Anomaly): string | null {
 export function AnomalyInsightsCard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { isFeatureEnabled } = useFeatures();
   const enabled = isFeatureEnabled('anomaly_detection');
 
@@ -37,6 +39,15 @@ export function AnomalyInsightsCard() {
     queryFn: () => anomaliesApi.list({ limit: 4 }),
     enabled,
     staleTime: 60_000,
+  });
+
+  const dismiss = useMutation({
+    mutationFn: (id: number) => anomaliesApi.dismiss(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['anomalies'] });
+      toast.success(t('dashboard.anomalies.dismissed', 'Item dismissed'));
+    },
+    onError: () => toast.error(t('dashboard.anomalies.dismiss_failed', 'Could not dismiss item')),
   });
 
   if (!enabled || isError) return null;
@@ -118,25 +129,38 @@ export function AnomalyInsightsCard() {
           {(data?.items ?? []).map((a) => {
             const href = entityHref(a);
             return (
-              <button
+              <div
                 key={a.id}
-                type="button"
-                disabled={!href}
-                onClick={() => href && navigate(href)}
-                className={`flex w-full items-center justify-between gap-3 rounded-lg bg-muted/30 px-3 py-2 text-left ${
-                  href ? 'hover:bg-muted/60 transition-colors' : 'cursor-default'
-                }`}
+                className="flex items-center gap-2 rounded-lg bg-muted/30 px-3 py-2"
               >
-                <span className="flex items-center gap-2 min-w-0">
-                  <Badge variant="outline" className={RISK_BADGE[a.risk_level] ?? ''}>
-                    {t(`dashboard.anomalies.level.${a.risk_level}`, a.risk_level)}
-                  </Badge>
-                  <span className="truncate text-sm">{a.reason}</span>
-                </span>
-                <span className="shrink-0 text-xs text-muted-foreground capitalize">
-                  {a.entity_type.replace('_', ' ')} #{a.entity_id}
-                </span>
-              </button>
+                <button
+                  type="button"
+                  disabled={!href}
+                  onClick={() => href && navigate(href)}
+                  className={`flex flex-1 items-center justify-between gap-3 min-w-0 text-left ${
+                    href ? 'hover:opacity-80 transition-opacity' : 'cursor-default'
+                  }`}
+                >
+                  <span className="flex items-center gap-2 min-w-0">
+                    <Badge variant="outline" className={RISK_BADGE[a.risk_level] ?? ''}>
+                      {t(`dashboard.anomalies.level.${a.risk_level}`, a.risk_level)}
+                    </Badge>
+                    <span className="truncate text-sm">{a.reason}</span>
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground capitalize">
+                    {a.entity_type.replace('_', ' ')} #{a.entity_id}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  title={t('dashboard.anomalies.dismiss', 'Dismiss')}
+                  disabled={dismiss.isPending}
+                  onClick={() => dismiss.mutate(a.id)}
+                  className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
             );
           })}
           {total > (data?.items?.length ?? 0) && (
