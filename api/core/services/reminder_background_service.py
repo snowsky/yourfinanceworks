@@ -126,6 +126,15 @@ class ReminderBackgroundService:
                 workflow_stats = workflow_service.process_all_workflows()
                 logger.info(f"Processed workflows for tenant {tenant_id}: {workflow_stats}")
 
+                # Send client payment reminders (dunning) on the configured cadence.
+                try:
+                    from core.services.invoice_dunning import InvoiceDunningService
+                    dunning_stats = InvoiceDunningService(db).process()
+                    if dunning_stats.get("status") == "ok" and dunning_stats.get("sent"):
+                        logger.info(f"Sent payment reminders for tenant {tenant_id}: {dunning_stats}")
+                except Exception as e:
+                    logger.warning(f"Payment reminder pass failed for tenant {tenant_id}: {e}")
+
                 # Process expense digest schedule
                 expense_digest_stats = self._process_expense_digest(db, tenant_id)
                 if expense_digest_stats.get("status") not in {"skipped", "failed"}:
