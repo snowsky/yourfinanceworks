@@ -15,15 +15,19 @@ export function entityHref(a: Anomaly): string | null {
       return `/invoices/view/${a.entity_id}`;
     case 'expense':
       return `/expenses/view/${a.entity_id}`;
+    // The audit pipeline stores bank items as "bank_statement_transaction";
+    // "bank_transaction" is an older alias. No per-transaction route exists,
+    // so link to the statements list.
     case 'bank_transaction':
+    case 'bank_statement_transaction':
       return '/statements';
     default:
       return null;
   }
 }
 
-/** Human label for an entity reference, e.g. "Bank transaction #42". */
+/** Human label for an entity reference, e.g. "Bank statement transaction #42". */
 export function entityLabel(a: Anomaly): string {
-  const type = a.entity_type.replace('_', ' ');
+  const type = a.entity_type.replace(/_/g, ' ');
   return `${type.charAt(0).toUpperCase()}${type.slice(1)} #${a.entity_id}`;
 }
