@@ -7,7 +7,8 @@ import {
   ProfessionalCardTitle,
   ProfessionalCardContent,
 } from "@/components/ui/professional-card";
-import { useTheme, type ThemeDefinition } from "@/components/ui/theme-provider";
+import { type ThemeDefinition } from "@/components/ui/theme-provider";
+import { useThemePreference } from "@/hooks/useThemePreference";
 import { cn } from "@/lib/utils";
 
 /**
@@ -71,7 +72,7 @@ function ThemeSwatch({ preview }: { preview: ThemeDefinition["preview"] }) {
 
 export const ThemePicker: React.FC = () => {
   const { t } = useTranslation();
-  const { theme, setTheme, themes } = useTheme();
+  const { theme, setTheme, themes } = useThemePreference();
 
   return (
     <ProfessionalCard variant="elevated">

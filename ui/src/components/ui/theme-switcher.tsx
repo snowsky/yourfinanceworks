@@ -10,7 +10,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useTheme, type ThemeId } from './theme-provider';
+import { type ThemeId } from './theme-provider';
+import { useThemePreference } from '@/hooks/useThemePreference';
 import { ProfessionalButton } from './professional-button';
 import {
   DropdownMenu,
@@ -32,7 +33,7 @@ const THEME_ICONS: Record<ThemeId, LucideIcon> = {
 
 export function ThemeSwitcher() {
   const { t } = useTranslation();
-  const { theme, setTheme, themes } = useTheme();
+  const { theme, setTheme, themes } = useThemePreference();
 
   const ActiveIcon = THEME_ICONS[theme] ?? Palette;
 
