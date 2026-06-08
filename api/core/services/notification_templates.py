@@ -848,3 +848,57 @@ THANK_YOU_TEXT_TEMPLATE = Template("""
 
         This is an automated confirmation from {{ company_name }}.
         """)
+
+
+# Client-facing payment reminder (dunning), sent on a configurable cadence for
+# unpaid invoices. {{ status_line }} is a human phrase like "due in 7 days",
+# "due today" or "5 days overdue".
+DUNNING_HTML_TEMPLATE = Template("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Payment reminder</title>
+            <style>
+                body { font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; color: #1f2937; }
+                .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 32px; border-radius: 12px; }
+                .header { text-align: center; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb; }
+                .badge { display: inline-block; background: #fffbeb; color: #b45309; font-weight: 600; padding: 6px 14px; border-radius: 999px; font-size: 13px; }
+                .amount { font-size: 28px; font-weight: 700; color: #b45309; margin: 20px 0 4px; text-align: center; }
+                .meta { text-align: center; color: #6b7280; font-size: 14px; }
+                .footer { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px; text-align: center; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <span class="badge">Payment reminder</span>
+                </div>
+                <p>Hello {{ client_name }},</p>
+                <p>This is a friendly reminder about invoice
+                   <strong>{{ invoice_number }}</strong>, which is {{ status_line }}.</p>
+                <div class="amount">{{ currency }} {{ amount }}</div>
+                <div class="meta">Invoice {{ invoice_number }} &middot; Due {{ due_date }}</div>
+                <p style="margin-top:24px;">If you've already sent payment, please disregard this message — thank you.</p>
+                <p>— {{ company_name }}</p>
+                <div class="footer">This is an automated reminder from {{ company_name }}.</div>
+            </div>
+        </body>
+        </html>
+        """)
+
+DUNNING_TEXT_TEMPLATE = Template("""
+        Hello {{ client_name }},
+
+        This is a friendly reminder about invoice {{ invoice_number }}, which is {{ status_line }}.
+
+        Amount: {{ currency }} {{ amount }}
+        Due date: {{ due_date }}
+
+        If you've already sent payment, please disregard this message — thank you.
+
+        — {{ company_name }}
+
+        This is an automated reminder from {{ company_name }}.
+        """)

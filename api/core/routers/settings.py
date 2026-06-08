@@ -76,7 +76,9 @@ async def get_settings(
             "notes": "",
             "send_copy": True,
             "auto_reminders": True,
-            "thank_you_email": False
+            "thank_you_email": False,
+            "payment_reminders_enabled": False,
+            "reminder_cadence": [-7, -1, 3, 7, 14]
         }
         if invoice_settings_record and invoice_settings_record.value:
             invoice_settings = {**default_invoice_settings, **invoice_settings_record.value}

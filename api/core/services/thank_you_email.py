@@ -12,12 +12,8 @@ from sqlalchemy.orm import Session
 
 from config import APP_NAME
 from core.models.models_per_tenant import Client, Settings
-from core.services.email_service import (
-    EmailMessage,
-    EmailProvider,
-    EmailProviderConfig,
-    EmailService,
-)
+from core.services.client_email import build_tenant_email_service
+from core.services.email_service import EmailMessage
 from core.services.notification_templates import (
     THANK_YOU_HTML_TEMPLATE,
     THANK_YOU_TEXT_TEMPLATE,
@@ -27,23 +23,12 @@ logger = logging.getLogger(__name__)
 
 
 def _build_email_service(db: Session):
-    """Build an EmailService from the tenant's stored email_config, or None."""
-    record = db.query(Settings).filter(Settings.key == "email_config").first()
-    cfg = record.value if record else None
-    if not cfg or not cfg.get("provider"):
-        return None
-    config = EmailProviderConfig(
-        provider=EmailProvider(cfg["provider"]),
-        from_email=cfg.get("from_email"),
-        from_name=cfg.get("from_name"),
-        aws_access_key_id=cfg.get("aws_access_key_id"),
-        aws_secret_access_key=cfg.get("aws_secret_access_key"),
-        aws_region=cfg.get("aws_region"),
-        azure_connection_string=cfg.get("azure_connection_string"),
-        mailgun_api_key=cfg.get("mailgun_api_key"),
-        mailgun_domain=cfg.get("mailgun_domain"),
-    )
-    return EmailService(config)
+    """Build an EmailService from the tenant's stored email_config, or None.
+
+    Thin wrapper over the shared builder; kept as a module-level seam so tests
+    can monkeypatch ``thank_you_email._build_email_service``.
+    """
+    return build_tenant_email_service(db)
 
 
 def _thank_you_enabled(db: Session) -> bool:

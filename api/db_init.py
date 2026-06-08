@@ -220,6 +220,21 @@ def ensure_tenant_required_columns(tenant_db_url: str, tenant_id: int) -> bool:
                         text("ALTER TABLE users ADD COLUMN theme VARCHAR DEFAULT 'system'")
                     )
                     conn.commit()
+
+            # invoices: payment-reminder (dunning) bookkeeping columns.
+            if "invoices" in inspector.get_table_names():
+                existing = {c["name"] for c in inspector.get_columns("invoices")}
+                invoice_cols = {
+                    "reminder_last_offset": "INTEGER",
+                    "reminder_last_sent_at": "TIMESTAMP",
+                }
+                for col_name, col_def in invoice_cols.items():
+                    if col_name not in existing:
+                        logger.info(f"[tenant {tenant_id}] Adding invoices.{col_name}")
+                        conn.execute(
+                            text(f"ALTER TABLE invoices ADD COLUMN {col_name} {col_def}")
+                        )
+                        conn.commit()
         return True
     except Exception as e:
         logger.error(f"[tenant {tenant_id}] Error ensuring tenant columns: {e}")

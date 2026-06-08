@@ -106,6 +106,11 @@ class Invoice(Base):
     # status (paid/partially_paid). Restored when all payments are removed; null
     # when the invoice is not currently in a payment-driven status.
     pre_payment_status = Column(String, nullable=True)
+    # Payment-reminder (dunning) bookkeeping: the most-advanced cadence offset
+    # (days relative to due_date) for which a reminder has been emailed, so the
+    # dunning pass is idempotent and only advances forward through the cadence.
+    reminder_last_offset = Column(Integer, nullable=True)
+    reminder_last_sent_at = Column(DateTime(timezone=True), nullable=True)
     notes = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     # No tenant_id needed since each tenant has its own database
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
