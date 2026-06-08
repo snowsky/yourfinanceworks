@@ -12,6 +12,7 @@ import { ProfessionalInput } from "@/components/ui/professional-input";
 import { ProfessionalTextarea } from "@/components/ui/professional-textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { ReminderCadenceEditor } from "@/components/settings/ReminderCadenceEditor";
 import { settingsApi, InvoiceSettings } from "@/lib/api";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -38,6 +39,8 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
         send_copy: true,
         auto_reminders: true,
         thank_you_email: false,
+        payment_reminders_enabled: false,
+        reminder_cadence: [-7, -1, 3, 7, 14],
     });
 
     const { data: settings, isLoading } = useQuery({
@@ -180,6 +183,40 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                                 setInvoiceSettings((prev) => ({ ...prev, thank_you_email: checked }))
                             }
                         />
+                    </div>
+
+                    <div className="p-4 bg-muted/30 rounded-xl space-y-4 mt-3">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5 pr-4">
+                                <Label htmlFor="payment_reminders_enabled" className="text-base font-semibold">
+                                    {t('settings.payment_reminders', 'Payment reminders')}
+                                </Label>
+                                <p className="text-sm text-muted-foreground">
+                                    {t('settings.payment_reminders_description', 'Automatically email clients about unpaid invoices on the schedule below. Requires email to be configured.')}
+                                </p>
+                            </div>
+                            <Switch
+                                id="payment_reminders_enabled"
+                                checked={!!invoiceSettings.payment_reminders_enabled}
+                                onCheckedChange={(checked) =>
+                                    setInvoiceSettings((prev) => ({ ...prev, payment_reminders_enabled: checked }))
+                                }
+                            />
+                        </div>
+
+                        {invoiceSettings.payment_reminders_enabled && (
+                            <div className="pt-2 border-t">
+                                <p className="text-sm font-medium mb-2">
+                                    {t('settings.reminder_schedule', 'Reminder schedule')}
+                                </p>
+                                <ReminderCadenceEditor
+                                    value={invoiceSettings.reminder_cadence ?? []}
+                                    onChange={(next) =>
+                                        setInvoiceSettings((prev) => ({ ...prev, reminder_cadence: next }))
+                                    }
+                                />
+                            </div>
+                        )}
                     </div>
                 </ProfessionalCardContent>
             </ProfessionalCard>

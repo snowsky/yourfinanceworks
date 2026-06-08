@@ -18,6 +18,8 @@ export interface InvoiceSettings {
   send_copy: boolean;
   auto_reminders: boolean;
   thank_you_email?: boolean;
+  payment_reminders_enabled?: boolean;
+  reminder_cadence?: number[];
 }
 
 export type ShareAccessType = 'public' | 'password' | 'question';
