@@ -2,9 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { ShieldAlert, ShieldCheck, ArrowRight, X } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, X } from 'lucide-react';
 import { ProfessionalCard } from '@/components/ui/professional-card';
-import { ProfessionalButton } from '@/components/ui/professional-button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFeatures } from '@/contexts/FeatureContext';
@@ -18,8 +17,16 @@ const RISK_BADGE: Record<string, string> = {
 };
 
 function entityHref(a: Anomaly): string | null {
-  if (a.entity_type === 'invoice') return `/invoices/view/${a.entity_id}`;
-  return null;
+  switch (a.entity_type) {
+    case 'invoice':
+      return `/invoices/view/${a.entity_id}`;
+    case 'expense':
+      return `/expenses/view/${a.entity_id}`;
+    case 'bank_transaction':
+      return '/statements';
+    default:
+      return null;
+  }
 }
 
 /**
@@ -164,15 +171,11 @@ export function AnomalyInsightsCard() {
             );
           })}
           {total > (data?.items?.length ?? 0) && (
-            <ProfessionalButton
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={() => navigate('/invoices')}
-            >
-              {t('dashboard.anomalies.view_all', 'View all flagged items')}
-              <ArrowRight className="h-3 w-3" />
-            </ProfessionalButton>
+            <p className="pt-1 text-center text-xs text-muted-foreground">
+              {t('dashboard.anomalies.more', '+{{count}} more flagged', {
+                count: total - (data?.items?.length ?? 0),
+              })}
+            </p>
           )}
         </div>
       )}
