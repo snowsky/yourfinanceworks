@@ -52,6 +52,7 @@ const ExpensesEdit = React.lazy(() => import("./pages/ExpensesEdit"));
 const ExpensesView = React.lazy(() => import("./pages/ExpensesView"));
 const Expenses = React.lazy(() => import("./pages/Expenses"));
 const Statements = React.lazy(() => import("./pages/Statements"));
+const Anomalies = React.lazy(() => import("./pages/Anomalies"));
 const Settings = React.lazy(() => import("./pages/Settings"));
 const Users = React.lazy(() => import("./pages/Users"));
 const SuperAdmin = React.lazy(() => import("./pages/SuperAdmin"));
@@ -295,6 +296,7 @@ const AppContent = () => {
                     <Route path="/expenses/edit/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><ExpensesEdit /></RoleProtectedRoute>} />
                     <Route path="/expenses/:id" element={<ExpenseRedirect />} />
                     <Route path="/expenses" element={<Expenses />} />
+                    <Route path="/anomalies" element={<Anomalies />} />
                     <Route path="/payments" element={<Payments />} />
                     <Route path="/reminders" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Reminders /></RoleProtectedRoute>} />
                     <Route path="/workflows" element={<RoleProtectedRoute allowedRoles={['admin']}><Workflows /></RoleProtectedRoute>} />

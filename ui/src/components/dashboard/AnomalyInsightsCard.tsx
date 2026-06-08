@@ -2,32 +2,14 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { ShieldAlert, ShieldCheck, X } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, ArrowRight, X } from 'lucide-react';
 import { ProfessionalCard } from '@/components/ui/professional-card';
+import { ProfessionalButton } from '@/components/ui/professional-button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFeatures } from '@/contexts/FeatureContext';
-import { anomaliesApi, type Anomaly } from '@/lib/api';
-
-const RISK_BADGE: Record<string, string> = {
-  critical: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30',
-  high: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/25',
-  medium: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
-  low: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/25',
-};
-
-function entityHref(a: Anomaly): string | null {
-  switch (a.entity_type) {
-    case 'invoice':
-      return `/invoices/view/${a.entity_id}`;
-    case 'expense':
-      return `/expenses/view/${a.entity_id}`;
-    case 'bank_transaction':
-      return '/statements';
-    default:
-      return null;
-  }
-}
+import { anomaliesApi } from '@/lib/api';
+import { RISK_BADGE, entityHref, entityLabel } from '@/lib/anomaly-ui';
 
 /**
  * Tenant-facing summary of open anomalies/fraud flags, surfaced on the
@@ -143,6 +125,7 @@ export function AnomalyInsightsCard() {
                 <button
                   type="button"
                   disabled={!href}
+                  title={a.reason}
                   onClick={() => href && navigate(href)}
                   className={`flex flex-1 items-center justify-between gap-3 min-w-0 text-left ${
                     href ? 'hover:opacity-80 transition-opacity' : 'cursor-default'
@@ -154,8 +137,8 @@ export function AnomalyInsightsCard() {
                     </Badge>
                     <span className="truncate text-sm">{a.reason}</span>
                   </span>
-                  <span className="shrink-0 text-xs text-muted-foreground capitalize">
-                    {a.entity_type.replace('_', ' ')} #{a.entity_id}
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {entityLabel(a)}
                   </span>
                 </button>
                 <button
@@ -170,13 +153,19 @@ export function AnomalyInsightsCard() {
               </div>
             );
           })}
-          {total > (data?.items?.length ?? 0) && (
-            <p className="pt-1 text-center text-xs text-muted-foreground">
-              {t('dashboard.anomalies.more', '+{{count}} more flagged', {
-                count: total - (data?.items?.length ?? 0),
-              })}
-            </p>
-          )}
+          <ProfessionalButton
+            variant="ghost"
+            size="sm"
+            className="w-full"
+            onClick={() => navigate('/anomalies')}
+          >
+            {total > (data?.items?.length ?? 0)
+              ? t('dashboard.anomalies.view_all_count', 'View all {{count}} flagged items', {
+                  count: total,
+                })
+              : t('dashboard.anomalies.view_all', 'View all flagged items')}
+            <ArrowRight className="h-3 w-3" />
+          </ProfessionalButton>
         </div>
       )}
     </ProfessionalCard>
