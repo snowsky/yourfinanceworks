@@ -1,5 +1,27 @@
 # Anomaly / Fraud Detection — Tenant-Facing Surfacing Plan
 
+> **Status: ✅ Shipped (2026-06-08).** Delivered across PRs #344–#351.
+> The plan below is retained for context; the checklist tracks what landed.
+>
+> | Step | Status | PR |
+> | --- | --- | --- |
+> | 1. Tenant read endpoint (`GET /anomalies`) | ✅ | #344 |
+> | 2. Dismiss endpoint (`PATCH /anomalies/{id}/dismiss`) | ✅ | #345 |
+> | 3. Live trigger on invoice/expense writes | ✅ | #345 |
+> | 4. Read-path is precomputed-rows only (fast) | ✅ | #344 |
+> | 5. Dashboard card | ✅ | #344 |
+> | 6. Detail panel + dismiss UI | ✅ (full `/anomalies` page) | #347 |
+> | 7. Tests | ✅ (8 passing) | #350 |
+>
+> **Beyond the original plan:** sidebar nav entry (#349), per-entity deep-links
+> incl. precise bank statement+transaction links (#346, #348, #351).
+>
+> **Deferred follow-ups:** i18n keys (still inline `t(key, fallback)`); a
+> "bulk audit historical records" tenant action; email/notification on new
+> critical anomalies. The shared pytest teardown also deletes `users` before
+> `anomalies` — fine today (worked around in the anomaly tests) but worth a
+> proper child-before-parent fix.
+
 ## Goal
 
 Expose the **already-built** anomaly/fraud detection engine to ordinary tenant
