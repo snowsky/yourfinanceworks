@@ -1,24 +1,134 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type Theme = 'dark' | 'light' | 'system';
+/**
+ * Theme system
+ * -------------
+ * Themes are data-driven via the THEMES registry below. Adding a new theme is
+ * a matter of (1) appending an entry here and (2) declaring its CSS-variable
+ * block in `index.css`. Nothing else needs to change — the Settings theme
+ * picker renders straight from this registry.
+ *
+ * Each theme declares a `base` ('light' | 'dark') so Tailwind's `dark:`
+ * variants keep resolving, plus an optional `className` that layers
+ * theme-specific CSS-variable overrides on top of that base.
+ */
+
+export type ThemeId = 'light' | 'dark' | 'system' | 'terminal' | 'sepia';
+
+// Backwards-compatible alias — older code imported `Theme`.
+export type Theme = ThemeId;
+
+export interface ThemeDefinition {
+  id: ThemeId;
+  /** English fallback label; UI translates via `settings.appearance.themes.<id>`. */
+  label: string;
+  /** English fallback description. */
+  description: string;
+  /** Whether Tailwind dark-mode (`dark:` variants) should be active. */
+  base: 'light' | 'dark';
+  /** Extra class applied to <html> for CSS-variable overrides beyond the base. */
+  className?: string;
+  /** Colors used to render the preview swatch in the picker. */
+  preview: { bg: string; surface: string; accent: string; text: string };
+}
+
+export const THEMES: ThemeDefinition[] = [
+  {
+    id: 'light',
+    label: 'Light',
+    description: 'Bright, high-contrast surfaces for daytime work.',
+    base: 'light',
+    preview: { bg: '#f3f6f9', surface: '#ffffff', accent: '#2563eb', text: '#1f2937' },
+  },
+  {
+    id: 'dark',
+    label: 'Dark',
+    description: 'Dimmed navy surfaces that are easy on the eyes.',
+    base: 'dark',
+    preview: { bg: '#14171c', surface: '#1b1f26', accent: '#3b82f6', text: '#e8edf2' },
+  },
+  {
+    id: 'terminal',
+    label: 'Terminal',
+    description: 'Green CRT phosphor on near-black — for night owls.',
+    base: 'dark',
+    className: 'theme-terminal',
+    preview: { bg: '#060c08', surface: '#0c150f', accent: '#22e06a', text: '#7df0a3' },
+  },
+  {
+    id: 'sepia',
+    label: 'Sepia',
+    description: 'Warm paper tones and ink — calm, low-glare reading.',
+    base: 'light',
+    className: 'theme-sepia',
+    preview: { bg: '#efe6d3', surface: '#f7f0e1', accent: '#9a6a3c', text: '#3a2f24' },
+  },
+  {
+    id: 'system',
+    label: 'System',
+    description: 'Follow your operating-system appearance automatically.',
+    base: 'light', // resolved at runtime; not used directly for `system`
+    preview: { bg: '#9aa3ad', surface: '#ffffff', accent: '#3b82f6', text: '#1f2937' },
+  },
+];
+
+const THEME_IDS = new Set<ThemeId>(THEMES.map((t) => t.id));
+
+// A theme's `className` may list multiple space-separated classes (e.g. a
+// variant that shares another theme's scoped flourishes via composition).
+const splitClasses = (className?: string): string[] =>
+  className ? className.split(/\s+/).filter(Boolean) : [];
+
+// Every class this provider might add to <html>, so we can clear them cleanly.
+const MANAGED_CLASSES = [
+  'light',
+  'dark',
+  ...THEMES.flatMap((t) => splitClasses(t.className)),
+];
+
+export function getThemeDefinition(id: ThemeId): ThemeDefinition {
+  return THEMES.find((t) => t.id === id) ?? THEMES[0];
+}
 
 type ThemeProviderProps = {
   children: React.ReactNode;
-  defaultTheme?: Theme;
+  defaultTheme?: ThemeId;
   storageKey?: string;
 };
 
 type ThemeProviderState = {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
+  theme: ThemeId;
+  setTheme: (theme: ThemeId) => void;
+  /** The concrete theme actually applied ('system' resolved to light/dark). */
+  resolvedTheme: Exclude<ThemeId, 'system'>;
+  themes: ThemeDefinition[];
 };
 
 const initialState: ThemeProviderState = {
   theme: 'system',
   setTheme: () => null,
+  resolvedTheme: 'light',
+  themes: THEMES,
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
+
+function applyTheme(theme: ThemeId): Exclude<ThemeId, 'system'> {
+  const root = window.document.documentElement;
+  root.classList.remove(...MANAGED_CLASSES);
+
+  let active: ThemeId = theme;
+  if (theme === 'system') {
+    active = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  const def = getThemeDefinition(active);
+  root.classList.add(def.base);
+  const extra = splitClasses(def.className);
+  if (extra.length) root.classList.add(...extra);
+
+  return active as Exclude<ThemeId, 'system'>;
+}
 
 export function ThemeProvider({
   children,
@@ -26,33 +136,33 @@ export function ThemeProvider({
   storageKey = 'vite-ui-theme',
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
-  );
+  const [theme, setThemeState] = useState<ThemeId>(() => {
+    const stored = localStorage.getItem(storageKey) as ThemeId | null;
+    return stored && THEME_IDS.has(stored) ? stored : defaultTheme;
+  });
+  const [resolvedTheme, setResolvedTheme] = useState<Exclude<ThemeId, 'system'>>('light');
 
   useEffect(() => {
-    const root = window.document.documentElement;
-
-    root.classList.remove('light', 'dark');
-
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
-        .matches
-        ? 'dark'
-        : 'light';
-
-      root.classList.add(systemTheme);
-      return;
-    }
-
-    root.classList.add(theme);
+    setResolvedTheme(applyTheme(theme));
   }, [theme]);
 
-  const value = {
+  // Keep `system` in sync when the OS appearance changes live.
+  useEffect(() => {
+    if (theme !== 'system') return;
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = () => setResolvedTheme(applyTheme('system'));
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, [theme]);
+
+  const value: ThemeProviderState = {
     theme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme);
-      setTheme(theme);
+    resolvedTheme,
+    themes: THEMES,
+    setTheme: (next: ThemeId) => {
+      const safe = THEME_IDS.has(next) ? next : defaultTheme;
+      localStorage.setItem(storageKey, safe);
+      setThemeState(safe);
     },
   };
 
