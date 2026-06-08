@@ -18,6 +18,7 @@ import { ContentSection } from '@/components/ui/professional-layout';
 import { ProfessionalCard, MetricCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { AnomalyInsightsCard } from './AnomalyInsightsCard';
+import { CashFlowForecastCard } from './CashFlowForecastCard';
 import { QuickActions } from './QuickActions';
 import { InvoiceChart } from './InvoiceChart';
 import { RecentActivity } from './RecentActivity';
@@ -298,6 +299,9 @@ export function ProfessionalDashboard() {
       </ContentSection>
 
 
+
+      {/* Cash flow forecast (renders only when the commercial feature is licensed) */}
+      <CashFlowForecastCard />
 
       {/* Charts and Recent Activity Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 xl:gap-8">
