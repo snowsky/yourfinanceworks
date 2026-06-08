@@ -17,6 +17,7 @@ export interface InvoiceSettings {
   notes?: string;
   send_copy: boolean;
   auto_reminders: boolean;
+  thank_you_email?: boolean;
 }
 
 export type ShareAccessType = 'public' | 'password' | 'question';

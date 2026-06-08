@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2, Mail } from "lucide-react";
 import {
     ProfessionalCard,
     ProfessionalCardHeader,
@@ -10,6 +10,8 @@ import {
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import { ProfessionalInput } from "@/components/ui/professional-input";
 import { ProfessionalTextarea } from "@/components/ui/professional-textarea";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { settingsApi, InvoiceSettings } from "@/lib/api";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -35,6 +37,7 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
         notes: BACKEND_DEFAULT_NOTES,
         send_copy: true,
         auto_reminders: true,
+        thank_you_email: false,
     });
 
     const { data: settings, isLoading } = useQuery({
@@ -149,6 +152,35 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                         onChange={handleInvoiceChange}
                         placeholder={BACKEND_DEFAULT_TERMS}
                     />
+                </ProfessionalCardContent>
+            </ProfessionalCard>
+
+            {/* Automation Card */}
+            <ProfessionalCard variant="elevated">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-primary" />
+                        {t('settings.invoice_automation', 'Automation')}
+                    </ProfessionalCardTitle>
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent>
+                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                        <div className="space-y-0.5 pr-4">
+                            <Label htmlFor="thank_you_email" className="text-base font-semibold">
+                                {t('settings.thank_you_email', 'Thank-you email on payment')}
+                            </Label>
+                            <p className="text-sm text-muted-foreground">
+                                {t('settings.thank_you_email_description', 'Automatically email the client a thank-you when their invoice is paid in full. Requires email to be configured.')}
+                            </p>
+                        </div>
+                        <Switch
+                            id="thank_you_email"
+                            checked={!!invoiceSettings.thank_you_email}
+                            onCheckedChange={(checked) =>
+                                setInvoiceSettings((prev) => ({ ...prev, thank_you_email: checked }))
+                            }
+                        />
+                    </div>
                 </ProfessionalCardContent>
             </ProfessionalCard>
 
