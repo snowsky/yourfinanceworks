@@ -12,6 +12,8 @@ export interface Anomaly {
   rule_id: string | null;
   details: unknown;
   created_at: string;
+  /** Parent statement id for bank-transaction anomalies (else null). */
+  statement_id?: number | null;
 }
 
 export interface AnomalyListResponse {
