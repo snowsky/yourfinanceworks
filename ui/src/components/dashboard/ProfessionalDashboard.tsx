@@ -17,6 +17,7 @@ import {
 import { ContentSection } from '@/components/ui/professional-layout';
 import { ProfessionalCard, MetricCard } from '@/components/ui/professional-card';
 import { ProfessionalButton } from '@/components/ui/professional-button';
+import { AnomalyInsightsCard } from './AnomalyInsightsCard';
 import { QuickActions } from './QuickActions';
 import { InvoiceChart } from './InvoiceChart';
 import { RecentActivity } from './RecentActivity';
@@ -265,6 +266,9 @@ export function ProfessionalDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Fraud & anomaly checks (renders only when the commercial feature is licensed) */}
+      <AnomalyInsightsCard />
 
       {/* Metrics Grid */}
       <ContentSection
