@@ -235,6 +235,19 @@ def ensure_tenant_required_columns(tenant_db_url: str, tenant_id: int) -> bool:
                             text(f"ALTER TABLE invoices ADD COLUMN {col_name} {col_def}")
                         )
                         conn.commit()
+
+            # clients: searchable email_hash for client-portal login lookup.
+            # Existing rows are backfilled separately (needs tenant context to
+            # decrypt the email); the column is added here so writes don't fail.
+            if "clients" in inspector.get_table_names():
+                existing = {c["name"] for c in inspector.get_columns("clients")}
+                if "email_hash" not in existing:
+                    logger.info(f"[tenant {tenant_id}] Adding clients.email_hash")
+                    conn.execute(text("ALTER TABLE clients ADD COLUMN email_hash VARCHAR(64)"))
+                    conn.execute(
+                        text("CREATE INDEX IF NOT EXISTS ix_clients_email_hash ON clients (email_hash)")
+                    )
+                    conn.commit()
         return True
     except Exception as e:
         logger.error(f"[tenant {tenant_id}] Error ensuring tenant columns: {e}")

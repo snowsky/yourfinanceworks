@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Numeric, ForeignKey, Date, DateTime, Boolean, JSON, Text, UniqueConstraint, Enum
+from sqlalchemy import Column, Integer, String, Float, Numeric, ForeignKey, Date, DateTime, Boolean, JSON, Text, UniqueConstraint, Enum, event
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from sqlalchemy.orm import declarative_base
@@ -54,6 +54,10 @@ class Client(Base):
 
     name = Column(EncryptedColumn(), index=True)  # Encrypted for privacy
     email = Column(EncryptedColumn(), unique=True, nullable=True, index=True)  # Encrypted for privacy, nullable to allow clients without email
+    # Searchable HMAC of the (normalised) email — lets the client portal look a
+    # client up by email even though `email` itself is encrypted. Maintained by
+    # the before_insert/before_update listeners below. See client_email_hash.py.
+    email_hash = Column(String(64), nullable=True, index=True)
     phone = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     address = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
     company = Column(EncryptedColumn(), nullable=True)  # Encrypted for privacy
@@ -74,6 +78,42 @@ class Client(Base):
     invoices = relationship("Invoice", back_populates="client", cascade="all, delete-orphan")
     notes = relationship("ClientNote", back_populates="client", cascade="all, delete-orphan")
     owner = relationship("User", foreign_keys=[owner_user_id])
+
+
+def _client_sync_email_hash(mapper, connection, target):
+    """Keep Client.email_hash in sync with the (plaintext) email on every write.
+
+    Runs for all create/update paths, so callers never have to remember to set
+    it. Imports are function-local to avoid import cycles at model load time.
+    """
+    from core.models.database import get_tenant_context
+    from core.utils.client_email_hash import compute_email_hash
+
+    try:
+        tenant_id = get_tenant_context()
+    except Exception:
+        tenant_id = None
+    target.email_hash = compute_email_hash(getattr(target, "email", None), tenant_id)
+
+
+event.listen(Client, "before_insert", _client_sync_email_hash)
+event.listen(Client, "before_update", _client_sync_email_hash)
+
+
+def backfill_client_email_hashes(db, tenant_id: int) -> int:
+    """Populate email_hash for existing clients (run once per tenant, in tenant
+    context so the encrypted email decrypts). Returns the number updated."""
+    from core.utils.client_email_hash import compute_email_hash
+
+    updated = 0
+    for client in db.query(Client).all():
+        new_hash = compute_email_hash(getattr(client, "email", None), tenant_id)
+        if client.email_hash != new_hash:
+            client.email_hash = new_hash
+            updated += 1
+    if updated:
+        db.commit()
+    return updated
 
 class ClientNote(Base):
     __tablename__ = "client_notes"

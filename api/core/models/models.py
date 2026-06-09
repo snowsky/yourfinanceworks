@@ -97,6 +97,25 @@ class PasswordResetToken(Base):
     # Relationships
     user = relationship("MasterUser", back_populates="password_reset_tokens")
 
+class ClientLoginToken(Base):
+    """One-time, short-lived magic-link token for client-portal login.
+
+    Lives in the master DB (like PasswordResetToken) so the public verify
+    endpoint can resolve it without first knowing the tenant. `client_id`
+    references a Client in the tenant DB — no cross-database FK is possible.
+    """
+    __tablename__ = "client_login_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String, unique=True, nullable=False, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    client_id = Column(Integer, nullable=False)  # Client lives in the tenant DB
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    is_used = Column(Boolean, default=False, nullable=False)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
 class ShareToken(Base):
     __tablename__ = "share_tokens"
 
