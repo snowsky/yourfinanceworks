@@ -10,11 +10,13 @@ Split from the original monolithic invoices.py (3,640 lines) into focused module
 """
 
 from fastapi import APIRouter
-from . import crud, history, pdf_email, attachments, reviews
+from . import crud, history, pdf_email, attachments, reviews, forecast
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
-# Route ordering: static paths in crud must be registered before /{invoice_id} dynamic paths.
+# Route ordering: static paths must be registered before /{invoice_id} dynamic
+# paths. forecast exposes the static /payment-forecast, so register it first.
+router.include_router(forecast.router)
 # crud.py preserves the original ordering: POST /, GET /, static paths, then /{invoice_id}.
 router.include_router(crud.router)
 router.include_router(history.router)
