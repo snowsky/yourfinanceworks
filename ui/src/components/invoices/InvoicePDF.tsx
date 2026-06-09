@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { Invoice } from '@/lib/api';
+import { Invoice, InvoiceBranding } from '@/lib/api';
+import { isHexColor } from '@/lib/invoice-branding';
 
 // Custom currency names for cryptocurrencies and other custom currencies
 const customCurrencyNames: { [key: string]: { name: string; decimals: number } } = {
@@ -162,9 +163,10 @@ interface InvoicePDFProps {
   clientCompany?: string;
   showDiscount: boolean;
   template?: string;
+  branding?: InvoiceBranding;
 }
 
-export const InvoicePDF = ({ invoice, companyName, clientCompany, showDiscount, template = 'modern' }: InvoicePDFProps) => {
+export const InvoicePDF = ({ invoice, companyName, clientCompany, showDiscount, template = 'modern', branding }: InvoicePDFProps) => {
   const getTemplateColors = () => {
     switch (template) {
       case 'classic':
@@ -174,9 +176,16 @@ export const InvoicePDF = ({ invoice, companyName, clientCompany, showDiscount, 
         return { title: '#1e40af', header: '#1e40af', accent: '#3b82f6' };
     }
   };
-  
-  const templateColors = getTemplateColors();
-  
+
+  // Tenant branding (when set) overrides the built-in template palette.
+  const templateColors = branding && isHexColor(branding.brand_color)
+    ? {
+        title: branding.brand_color,
+        header: branding.brand_color,
+        accent: isHexColor(branding.accent_color) ? branding.accent_color : branding.brand_color,
+      }
+    : getTemplateColors();
+
   const templateStyles = StyleSheet.create({
     ...styles,
     title: {
@@ -186,6 +195,14 @@ export const InvoicePDF = ({ invoice, companyName, clientCompany, showDiscount, 
     companyInfo: {
       ...styles.companyInfo,
       color: templateColors.header,
+    },
+    tableHeader: {
+      ...styles.tableHeader,
+      borderBottomColor: templateColors.accent,
+    },
+    total: {
+      ...styles.total,
+      borderTopColor: templateColors.accent,
     },
   });
   
@@ -245,7 +262,7 @@ export const InvoicePDF = ({ invoice, companyName, clientCompany, showDiscount, 
       )}
 
       <View style={styles.table}>
-        <View style={styles.tableHeader}>
+        <View style={templateStyles.tableHeader}>
           <Text style={[styles.tableCell, styles.col1]}>Description</Text>
           <Text style={[styles.tableCell, styles.col2]}>Quantity</Text>
           <Text style={[styles.tableCell, styles.col3]}>Price</Text>
@@ -277,7 +294,7 @@ export const InvoicePDF = ({ invoice, companyName, clientCompany, showDiscount, 
         })}
       </View>
 
-      <View style={styles.total}>
+      <View style={templateStyles.total}>
         {showDiscount && invoice.discount_value > 0 ? (
           <>
             <View style={styles.totalRow}>
@@ -317,6 +334,12 @@ export const InvoicePDF = ({ invoice, companyName, clientCompany, showDiscount, 
           <Text>{invoice.notes}</Text>
         </View>
       )}
+
+      {branding?.footer_text ? (
+        <View style={styles.notes}>
+          <Text style={{ fontSize: 9, color: '#666', textAlign: 'center' }}>{branding.footer_text}</Text>
+        </View>
+      ) : null}
       </Page>
     </Document>
   );
