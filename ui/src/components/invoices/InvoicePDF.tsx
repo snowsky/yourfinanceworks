@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import { Invoice, InvoiceBranding } from '@/lib/api';
 import { isHexColor } from '@/lib/invoice-branding';
 
@@ -69,6 +69,12 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 20,
+  },
+  logo: {
+    width: 90,
+    height: 90,
+    objectFit: 'contain',
+    marginBottom: 10,
   },
   title: {
     fontSize: 24,
@@ -164,9 +170,10 @@ interface InvoicePDFProps {
   showDiscount: boolean;
   template?: string;
   branding?: InvoiceBranding;
+  logoUrl?: string | null;
 }
 
-export const InvoicePDF = ({ invoice, companyName, clientCompany, showDiscount, template = 'modern', branding }: InvoicePDFProps) => {
+export const InvoicePDF = ({ invoice, companyName, clientCompany, showDiscount, template = 'modern', branding, logoUrl }: InvoicePDFProps) => {
   const getTemplateColors = () => {
     switch (template) {
       case 'classic':
@@ -210,6 +217,7 @@ export const InvoicePDF = ({ invoice, companyName, clientCompany, showDiscount, 
     <Document>
       <Page size="A4" style={templateStyles.page}>
       <View style={styles.header}>
+        {logoUrl ? <Image src={logoUrl} style={styles.logo} /> : null}
         <Text style={templateStyles.title}>INVOICE</Text>
         <Text style={templateStyles.companyInfo}>{companyName}</Text>
       </View>
