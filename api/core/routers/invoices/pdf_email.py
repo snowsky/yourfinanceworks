@@ -5,9 +5,9 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import logging
 
-from core.models.database import get_db
+from core.models.database import get_db, get_master_db
 from core.models.models_per_tenant import Invoice, Client
-from core.models.models import MasterUser
+from core.models.models import MasterUser, Tenant
 from core.routers.auth import get_current_user
 from core.utils.pdf_generator import generate_invoice_pdf
 from core.services.invoice_branding import get_invoice_branding
@@ -37,6 +37,7 @@ async def download_invoice_pdf(
     invoice_id: int,
     template: str = 'modern',
     db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Download or preview the invoice PDF, respecting the invoice's show_discount_in_pdf field."""
@@ -48,8 +49,16 @@ async def download_invoice_pdf(
         client = db.query(Client).filter(Client.id == invoice.client_id).first()
         if not client:
             raise HTTPException(status_code=404, detail="Client not found")
-        # Optionally fetch tenant/company info if available
-        company_data = {"name": "Your Company"}
+        # Company/tenant info lives in the master DB (not the per-tenant `db`).
+        tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+        company_data = {
+            "name": tenant.name if tenant else "Your Company",
+            "email": tenant.email if tenant else "",
+            "phone": tenant.phone if tenant else "",
+            "address": tenant.address if tenant else "",
+            "tax_id": tenant.tax_id if tenant else "",
+            "logo": tenant.company_logo_url if tenant else "",
+        }
         # Prepare invoice data
         invoice_data = {
             'id': invoice.id,

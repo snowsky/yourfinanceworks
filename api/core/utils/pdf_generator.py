@@ -4,8 +4,10 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
+from reportlab.lib.utils import ImageReader
 from typing import Dict, Any, List, Optional
 import io
+import os
 from datetime import datetime
 from xml.sax.saxutils import escape as xml_escape
 import logging
@@ -150,10 +152,39 @@ class InvoicePDFGenerator:
             logger.error(f"Failed to generate PDF: {str(e)}")
             raise
     
+    def _resolve_logo_path(self, logo_url: str) -> Optional[str]:
+        """Map a '/static/logos/...' URL to a local file under core/static.
+
+        Returns None for non-static URLs, path-traversal attempts, or missing
+        files — the logo is served from local static storage, so we never make
+        a network call here."""
+        if not isinstance(logo_url, str) or not logo_url.startswith('/static/'):
+            return None
+        static_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))
+        local = os.path.abspath(os.path.join(static_root, logo_url[len('/static/'):]))
+        if not local.startswith(static_root + os.sep):
+            return None
+        return local if os.path.isfile(local) else None
+
     def _build_header(self, company_data: Dict[str, Any]) -> List:
         """Build company header section"""
         elements = []
-        
+
+        # Optional brand logo (local static files only; failures are non-fatal).
+        if self.branding.get('show_logo', True) and company_data.get('logo'):
+            try:
+                logo_path = self._resolve_logo_path(company_data['logo'])
+                if logo_path:
+                    iw, ih = ImageReader(logo_path).getSize()
+                    if iw and ih:
+                        scale = min(90.0 / iw, 90.0 / ih, 1.0)
+                        logo = Image(logo_path, width=iw * scale, height=ih * scale)
+                        logo.hAlign = 'LEFT'
+                        elements.append(logo)
+                        elements.append(Spacer(1, 8))
+            except Exception:
+                logger.debug("Skipping invoice logo (failed to load)", exc_info=True)
+
         # Company name
         company_name = company_data.get('name', 'Your Company')
         elements.append(Paragraph(xml_escape(company_name), self.styles['CompanyName']))
