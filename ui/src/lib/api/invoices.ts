@@ -440,7 +440,33 @@ export const invoiceApi = {
       method: 'POST',
       body: JSON.stringify(historyEntry),
     }),
+
+  getPaymentForecast: () =>
+    apiRequest<PaymentForecastResponse>(`/invoices/payment-forecast`),
 };
+
+export interface PaymentForecastItem {
+  invoice_id: number;
+  number: string;
+  client_id: number;
+  amount: number;
+  currency: string;
+  status: string;
+  due_date: string | null;
+  predicted_date: string;
+  expected_in_days: number;
+  avg_days_to_pay: number | null;
+  basis: 'client' | 'global' | 'due_date';
+  confidence: 'high' | 'medium' | 'low' | 'none';
+  sample_size: number;
+}
+
+export interface PaymentForecastResponse {
+  as_of: string;
+  global_avg_days_to_pay: number | null;
+  count: number;
+  items: PaymentForecastItem[];
+}
 
 export const linkApi = {
   // Simple invoice list for selectors
