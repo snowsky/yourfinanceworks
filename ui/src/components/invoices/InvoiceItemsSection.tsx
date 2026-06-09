@@ -333,7 +333,7 @@ export function InvoiceItemsSection({
             </div>
             <h3 className="text-lg font-bold text-foreground mb-1">{t('invoices.no_items_yet')}</h3>
             <p className="text-sm text-muted-foreground">
-              {t('invoices.click_add_to_start', 'Click "Add Item" to start adding products or services.')}
+              {t('invoices.click_add_to_start')}
             </p>
           </div>
         )}

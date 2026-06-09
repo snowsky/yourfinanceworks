@@ -103,7 +103,7 @@ export function InvoiceAttachmentSection({
         {invoiceAttachments.length > 0 && (
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider px-2">
-              {t('invoices.new_attachments', 'New Attachments')}
+              {t('invoices.new_attachments')}
             </h3>
             {invoiceAttachments.map((file, index) => (
               <div key={`new-${index}`} className="p-4 rounded-2xl bg-primary/5 border border-primary/20 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -115,7 +115,7 @@ export function InvoiceAttachmentSection({
                     <p className="text-sm font-bold text-foreground truncate">{file.name}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                        {t('invoices.ready_to_upload', 'Ready to upload')}
+                        {t('invoices.ready_to_upload')}
                       </span>
                       <span className="text-xs text-muted-foreground italic">
                         {(file.size / 1024 / 1024).toFixed(2)} MB
@@ -153,7 +153,7 @@ export function InvoiceAttachmentSection({
         {existingAttachments.length > 0 && (
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider px-2">
-              {t('invoices.existing_attachments', 'Existing Attachments')}
+              {t('invoices.existing_attachments')}
             </h3>
             <div className="grid grid-cols-1 gap-4">
               {existingAttachments.map((att) => (
@@ -186,7 +186,7 @@ export function InvoiceAttachmentSection({
                         loading={attachmentPreviewLoading.id === att.id && attachmentPreviewLoading.loading}
                         leftIcon={<Eye className="w-4 h-4" />}
                       >
-                        {t('common.preview', 'Preview')}
+                        {t('common.preview')}
                       </ProfessionalButton>
 
                       <ProfessionalButton
@@ -212,10 +212,10 @@ export function InvoiceAttachmentSection({
                         <AlertDialogContent className="rounded-3xl">
                           <AlertDialogHeader>
                             <AlertDialogTitle className="text-2xl font-black">
-                              {t('invoices.delete_attachment_confirm_title', 'Delete Attachment?')}
+                              {t('invoices.delete_attachment_confirm_title')}
                             </AlertDialogTitle>
                             <AlertDialogDescription className="text-base">
-                              {t('invoices.delete_attachment_confirm_desc', 'This will permanently remove the attachment. This action cannot be undone.')}
+                              {t('invoices.delete_attachment_confirm_desc')}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter className="mt-4 gap-3">
@@ -272,7 +272,7 @@ export function InvoiceAttachmentSection({
                 <AlertCircle className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
                 <h3 className="text-lg font-bold text-foreground mb-1">{t('invoices.preview_not_available')}</h3>
                 <p className="text-sm text-muted-foreground">
-                  {t('invoices.preview_not_supported_desc', 'This file type cannot be previewed. Please download it to view.')}
+                  {t('invoices.preview_not_supported_desc')}
                 </p>
               </div>
             )}

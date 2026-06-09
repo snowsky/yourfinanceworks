@@ -48,17 +48,17 @@ export const AppearanceTab: React.FC = () => {
                 <ProfessionalCardHeader>
                     <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
                         <Rows2 className="w-4 h-4 text-primary" />
-                        {t('settings.appearance.tables', 'Tables')}
+                        {t('settings.appearance.tables')}
                     </ProfessionalCardTitle>
                 </ProfessionalCardHeader>
                 <ProfessionalCardContent>
                     <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                         <div className="space-y-0.5">
                             <Label htmlFor="list_density" className="text-base font-semibold">
-                                {t('settings.profile.compact_density', 'Compact table density')}
+                                {t('settings.profile.compact_density')}
                             </Label>
                             <p className="text-sm text-muted-foreground">
-                                {t('settings.profile.compact_density_description', 'Show more rows by reducing table row padding.')}
+                                {t('settings.profile.compact_density_description')}
                             </p>
                         </div>
                         <Switch
@@ -75,7 +75,7 @@ export const AppearanceTab: React.FC = () => {
                 <ProfessionalCardHeader>
                     <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
                         <BarChart2 className="w-4 h-4 text-primary" />
-                        {t('settings.appearance.navigation', 'Navigation')}
+                        {t('settings.appearance.navigation')}
                     </ProfessionalCardTitle>
                 </ProfessionalCardHeader>
                 <ProfessionalCardContent>
@@ -102,17 +102,17 @@ export const AppearanceTab: React.FC = () => {
                 <ProfessionalCardHeader>
                     <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
                         <Clock className="w-4 h-4 text-primary" />
-                        {t('settings.appearance.header_clock', 'Header Clock')}
+                        {t('settings.appearance.header_clock')}
                     </ProfessionalCardTitle>
                 </ProfessionalCardHeader>
                 <ProfessionalCardContent className="space-y-3">
                     <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                         <div className="space-y-0.5">
                             <Label htmlFor="show_clock" className="text-base font-semibold">
-                                {t('settings.appearance.show_clock', 'Show clock')}
+                                {t('settings.appearance.show_clock')}
                             </Label>
                             <p className="text-sm text-muted-foreground">
-                                {t('settings.appearance.show_clock_description', 'Display a live clock in the top header.')}
+                                {t('settings.appearance.show_clock_description')}
                             </p>
                         </div>
                         <Switch
@@ -125,10 +125,10 @@ export const AppearanceTab: React.FC = () => {
                     <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                         <div className="space-y-0.5">
                             <Label htmlFor="show_local_clock" className="text-base font-semibold">
-                                {t('settings.appearance.show_local_clock', 'Show local clock')}
+                                {t('settings.appearance.show_local_clock')}
                             </Label>
                             <p className="text-sm text-muted-foreground">
-                                {t('settings.appearance.show_local_clock_description', 'Display a clock in your browser\'s local timezone.')}
+                                {t('settings.appearance.show_local_clock_description')}
                             </p>
                         </div>
                         <Switch
@@ -142,10 +142,10 @@ export const AppearanceTab: React.FC = () => {
                     <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                         <div className="space-y-0.5">
                             <Label htmlFor="show_utc_clock" className="text-base font-semibold">
-                                {t('settings.appearance.show_utc_clock', 'Show UTC clock')}
+                                {t('settings.appearance.show_utc_clock')}
                             </Label>
                             <p className="text-sm text-muted-foreground">
-                                {t('settings.appearance.show_utc_clock_description', 'Display a second clock in Coordinated Universal Time (UTC).')}
+                                {t('settings.appearance.show_utc_clock_description')}
                             </p>
                         </div>
                         <Switch
@@ -159,10 +159,10 @@ export const AppearanceTab: React.FC = () => {
                     <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                         <div className="space-y-0.5">
                             <Label htmlFor="show_date" className="text-base font-semibold">
-                                {t('settings.appearance.show_date', 'Show date')}
+                                {t('settings.appearance.show_date')}
                             </Label>
                             <p className="text-sm text-muted-foreground">
-                                {t('settings.appearance.show_date_description', 'Display the current date alongside the clock.')}
+                                {t('settings.appearance.show_date_description')}
                             </p>
                         </div>
                         <Switch

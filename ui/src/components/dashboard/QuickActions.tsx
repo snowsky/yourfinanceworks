@@ -220,7 +220,7 @@ export function QuickActions() {
             <div className="space-y-4">
                 <div className="space-y-2">
                     <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        {t('dashboard.quick_actions.core_actions', 'Core Actions')}
+                        {t('dashboard.quick_actions.core_actions')}
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {primaryActions.map((action) => {
@@ -256,7 +256,7 @@ export function QuickActions() {
 
                 <div className="space-y-2">
                     <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        {t('dashboard.quick_actions.operations', 'Operations')}
+                        {t('dashboard.quick_actions.operations')}
                     </h3>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         {secondaryActions.map((action) => {

@@ -118,7 +118,7 @@ export const InventoryItemLinkedInvoices: React.FC<InventoryItemLinkedInvoicesPr
                     {data.total_quantity > 0 ? '+' : ''}{data.total_quantity}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {data.count} {t('inventory.movements', 'movements')}
+                    {data.count} {t('inventory.movements')}
                   </div>
                 </div>
               ))}
@@ -135,7 +135,7 @@ export const InventoryItemLinkedInvoices: React.FC<InventoryItemLinkedInvoicesPr
             {t('inventory.linked_invoices', 'Linked Invoices')}
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            {t('inventory.invoices_that_affected_stock', 'Invoices that have affected the stock of')} {itemName}
+            {t('inventory.invoices_that_affected_stock')} {itemName}
           </p>
         </CardHeader>
         <CardContent>
@@ -143,10 +143,10 @@ export const InventoryItemLinkedInvoices: React.FC<InventoryItemLinkedInvoicesPr
             <div className="text-center py-8">
               <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">
-                {t('inventory.no_linked_invoices', 'No Linked Invoices')}
+                {t('inventory.no_linked_invoices')}
               </h3>
               <p className="text-muted-foreground mb-4">
-                {t('inventory.no_invoices_affected_stock', 'No invoices have affected the stock of this item yet.')}
+                {t('inventory.no_invoices_affected_stock')}
               </p>
             </div>
           ) : (
@@ -174,7 +174,7 @@ export const InventoryItemLinkedInvoices: React.FC<InventoryItemLinkedInvoicesPr
                   {invoice.invoice_items.length > 0 && (
                     <div className="mb-4">
                       <h5 className="text-sm font-medium mb-2">
-                        {t('inventory.invoice_items', 'Invoice Items')}
+                        {t('inventory.invoice_items')}
                       </h5>
                       <div className="space-y-2">
                         {invoice.invoice_items.map((item, index) => (
@@ -192,7 +192,7 @@ export const InventoryItemLinkedInvoices: React.FC<InventoryItemLinkedInvoicesPr
                   {invoice.stock_movements.length > 0 && (
                     <div>
                       <h5 className="text-sm font-medium mb-2">
-                        {t('inventory.stock_movements', 'Stock Movements')}
+                        {t('inventory.stock_movements')}
                       </h5>
                       <div className="space-y-2">
                         {invoice.stock_movements.map((movement) => (

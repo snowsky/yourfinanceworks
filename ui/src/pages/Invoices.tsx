@@ -622,7 +622,7 @@ const Invoices = () => {
                     <div>
                       <h3 className="font-bold text-xl text-foreground">{t('recycleBin.title')}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {recycleBinTotalCount} {t('recycleBin.items', 'items')} • Recover or permanently delete invoices
+                        {recycleBinTotalCount} {t('recycleBin.items')} • Recover or permanently delete invoices
                       </p>
                     </div>
                   </div>
@@ -1207,7 +1207,7 @@ const Invoices = () => {
                                     </Link>
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleCloneInvoice(invoice.id)}>
-                                    <Copy className="mr-2 h-4 w-4" /> {t('invoices.clone', 'Clone')}
+                                    <Copy className="mr-2 h-4 w-4" /> {t('invoices.clone')}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => setShareInvoiceId(invoice.id)}>
                                     <Share2 className="mr-2 h-4 w-4" /> Share
@@ -1383,7 +1383,7 @@ const Invoices = () => {
             >
               <Trash2 className="mr-2 h-4 w-4" />
               {selectedIds.length === 1
-                ? t('invoices.move_to_recycle_bin', 'Move to Recycle Bin')
+                ? t('invoices.move_to_recycle_bin')
                 : t('invoices.move_multiple_to_recycle_bin', 'Move All to Recycle Bin')
               }
             </AlertDialogAction>

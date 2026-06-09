@@ -550,13 +550,13 @@ export function StatementsListView({
                             onClick={() => handlePreview(s.id)}
                           >
                             {previewLoading === s.id ? <Loader2 className="mr-2 w-4 h-4 animate-spin" /> : <ExternalLink className="mr-2 w-4 h-4" />}
-                            {t('common.preview', 'Preview')}
+                            {t('common.preview')}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             disabled={s.status === 'merged'}
                             onClick={() => handleDownload(s.id, s.original_filename)}
                           >
-                            <Download className="mr-2 w-4 h-4" /> {t('common.download', 'Download')}
+                            <Download className="mr-2 w-4 h-4" /> {t('common.download')}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem

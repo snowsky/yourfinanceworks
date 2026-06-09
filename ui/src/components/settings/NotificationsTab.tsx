@@ -190,7 +190,7 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({ isAdmin }) =
     const updateNotificationsMutation = useMutation({
         mutationFn: (data: NotificationSettings) => settingsApi.updateNotificationSettings(data),
         onSuccess: () => {
-            toast.success(t('settings.notification_settings_updated_successfully', 'Notification settings updated successfully'));
+            toast.success(t('settings.notification_settings_updated_successfully'));
             queryClient.invalidateQueries({ queryKey: ['notificationSettings'] });
         },
         onError: (error) => toast.error(getErrorMessage(error, t))
@@ -213,7 +213,7 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({ isAdmin }) =
                 "";
 
             if (!fallbackEmail) {
-                toast.error(t('settings.notification_email_required', 'Please provide an email address to send a test email.'));
+                toast.error(t('settings.notification_email_required'));
                 return;
             }
 

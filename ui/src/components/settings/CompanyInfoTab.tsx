@@ -139,7 +139,7 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({ isAdmin }) => {
                 <ProfessionalCardHeader>
                     <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
                         <Building2 className="w-4 h-4 text-primary" />
-                        {t('settings.company_info.company_details', 'Company Details')}
+                        {t('settings.company_info.company_details')}
                     </ProfessionalCardTitle>
                 </ProfessionalCardHeader>
                 <ProfessionalCardContent className="space-y-6">
@@ -186,7 +186,7 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({ isAdmin }) => {
                 <ProfessionalCardHeader>
                     <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-primary" />
-                        {t('settings.company_info.location_preferences', 'Location & Preferences')}
+                        {t('settings.company_info.location_preferences')}
                     </ProfessionalCardTitle>
                 </ProfessionalCardHeader>
                 <ProfessionalCardContent className="space-y-6">
@@ -255,7 +255,7 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({ isAdmin }) => {
                 <ProfessionalCardHeader>
                     <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
                         <Palette className="w-4 h-4 text-primary" />
-                        {t('settings.company_info.organization_branding', 'Organization & Branding')}
+                        {t('settings.company_info.organization_branding')}
                     </ProfessionalCardTitle>
                 </ProfessionalCardHeader>
                 <ProfessionalCardContent className="space-y-6">

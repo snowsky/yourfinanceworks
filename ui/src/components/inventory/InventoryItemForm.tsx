@@ -267,7 +267,7 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
         }
         breadcrumbs={[
           { label: t('inventory.title', 'Inventory'), href: '/inventory' },
-          { label: isEdit ? t('common.edit', 'Edit') : t('common.new', 'New') }
+          { label: isEdit ? t('common.edit', 'Edit') : t('common.new') }
         ]}
       />
 

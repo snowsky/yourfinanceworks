@@ -239,8 +239,8 @@ export function InvoiceDiscountSection({
 
                 <div className="mt-4 pt-4 border-t border-border/30 text-xs text-muted-foreground">
                   {calculateSubtotal() >= appliedDiscountRule.min_amount
-                    ? t('invoices.rule_applied_desc', 'This discount rule was automatically applied based on the subtotal.')
-                    : t('invoices.rule_pending_desc', 'Requires a minimum subtotal of {{amount}} to apply.', { amount: appliedDiscountRule.min_amount.toFixed(2) })}
+                    ? t('invoices.rule_applied_desc')
+                    : t('invoices.rule_pending_desc', { amount: appliedDiscountRule.min_amount.toFixed(2) })}
                 </div>
               </div>
             </div>

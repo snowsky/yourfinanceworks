@@ -227,7 +227,7 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
             </h3>
             <p className="text-muted-foreground mb-4">
               {invoiceStatus === 'paid' || invoiceStatus === 'completed'
-                ? t('inventory.stock_movements_should_exist', 'Stock movements should have been created for this paid/completed invoice.')
+                ? t('inventory.stock_movements_should_exist')
                 : t('inventory.stock_movements_will_be_created', 'Stock movements will be created when this invoice is marked as paid or completed.')
               }
             </p>
@@ -237,11 +237,11 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('inventory.item', 'Item')}</TableHead>
-                  <TableHead>{t('inventory.movement_type', 'Movement Type')}</TableHead>
-                  <TableHead className="text-right">{t('inventory.quantity', 'Quantity')}</TableHead>
-                  <TableHead>{t('inventory.date', 'Date')}</TableHead>
-                  <TableHead>{t('inventory.notes', 'Notes')}</TableHead>
+                  <TableHead>{t('inventory.item')}</TableHead>
+                  <TableHead>{t('inventory.movement_type')}</TableHead>
+                  <TableHead className="text-right">{t('inventory.quantity')}</TableHead>
+                  <TableHead>{t('inventory.date')}</TableHead>
+                  <TableHead>{t('inventory.notes')}</TableHead>
                   <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -249,7 +249,7 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
                 {stockMovements.map((movement) => (
                   <TableRow key={movement.id}>
                     <TableCell className="font-medium">
-                      {movement.item?.name || t('inventory.unknown_item', 'Unknown Item')}
+                      {movement.item?.name || t('inventory.unknown_item')}
                     </TableCell>
                     <TableCell>
                       <Badge className={getMovementTypeColor(movement.movement_type)}>
@@ -279,7 +279,7 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
                         size="sm"
                         onClick={() => navigate(`/inventory/view/${movement.item_id}`)}
                         className="h-8 w-8 p-0"
-                        title={t('inventory.view_item_details', 'View item details')}
+                        title={t('inventory.view_item_details')}
                       >
                         <ExternalLink className="h-4 w-4" />
                       </Button>
@@ -292,12 +292,12 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
             {/* Summary */}
             <div className="mt-6 p-4 bg-muted/50 rounded-lg">
               <h4 className="font-medium mb-2">
-                {t('inventory.stock_impact_summary', 'Stock Impact Summary')}
+                {t('inventory.stock_impact_summary')}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">
-                    {t('inventory.items_affected', 'Items Affected')}:
+                    {t('inventory.items_affected')}:
                   </span>
                   <span className="ml-2 font-medium">
                     {new Set(stockMovements.map(m => m.item_id)).size}
@@ -305,7 +305,7 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
                 </div>
                 <div>
                   <span className="text-muted-foreground">
-                    {t('inventory.total_movements', 'Total Movements')}:
+                    {t('inventory.total_movements')}:
                   </span>
                   <span className="ml-2 font-medium">
                     {stockMovements.length}
@@ -313,7 +313,7 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
                 </div>
                 <div>
                   <span className="text-muted-foreground">
-                    {t('inventory.net_stock_change', 'Net Stock Change')}:
+                    {t('inventory.net_stock_change')}:
                   </span>
                   <span className={`ml-2 font-medium ${totalImpact < 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {totalImpact > 0 ? '+' : ''}{totalImpact}

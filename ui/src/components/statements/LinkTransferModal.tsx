@@ -194,7 +194,7 @@ export function LinkTransferModal({
                 <span className={sourceTransaction.transaction_type === 'debit' ? 'text-red-500' : 'text-green-500'}>
                   {formatAmount(sourceTransaction.amount, sourceTransaction.transaction_type)}
                 </span>{' '}
-                {t('common.on', 'on')} {safeDate(sourceTransaction.date)}
+                {t('common.on')} {safeDate(sourceTransaction.date)}
               </p>
               <Input
                 placeholder={t('statements.search_placeholder', 'Search statements...')}
@@ -277,7 +277,7 @@ export function LinkTransferModal({
                         <th className="text-left py-1 pr-2">{t('common.date', 'Date')}</th>
                         <th className="text-left py-1 pr-2">{t('common.description', 'Description')}</th>
                         <th className="text-right py-1 pr-2">{t('common.amount', 'Amount')}</th>
-                        <th className="text-left py-1">{t('common.type', 'Type')}</th>
+                        <th className="text-left py-1">{t('common.type')}</th>
                       </tr>
                     </thead>
                     <tbody>

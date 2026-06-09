@@ -183,7 +183,7 @@ const StatementRecycleBin = () => {
                           {t('statementRecycleBin.deleted_statements')}
                         </h3>
                         <p className="text-sm text-muted-foreground">
-                          {totalCount} {t('statementRecycleBin.items', 'items')}
+                          {totalCount} {t('statementRecycleBin.items')}
                         </p>
                       </div>
                       <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform duration-300 ${isBinCollapsed ? '' : 'rotate-180'}`} />

@@ -195,7 +195,7 @@ const RecycleBin = () => {
                   <CardTitle>{t('recycleBin.deleted_invoices')}</CardTitle>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">
-                      {totalCount} {t('recycleBin.items', 'items')}
+                      {totalCount} {t('recycleBin.items')}
                     </span>
                     <ChevronDown className={`h-4 w-4 transition-transform ${isBinCollapsed ? '' : 'rotate-180'}`} />
                   </div>

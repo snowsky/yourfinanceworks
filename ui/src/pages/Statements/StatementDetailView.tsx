@@ -223,7 +223,7 @@ export function StatementDetailView({
               disabled={detail?.status === 'merged'}
               leftIcon={<Columns className="h-4 w-4" />}
             >
-              {isSplitView ? t('statements.standard_view', 'Standard View') : t('statements.parallel_view', 'Parallel View')}
+              {isSplitView ? t('statements.standard_view') : t('statements.parallel_view', 'Parallel View')}
             </ProfessionalButton>
 
             <ProfessionalButton
@@ -248,7 +248,7 @@ export function StatementDetailView({
                 <div className="p-3 border-b flex items-center justify-between bg-muted/30">
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-bold uppercase tracking-wider">{t('statements.original_pdf', 'Original PDF')}</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">{t('statements.original_pdf')}</span>
                   </div>
                   <ProfessionalButton variant="ghost" size="icon-sm" onClick={toggleSplitView}>
                     <X className="h-4 w-4" />
@@ -264,7 +264,7 @@ export function StatementDetailView({
                   />
                 </div>
                 <div className="p-2 border-t text-[10px] text-muted-foreground bg-muted/30 text-center">
-                  {t('statements.split_view_hint', 'Hover a transaction to highlight it in the PDF')}
+                  {t('statements.split_view_hint')}
                 </div>
               </ProfessionalCard>
             </div>
@@ -289,7 +289,7 @@ export function StatementDetailView({
                 <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-start gap-3 text-destructive slide-in">
                   <Trash2 className="h-5 w-5 mt-0.5 flex-shrink-0" />
                   <div className="text-sm">
-                    <span className="font-bold">{t('common.analysis_error', 'Analysis Error')}:</span> {(detail as any).error_message}
+                    <span className="font-bold">{t('common.analysis_error')}:</span> {(detail as any).error_message}
                   </div>
                 </div>
               )}
@@ -394,7 +394,7 @@ export function StatementDetailView({
                       <Badge variant="destructive" className="h-6">Failed</Badge>
                     ) : detail.status === 'uploaded' ? (
                       <Badge variant="secondary" className="h-6 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800 capitalize">
-                        {t('common.uploaded', 'Uploaded')}
+                        {t('common.uploaded')}
                       </Badge>
                     ) : null}
                   </div>

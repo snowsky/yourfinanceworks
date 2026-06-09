@@ -220,7 +220,7 @@ export function InvoiceFormWithApproval({
                     <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-green-800 dark:text-green-200">
-                        {t('invoices.invoice_approved', 'This invoice was approved')}
+                        {t('invoices.invoice_approved')}
                       </p>
                       <p className="text-sm text-green-700 dark:text-green-300">
                         {t('invoices.approved_by', 'Approved by')}: {' '}
@@ -252,7 +252,7 @@ export function InvoiceFormWithApproval({
                     <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-red-800 dark:text-red-200">
-                        {t('invoices.invoice_rejected', 'This invoice was rejected')}
+                        {t('invoices.invoice_rejected')}
                       </p>
                       <p className="text-sm text-red-700 dark:text-red-300">
                         {t('invoices.rejected_by', 'Rejected by')}: {' '}
@@ -292,15 +292,15 @@ export function InvoiceFormWithApproval({
                     <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                        {t('invoices.invoice_pending_approval', 'This invoice is pending approval')}
+                        {t('invoices.invoice_pending_approval')}
                       </p>
                       <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                        {t('invoices.waiting_for_approval_from', 'Waiting for approval from')}: {' '}
+                        {t('invoices.waiting_for_approval_from')}: {' '}
                         {approvalHistory.approver?.name || approvalHistory.approver?.email || 'Unknown'}
                       </p>
                       {approvalHistory.submitted_at && (
                         <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                          {t('invoices.submitted_at', 'Submitted at')}: {new Date(approvalHistory.submitted_at).toLocaleString()}
+                          {t('invoices.submitted_at')}: {new Date(approvalHistory.submitted_at).toLocaleString()}
                         </p>
                       )}
                     </div>
@@ -308,7 +308,7 @@ export function InvoiceFormWithApproval({
                   {approvalHistory.notes && (
                     <div className="p-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800/50 rounded-lg">
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
-                        {t('invoices.submission_notes', 'Submission Notes')}:
+                        {t('invoices.submission_notes')}:
                       </p>
                       <p className="text-sm text-gray-700 dark:text-gray-300">{approvalHistory.notes}</p>
                     </div>
@@ -356,18 +356,18 @@ export function InvoiceFormWithApproval({
                         <>
                           <div className="p-3 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/50 rounded-lg">
                             <p className="text-sm text-blue-700 dark:text-blue-200">
-                              {t('invoices.this_invoice_will_be_submitted_for_approval', 'This invoice will be submitted for approval')}
+                              {t('invoices.this_invoice_will_be_submitted_for_approval')}
                             </p>
                           </div>
 
                           <div className="space-y-2">
                             <Label htmlFor="approver-select" className="flex items-center gap-2 text-sm font-medium">
                               <Users className="h-4 w-4" />
-                              {t('invoices.select_approver', 'Select Approver')} *
+                              {t('invoices.select_approver')} *
                             </Label>
                             <Select value={selectedApproverId} onValueChange={setSelectedApproverId}>
                               <SelectTrigger>
-                                <SelectValue placeholder={t('invoices.choose_an_approver', 'Choose an approver')} />
+                                <SelectValue placeholder={t('invoices.choose_an_approver')} />
                               </SelectTrigger>
                               <SelectContent>
                                 {availableApprovers.map((approver) => (
