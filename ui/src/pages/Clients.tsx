@@ -507,7 +507,7 @@ const Clients = () => {
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem asChild>
                                   <Link to={`/clients/edit/${client.id}`} className="flex items-center">
-                                    <Pencil className="mr-2 h-4 w-4" /> {t('common.edit', 'Edit')}
+                                    <Pencil className="mr-2 h-4 w-4" /> {t('common.edit')}
                                   </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => setShareClientId(client.id)}>
@@ -515,7 +515,7 @@ const Clients = () => {
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setClientToDelete(client)}>
-                                  <Trash2 className="mr-2 h-4 w-4" /> {t('common.delete', 'Delete')}
+                                  <Trash2 className="mr-2 h-4 w-4" /> {t('common.delete')}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -532,9 +532,9 @@ const Clients = () => {
                   <Users className="h-10 w-10 text-muted-foreground/50" />
                 </div>
                 <div className="text-center">
-                  <h3 className="text-2xl font-bold text-foreground mb-2">{t('clients.no_clients', 'No clients yet')}</h3>
+                  <h3 className="text-2xl font-bold text-foreground mb-2">{t('clients.no_clients')}</h3>
                   <p className="text-muted-foreground max-w-sm mx-auto mb-6">
-                    {t('clients.no_clients_description', 'Start building your customer base. Add your first client to begin managing invoices and payments.')}
+                    {t('clients.no_clients_description')}
                   </p>
                   {canPerformAction && (
                     <ProfessionalButton asChild variant="gradient" size="lg">

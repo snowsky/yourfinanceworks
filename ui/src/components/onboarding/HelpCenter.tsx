@@ -176,7 +176,7 @@ export function HelpCenter() {
                   className="hover:bg-primary/5 -ml-2 font-bold transition-all"
                 >
                   <ChevronLeft className="h-4 w-4 mr-1" />
-                  {t('common.back', 'Back')}
+                  {t('common.back')}
                 </Button>
                 <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-bold">
                   {selectedArticle.category}

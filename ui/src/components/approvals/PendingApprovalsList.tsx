@@ -229,8 +229,8 @@ export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListP
             </div>
             <h3 className="text-xl font-semibold mb-2">
               {searchQuery || Object.values(filters).some(v => v && v !== 'submitted_at' && v !== 'desc')
-                ? t('approvalDashboard.no_approvals_match_your_search_criteria', 'No approvals match your search criteria')
-                : t('approvalDashboard.no_pending_approvals_title', 'No pending approvals')}
+                ? t('approvalDashboard.no_approvals_match_your_search_criteria')
+                : t('approvalDashboard.no_pending_approvals_title')}
             </h3>
             <p className="text-muted-foreground max-w-sm mx-auto">
               {searchQuery || Object.values(filters).some(v => v && v !== 'submitted_at' && v !== 'desc')

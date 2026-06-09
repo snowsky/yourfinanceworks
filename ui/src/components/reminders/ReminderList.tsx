@@ -814,12 +814,12 @@ export function ReminderList({ className }: ReminderListProps) {
                     <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Timer className="h-8 w-8 text-primary" />
                     </div>
-                    <h3 className="text-xl font-bold mb-2">{t('reminders.no_reminders_found', 'No reminders found')}</h3>
+                    <h3 className="text-xl font-bold mb-2">{t('reminders.no_reminders_found')}</h3>
                     <p className="text-muted-foreground max-w-sm mx-auto">
                       {activeTab === 'all'
-                        ? t('reminders.no_reminders_description', 'You don\'t have any reminders yet. Create one to stay on top of your tasks and deadlines.')
+                        ? t('reminders.no_reminders_description')
                         : activeTab === 'snoozed'
-                          ? t('reminders.no_snoozed_reminders', 'All your reminders are currently active.')
+                          ? t('reminders.no_snoozed_reminders')
                           : t('reminders.no_reminders_tab', { tab: activeTab.replace('_', ' '), defaultValue: `No ${activeTab.replace('_', ' ')} reminders found.` })}
                     </p>
                   </div>
@@ -938,16 +938,16 @@ export function ReminderList({ className }: ReminderListProps) {
         <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>{t('reminders.delete_reminder_title', 'Delete Reminder')}</AlertDialogTitle>
+              <AlertDialogTitle>{t('reminders.delete_reminder_title')}</AlertDialogTitle>
               <AlertDialogDescription>
-                {t('reminders.delete_reminder_description', 'Are you sure you want to delete this reminder? This action cannot be undone.')}
+                {t('reminders.delete_reminder_description')}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
               <AlertDialogAction onClick={confirmDeleteReminder} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 <Trash2 className="mr-2 h-4 w-4" />
-                {t('reminders.delete', 'Delete')}
+                {t('reminders.delete')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

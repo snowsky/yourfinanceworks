@@ -432,11 +432,11 @@ export function ExpenseTable({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => window.location.href = `/expenses/view/${e.id}`}>
-                          <Eye className="mr-2 w-4 h-4" /> {t('common.view', 'View')}
+                          <Eye className="mr-2 w-4 h-4" /> {t('common.view')}
                         </DropdownMenuItem>
                         {canEditExpense(e) && (
                           <DropdownMenuItem onClick={() => window.location.href = `/expenses/edit/${e.id}`}>
-                            <Edit className="mr-2 w-4 h-4" /> {t('common.edit', 'Edit')}
+                            <Edit className="mr-2 w-4 h-4" /> {t('common.edit')}
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem onClick={() => onSetShareExpenseId(e.id)}>
@@ -446,7 +446,7 @@ export function ExpenseTable({
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onSetExpenseIdToDelete(e.id)}>
-                              <Trash2 className="mr-2 w-4 h-4" /> {t('expenses.delete', 'Delete')}
+                              <Trash2 className="mr-2 w-4 h-4" /> {t('expenses.delete')}
                             </DropdownMenuItem>
                           </>
                         )}
@@ -463,9 +463,9 @@ export function ExpenseTable({
                   <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Receipt className="h-8 w-8 text-primary" />
                   </div>
-                  <h3 className="text-xl font-bold mb-2">{t('expenses.no_expenses_yet', 'No expenses yet')}</h3>
+                  <h3 className="text-xl font-bold mb-2">{t('expenses.no_expenses_yet')}</h3>
                   <p className="text-muted-foreground max-w-sm mx-auto">
-                    {t('expenses.no_expenses_description', 'Start tracking your business outgoings. You can create expenses manually or upload receipts for AI-powered data extraction.')}
+                    {t('expenses.no_expenses_description')}
                   </p>
                 </div>
               </TableCell>

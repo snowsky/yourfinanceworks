@@ -168,7 +168,7 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({ isAdmin }) => {
                             value={companyInfo.email}
                             onChange={handleCompanyChange}
                             disabled
-                            helperText={t('settings.company_info.email_readonly_hint', 'Company email cannot be changed here.')}
+                            helperText={t('settings.company_info.email_readonly_hint')}
                         />
                         <ProfessionalInput
                             label={t('settings.company_info.company_phone')}
@@ -262,18 +262,18 @@ export const CompanyInfoTab: React.FC<CompanyInfoTabProps> = ({ isAdmin }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                             <div className="space-y-0.5">
-                                <Label className="text-base font-semibold">{t('settings.company_info.allow_join_lookup', 'Allow users to find this organization')}</Label>
+                                <Label className="text-base font-semibold">{t('settings.company_info.allow_join_lookup')}</Label>
                                 <p className="text-sm text-muted-foreground">
-                                    {t('settings.company_info.allow_join_lookup_hint', 'If enabled, users can find this organization when searching to join.')}
+                                    {t('settings.company_info.allow_join_lookup_hint')}
                                 </p>
                             </div>
                             <Switch checked={allowJoinLookup} onCheckedChange={setAllowJoinLookup} />
                         </div>
                         <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                             <div className="space-y-0.5">
-                                <Label className="text-base font-semibold">{t('settings.company_info.join_lookup_exact_match', 'Exact match only')}</Label>
+                                <Label className="text-base font-semibold">{t('settings.company_info.join_lookup_exact_match')}</Label>
                                 <p className="text-sm text-muted-foreground">
-                                    {t('settings.company_info.join_lookup_exact_match_hint', 'Users must type the exact name to find this organization.')}
+                                    {t('settings.company_info.join_lookup_exact_match_hint')}
                                 </p>
                             </div>
                             <Switch

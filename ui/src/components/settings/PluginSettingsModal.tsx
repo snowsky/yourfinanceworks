@@ -445,11 +445,11 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
 
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            {t('common.cancel', 'Cancel')}
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleSave} disabled={saving || loading}>
             {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {t('common.save', 'Save')}
+            {t('common.save')}
           </Button>
         </div>
       </DialogContent>

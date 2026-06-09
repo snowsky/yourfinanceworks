@@ -61,9 +61,9 @@ export function InvoiceClientSection({
             <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.client_info', 'Client Information')}</h2>
+            <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.client_info')}</h2>
             <p className="text-sm text-muted-foreground">
-              {t('invoices.client_section_description', 'Choose or create a client for this invoice.')}
+              {t('invoices.client_section_description')}
             </p>
           </div>
         </div>

@@ -19,7 +19,7 @@ export function CardTypeBadge({ type }: CardTypeBadgeProps) {
         className="flex items-center gap-1.5 h-6 px-2.5 font-medium border shadow-sm bg-gray-100 text-gray-600 dark:bg-gray-800/40 dark:text-gray-400 border-gray-200 dark:border-gray-700"
       >
         <Wallet className="h-3.5 w-3.5" />
-        {t('statements.card_type.auto', 'Auto')}
+        {t('statements.card_type.auto')}
       </Badge>
     );
   }
@@ -35,7 +35,7 @@ export function CardTypeBadge({ type }: CardTypeBadgeProps) {
       )}
     >
       {isCredit ? <CreditCard className="h-3.5 w-3.5" /> : <Wallet className="h-3.5 w-3.5" />}
-      {isCredit ? t('statements.card_type.credit', 'Credit') : t('statements.card_type.debit', 'Debit')}
+      {isCredit ? t('statements.card_type.credit') : t('statements.card_type.debit')}
     </Badge>
   );
 }

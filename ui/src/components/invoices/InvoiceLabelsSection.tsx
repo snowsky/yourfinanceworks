@@ -49,9 +49,9 @@ export function InvoiceLabelsSection({ form }: InvoiceLabelsSectionProps) {
             <Bookmark className="h-6 w-6 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.labels', 'Labels')}</h2>
+            <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.labels')}</h2>
             <p className="text-sm text-muted-foreground">
-              {t('invoices.labels_description', 'Add up to 10 labels to organize your invoices')}
+              {t('invoices.labels_description')}
             </p>
           </div>
         </div>
@@ -80,7 +80,7 @@ export function InvoiceLabelsSection({ form }: InvoiceLabelsSectionProps) {
             ))
           ) : (
             <div className="w-full text-center py-2 text-sm text-muted-foreground/60 italic">
-              {t('invoices.no_labels_yet', 'No labels added yet...')}
+              {t('invoices.no_labels_yet')}
             </div>
           )}
         </div>
@@ -89,7 +89,7 @@ export function InvoiceLabelsSection({ form }: InvoiceLabelsSectionProps) {
           <div className="flex gap-3">
             <div className="relative flex-1">
               <Input
-                placeholder={t('invoices.add_label_placeholder', 'Add a label...')}
+                placeholder={t('invoices.add_label_placeholder')}
                 value={newLabel}
                 onChange={(e) => setNewLabel(e.target.value)}
                 onKeyDown={handleKeyPress}
@@ -107,7 +107,7 @@ export function InvoiceLabelsSection({ form }: InvoiceLabelsSectionProps) {
               variant="gradient"
               className="rounded-xl px-6"
             >
-              {t('common.add', 'Add')}
+              {t('common.add')}
             </ProfessionalButton>
           </div>
         )}

@@ -248,11 +248,11 @@ const RecycleBin = () => {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem className="text-green-600 focus:text-green-600" onClick={() => handleRestore(invoice.id)}>
-                                <RotateCcw className="mr-2 h-4 w-4" /> {t('recycleBin.restore_invoice', 'Restore')}
+                                <RotateCcw className="mr-2 h-4 w-4" /> {t('recycleBin.restore_invoice')}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handlePermanentDelete(invoice.id)}>
-                                <Trash2 className="mr-2 h-4 w-4" /> {t('recycleBin.permanently_delete', 'Delete permanently')}
+                                <Trash2 className="mr-2 h-4 w-4" /> {t('recycleBin.permanently_delete')}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

@@ -50,8 +50,8 @@ export const InventoryInvoiceItem: React.FC<InventoryInvoiceItemProps> = ({
           setStockCheckResult({
             is_available: result.available >= item.quantity,
             message: result.available >= item.quantity
-              ? t('inventory.stock_available', 'Stock available')
-              : t('inventory.only_units_available', 'Only {{count}} units available', { count: result.available }),
+              ? t('inventory.stock_available')
+              : t('inventory.only_units_available', { count: result.available }),
             available_stock: result.available
           });
         } catch (error) {
@@ -106,7 +106,7 @@ export const InventoryInvoiceItem: React.FC<InventoryInvoiceItemProps> = ({
         <div className="space-y-4">
           {/* Header with remove button */}
           <div className="flex items-center justify-between">
-            <h4 className="font-medium">{t('inventory.item_number', 'Item #{{number}}', { number: index + 1 })}</h4>
+            <h4 className="font-medium">{t('inventory.item_number', { number: index + 1 })}</h4>
             <Button
               variant="ghost"
               size="sm"
@@ -119,7 +119,7 @@ export const InventoryInvoiceItem: React.FC<InventoryInvoiceItemProps> = ({
 
           {/* Inventory Item Selector */}
           <div className="space-y-2">
-            <Label htmlFor={`inventory-${index}`}>{t('inventory.inventory_item_optional', 'Inventory Item (Optional)')}</Label>
+            <Label htmlFor={`inventory-${index}`}>{t('inventory.inventory_item_optional')}</Label>
             <div className="flex gap-2">
               <div className="flex-1">
                 <InventoryItemSelector
@@ -134,7 +134,7 @@ export const InventoryInvoiceItem: React.FC<InventoryInvoiceItemProps> = ({
                   onClick={clearInventoryItem}
                   className="px-3"
                 >
-                  {t('inventory.clear', 'Clear')}
+                  {t('inventory.clear')}
                 </Button>
               )}
             </div>
@@ -144,12 +144,12 @@ export const InventoryInvoiceItem: React.FC<InventoryInvoiceItemProps> = ({
               <div className="bg-muted/50 p-3 rounded-lg space-y-2">
                 <div className="flex items-center gap-2 text-sm">
                   <Package className="h-4 w-4 text-primary" />
-                  <span className="font-medium">{t('inventory.linked_to_inventory', 'Linked to inventory item')}</span>
+                  <span className="font-medium">{t('inventory.linked_to_inventory')}</span>
                 </div>
 
                 {item.unit_of_measure && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>{t('inventory.unit_of_measure', 'Unit of Measure')}:</span>
+                    <span>{t('inventory.unit_of_measure')}:</span>
                     <Badge variant="outline">{item.unit_of_measure}</Badge>
                   </div>
                 )}
@@ -169,7 +169,7 @@ export const InventoryInvoiceItem: React.FC<InventoryInvoiceItemProps> = ({
                     <span>{stockCheckResult.message}</span>
                     {stockCheckResult.available_stock !== undefined && (
                       <Badge variant={stockCheckResult.is_available ? "default" : "destructive"}>
-                        {t('inventory.available', 'Available')}: {stockCheckResult.available_stock}
+                        {t('inventory.available')}: {stockCheckResult.available_stock}
                       </Badge>
                     )}
                   </div>
@@ -182,24 +182,24 @@ export const InventoryInvoiceItem: React.FC<InventoryInvoiceItemProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Description */}
             <div className="md:col-span-2 space-y-2">
-              <Label htmlFor={`description-${index}`}>{t('inventory.description', 'Description')} *</Label>
+              <Label htmlFor={`description-${index}`}>{t('inventory.description')} *</Label>
               <Input
                 id={`description-${index}`}
                 value={item.description}
                 onChange={(e) => handleFieldChange('description', e.target.value)}
-                placeholder={t('inventory.enter_item_description', 'Enter item description')}
+                placeholder={t('inventory.enter_item_description')}
                 required
               />
             </div>
 
             {/* Unit of Measure */}
             <div className="space-y-2">
-              <Label htmlFor={`unit-${index}`}>{t('inventory.unit', 'Unit')}</Label>
+              <Label htmlFor={`unit-${index}`}>{t('inventory.unit')}</Label>
               <Input
                 id={`unit-${index}`}
                 value={item.unit_of_measure || ''}
                 onChange={(e) => handleFieldChange('unit_of_measure', e.target.value)}
-                placeholder={t('inventory.unit_placeholder', 'each, kg, hours...')}
+                placeholder={t('inventory.unit_placeholder')}
               />
             </div>
           </div>
@@ -223,7 +223,7 @@ export const InventoryInvoiceItem: React.FC<InventoryInvoiceItemProps> = ({
 
             {/* Price */}
             <div className="space-y-2">
-              <Label htmlFor={`price-${index}`}>{t('inventory.unit_price', 'Unit Price')} *</Label>
+              <Label htmlFor={`price-${index}`}>{t('inventory.unit_price')} *</Label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
@@ -233,7 +233,7 @@ export const InventoryInvoiceItem: React.FC<InventoryInvoiceItemProps> = ({
                   step="0.01"
                   value={item.price}
                   onChange={(e) => handleFieldChange('price', parseFloat(e.target.value) || 0)}
-                  placeholder={t('inventory.price_placeholder', '0.00')}
+                  placeholder={t('inventory.price_placeholder')}
                   className="pl-10"
                   required
                 />
@@ -242,7 +242,7 @@ export const InventoryInvoiceItem: React.FC<InventoryInvoiceItemProps> = ({
 
             {/* Amount (Calculated) */}
             <div className="space-y-2">
-              <Label>{t('inventory.total_amount', 'Total Amount')}</Label>
+              <Label>{t('inventory.total_amount')}</Label>
               <div className="flex items-center h-10 px-3 border border-input bg-muted rounded-md">
                 <span className="text-sm font-medium">
                   {new Intl.NumberFormat('en-US', {
@@ -260,10 +260,10 @@ export const InventoryInvoiceItem: React.FC<InventoryInvoiceItemProps> = ({
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
               <div className="flex items-center gap-2 text-orange-800">
                 <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm font-medium">{t('inventory.stock_warning', 'Stock Warning')}</span>
+                <span className="text-sm font-medium">{t('inventory.stock_warning')}</span>
               </div>
               <p className="text-sm text-orange-700 mt-1">
-                {stockCheckResult.message}. {t('inventory.stock_warning_message', 'Consider reducing the quantity or contact your supplier for restocking.')}
+                {stockCheckResult.message}. {t('inventory.stock_warning_message')}
               </p>
             </div>
           )}

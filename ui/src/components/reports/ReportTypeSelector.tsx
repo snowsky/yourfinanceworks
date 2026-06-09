@@ -154,7 +154,7 @@ export const ReportTypeSelector: React.FC<ReportTypeSelectorProps> = ({
               : 'text-foreground'
             }
           `}>
-            {t('reports.accounting_tax_export.title', 'Accounting & Tax Export')}
+            {t('reports.accounting_tax_export.title')}
           </div>
           <div className={`
             text-xs leading-relaxed

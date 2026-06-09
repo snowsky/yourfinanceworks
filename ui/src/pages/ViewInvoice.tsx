@@ -209,7 +209,7 @@ export default function ViewInvoice() {
           title={t('invoices.view_title', { defaultValue: 'View Invoice' })}
           description={t('invoices.view_description', { defaultValue: 'Review invoice details.' })}
           breadcrumbs={[
-            { label: t('invoices.title', 'Invoices'), href: '/invoices' },
+            { label: t('invoices.title'), href: '/invoices' },
             { label: invoice.number || 'Invoice', href: '#' }
           ]}
           actions={

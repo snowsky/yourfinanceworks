@@ -72,7 +72,7 @@ export function UploadModal({
 
           <div>
             <label className="text-sm font-medium mb-2 block">
-              {t('statements.card_type.label', 'Card Type')}
+              {t('statements.card_type.label')}
             </label>
             <Select value={cardType} onValueChange={setCardType}>
               <SelectTrigger>
@@ -156,7 +156,7 @@ export function UploadModal({
         </div>
         <div className="flex justify-end gap-2 pt-4 border-t border-border/50 shrink-0">
           <Button variant="outline" onClick={onClose}>
-            {t('common.cancel', 'Cancel')}
+            {t('common.cancel')}
           </Button>
           <Button onClick={onUpload} disabled={loading || files.length === 0}>
             {loading ? (

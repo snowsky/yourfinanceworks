@@ -370,7 +370,7 @@ export function AppSidebar() {
     },
     {
       path: '/inventory',
-      label: t('navigation.inventory', 'Inventory'),
+      label: t('navigation.inventory'),
       icon: <Package className="w-5 h-5" />,
       tourId: 'nav-inventory'
     },

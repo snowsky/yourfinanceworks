@@ -106,11 +106,11 @@ export const InventoryPurchaseForm: React.FC<InventoryPurchaseFormProps> = ({
             <Package className="h-4 w-4" />
             {purchaseItems.length > 0 ? (
               <>
-                <span>{t('inventory.add_inventory_items', 'Add Inventory Items')} ({purchaseItems.length} {t('inventory.selected', 'selected')})</span>
+                <span>{t('inventory.add_inventory_items')} ({purchaseItems.length} {t('inventory.selected', 'selected')})</span>
                 <Badge variant="secondary">{purchaseItems.length}</Badge>
               </>
             ) : (
-              <span>{t('inventory.add_inventory_items', 'Add Inventory Items')}</span>
+              <span>{t('inventory.add_inventory_items')}</span>
             )}
           </Button>
         </DialogTrigger>
@@ -119,7 +119,7 @@ export const InventoryPurchaseForm: React.FC<InventoryPurchaseFormProps> = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
-              {t('inventory.select_items_purchase', 'Select Inventory Items for Purchase')}
+              {t('inventory.select_items_purchase')}
             </DialogTitle>
           </DialogHeader>
 
@@ -129,7 +129,7 @@ export const InventoryPurchaseForm: React.FC<InventoryPurchaseFormProps> = ({
               {loading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                  <p className="mt-2 text-muted-foreground">{t('inventory.loading', 'Loading inventory...')}</p>
+                  <p className="mt-2 text-muted-foreground">{t('inventory.loading')}</p>
                 </div>
               ) : filteredItems.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -147,10 +147,10 @@ export const InventoryPurchaseForm: React.FC<InventoryPurchaseFormProps> = ({
                           <div className="flex-1 min-w-0">
                             <h4 className="font-medium truncate">{item.name}</h4>
                             <p className="text-sm text-muted-foreground">
-                              {t('inventory.table.sku', 'SKU')}: {item.sku || 'N/A'}
+                              {t('inventory.table.sku')}: {item.sku || 'N/A'}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              {t('inventory.current_stock', 'Current Stock')}: {item.track_stock ? item.current_stock : t('inventory.not_tracked', 'Not tracked')}
+                              {t('inventory.current_stock')}: {item.track_stock ? item.current_stock : t('inventory.not_tracked')}
                             </p>
                           </div>
                           <div className="text-right">
@@ -169,9 +169,9 @@ export const InventoryPurchaseForm: React.FC<InventoryPurchaseFormProps> = ({
               ) : (
                 <div className="text-center py-8">
                   <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">{t('inventory.no_product_items', 'No inventory items found')}</p>
+                  <p className="text-muted-foreground">{t('inventory.no_product_items')}</p>
                   <p className="text-sm text-muted-foreground mt-2">
-                    {t('inventory.add_first_product', 'Add some items to your inventory first')}
+                    {t('inventory.add_first_product')}
                   </p>
                 </div>
               )}
@@ -180,16 +180,16 @@ export const InventoryPurchaseForm: React.FC<InventoryPurchaseFormProps> = ({
             {/* Selected Items Summary */}
             {purchaseItems.length > 0 && (
               <div className="bg-muted/50 p-4 rounded-lg">
-                <h4 className="font-medium mb-3">{t('inventory.selected_items', 'Selected Items')} ({purchaseItems.length})</h4>
+                <h4 className="font-medium mb-3">{t('inventory.selected_items')} ({purchaseItems.length})</h4>
                 <div className="space-y-2">
                   {purchaseItems.map((item, index) => (
                     <div key={index} className="flex items-center gap-3 p-2 bg-background rounded border">
                       <div className="flex-1">
                         <p className="font-medium">{item.item_name}</p>
-                        <p className="text-sm text-muted-foreground">{t('inventory.table.sku', 'SKU')}: {item.sku || 'N/A'}</p>
+                        <p className="text-sm text-muted-foreground">{t('inventory.table.sku')}: {item.sku || 'N/A'}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Label className="text-sm">{t('inventory.qty', 'Qty')}:</Label>
+                        <Label className="text-sm">{t('inventory.qty')}:</Label>
                         <Input
                           type="number"
                           min="0.01"
@@ -200,7 +200,7 @@ export const InventoryPurchaseForm: React.FC<InventoryPurchaseFormProps> = ({
                         />
                       </div>
                       <div className="flex items-center gap-2">
-                        <Label className="text-sm">{t('inventory.cost', 'Cost')}:</Label>
+                        <Label className="text-sm">{t('inventory.cost')}:</Label>
                         <Input
                           type="number"
                           min="0"
@@ -225,7 +225,7 @@ export const InventoryPurchaseForm: React.FC<InventoryPurchaseFormProps> = ({
                   ))}
                 </div>
                 <div className="border-t pt-3 mt-3 flex justify-between items-center">
-                  <span className="font-medium">{t('inventory.total_purchase_value', 'Total Purchase Value')}:</span>
+                  <span className="font-medium">{t('inventory.total_purchase_value')}:</span>
                   <span className="font-bold text-lg">${calculateTotal().toFixed(2)}</span>
                 </div>
               </div>
@@ -234,11 +234,11 @@ export const InventoryPurchaseForm: React.FC<InventoryPurchaseFormProps> = ({
 
           <div className="flex justify-end gap-2 pt-4 border-t">
             <Button variant="outline" onClick={() => setIsOpen(false)}>
-              {purchaseItems.length > 0 ? t('inventory.continue_editing', 'Continue Editing') : t('common.cancel', 'Cancel')}
+              {purchaseItems.length > 0 ? t('inventory.continue_editing') : t('common.cancel')}
             </Button>
             {purchaseItems.length > 0 && (
               <Button onClick={() => setIsOpen(false)}>
-                {t('inventory.done_items', 'Done')} ({purchaseItems.length} {t('inventory.items', 'items')})
+                {t('inventory.done_items')} ({purchaseItems.length} {t('inventory.items')})
               </Button>
             )}
           </div>
@@ -253,7 +253,7 @@ export const InventoryPurchaseForm: React.FC<InventoryPurchaseFormProps> = ({
               <div className="flex items-center gap-2">
                 <Package className="h-5 w-5 text-purple-600" />
                 <span className="font-medium text-purple-900">
-                  {t('inventory.inventory_purchase', 'Inventory Purchase')}: {purchaseItems.length} {t('inventory.items', 'items')}
+                  {t('inventory.inventory_purchase')}: {purchaseItems.length} {t('inventory.items')}
                 </span>
               </div>
               <div className="text-right">
@@ -261,7 +261,7 @@ export const InventoryPurchaseForm: React.FC<InventoryPurchaseFormProps> = ({
                   ${calculateTotal().toFixed(2)} {currency}
                 </div>
                 <div className="text-sm text-purple-700">
-                  {purchaseItems.reduce((total, item) => total + item.quantity, 0)} {t('inventory.units_total', 'units total')}
+                  {purchaseItems.reduce((total, item) => total + item.quantity, 0)} {t('inventory.units_total')}
                 </div>
               </div>
             </div>
@@ -271,10 +271,10 @@ export const InventoryPurchaseForm: React.FC<InventoryPurchaseFormProps> = ({
               <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                 <div className="flex items-center gap-2 text-orange-800">
                   <AlertTriangle className="h-4 w-4" />
-                  <span className="text-sm font-medium">{t('inventory.amount_mismatch', 'Amount Mismatch')}</span>
+                  <span className="text-sm font-medium">{t('inventory.amount_mismatch')}</span>
                 </div>
                 <p className="text-sm text-orange-700 mt-1">
-                  {t('inventory.purchase_total_mismatch', 'Purchase total (${{purchaseTotal}}) doesn\'t match expense amount (${{expenseAmount}})', { purchaseTotal: calculateTotal().toFixed(2), expenseAmount: totalAmount.toFixed(2) })}
+                  {t('inventory.purchase_total_mismatch', { purchaseTotal: calculateTotal().toFixed(2), expenseAmount: totalAmount.toFixed(2) })}
                 </p>
               </div>
             )}

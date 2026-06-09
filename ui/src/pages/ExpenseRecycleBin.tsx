@@ -243,13 +243,13 @@ const ExpenseRecycleBin = () => {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem className="text-green-600 focus:text-green-600" onClick={() => handleRestore(expense.id)}>
-                                <RotateCcw className="mr-2 h-4 w-4" /> {t('expenseRecycleBin.restore_expense', 'Restore')}
+                                <RotateCcw className="mr-2 h-4 w-4" /> {t('expenseRecycleBin.restore_expense')}
                               </DropdownMenuItem>
                               {isAdmin && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handlePermanentDelete(expense.id)}>
-                                    <Trash2 className="mr-2 h-4 w-4" /> {t('expenseRecycleBin.permanently_delete', 'Delete permanently')}
+                                    <Trash2 className="mr-2 h-4 w-4" /> {t('expenseRecycleBin.permanently_delete')}
                                   </DropdownMenuItem>
                                 </>
                               )}

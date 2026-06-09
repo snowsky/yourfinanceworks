@@ -86,7 +86,7 @@ export function InvoiceItemsSection({
                 />
               </div>
               <p className="text-sm text-muted-foreground">
-                {t('invoices.items_section_description', 'Manage the products and services for this invoice.')}
+                {t('invoices.items_section_description')}
               </p>
             </div>
           </div>

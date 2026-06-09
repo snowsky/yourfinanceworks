@@ -290,13 +290,13 @@ export function ApprovalDashboard() {
                         </div>
                         <h3 className="text-xl font-semibold mb-2">
                           {invoiceSearchQuery
-                            ? t('approvalDashboard.no_approvals_match_your_search_criteria', 'No approvals match your search criteria')
-                            : t('approvalDashboard.no_pending_invoice_approvals_title', 'No pending invoice approvals')}
+                            ? t('approvalDashboard.no_approvals_match_your_search_criteria')
+                            : t('approvalDashboard.no_pending_invoice_approvals_title')}
                         </h3>
                         <p className="text-muted-foreground max-w-sm mx-auto mb-8">
                           {invoiceSearchQuery
                             ? t('approvalDashboard.try_adjusting_filters')
-                            : t('approvalDashboard.no_pending_invoice_approvals_description', 'All invoice approvals are up to date.')}
+                            : t('approvalDashboard.no_pending_invoice_approvals_description')}
                         </p>
                       </div>
                     ) : (
@@ -386,11 +386,11 @@ export function ApprovalDashboard() {
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <History className="h-5 w-5" />
-                {t('approvalDashboard.processed_items', 'Processed Items')}
+                {t('approvalDashboard.processed_items')}
               </div>
               <HelpTooltip id="processed-items" context="dashboard">
                 <div className="text-sm text-gray-500 cursor-help">
-                  {t('approvalDashboard.items_approved_rejected', 'Expenses and invoices already approved or rejected')}
+                  {t('approvalDashboard.items_approved_rejected')}
                 </div>
               </HelpTooltip>
             </CardTitle>

@@ -722,7 +722,7 @@ const Expenses = () => {
                       <DropdownMenuItem onClick={() => setIsBulkCreateOpen(true)} className="flex items-center cursor-pointer">
                         <Plus className="mr-2 h-4 w-4" />
                         <div className="flex flex-col">
-                          <span>{t('expenses.create_multiple', 'Create Multiple Expenses')}</span>
+                          <span>{t('expenses.create_multiple')}</span>
                           <span className="text-xs text-muted-foreground">{t('expenses.batch_create_description')}</span>
                         </div>
                       </DropdownMenuItem>
@@ -868,7 +868,7 @@ const Expenses = () => {
             {/* Pagination */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-border/50">
               <div className="text-sm text-muted-foreground">
-                Showing <span className="font-medium text-foreground">{expenses.length}</span> of <span className="font-medium text-foreground">{totalExpenses}</span> {t('expenses.results', 'results')}
+                Showing <span className="font-medium text-foreground">{expenses.length}</span> of <span className="font-medium text-foreground">{totalExpenses}</span> {t('expenses.results')}
               </div>
               <div className="flex items-center gap-2">
                 <ProfessionalButton
@@ -878,7 +878,7 @@ const Expenses = () => {
                   disabled={page === 1}
                   className="h-9 px-4"
                 >
-                  {t('common.previous', 'Previous')}
+                  {t('common.previous')}
                 </ProfessionalButton>
                 <div className="flex items-center gap-1">
                   {Array.from({ length: Math.ceil(totalExpenses / pageSize) }, (_, i) => i + 1)
@@ -904,7 +904,7 @@ const Expenses = () => {
                   disabled={page >= Math.ceil(totalExpenses / pageSize)}
                   className="h-9 px-4"
                 >
-                  {t('common.next', 'Next')}
+                  {t('common.next')}
                 </ProfessionalButton>
               </div>
             </div>

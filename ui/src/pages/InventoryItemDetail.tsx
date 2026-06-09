@@ -142,7 +142,7 @@ const InventoryItemDetail: React.FC = () => {
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => navigate('/inventory')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
-              {t('common.back', 'Back')}
+              {t('common.back')}
             </Button>
           </div>
 
@@ -166,7 +166,7 @@ const InventoryItemDetail: React.FC = () => {
         title={item.name}
         description={item.description || t('inventory.no_description')}
         breadcrumbs={[
-          { label: t('inventory.title', 'Inventory'), href: '/inventory' },
+          { label: t('inventory.title'), href: '/inventory' },
           { label: item.name }
         ]}
         actions={
@@ -174,7 +174,7 @@ const InventoryItemDetail: React.FC = () => {
             <Button asChild>
               <Link to={`/inventory/edit/${item.id}`}>
                 <Edit className="mr-2 h-4 w-4" />
-                {t('common.edit', 'Edit')}
+                {t('common.edit')}
               </Link>
             </Button>
           )
@@ -315,7 +315,7 @@ const InventoryItemDetail: React.FC = () => {
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ImageIcon className="w-5 h-5" />
-                    {t('inventory.attachments', 'Attachments')}
+                    {t('inventory.attachments')}
                   </div>
                   <div className="flex gap-2">
                     <Badge variant="secondary">
@@ -367,12 +367,12 @@ const InventoryItemDetail: React.FC = () => {
           {/* Item Details */}
           <Card>
             <CardHeader>
-              <CardTitle>{t('inventory.item_details', 'Item Details')}</CardTitle>
+              <CardTitle>{t('inventory.item_details')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-500">
-                  {t('inventory.sku', 'SKU')}
+                  {t('inventory.sku')}
                 </span>
                 <span className="text-sm font-mono">
                   {item.sku || t('common.none')}
@@ -383,7 +383,7 @@ const InventoryItemDetail: React.FC = () => {
 
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-500">
-                  {t('inventory.unit_price', 'Unit Price')}
+                  {t('inventory.unit_price')}
                 </span>
                 <CurrencyDisplay
                   amount={item.unit_price}
@@ -396,7 +396,7 @@ const InventoryItemDetail: React.FC = () => {
                 <>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-500">
-                      {t('inventory.cost_price', 'Cost Price')}
+                      {t('inventory.cost_price')}
                     </span>
                     <CurrencyDisplay
                       amount={item.cost_price}
@@ -420,16 +420,16 @@ const InventoryItemDetail: React.FC = () => {
 
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-500">
-                  {t('inventory.category', 'Category')}
+                  {t('inventory.category')}
                 </span>
                 <Badge variant="outline">
-                  {item.category?.name || t('inventory.no_category', 'No Category')}
+                  {item.category?.name || t('inventory.no_category')}
                 </Badge>
               </div>
 
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-500">
-                  {t('inventory.item_type', 'Type')}
+                  {t('inventory.item_type')}
                 </span>
                 <Badge>
                   {item.item_type}
@@ -438,7 +438,7 @@ const InventoryItemDetail: React.FC = () => {
 
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-500">
-                  {t('inventory.unit_of_measure', 'Unit')}
+                  {t('inventory.unit_of_measure')}
                 </span>
                 <span className="text-sm">
                   {item.unit_of_measure}
@@ -450,7 +450,7 @@ const InventoryItemDetail: React.FC = () => {
                   <Separator />
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-500">
-                      {t('inventory.current_stock', 'Current Stock')}
+                      {t('inventory.current_stock')}
                     </span>
                     <span className="text-sm font-medium">
                       {item.current_stock}
@@ -459,7 +459,7 @@ const InventoryItemDetail: React.FC = () => {
 
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-500">
-                      {t('inventory.minimum_stock', 'Minimum Stock')}
+                      {t('inventory.minimum_stock')}
                     </span>
                     <span className="text-sm">
                       {item.minimum_stock}
@@ -475,7 +475,7 @@ const InventoryItemDetail: React.FC = () => {
                   {t('inventory.status')}
                 </span>
                 <Badge variant={item.is_active ? "default" : "secondary"}>
-                  {item.is_active ? t('common.active', 'Active') : t('common.inactive', 'Inactive')}
+                  {item.is_active ? t('common.active') : t('common.inactive')}
                 </Badge>
               </div>
 

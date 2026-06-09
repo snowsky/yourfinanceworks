@@ -112,7 +112,7 @@ export function MenuSearchDialog() {
     { path: '/approvals', label: 'Approvals', icon: <ListChecks className="h-4 w-4" /> },
     {
       path: '/inventory',
-      label: t('navigation.inventory', 'Inventory'),
+      label: t('navigation.inventory'),
       icon: <Package className="h-4 w-4" />,
     },
     {
@@ -132,7 +132,7 @@ export function MenuSearchDialog() {
     },
     {
       path: '/reports/accounting-tax-export',
-      label: t('reports.accounting_tax_export.title', 'Accounting & Tax Export'),
+      label: t('reports.accounting_tax_export.title'),
       icon: <FileText className="h-4 w-4" />,
     },
   ];

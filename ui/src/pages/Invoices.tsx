@@ -1198,12 +1198,12 @@ const Invoices = () => {
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem asChild>
                                     <Link to={`/invoices/view/${invoice.id}`} className="flex items-center">
-                                      <Eye className="mr-2 h-4 w-4" /> {t('common.view', 'View')}
+                                      <Eye className="mr-2 h-4 w-4" /> {t('common.view')}
                                     </Link>
                                   </DropdownMenuItem>
                                   <DropdownMenuItem asChild>
                                     <Link to={`/invoices/edit/${invoice.id}`} className="flex items-center">
-                                      <Pencil className="mr-2 h-4 w-4" /> {t('common.edit', 'Edit')}
+                                      <Pencil className="mr-2 h-4 w-4" /> {t('common.edit')}
                                     </Link>
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleCloneInvoice(invoice.id)}>
@@ -1214,7 +1214,7 @@ const Invoices = () => {
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteInvoice(invoice.id)}>
-                                    <Trash2 className="mr-2 h-4 w-4" /> {t('common.delete', 'Delete')}
+                                    <Trash2 className="mr-2 h-4 w-4" /> {t('common.delete')}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -1231,9 +1231,9 @@ const Invoices = () => {
                 <div className="bg-gradient-to-br from-primary/20 to-primary/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
                   <FileText className="h-10 w-10 text-primary/60" />
                 </div>
-                <h3 className="text-2xl font-bold text-foreground mb-2">{t('invoices.no_invoices', 'No invoices yet')}</h3>
+                <h3 className="text-2xl font-bold text-foreground mb-2">{t('invoices.no_invoices')}</h3>
                 <p className="text-muted-foreground max-w-sm mx-auto mb-8">
-                  {t('invoices.no_invoices_description', 'Get started by creating your first professional invoice. You can also import one from a PDF.')}
+                  {t('invoices.no_invoices_description')}
                 </p>
                 {canPerformAction && (
                   <Link to="/invoices/new">
@@ -1325,16 +1325,16 @@ const Invoices = () => {
       < AlertDialog open={permanentDeleteModalOpen} onOpenChange={setPermanentDeleteModalOpen} >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('invoices.permanent_delete_confirm_title', 'Permanently Delete Invoice')}</AlertDialogTitle>
+            <AlertDialogTitle>{t('invoices.permanent_delete_confirm_title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('invoices.permanent_delete_confirm_description', 'Are you sure you want to permanently delete this invoice? This action cannot be undone and the invoice will be completely removed from the system.')}
+              {t('invoices.permanent_delete_confirm_description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmPermanentDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               <Trash2 className="mr-2 h-4 w-4" />
-              {t('invoices.permanent_delete', 'Permanently Delete')}
+              {t('invoices.permanent_delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1344,15 +1344,15 @@ const Invoices = () => {
       < AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen} >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('invoices.delete_confirm_title', 'Delete Invoice')}</AlertDialogTitle>
+            <AlertDialogTitle>{t('invoices.delete_confirm_title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('invoices.delete_confirm_description', 'This will move the invoice to the recycle bin where it can be restored or permanently deleted later.')}
+              {t('invoices.delete_confirm_description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteInvoice} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {t('invoices.delete', 'Delete')}
+              {t('invoices.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1364,19 +1364,19 @@ const Invoices = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {selectedIds.length === 1
-                ? t('invoices.delete_single_title', 'Move 1 Invoice to Recycle Bin')
-                : t('invoices.delete_multiple_title', 'Move {{count}} Invoices to Recycle Bin', { count: selectedIds.length })
+                ? t('invoices.delete_single_title')
+                : t('invoices.delete_multiple_title', { count: selectedIds.length })
               }
             </AlertDialogTitle>
             <AlertDialogDescription>
               {selectedIds.length === 1
-                ? t('invoices.delete_single_description', 'Are you sure you want to move this invoice to the recycle bin? You can restore it later if needed.')
-                : t('invoices.delete_multiple_description', 'Are you sure you want to move {{count}} invoices to the recycle bin? You can restore them later if needed.', { count: selectedIds.length })
+                ? t('invoices.delete_single_description')
+                : t('invoices.delete_multiple_description', { count: selectedIds.length })
               }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmBulkDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -1384,7 +1384,7 @@ const Invoices = () => {
               <Trash2 className="mr-2 h-4 w-4" />
               {selectedIds.length === 1
                 ? t('invoices.move_to_recycle_bin')
-                : t('invoices.move_multiple_to_recycle_bin', 'Move All to Recycle Bin')
+                : t('invoices.move_multiple_to_recycle_bin')
               }
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1401,7 +1401,7 @@ const Invoices = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmEmptyRecycleBin} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               <Trash2 className="mr-2 h-4 w-4" />
               {t('recycleBin.empty_recycle_bin')}

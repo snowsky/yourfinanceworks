@@ -58,9 +58,9 @@ export function InvoicePaymentSection({
               <Wallet className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.payment_status', 'Payment Status')}</h2>
+              <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.payment_status')}</h2>
               <p className="text-sm text-muted-foreground">
-                {t('invoices.payment_section_description', 'Track and record payments for this invoice.')}
+                {t('invoices.payment_section_description')}
               </p>
             </div>
           </div>
@@ -133,7 +133,7 @@ export function InvoicePaymentSection({
           <div className="flex items-start gap-4 p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-900/30 italic">
             <CheckCircle2 className="h-5 w-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
             <p className="text-sm text-indigo-900/70 dark:text-indigo-400/70">
-              {t('invoices.payment_update_note', 'You can update the paid amount for this approved invoice to record partial payments.')}
+              {t('invoices.payment_update_note')}
             </p>
           </div>
         )}
