@@ -12,6 +12,27 @@ export function isHexColor(value: string): boolean {
   return /^#?[0-9a-fA-F]{6}$/.test(value.trim());
 }
 
+/**
+ * Fetch an image URL and return it as a data URL, or null on any failure
+ * (network, CORS, 404, decode). Lets callers embed a logo in a generated PDF
+ * without a bad URL ever throwing during render.
+ */
+export async function loadImageAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
 /** Pick black or white text for legibility on top of a given background colour. */
 export function readableTextColor(hex: string): string {
   const m = /^#?([0-9a-fA-F]{6})$/.exec((hex || '').trim());

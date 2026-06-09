@@ -15,6 +15,7 @@ import { CalendarIcon, Edit, Eye, Loader2, AlertCircle, RotateCcw } from 'lucide
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { invoiceApi, Invoice, approvalApi, INVOICE_STATUSES, settingsApi, Settings } from '@/lib/api';
+import { loadImageAsDataUrl } from '@/lib/invoice-branding';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ApprovalActionButtons } from '@/components/approvals/ApprovalActionButtons';
@@ -117,6 +118,15 @@ export default function ViewInvoice() {
     setShowLivePreviewModal(true);
 
     try {
+      // Pre-fetch the logo into a data URL so react-pdf never does a network
+      // fetch at render time (a bad/CORS-blocked URL would otherwise throw and
+      // break PDF generation). Skips silently on any failure.
+      const showLogo = settings.invoice_branding?.show_logo !== false;
+      const logoPath = settings.company_info?.logo;
+      const logoDataUrl = (showLogo && logoPath)
+        ? await loadImageAsDataUrl(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${logoPath}`)
+        : null;
+
       // Generate PDF blob using InvoicePDF component
       const blob = await pdf(
         <InvoicePDF
@@ -126,6 +136,7 @@ export default function ViewInvoice() {
           showDiscount={true}
           template="modern"
           branding={settings.invoice_branding}
+          logoUrl={logoDataUrl}
         />
       ).toBlob();
 
