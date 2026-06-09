@@ -126,10 +126,10 @@ const AccountingTaxExport: React.FC = () => {
       }),
     onSuccess: ({ blob, filename }) => {
       downloadBlobFile(blob, filename || 'accounting_journal.csv');
-      toast.success(t('reports.accounting_tax_export.journal_success', 'Journal export downloaded.'));
+      toast.success(t('reports.accounting_tax_export.journal_success'));
     },
     onError: (error: any) => {
-      toast.error(error?.message || t('reports.accounting_tax_export.journal_error', 'Journal export failed.'));
+      toast.error(error?.message || t('reports.accounting_tax_export.journal_error'));
     },
   });
 
@@ -144,17 +144,17 @@ const AccountingTaxExport: React.FC = () => {
       }),
     onSuccess: ({ blob, filename }) => {
       downloadBlobFile(blob, filename || 'tax_summary.csv');
-      toast.success(t('reports.accounting_tax_export.summary_success', 'Tax summary downloaded.'));
+      toast.success(t('reports.accounting_tax_export.summary_success'));
     },
     onError: (error: any) => {
-      toast.error(error?.message || t('reports.accounting_tax_export.summary_error', 'Tax summary export failed.'));
+      toast.error(error?.message || t('reports.accounting_tax_export.summary_error'));
     },
   });
 
   return (
     <div className="h-full space-y-6 fade-in">
       <PageHeader
-        title={t('reports.accounting_tax_export.title', 'Accounting & Tax Export')}
+        title={t('reports.accounting_tax_export.title')}
         description={t(
           'reports.accounting_tax_export.description',
           'Dedicated accountant-facing exports, separate from processed-document exports.'
@@ -173,7 +173,7 @@ const AccountingTaxExport: React.FC = () => {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <Card className="xl:col-span-2">
               <CardHeader>
-                <CardTitle>{t('reports.accounting_tax_export.scope_title', 'Scope & Date Range')}</CardTitle>
+                <CardTitle>{t('reports.accounting_tax_export.scope_title')}</CardTitle>
                 <CardDescription>
                   {t(
                     'reports.accounting_tax_export.scope_description',
@@ -183,17 +183,17 @@ const AccountingTaxExport: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>{t('reports.accounting_tax_export.document_scope', 'Document Scope')}</Label>
+                  <Label>{t('reports.accounting_tax_export.document_scope')}</Label>
                   <Select value={scope} onValueChange={(value) => setScope(value as ExportScope)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="processed">
-                        {t('reports.accounting_tax_export.scope_processed', 'Processed documents only')}
+                        {t('reports.accounting_tax_export.scope_processed')}
                       </SelectItem>
                       <SelectItem value="all">
-                        {t('reports.accounting_tax_export.scope_all', 'Include unprocessed/drafts')}
+                        {t('reports.accounting_tax_export.scope_all')}
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -219,7 +219,7 @@ const AccountingTaxExport: React.FC = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>{t('reports.accounting_tax_export.quality_title', 'Tax Data Quality')}</CardTitle>
+                <CardTitle>{t('reports.accounting_tax_export.quality_title')}</CardTitle>
                 <CardDescription>
                   {t(
                     'reports.accounting_tax_export.quality_description',
@@ -229,31 +229,31 @@ const AccountingTaxExport: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {qualityQuery.isLoading ? (
-                  <p className="text-muted-foreground">{t('common.loading', 'Loading...')}</p>
+                  <p className="text-muted-foreground">{t('common.loading')}</p>
                 ) : qualityQuery.data ? (
                   <>
                     <p>
-                      {t('reports.accounting_tax_export.invoice_count', 'Invoices in scope')}: {qualityQuery.data.invoiceCount}
+                      {t('reports.accounting_tax_export.invoice_count')}: {qualityQuery.data.invoiceCount}
                     </p>
                     <p>
-                      {t('reports.accounting_tax_export.expense_count', 'Expenses in scope')}: {qualityQuery.data.expenseCount}
+                      {t('reports.accounting_tax_export.expense_count')}: {qualityQuery.data.expenseCount}
                     </p>
                     <div className="pt-2 border-t border-border/60 space-y-2">
                       <p className="text-amber-700 dark:text-amber-300">
                         <AlertTriangle className="inline-block h-4 w-4 mr-1 align-text-bottom" />
-                        {t('reports.accounting_tax_export.invoices_missing_tax', 'Invoices missing explicit tax amount')}:{' '}
+                        {t('reports.accounting_tax_export.invoices_missing_tax')}:{' '}
                         {qualityQuery.data.invoicesMissingTax}
                       </p>
                       <p className="text-amber-700 dark:text-amber-300">
                         <AlertTriangle className="inline-block h-4 w-4 mr-1 align-text-bottom" />
-                        {t('reports.accounting_tax_export.expenses_tax_mismatch', 'Expenses with tax amount/rate mismatch')}:{' '}
+                        {t('reports.accounting_tax_export.expenses_tax_mismatch')}:{' '}
                         {qualityQuery.data.expensesTaxMismatch}
                       </p>
                     </div>
                   </>
                 ) : (
                   <p className="text-muted-foreground">
-                    {t('reports.accounting_tax_export.quality_unavailable', 'Quality metrics unavailable.')}
+                    {t('reports.accounting_tax_export.quality_unavailable')}
                   </p>
                 )}
               </CardContent>
@@ -261,7 +261,7 @@ const AccountingTaxExport: React.FC = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>{t('reports.accounting_tax_export.journal_title', 'Accounting Journal CSV')}</CardTitle>
+                <CardTitle>{t('reports.accounting_tax_export.journal_title')}</CardTitle>
                 <CardDescription>
                   {t(
                     'reports.accounting_tax_export.journal_description',
@@ -279,7 +279,7 @@ const AccountingTaxExport: React.FC = () => {
                         setJournalSources((prev) => ({ ...prev, include_expenses: checked === true }))
                       }
                     />
-                    <Label htmlFor="journal-expenses">{t('reports.accounting_tax_export.include_expenses', 'Include Expenses')}</Label>
+                    <Label htmlFor="journal-expenses">{t('reports.accounting_tax_export.include_expenses')}</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -289,7 +289,7 @@ const AccountingTaxExport: React.FC = () => {
                         setJournalSources((prev) => ({ ...prev, include_invoices: checked === true }))
                       }
                     />
-                    <Label htmlFor="journal-invoices">{t('reports.accounting_tax_export.include_invoices', 'Include Invoices')}</Label>
+                    <Label htmlFor="journal-invoices">{t('reports.accounting_tax_export.include_invoices')}</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -300,7 +300,7 @@ const AccountingTaxExport: React.FC = () => {
                         setJournalSources((prev) => ({ ...prev, include_payments: checked === true }))
                       }
                     />
-                    <Label htmlFor="journal-payments">{t('reports.accounting_tax_export.include_payments', 'Include Payments')}</Label>
+                    <Label htmlFor="journal-payments">{t('reports.accounting_tax_export.include_payments')}</Label>
                   </div>
                   {journalSources.tax_only && (
                     <p className="text-xs text-muted-foreground pl-6">
@@ -325,7 +325,7 @@ const AccountingTaxExport: React.FC = () => {
                         })
                       }
                     />
-                    <Label htmlFor="journal-tax-only">{t('reports.accounting_tax_export.tax_only', 'Tax-relevant entries only')}</Label>
+                    <Label htmlFor="journal-tax-only">{t('reports.accounting_tax_export.tax_only')}</Label>
                   </div>
                 </div>
 
@@ -336,15 +336,15 @@ const AccountingTaxExport: React.FC = () => {
                 >
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
                   {journalMutation.isPending
-                    ? t('reports.accounting_tax_export.downloading', 'Downloading...')
-                    : t('reports.accounting_tax_export.download_journal', 'Download Journal CSV')}
+                    ? t('reports.accounting_tax_export.downloading')
+                    : t('reports.accounting_tax_export.download_journal')}
                 </Button>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>{t('reports.accounting_tax_export.summary_title', 'Tax Summary CSV')}</CardTitle>
+                <CardTitle>{t('reports.accounting_tax_export.summary_title')}</CardTitle>
                 <CardDescription>
                   {t(
                     'reports.accounting_tax_export.summary_description',
@@ -362,7 +362,7 @@ const AccountingTaxExport: React.FC = () => {
                         setSummarySources((prev) => ({ ...prev, include_expenses: checked === true }))
                       }
                     />
-                    <Label htmlFor="summary-expenses">{t('reports.accounting_tax_export.include_expenses', 'Include Expenses')}</Label>
+                    <Label htmlFor="summary-expenses">{t('reports.accounting_tax_export.include_expenses')}</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -372,7 +372,7 @@ const AccountingTaxExport: React.FC = () => {
                         setSummarySources((prev) => ({ ...prev, include_invoices: checked === true }))
                       }
                     />
-                    <Label htmlFor="summary-invoices">{t('reports.accounting_tax_export.include_invoices', 'Include Invoices')}</Label>
+                    <Label htmlFor="summary-invoices">{t('reports.accounting_tax_export.include_invoices')}</Label>
                   </div>
                 </div>
 
@@ -383,8 +383,8 @@ const AccountingTaxExport: React.FC = () => {
                 >
                   <Download className="h-4 w-4 mr-2" />
                   {summaryMutation.isPending
-                    ? t('reports.accounting_tax_export.downloading', 'Downloading...')
-                    : t('reports.accounting_tax_export.download_summary', 'Download Tax Summary CSV')}
+                    ? t('reports.accounting_tax_export.downloading')
+                    : t('reports.accounting_tax_export.download_summary')}
                 </Button>
               </CardContent>
             </Card>

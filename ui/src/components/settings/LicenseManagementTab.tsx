@@ -249,12 +249,12 @@ export const LicenseManagementTab: React.FC = () => {
 
       window.open(landingUrl, '_blank');
 
-      toast.success(t('settings.license.opening_site', 'Opening license creation site...'));
+      toast.success(t('settings.license.opening_site'));
 
     } catch (error: any) {
       console.error('Failed to fetch license request data:', error);
       const errorMessage = error.response?.data?.detail || error.message ||
-        t('settings.license.public_key_error', 'Failed to fetch license request data. Make sure you are an admin.');
+        t('settings.license.public_key_error');
       toast.error(errorMessage);
     }
   };
@@ -268,16 +268,16 @@ export const LicenseManagementTab: React.FC = () => {
       const publicKey = licenseRequestData.public_key;
 
       if (!publicKey) {
-        toast.error(t('settings.license.public_key_not_found', 'Public key not found.'));
+        toast.error(t('settings.license.public_key_not_found'));
         return;
       }
 
       await navigator.clipboard.writeText(publicKey);
-      toast.success(t('settings.license.public_key_copied', 'Public key copied to clipboard!'));
+      toast.success(t('settings.license.public_key_copied'));
     } catch (error: any) {
       console.error('Failed to copy public key:', error);
       const errorMessage = error.response?.data?.detail || error.message ||
-        t('settings.license.public_key_error', 'Failed to fetch license request data. Make sure you are an admin.');
+        t('settings.license.public_key_error');
       toast.error(errorMessage);
     }
   };
@@ -511,7 +511,7 @@ export const LicenseManagementTab: React.FC = () => {
                       onClick={handleCopyPublicKey}
                     >
                       <Copy className="h-4 w-4 mr-2" />
-                      {t('settings.license.copy_public_key', 'Copy Public Key')}
+                      {t('settings.license.copy_public_key')}
                     </ProfessionalButton>
                     <AlertDialogTrigger asChild>
                       <ProfessionalButton
@@ -548,7 +548,7 @@ export const LicenseManagementTab: React.FC = () => {
                   onClick={handleCopyPublicKey}
                 >
                   <Copy className="h-4 w-4 mr-2" />
-                  {t('settings.license.copy_public_key', 'Copy Public Key')}
+                  {t('settings.license.copy_public_key')}
                 </ProfessionalButton>
                 <AlertDialog open={showCreateConfirmDialog} onOpenChange={setShowCreateConfirmDialog}>
                   <AlertDialogTrigger asChild>
@@ -805,7 +805,7 @@ export const LicenseManagementTab: React.FC = () => {
                         <div className="space-y-2">
                           <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
                             <Building2 className="h-3.5 w-3.5" />
-                            {t('settings.license.status.maxTenants', 'Maximum Organizations')}
+                            {t('settings.license.status.maxTenants')}
                           </Label>
                           <div className="text-sm font-medium px-3 py-1.5 bg-background border border-border rounded-md shadow-sm">
                             {activeInfo.max_tenants || 'Unlimited'}

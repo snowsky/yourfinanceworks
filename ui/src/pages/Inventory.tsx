@@ -187,14 +187,14 @@ const Inventory = () => {
   };
 
   const getStockStatus = (item: InventoryItem) => {
-    if (!item.track_stock) return { status: 'not-tracked', label: t('inventory.stock_status.not_tracked', 'Not Tracked') };
+    if (!item.track_stock) return { status: 'not-tracked', label: t('inventory.stock_status.not_tracked') };
 
     if (item.current_stock <= item.minimum_stock) {
-      return { status: 'critical', label: t('inventory.stock_status.low_stock', 'Low Stock'), color: 'destructive' as const };
+      return { status: 'critical', label: t('inventory.stock_status.low_stock'), color: 'destructive' as const };
     } else if (item.current_stock <= item.minimum_stock * 1.5) {
-      return { status: 'warning', label: t('inventory.stock_status.low_stock', 'Low Stock'), color: 'secondary' as const };
+      return { status: 'warning', label: t('inventory.stock_status.low_stock'), color: 'secondary' as const };
     } else {
-      return { status: 'normal', label: t('inventory.stock_status.in_stock', 'In Stock'), color: 'default' as const };
+      return { status: 'normal', label: t('inventory.stock_status.in_stock'), color: 'default' as const };
     }
   };
 
@@ -205,12 +205,12 @@ const Inventory = () => {
           <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
             <div className="space-y-2 flex-1">
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">
-                {t('inventory.title', 'Inventory')}
+                {t('inventory.title')}
               </h1>
               <p className="text-muted-foreground text-sm md:text-base max-w-2xl">
                 {businessType === 'service'
-                  ? t('inventory.service_description', 'Create a service catalog for your consulting and freelance work')
-                  : t('inventory.product_description', 'Manage your products and stock levels')
+                  ? t('inventory.service_description')
+                  : t('inventory.product_description')
                 }
               </p>
               <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -218,7 +218,7 @@ const Inventory = () => {
                   {t('common.total', { defaultValue: 'Total' })}: {analytics?.total_items ?? items.length}
                 </span>
                 <span className="inline-flex items-center rounded-md border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700">
-                  {t('inventory.analytics.low_stock_items', 'Low Stock Items')}: {analytics?.low_stock_items ?? 0}
+                  {t('inventory.analytics.low_stock_items')}: {analytics?.low_stock_items ?? 0}
                 </span>
               </div>
             </div>
@@ -226,7 +226,7 @@ const Inventory = () => {
               <div className="flex gap-2 flex-wrap justify-end">
                 <Link to="/inventory/new">
                   <ProfessionalButton className="sm:self-end whitespace-nowrap shadow-lg">
-                    <Plus className="mr-2 h-4 w-4" /> {t('inventory.add_item', 'Add Item')}
+                    <Plus className="mr-2 h-4 w-4" /> {t('inventory.add_item')}
                   </ProfessionalButton>
                 </Link>
                 <BarcodeScanner
@@ -244,19 +244,19 @@ const Inventory = () => {
           <TabsList className="grid w-full grid-cols-4 bg-muted/50 border border-border/50 rounded-lg p-1">
             <TabsTrigger value="overview" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
               <Package className="h-4 w-4" />
-              {t('inventory.tabs.overview', 'Overview')}
+              {t('inventory.tabs.overview')}
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
               <BarChart3 className="h-4 w-4" />
-              {t('inventory.tabs.analytics', 'Analytics')}
+              {t('inventory.tabs.analytics')}
             </TabsTrigger>
             <TabsTrigger value="forecasting" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
               <Target className="h-4 w-4" />
-              {t('inventory.tabs.forecasting', 'Forecasting')}
+              {t('inventory.tabs.forecasting')}
             </TabsTrigger>
             <TabsTrigger value="insights" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-200">
               <Lightbulb className="h-4 w-4" />
-              {t('inventory.tabs.insights', 'Insights')}
+              {t('inventory.tabs.insights')}
             </TabsTrigger>
           </TabsList>
 
@@ -265,32 +265,32 @@ const Inventory = () => {
             {analytics && (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <MetricCard
-                  title={t('inventory.analytics.total_items', 'Total Items')}
+                  title={t('inventory.analytics.total_items')}
                   value={analytics.total_items}
                   icon={Package}
-                  description={`${analytics.active_items} ${t('inventory.analytics.active', 'active')}`}
+                  description={`${analytics.active_items} ${t('inventory.analytics.active')}`}
                 />
 
                 <MetricCard
-                  title={t('inventory.analytics.low_stock_items', 'Low Stock Items')}
+                  title={t('inventory.analytics.low_stock_items')}
                   value={analytics.low_stock_items}
                   icon={AlertTriangle}
-                  description={t('inventory.analytics.need_attention', 'Need attention')}
+                  description={t('inventory.analytics.need_attention')}
                   variant="warning"
                 />
 
                 <MetricCard
-                  title={t('inventory.analytics.inventory_value', 'Inventory Value')}
+                  title={t('inventory.analytics.inventory_value')}
                   value={<CurrencyDisplay amount={analytics.total_value} currency={analytics.currency} /> as any}
                   icon={DollarSign}
-                  description={t('inventory.total', 'Total')}
+                  description={t('inventory.total')}
                 />
 
                 <MetricCard
-                  title={t('inventory.analytics.categories', 'Categories')}
+                  title={t('inventory.analytics.categories')}
                   value={categories.length}
                   icon={TrendingUp}
-                  description={t('inventory.analytics.product_categories', 'Product categories')}
+                  description={t('inventory.analytics.product_categories')}
                 />
               </div>
             )}
@@ -298,17 +298,17 @@ const Inventory = () => {
             <ProfessionalCard className="slide-in dashboard-highlight-block dashboard-highlight-block-primary" variant="elevated">
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row justify-between gap-4">
-                  <CardTitle>{t('inventory.items_list', 'Inventory Items')}</CardTitle>
+                  <CardTitle>{t('inventory.items_list')}</CardTitle>
                   <div className="flex gap-2">
                     <Select
                       value={String(selectedCategory)}
                       onValueChange={(val) => setSelectedCategory(val === "all" ? "all" : parseInt(val))}
                     >
                       <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
-                        <SelectValue placeholder={t('inventory.all_categories', 'All Categories')} />
+                        <SelectValue placeholder={t('inventory.all_categories')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">{t('inventory.all_categories', 'All Categories')}</SelectItem>
+                        <SelectItem value="all">{t('inventory.all_categories')}</SelectItem>
                         {categories.map(category => (
                           <SelectItem key={category.id} value={String(category.id)}>
                             {category.name}
@@ -319,7 +319,7 @@ const Inventory = () => {
                     <div className="relative max-w-sm">
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
-                        placeholder={t('inventory.search_placeholder', 'Search items...')}
+                        placeholder={t('inventory.search_placeholder')}
                         className="pl-8"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -340,15 +340,15 @@ const Inventory = () => {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
-                        <TableHead>{t('inventory.table.name', 'Name')}</TableHead>
-                        {isVisible('sku') && <TableHead>{t('inventory.table.sku', 'SKU')}</TableHead>}
-                        {isVisible('category') && <TableHead>{t('inventory.table.category', 'Category')}</TableHead>}
-                        <TableHead className="text-right">{t('inventory.table.price', 'Price')}</TableHead>
-                        <TableHead className="text-right">{t('inventory.table.stock', 'Stock')}</TableHead>
-                        {isVisible('created') && <TableHead>{t('inventory.table.created_date', 'Created')}</TableHead>}
-                        {isVisible('updated') && <TableHead>{t('inventory.table.updated_date', 'Updated')}</TableHead>}
-                        <TableHead>{t('inventory.table.status', 'Status')}</TableHead>
-                        <TableHead className="w-[100px]">{t('inventory.table.actions', 'Actions')}</TableHead>
+                        <TableHead>{t('inventory.table.name')}</TableHead>
+                        {isVisible('sku') && <TableHead>{t('inventory.table.sku')}</TableHead>}
+                        {isVisible('category') && <TableHead>{t('inventory.table.category')}</TableHead>}
+                        <TableHead className="text-right">{t('inventory.table.price')}</TableHead>
+                        <TableHead className="text-right">{t('inventory.table.stock')}</TableHead>
+                        {isVisible('created') && <TableHead>{t('inventory.table.created_date')}</TableHead>}
+                        {isVisible('updated') && <TableHead>{t('inventory.table.updated_date')}</TableHead>}
+                        <TableHead>{t('inventory.table.status')}</TableHead>
+                        <TableHead className="w-[100px]">{t('inventory.table.actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -357,7 +357,7 @@ const Inventory = () => {
                           <TableCell colSpan={9} className="h-24 text-center">
                             <div className="flex justify-center items-center">
                               <Loader2 className="h-12 w-12 animate-spin text-primary/60 mr-3" />
-                              <span className="text-muted-foreground">{t('inventory.loading', 'Loading inventory...')}</span>
+                              <span className="text-muted-foreground">{t('inventory.loading')}</span>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -422,19 +422,19 @@ const Inventory = () => {
                                   <DropdownMenuContent align="end">
                                     <DropdownMenuItem asChild>
                                       <Link to={`/inventory/view/${item.id}`} className="flex items-center">
-                                        <Eye className="mr-2 h-4 w-4" /> {t('common.view', 'View')}
+                                        <Eye className="mr-2 h-4 w-4" /> {t('common.view')}
                                       </Link>
                                     </DropdownMenuItem>
                                     {canPerformAction && (
                                       <>
                                         <DropdownMenuItem asChild>
                                           <Link to={`/inventory/edit/${item.id}`} className="flex items-center">
-                                            <Pencil className="mr-2 h-4 w-4" /> {t('common.edit', 'Edit')}
+                                            <Pencil className="mr-2 h-4 w-4" /> {t('common.edit')}
                                           </Link>
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setItemToDelete(item)}>
-                                          <Trash2 className="mr-2 h-4 w-4" /> {t('common.delete', 'Delete')}
+                                          <Trash2 className="mr-2 h-4 w-4" /> {t('common.delete')}
                                         </DropdownMenuItem>
                                       </>
                                     )}
@@ -453,20 +453,20 @@ const Inventory = () => {
                               </div>
                               <h3 className="text-2xl font-bold mb-2">
                                 {businessType === 'service'
-                                  ? t('inventory.no_service_items', 'No service items yet')
-                                  : t('inventory.no_product_items', 'No inventory items yet')
+                                  ? t('inventory.no_service_items')
+                                  : t('inventory.no_product_items')
                                 }
                               </h3>
                               <p className="text-muted-foreground max-w-sm mx-auto mb-6">
                                 {businessType === 'service'
-                                  ? t('inventory.service_description_empty', 'Create your service catalog to get started. Services can be added to invoices easily.')
-                                  : t('inventory.product_description_empty', 'Add your products to track stock levels and add them to invoices.')
+                                  ? t('inventory.service_description_empty')
+                                  : t('inventory.product_description_empty')
                                 }
                               </p>
                               {canPerformAction && (
                                 <Link to="/inventory/new">
                                   <ProfessionalButton>
-                                    <Plus className="mr-2 h-4 w-4" /> {t('inventory.add_item', 'Add Item')}
+                                    <Plus className="mr-2 h-4 w-4" /> {t('inventory.add_item')}
                                   </ProfessionalButton>
                                 </Link>
                               )}
@@ -803,7 +803,7 @@ const Inventory = () => {
       <Dialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('inventory.delete_item', 'Delete Item')}</DialogTitle>
+            <DialogTitle>{t('inventory.delete_item')}</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <p>{t('inventory.delete_confirm', {
@@ -813,7 +813,7 @@ const Inventory = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setItemToDelete(null)}>
-              {t('common.cancel', 'Cancel')}
+              {t('common.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -821,7 +821,7 @@ const Inventory = () => {
               disabled={deleting}
             >
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t('common.delete', 'Delete')}
+              {t('common.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

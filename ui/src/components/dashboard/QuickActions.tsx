@@ -98,8 +98,8 @@ export function QuickActions() {
     const primaryActions: QuickAction[] = [
         {
             id: 'new-expense',
-            title: t('dashboard.quick_actions.new_expense', 'New Expense'),
-            description: t('dashboard.quick_actions.new_expense_desc', 'Record a new business expense'),
+            title: t('dashboard.quick_actions.new_expense'),
+            description: t('dashboard.quick_actions.new_expense_desc'),
             icon: Plus,
             href: '/expenses/new',
             variant: 'primary',
@@ -107,8 +107,8 @@ export function QuickActions() {
         },
         {
             id: 'new-invoice',
-            title: t('dashboard.quick_actions.new_invoice', 'Create Invoice'),
-            description: t('dashboard.quick_actions.new_invoice_desc', 'Generate a new client invoice'),
+            title: t('dashboard.quick_actions.new_invoice'),
+            description: t('dashboard.quick_actions.new_invoice_desc'),
             icon: FileText,
             href: '/invoices/new',
             variant: 'primary',
@@ -116,8 +116,8 @@ export function QuickActions() {
         },
         {
             id: 'import-expenses',
-            title: t('dashboard.quick_actions.import_expenses', 'Import Expenses'),
-            description: t('dashboard.quick_actions.import_expenses_desc', 'Upload receipts and documents'),
+            title: t('dashboard.quick_actions.import_expenses'),
+            description: t('dashboard.quick_actions.import_expenses_desc'),
             icon: Upload,
             href: '/expenses/import',
             variant: 'default',
@@ -125,8 +125,8 @@ export function QuickActions() {
         },
         {
             id: 'add-client',
-            title: t('dashboard.quick_actions.add_client', 'Add Client'),
-            description: t('dashboard.quick_actions.add_client_desc', 'Register a new client'),
+            title: t('dashboard.quick_actions.add_client'),
+            description: t('dashboard.quick_actions.add_client_desc'),
             icon: Users,
             href: '/clients/new',
             variant: 'default',
@@ -137,8 +137,8 @@ export function QuickActions() {
     const secondaryActions: QuickAction[] = [
         {
             id: 'pending-approvals',
-            title: t('dashboard.quick_actions.pending_approvals', 'Pending Approvals'),
-            description: t('dashboard.quick_actions.pending_approvals_desc', 'Review expense approvals'),
+            title: t('dashboard.quick_actions.pending_approvals'),
+            description: t('dashboard.quick_actions.pending_approvals_desc'),
             icon: ListChecks,
             href: '/approvals',
             badge: pendingApprovals > 0 ? pendingApprovals : undefined,
@@ -146,24 +146,24 @@ export function QuickActions() {
         },
         {
             id: 'inventory',
-            title: t('dashboard.quick_actions.inventory', 'Inventory'),
-            description: t('dashboard.quick_actions.inventory_desc', 'Manage inventory items'),
+            title: t('dashboard.quick_actions.inventory'),
+            description: t('dashboard.quick_actions.inventory_desc'),
             icon: Package,
             href: '/inventory',
             variant: 'default'
         },
         {
             id: 'reports',
-            title: t('dashboard.quick_actions.reports', 'Generate Reports'),
-            description: t('dashboard.quick_actions.reports_desc', 'Create financial reports'),
+            title: t('dashboard.quick_actions.reports'),
+            description: t('dashboard.quick_actions.reports_desc'),
             icon: BarChart,
             href: '/reports',
             variant: 'default'
         },
         {
             id: 'reminders',
-            title: t('dashboard.quick_actions.reminders', 'Reminders'),
-            description: t('dashboard.quick_actions.reminders_desc', 'Manage payment reminders'),
+            title: t('dashboard.quick_actions.reminders'),
+            description: t('dashboard.quick_actions.reminders_desc'),
             icon: Clock,
             href: '/reminders',
             variant: 'default',
@@ -304,14 +304,14 @@ export function QuickActions() {
                             <div className="flex items-center gap-2">
                                 <AlertCircle className="h-5 w-5 text-warning" />
                                 <CardTitle className="text-base font-semibold">
-                                    {t('dashboard.pending_items.title', 'Needs Attention')}
+                                    {t('dashboard.pending_items.title')}
                                 </CardTitle>
                             </div>
                             <Link
                                 to="/approvals"
                                 className="text-sm text-primary hover:text-primary/80 flex items-center gap-1"
                             >
-                                {t('dashboard.pending_items.view_all', 'View All')}
+                                {t('dashboard.pending_items.view_all')}
                                 <ArrowRight className="h-3 w-3" />
                             </Link>
                         </div>
@@ -338,7 +338,7 @@ export function QuickActions() {
                                             <Badge variant="destructive" className="text-xs">High</Badge>
                                         )}
                                         <Button size="sm" variant="outline" className="text-xs">
-                                            {t('dashboard.pending_items.review', 'Review')}
+                                            {t('dashboard.pending_items.review')}
                                         </Button>
                                     </div>
                                 </div>

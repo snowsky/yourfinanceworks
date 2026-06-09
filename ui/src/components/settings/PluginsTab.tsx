@@ -1037,7 +1037,7 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
           // Check if super admin has granted this plugin to the tenant
           const isGrantedToOrg = isSuperuser || availablePlugins === null || availablePlugins.includes(plugin.id);
           if (!isGrantedToOrg) {
-            licenseMessage = t('plugins.not_granted_to_org', 'This plugin has not been granted to your organization. Contact your super administrator.');
+            licenseMessage = t('plugins.not_granted_to_org');
           }
 
           return (

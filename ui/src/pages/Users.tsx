@@ -585,8 +585,8 @@ export default function UsersPage() {
         <ProfessionalCardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <ProfessionalCardTitle>{t('users.team_members', 'Team Members')}</ProfessionalCardTitle>
-              <ProfessionalCardDescription>{t('users.manage_access_and_roles', 'Manage access and roles for your team.')}</ProfessionalCardDescription>
+              <ProfessionalCardTitle>{t('users.team_members')}</ProfessionalCardTitle>
+              <ProfessionalCardDescription>{t('users.manage_access_and_roles')}</ProfessionalCardDescription>
             </div>
             <div className="relative w-full sm:w-[300px]">
               <ProfessionalInput

@@ -1069,14 +1069,14 @@ export default function Statements() {
         <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>{t('statements.delete_confirm_title', 'Delete Statement')}</AlertDialogTitle>
+              <AlertDialogTitle>{t('statements.delete_confirm_title')}</AlertDialogTitle>
               <AlertDialogDescription>{t('statements.delete_confirm_description')}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
               <AlertDialogAction onClick={confirmDeleteStatement} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 <Trash2 className="mr-2 h-4 w-4" />
-                {t('statements.delete', 'Delete')}
+                {t('statements.delete')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -1090,7 +1090,7 @@ export default function Statements() {
               <AlertDialogDescription>Are you sure you want to delete this transaction? This action cannot be undone.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setTransactionToDelete(null)}>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => setTransactionToDelete(null)}>{t('common.cancel')}</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 onClick={async () => {
@@ -1121,7 +1121,7 @@ export default function Statements() {
               <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
               <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 <Trash2 className="mr-2 h-4 w-4" />
-                {t('statements.delete', 'Delete')}
+                {t('statements.delete')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -1152,7 +1152,7 @@ export default function Statements() {
               <AlertDialogDescription>Are you sure you want to remove this transfer link? This will unlink the transaction from the other statement, but will not delete the transaction itself.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setRowToUnlink(null)}>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => setRowToUnlink(null)}>{t('common.cancel')}</AlertDialogCancel>
               <AlertDialogAction onClick={confirmUnlinkTransfer} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 <X className="mr-2 h-4 w-4" />
                 Unlink

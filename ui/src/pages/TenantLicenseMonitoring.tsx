@@ -102,7 +102,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
       setMaxTenantsManual(signupSettings.max_tenants || 0);
       setMaxUsersManual(statusData.user_licensing_info?.max_users || 0);
     } catch (err) {
-      toast.error(t('superAdmin.license_capacity_monitoring.load_error', 'Failed to load license monitoring data'));
+      toast.error(t('superAdmin.license_capacity_monitoring.load_error'));
     } finally {
       setLoading(false);
     }
@@ -115,10 +115,10 @@ export const TenantLicenseMonitoring: React.FC = () => {
   const handleUpdateTenantExemption = async (tenantId: number, counts: boolean) => {
     try {
       await superAdminApi.updateTenantCapacityControl(tenantId, counts);
-      toast.success(counts ? t('superAdmin.license_capacity_monitoring.tenant_counts_license', 'Tenant now counts against license') : t('superAdmin.license_capacity_monitoring.tenant_exempt_license', 'Tenant now exempt from license'));
+      toast.success(counts ? t('superAdmin.license_capacity_monitoring.tenant_counts_license') : t('superAdmin.license_capacity_monitoring.tenant_exempt_license'));
       setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, count_against_license: counts } : t));
     } catch (err) {
-      toast.error(t('superAdmin.license_capacity_monitoring.update_exemption_error', 'Failed to update tenant exemption'));
+      toast.error(t('superAdmin.license_capacity_monitoring.update_exemption_error'));
     }
   };
 
@@ -141,16 +141,16 @@ export const TenantLicenseMonitoring: React.FC = () => {
     try {
       const result = await superAdminApi.activateGlobalLicense(globalKey.trim());
       if (result.success) {
-        toast.success(t('superAdmin.license_capacity_monitoring.global_license_activated', 'Global license activated successfully'));
+        toast.success(t('superAdmin.license_capacity_monitoring.global_license_activated'));
         setGlobalKey('');
         fetchData();
         // Refresh feature context so all tenants see the new global license features
         await refetchFeatures();
       } else {
-        toast.error(result.message || t('superAdmin.license_capacity_monitoring.activation_failed', 'Activation failed'));
+        toast.error(result.message || t('superAdmin.license_capacity_monitoring.activation_failed'));
       }
     } catch (err: any) {
-      toast.error(err.message || t('superAdmin.license_capacity_monitoring.activate_global_error', 'Failed to activate global license'));
+      toast.error(err.message || t('superAdmin.license_capacity_monitoring.activate_global_error'));
     } finally {
       setActivating(false);
     }
@@ -161,15 +161,15 @@ export const TenantLicenseMonitoring: React.FC = () => {
     try {
       const result = await superAdminApi.deactivateGlobalLicense();
       if (result.success) {
-        toast.success(t('superAdmin.license_capacity_monitoring.global_license_deactivated', 'Global license deactivated successfully'));
+        toast.success(t('superAdmin.license_capacity_monitoring.global_license_deactivated'));
         fetchData();
         // Refresh feature context so all tenants see the updated license status
         await refetchFeatures();
       } else {
-        toast.error(result.message || t('superAdmin.license_capacity_monitoring.deactivation_failed', 'Deactivation failed'));
+        toast.error(result.message || t('superAdmin.license_capacity_monitoring.deactivation_failed'));
       }
     } catch (err: any) {
-      toast.error(err.message || t('superAdmin.license_capacity_monitoring.deactivate_global_error', 'Failed to deactivate global license'));
+      toast.error(err.message || t('superAdmin.license_capacity_monitoring.deactivate_global_error'));
     } finally {
       setDeactivatingGlobal(false);
       setShowDeactivateGlobalDialog(false);
@@ -278,7 +278,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
 
               {status?.user_licensing_info && (
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">{t('superAdmin.license_capacity_monitoring.user_capacity_usage', 'User Capacity Usage')}</span>
+                  <span className="text-sm font-medium">{t('superAdmin.license_capacity_monitoring.user_capacity_usage')}</span>
                   <div className="text-right">
                     <span className={`text-lg font-bold ${status.user_licensing_info.max_users && status.user_licensing_info.current_users_count > status.user_licensing_info.max_users ? 'text-destructive' : 'text-primary'}`}>
                       {status.user_licensing_info.current_users_count}
@@ -417,7 +417,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
             <div className="space-y-2">
               <Label htmlFor="max-tenants-manual" className="flex items-center gap-2">
                 <Building className="h-4 w-4 text-muted-foreground" />
-                {t('superAdmin.license_capacity_monitoring.max_organizations_limit', 'Max Organizations Limit')}
+                {t('superAdmin.license_capacity_monitoring.max_organizations_limit')}
               </Label>
               <div className="flex gap-2">
                 <input
@@ -433,16 +433,16 @@ export const TenantLicenseMonitoring: React.FC = () => {
                   onClick={() => handleUpdateSignupSettings('max_tenants', maxTenantsManual)}
                   disabled={savingSettings}
                 >
-                  {t('common.save', 'Save')}
+                  {t('common.save')}
                 </ProfessionalButton>
               </div>
-              <p className="text-xs text-muted-foreground">{t('superAdmin.license_capacity_monitoring.max_tenants_description', 'Manually override the system-wide organization limit.')}</p>
+              <p className="text-xs text-muted-foreground">{t('superAdmin.license_capacity_monitoring.max_tenants_description')}</p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="max-users-manual" className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                {t('superAdmin.license_capacity_monitoring.max_users_limit', 'Max Users Limit')}
+                {t('superAdmin.license_capacity_monitoring.max_users_limit')}
               </Label>
               <div className="flex gap-2">
                 <input
@@ -458,10 +458,10 @@ export const TenantLicenseMonitoring: React.FC = () => {
                   onClick={() => handleUpdateSignupSettings('max_users', maxUsersManual)}
                   disabled={savingSettings}
                 >
-                  {t('common.save', 'Save')}
+                  {t('common.save')}
                 </ProfessionalButton>
               </div>
-              <p className="text-xs text-muted-foreground">{t('superAdmin.license_capacity_monitoring.max_users_description', 'Manually override the system-wide user limit.')}</p>
+              <p className="text-xs text-muted-foreground">{t('superAdmin.license_capacity_monitoring.max_users_description')}</p>
             </div>
           </div>
 
@@ -481,7 +481,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
         <ProfessionalCardHeader>
           <ProfessionalCardTitle className="flex items-center">
             <Users className="h-5 w-5 mr-2 text-primary" />
-            {t('superAdmin.license_capacity_monitoring.user_capacity_control', 'User Capacity Control')}
+            {t('superAdmin.license_capacity_monitoring.user_capacity_control')}
           </ProfessionalCardTitle>
         </ProfessionalCardHeader>
         <ProfessionalCardContent>
@@ -489,11 +489,11 @@ export const TenantLicenseMonitoring: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('superAdmin.license_capacity_monitoring.user', 'User')}</TableHead>
-                  <TableHead>{t('superAdmin.license_capacity_monitoring.email', 'Email')}</TableHead>
-                  <TableHead>{t('superAdmin.license_capacity_monitoring.organization', 'Organization')}</TableHead>
-                  <TableHead>{t('superAdmin.license_capacity_monitoring.status', 'Status')}</TableHead>
-                  <TableHead className="w-[300px]">{t('superAdmin.license_capacity_monitoring.capacity_control', 'Capacity Control')}</TableHead>
+                  <TableHead>{t('superAdmin.license_capacity_monitoring.user')}</TableHead>
+                  <TableHead>{t('superAdmin.license_capacity_monitoring.email')}</TableHead>
+                  <TableHead>{t('superAdmin.license_capacity_monitoring.organization')}</TableHead>
+                  <TableHead>{t('superAdmin.license_capacity_monitoring.status')}</TableHead>
+                  <TableHead className="w-[300px]">{t('superAdmin.license_capacity_monitoring.capacity_control')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -514,7 +514,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
                     <TableCell>
                       <div className="flex flex-col gap-1">
                         <Badge variant={user.is_active ? "default" : "secondary"}>
-                          {user.is_active ? t('superAdmin.license_capacity_monitoring.active', 'Active') : t('common.inactive', 'Inactive')}
+                          {user.is_active ? t('superAdmin.license_capacity_monitoring.active') : t('common.inactive')}
                         </Badge>
                         {user.effectively_exempt && user.count_against_license && (
                           <Badge variant="outline" className="text-[9px] h-4 bg-amber-50 text-amber-700 border-amber-200">
@@ -531,11 +531,11 @@ export const TenantLicenseMonitoring: React.FC = () => {
                       >
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="counts" id={`user-counts-${user.id}`} />
-                          <Label htmlFor={`user-counts-${user.id}`} className="cursor-pointer">{t('superAdmin.license_capacity_monitoring.counts', 'Counts')}</Label>
+                          <Label htmlFor={`user-counts-${user.id}`} className="cursor-pointer">{t('superAdmin.license_capacity_monitoring.counts')}</Label>
                         </div>
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="exempt" id={`user-exempt-${user.id}`} />
-                          <Label htmlFor={`user-exempt-${user.id}`} className="cursor-pointer font-semibold text-primary">{t('superAdmin.license_capacity_monitoring.exempt', 'Exempt')}</Label>
+                          <Label htmlFor={`user-exempt-${user.id}`} className="cursor-pointer font-semibold text-primary">{t('superAdmin.license_capacity_monitoring.exempt')}</Label>
                         </div>
                       </RadioGroup>
                     </TableCell>
@@ -559,7 +559,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
         <ProfessionalCardHeader>
           <ProfessionalCardTitle className="flex items-center">
             <Building className="h-5 w-5 mr-2 text-primary" />
-            {t('superAdmin.license_capacity_monitoring.organization_capacity_control', 'Organization Capacity Control')}
+            {t('superAdmin.license_capacity_monitoring.organization_capacity_control')}
           </ProfessionalCardTitle>
         </ProfessionalCardHeader>
         <ProfessionalCardContent>
@@ -567,10 +567,10 @@ export const TenantLicenseMonitoring: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('superAdmin.license_capacity_monitoring.organization', 'Organization')}</TableHead>
-                  <TableHead>{t('superAdmin.license_capacity_monitoring.status', 'Status')}</TableHead>
-                  <TableHead>{t('superAdmin.license_capacity_monitoring.capacity_status', 'Capacity Status')}</TableHead>
-                  <TableHead className="w-[300px]">{t('superAdmin.license_capacity_monitoring.capacity_control', 'Capacity Control')}</TableHead>
+                  <TableHead>{t('superAdmin.license_capacity_monitoring.organization')}</TableHead>
+                  <TableHead>{t('superAdmin.license_capacity_monitoring.status')}</TableHead>
+                  <TableHead>{t('superAdmin.license_capacity_monitoring.capacity_status')}</TableHead>
+                  <TableHead className="w-[300px]">{t('superAdmin.license_capacity_monitoring.capacity_control')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -579,18 +579,18 @@ export const TenantLicenseMonitoring: React.FC = () => {
                     <TableCell className="font-medium">{tenant.name}</TableCell>
                     <TableCell>
                       <Badge variant={tenant.is_active ? "default" : "secondary"}>
-                        {tenant.is_active ? t('superAdmin.license_capacity_monitoring.active', 'Active') : t('common.inactive', 'Inactive')}
+                        {tenant.is_active ? t('superAdmin.license_capacity_monitoring.active') : t('common.inactive')}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={tenant.is_enabled ? "default" : "destructive"}>
-                        {tenant.is_enabled ? t('superAdmin.license_capacity_monitoring.active', 'Active') : t('common.inactive', 'Inactive')}
+                        {tenant.is_enabled ? t('superAdmin.license_capacity_monitoring.active') : t('common.inactive')}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1.5 text-sm">
                         <Info className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{tenant.count_against_license ? t('superAdmin.license_capacity_monitoring.counts_against_limit', 'Counts against limit') : t('superAdmin.license_capacity_monitoring.exempt', 'Exempt')}</span>
+                        <span>{tenant.count_against_license ? t('superAdmin.license_capacity_monitoring.counts_against_limit') : t('superAdmin.license_capacity_monitoring.exempt')}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -601,11 +601,11 @@ export const TenantLicenseMonitoring: React.FC = () => {
                       >
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="counts" id={`counts-${tenant.id}`} />
-                          <Label htmlFor={`counts-${tenant.id}`} className="cursor-pointer">{t('superAdmin.license_capacity_monitoring.counts', 'Counts')}</Label>
+                          <Label htmlFor={`counts-${tenant.id}`} className="cursor-pointer">{t('superAdmin.license_capacity_monitoring.counts')}</Label>
                         </div>
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="exempt" id={`exempt-${tenant.id}`} />
-                          <Label htmlFor={`exempt-${tenant.id}`} className="cursor-pointer font-semibold text-primary">{t('superAdmin.license_capacity_monitoring.exempt', 'Exempt')}</Label>
+                          <Label htmlFor={`exempt-${tenant.id}`} className="cursor-pointer font-semibold text-primary">{t('superAdmin.license_capacity_monitoring.exempt')}</Label>
                         </div>
                       </RadioGroup>
                     </TableCell>
@@ -614,7 +614,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
                 {tenants.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                      {t('superAdmin.license_capacity_monitoring.no_organizations_found', 'No organizations found')}
+                      {t('superAdmin.license_capacity_monitoring.no_organizations_found')}
                     </TableCell>
                   </TableRow>
                 )}

@@ -18,7 +18,7 @@ export function InvoiceNotesSection({ form, isEdit = false }: InvoiceNotesSectio
     <Card>
       <CardHeader>
         <CardTitle className="text-lg font-semibold">
-          {t('invoices.notes', 'Notes')}
+          {t('invoices.notes')}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -28,11 +28,11 @@ export function InvoiceNotesSection({ form, isEdit = false }: InvoiceNotesSectio
           render={({ field }) => (
             <FormItem>
               <FormLabel>
-                {t('invoices.notes_label', 'Additional Notes')}
+                {t('invoices.notes_label')}
               </FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder={t('invoices.notes_placeholder', 'Add any additional notes or comments for this invoice...')}
+                  placeholder={t('invoices.notes_placeholder')}
                   className="min-h-[100px] resize-y"
                   {...field}
                 />

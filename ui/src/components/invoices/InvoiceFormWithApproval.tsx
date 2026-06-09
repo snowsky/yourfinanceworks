@@ -205,7 +205,7 @@ export function InvoiceFormWithApproval({
         <div className="w-full px-6 py-6">
           <Card>
             <CardHeader>
-              <CardTitle>{t('invoices.approval_workflow', 'Approval Workflow')}</CardTitle>
+              <CardTitle>{t('invoices.approval_workflow')}</CardTitle>
             </CardHeader>
             <CardContent>
               {loadingApprovalHistory ? (
@@ -223,7 +223,7 @@ export function InvoiceFormWithApproval({
                         {t('invoices.invoice_approved')}
                       </p>
                       <p className="text-sm text-green-700 dark:text-green-300">
-                        {t('invoices.approved_by', 'Approved by')}: {' '}
+                        {t('invoices.approved_by')}: {' '}
                         {approvalHistory.approved_by_username ||
                           approvalHistory.approver?.name ||
                           approvalHistory.approver?.email ||
@@ -239,7 +239,7 @@ export function InvoiceFormWithApproval({
                   {approvalHistory.notes && (
                     <div className="p-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800/50 rounded-lg">
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
-                        {t('invoices.approval_notes', 'Approval Notes')}:
+                        {t('invoices.approval_notes')}:
                       </p>
                       <p className="text-sm text-gray-700 dark:text-gray-300">{approvalHistory.notes}</p>
                     </div>
@@ -255,7 +255,7 @@ export function InvoiceFormWithApproval({
                         {t('invoices.invoice_rejected')}
                       </p>
                       <p className="text-sm text-red-700 dark:text-red-300">
-                        {t('invoices.rejected_by', 'Rejected by')}: {' '}
+                        {t('invoices.rejected_by')}: {' '}
                         {approvalHistory.rejected_by_username ||
                           approvalHistory.approver?.name ||
                           approvalHistory.approver?.email ||
@@ -271,7 +271,7 @@ export function InvoiceFormWithApproval({
                   {approvalHistory.rejection_reason && (
                     <div className="p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800/50 rounded-lg">
                       <p className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
-                        {t('invoices.rejection_reason', 'Rejection Reason')}:
+                        {t('invoices.rejection_reason')}:
                       </p>
                       <p className="text-sm text-red-700 dark:text-red-300">{approvalHistory.rejection_reason}</p>
                     </div>
@@ -279,7 +279,7 @@ export function InvoiceFormWithApproval({
                   {approvalHistory.notes && (
                     <div className="p-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800/50 rounded-lg">
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
-                        {t('invoices.rejection_notes', 'Additional Notes')}:
+                        {t('invoices.rejection_notes')}:
                       </p>
                       <p className="text-sm text-gray-700 dark:text-gray-300">{approvalHistory.notes}</p>
                     </div>
@@ -337,8 +337,8 @@ export function InvoiceFormWithApproval({
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                     >
                       {isEdit
-                        ? t('invoices.submit_this_invoice_for_approval', 'Submit this invoice for approval')
-                        : t('invoices.submit_this_invoice_for_approval_after_creation', 'Submit this invoice for approval after creation')}
+                        ? t('invoices.submit_this_invoice_for_approval')
+                        : t('invoices.submit_this_invoice_for_approval_after_creation')}
                     </label>
                   </div>
                   {submitForApproval && (

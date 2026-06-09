@@ -51,7 +51,7 @@ export function InvoiceDiscountSection({
           <div>
             <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.discount_and_summary')}</h2>
             <p className="text-sm text-muted-foreground">
-              {t('invoices.discount_section_description', 'Apply discounts and review the final totals.')}
+              {t('invoices.discount_section_description')}
             </p>
           </div>
         </div>
@@ -300,7 +300,7 @@ export function InvoiceDiscountSection({
                   {t('invoices.show_discount_in_pdf')}
                 </FormLabel>
                 <p className="text-xs text-muted-foreground">
-                  {t('invoices.pdf_discount_description', 'Visible in the PDF preview and download.')}
+                  {t('invoices.pdf_discount_description')}
                 </p>
               </div>
             </FormItem>

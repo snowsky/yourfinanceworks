@@ -354,8 +354,8 @@ export function StatementsListView({
                 {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>}
                 <TableHead className="font-bold text-foreground">{t('statements.filename')}</TableHead>
                 {isVisible('labels') && <TableHead className="font-bold text-foreground">{t('statements.labels')}</TableHead>}
-                {isVisible('bank_name') && <TableHead className="font-bold text-foreground">{t('statements.bank_name', 'Bank Name')}</TableHead>}
-                {isVisible('type') && <TableHead className="font-bold text-foreground">{t('statements.card_type.label', 'Type')}</TableHead>}
+                {isVisible('bank_name') && <TableHead className="font-bold text-foreground">{t('statements.bank_name')}</TableHead>}
+                {isVisible('type') && <TableHead className="font-bold text-foreground">{t('statements.card_type.label')}</TableHead>}
                 <TableHead className="font-bold text-foreground">{t('statements.status.label')}</TableHead>
                 {isVisible('review_status') && <TableHead className="font-bold text-foreground">{t('statements.review_status.label')}</TableHead>}
                 {isVisible('transactions') && <TableHead className="font-bold text-foreground">{t('statements.transactions')}</TableHead>}
@@ -515,7 +515,7 @@ export function StatementsListView({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => openStatement(s.id)}>
-                            <Eye className="mr-2 w-4 h-4" /> {t('common.view', 'View')}
+                            <Eye className="mr-2 w-4 h-4" /> {t('common.view')}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setShareStatementId(s.id)}>
                             <Share2 className="mr-2 w-4 h-4" /> Share
@@ -563,7 +563,7 @@ export function StatementsListView({
                             className="text-destructive focus:text-destructive"
                             onClick={() => { setStatementToDelete(s.id); setDeleteModalOpen(true); }}
                           >
-                            <Trash2 className="mr-2 w-4 h-4" /> {t('common.delete', 'Delete')}
+                            <Trash2 className="mr-2 w-4 h-4" /> {t('common.delete')}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -581,9 +581,9 @@ export function StatementsListView({
                       <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Search className="h-8 w-8 text-primary" />
                       </div>
-                      <h3 className="text-xl font-bold mb-2">{t('statements.no_statements', 'No statements yet')}</h3>
+                      <h3 className="text-xl font-bold mb-2">{t('statements.no_statements')}</h3>
                       <p className="text-muted-foreground max-w-sm mx-auto">
-                        {t('statements.no_statements_description', 'Upload your bank statements to automatically extract transactions and link them to invoices or expenses.')}
+                        {t('statements.no_statements_description')}
                       </p>
                     </div>
                   </TableCell>

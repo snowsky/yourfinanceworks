@@ -187,12 +187,12 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
 
     // Basic validation
     if (!formData.name.trim()) {
-      toast.error(t('inventory.validation.name_required', 'Item name is required'));
+      toast.error(t('inventory.validation.name_required'));
       return;
     }
 
     if (!formData.unit_price || parseFloat(formData.unit_price) <= 0) {
-      toast.error(t('inventory.validation.price_required', 'Valid unit price is required'));
+      toast.error(t('inventory.validation.price_required'));
       return;
     }
 
@@ -234,10 +234,10 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
 
       if (isEdit && id) {
         await inventoryApi.updateItem(parseInt(id), itemData);
-        toast.success(t('inventory.item_updated', 'Item updated successfully'));
+        toast.success(t('inventory.item_updated'));
       } else {
         await inventoryApi.createItem(itemData);
-        toast.success(t('inventory.item_created', 'Item created successfully'));
+        toast.success(t('inventory.item_created'));
       }
 
       navigate('/inventory');
@@ -260,22 +260,22 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
   return (
     <div className="h-full space-y-6 fade-in">
       <PageHeader
-        title={isEdit ? t('inventory.edit_item', 'Edit Item') : t('inventory.new_item', 'New Item')}
+        title={isEdit ? t('inventory.edit_item') : t('inventory.new_item')}
         description={isEdit
-          ? t('inventory.edit_description', 'Update item details and stock information')
-          : t('inventory.new_description', 'Add a new item to your inventory')
+          ? t('inventory.edit_description')
+          : t('inventory.new_description')
         }
         breadcrumbs={[
-          { label: t('inventory.title', 'Inventory'), href: '/inventory' },
-          { label: isEdit ? t('common.edit', 'Edit') : t('common.new') }
+          { label: t('inventory.title'), href: '/inventory' },
+          { label: isEdit ? t('common.edit') : t('common.new') }
         ]}
       />
 
       <Tabs defaultValue="details" className="w-full tabs-professional">
         <TabsList className="grid w-full grid-cols-3 bg-gradient-to-r from-muted/50 to-muted/30 border border-border/50 rounded-lg p-1">
-          <TabsTrigger value="details" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">{t('inventory.item_details', 'Item Details')}</TabsTrigger>
+          <TabsTrigger value="details" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">{t('inventory.item_details')}</TabsTrigger>
           <TabsTrigger value="attachments" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">
-            {t('inventory.attachments', 'Attachments')}
+            {t('inventory.attachments')}
             {attachments.length > 0 && (
               <span className="ml-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
                 {attachments.length}
@@ -284,7 +284,7 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
           </TabsTrigger>
           {isEdit && id && (
             <TabsTrigger value="activity" className="data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all duration-200">
-              {t('inventory.activity', 'Activity')}
+              {t('inventory.activity')}
             </TabsTrigger>
           )}
         </TabsList>
@@ -293,54 +293,54 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <ProfessionalCard>
               <CardHeader>
-                <CardTitle>{t('inventory.basic_info', 'Basic Information')}</CardTitle>
+                <CardTitle>{t('inventory.basic_info')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">{t('inventory.name', 'Name')} *</Label>
+                    <Label htmlFor="name">{t('inventory.name')} *</Label>
                     <Input
                       id="name"
                       value={formData.name}
                       onChange={(e) => handleInputChange('name', e.target.value)}
-                      placeholder={t('inventory.name_placeholder', 'Enter item name')}
+                      placeholder={t('inventory.name_placeholder')}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="sku">{t('inventory.sku', 'SKU')}</Label>
+                    <Label htmlFor="sku">{t('inventory.sku')}</Label>
                     <Input
                       id="sku"
                       value={formData.sku}
                       onChange={(e) => handleInputChange('sku', e.target.value)}
-                      placeholder={t('inventory.sku_placeholder', 'Enter SKU')}
+                      placeholder={t('inventory.sku_placeholder')}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="description">{t('inventory.description', 'Description')}</Label>
+                  <Label htmlFor="description">{t('inventory.description')}</Label>
                   <Textarea
                     id="description"
                     value={formData.description}
                     onChange={(e) => handleInputChange('description', e.target.value)}
-                    placeholder={t('inventory.description_placeholder', 'Enter item description')}
+                    placeholder={t('inventory.description_placeholder')}
                     rows={3}
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="category">{t('inventory.category', 'Category')}</Label>
+                    <Label htmlFor="category">{t('inventory.category')}</Label>
                     <Select
                       value={formData.category_id || "none"}
                       onValueChange={(value) => handleInputChange('category_id', value === "none" ? "" : value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={t('inventory.select_category', 'Select category')} />
+                        <SelectValue placeholder={t('inventory.select_category')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">{t('inventory.no_category', 'No category')}</SelectItem>
+                        <SelectItem value="none">{t('inventory.no_category')}</SelectItem>
                         {categories.map(category => (
                           <SelectItem key={category.id} value={category.id.toString()}>
                             {category.name}
@@ -350,7 +350,7 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="item_type">{t('inventory.item_type', 'Item Type')}</Label>
+                    <Label htmlFor="item_type">{t('inventory.item_type')}</Label>
                     <Select
                       value={formData.item_type}
                       onValueChange={(value) => handleInputChange('item_type', value)}
@@ -360,20 +360,20 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="service">
-                          {t('inventory.service', 'Service')}
+                          {t('inventory.service')}
                           {businessType === 'service' && (
                             <span className="text-sm text-muted-foreground ml-2">
-                              ({t('inventory.recommended', 'recommended')})
+                              ({t('inventory.recommended')})
                             </span>
                           )}
                         </SelectItem>
-                        <SelectItem value="product">{t('inventory.product', 'Product')}</SelectItem>
-                        <SelectItem value="material">{t('inventory.material', 'Material')}</SelectItem>
+                        <SelectItem value="product">{t('inventory.product')}</SelectItem>
+                        <SelectItem value="material">{t('inventory.material')}</SelectItem>
                       </SelectContent>
                     </Select>
                     {businessType === 'service' && (
                       <p className="text-xs text-muted-foreground">
-                        {t('inventory.service_type_help', 'Services don\'t require stock tracking and are perfect for consultants and freelancers')}
+                        {t('inventory.service_type_help')}
                       </p>
                     )}
                   </div>
@@ -383,12 +383,12 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
 
             <ProfessionalCard>
               <CardHeader>
-                <CardTitle>{t('inventory.pricing', 'Pricing')}</CardTitle>
+                <CardTitle>{t('inventory.pricing')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="unit_price">{t('inventory.unit_price', 'Unit Price')} *</Label>
+                    <Label htmlFor="unit_price">{t('inventory.unit_price')} *</Label>
                     <Input
                       id="unit_price"
                       type="number"
@@ -401,7 +401,7 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="cost_price">{t('inventory.cost_price', 'Cost Price')}</Label>
+                    <Label htmlFor="cost_price">{t('inventory.cost_price')}</Label>
                     <Input
                       id="cost_price"
                       type="number"
@@ -413,11 +413,11 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>{t('inventory.currency', 'Currency')}</Label>
+                    <Label>{t('inventory.currency')}</Label>
                     <CurrencySelector
                       value={formData.currency}
                       onValueChange={(value) => handleInputChange('currency', value)}
-                      placeholder={t('inventory.select_currency', 'Select currency')}
+                      placeholder={t('inventory.select_currency')}
                     />
                   </div>
                 </div>
@@ -426,11 +426,11 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
 
             <ProfessionalCard>
               <CardHeader>
-                <CardTitle>{t('inventory.stock_management', 'Stock Management')}</CardTitle>
+                <CardTitle>{t('inventory.stock_management')}</CardTitle>
                 <p className="text-sm text-muted-foreground">
                   {businessType === 'service'
-                    ? t('inventory.service_stock_help', 'Services typically don\'t require stock tracking')
-                    : t('inventory.product_stock_help', 'Track inventory levels and get low stock alerts')
+                    ? t('inventory.service_stock_help')
+                    : t('inventory.product_stock_help')
                   }
                 </p>
               </CardHeader>
@@ -443,10 +443,10 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                       onCheckedChange={(checked) => handleInputChange('track_stock', checked)}
                     />
                     <Label htmlFor="track_stock">
-                      {t('inventory.track_stock', 'Track stock levels')}
+                      {t('inventory.track_stock')}
                       {businessType === 'service' && (
                         <span className="text-sm text-muted-foreground ml-2">
-                          ({t('inventory.optional_for_services', 'optional for services')})
+                          ({t('inventory.optional_for_services')})
                         </span>
                       )}
                     </Label>
@@ -466,12 +466,11 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                             onCheckedChange={(checked) => handleInputChange('unlimited_stock', checked)}
                           />
                           <Label htmlFor="unlimited_stock" className="font-medium">
-                            {t('inventory.unlimited_stock', 'Unlimited Stock')}
+                            {t('inventory.unlimited_stock')}
                           </Label>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {t('inventory.unlimited_stock_help',
-                            'Perfect for services like consulting - never runs out and no stock management needed')}
+                          {t('inventory.unlimited_stock_help')}
                         </p>
                         {formData.unlimited_stock && (
                           <div className="mt-2 text-sm text-green-600 dark:text-green-400 flex items-center">
@@ -484,7 +483,7 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                     {!formData.unlimited_stock && (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="current_stock">{t('inventory.current_stock', 'Current Stock')}</Label>
+                          <Label htmlFor="current_stock">{t('inventory.current_stock')}</Label>
                           <Input
                             id="current_stock"
                             type="number"
@@ -496,7 +495,7 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="minimum_stock">{t('inventory.minimum_stock', 'Minimum Stock')}</Label>
+                          <Label htmlFor="minimum_stock">{t('inventory.minimum_stock')}</Label>
                           <Input
                             id="minimum_stock"
                             type="number"
@@ -511,7 +510,7 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                     )}
 
                     <div className="space-y-2">
-                      <Label htmlFor="unit_of_measure">{t('inventory.unit_of_measure', 'Unit of Measure')}</Label>
+                      <Label htmlFor="unit_of_measure">{t('inventory.unit_of_measure')}</Label>
                       <Select
                         value={formData.unit_of_measure}
                         onValueChange={(value) => handleInputChange('unit_of_measure', value)}
@@ -521,19 +520,19 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                         </SelectTrigger>
                         <SelectContent>
                           {/* Service-oriented units */}
-                          <SelectItem value="hours">{t('inventory.hours', 'Hours')}</SelectItem>
-                          <SelectItem value="days">{t('inventory.days', 'Days')}</SelectItem>
-                          <SelectItem value="sessions">{t('inventory.sessions', 'Sessions')}</SelectItem>
-                          <SelectItem value="consultations">{t('inventory.consultations', 'Consultations')}</SelectItem>
+                          <SelectItem value="hours">{t('inventory.hours')}</SelectItem>
+                          <SelectItem value="days">{t('inventory.days')}</SelectItem>
+                          <SelectItem value="sessions">{t('inventory.sessions')}</SelectItem>
+                          <SelectItem value="consultations">{t('inventory.consultations')}</SelectItem>
 
                           {/* Product-oriented units */}
-                          <SelectItem value="each">{t('inventory.each', 'Each')}</SelectItem>
-                          <SelectItem value="kg">{t('inventory.kg', 'Kilogram')}</SelectItem>
-                          <SelectItem value="lb">{t('inventory.lb', 'Pound')}</SelectItem>
-                          <SelectItem value="liter">{t('inventory.liter', 'Liter')}</SelectItem>
-                          <SelectItem value="meter">{t('inventory.meter', 'Meter')}</SelectItem>
-                          <SelectItem value="box">{t('inventory.box', 'Box')}</SelectItem>
-                          <SelectItem value="pack">{t('inventory.pack', 'Pack')}</SelectItem>
+                          <SelectItem value="each">{t('inventory.each')}</SelectItem>
+                          <SelectItem value="kg">{t('inventory.kg')}</SelectItem>
+                          <SelectItem value="lb">{t('inventory.lb')}</SelectItem>
+                          <SelectItem value="liter">{t('inventory.liter')}</SelectItem>
+                          <SelectItem value="meter">{t('inventory.meter')}</SelectItem>
+                          <SelectItem value="box">{t('inventory.box')}</SelectItem>
+                          <SelectItem value="pack">{t('inventory.pack')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -546,7 +545,7 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                     checked={formData.is_active}
                     onCheckedChange={(checked) => handleInputChange('is_active', checked)}
                   />
-                  <Label htmlFor="is_active">{t('inventory.is_active', 'Item is active')}</Label>
+                  <Label htmlFor="is_active">{t('inventory.is_active')}</Label>
                 </div>
               </CardContent>
             </ProfessionalCard>
@@ -558,14 +557,14 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                 onClick={() => navigate('/inventory')}
                 disabled={saving}
               >
-                {t('common.cancel', 'Cancel')}
+                {t('common.cancel')}
               </Button>
               <ProfessionalButton type="submit" disabled={saving}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" />
                 {saving
-                  ? t('common.saving', 'Saving...')
-                  : t('common.save', 'Save')
+                  ? t('common.saving')
+                  : t('common.save')
                 }
               </ProfessionalButton>
             </div>
@@ -611,14 +610,14 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Package className="h-5 w-5" />
-                    {t('inventory.stock_movement_summary', 'Stock Movement Summary')}
+                    {t('inventory.stock_movement_summary')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-center py-8">
                     <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground">
-                      {t('inventory.stock_movement_placeholder', 'Stock movement summary will be displayed here')}
+                      {t('inventory.stock_movement_placeholder')}
                     </p>
                   </div>
                 </CardContent>
@@ -629,14 +628,14 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="h-5 w-5" />
-                    {t('inventory.linked_invoices', 'Linked Invoices')}
+                    {t('inventory.linked_invoices')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-center py-8">
                     <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground">
-                      {t('inventory.linked_invoices_placeholder', 'Linked invoices will be displayed here')}
+                      {t('inventory.linked_invoices_placeholder')}
                     </p>
                   </div>
                 </CardContent>

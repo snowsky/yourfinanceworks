@@ -78,28 +78,28 @@ const Settings = () => {
   }, [activeTab]);
 
   const activeTabLabelMap: Record<string, string> = {
-    profile: t('settings.tabs.profile', 'Profile'),
+    profile: t('settings.tabs.profile'),
     appearance: t('settings.tabs.appearance'),
-    cookies: t('settings.tabs.cookies', 'Cookies'),
-    company: t('settings.tabs.company', 'Company'),
-    invoices: t('settings.tabs.invoices', 'Invoices'),
+    cookies: t('settings.tabs.cookies'),
+    company: t('settings.tabs.company'),
+    invoices: t('settings.tabs.invoices'),
     expenses: t('settings.tabs.expenses'),
     cashflow: t('settings.tabs.cashflow'),
     sharing: t('settings.tabs.sharing'),
-    'discount-rules': t('settings.tabs.discount_rules', 'Discounts'),
-    'ai-config': t('settings.tabs.ai_config', 'AI Config'),
-    gamification: t('settings.tabs.gamification', 'Gamification'),
-    plugins: t('settings.tabs.plugins', 'Plugins'),
-    search: t('settings.tabs.search', 'Search'),
-    export: t('settings.tabs.export_destinations', 'Exports'),
-    notifications: t('settings.tabs.email_notifications', 'Notifications'),
-    currencies: t('settings.tabs.currencies', 'Currencies'),
-    payments: t('settings.tabs.payments', 'Payments'),
-    'api-integrations': t('settings.tabs.email', 'Email'),
-    'api-clients': t('settings.tabs.api_keys', 'API Keys'),
-    prompts: t('settings.tabs.prompts', 'Prompts'),
-    license: t('settings.license.tabTitle', 'License'),
-    data: t('settings.tabs.export', 'Data'),
+    'discount-rules': t('settings.tabs.discount_rules'),
+    'ai-config': t('settings.tabs.ai_config'),
+    gamification: t('settings.tabs.gamification'),
+    plugins: t('settings.tabs.plugins'),
+    search: t('settings.tabs.search'),
+    export: t('settings.tabs.export_destinations'),
+    notifications: t('settings.tabs.email_notifications'),
+    currencies: t('settings.tabs.currencies'),
+    payments: t('settings.tabs.payments'),
+    'api-integrations': t('settings.tabs.email'),
+    'api-clients': t('settings.tabs.api_keys'),
+    prompts: t('settings.tabs.prompts'),
+    license: t('settings.license.tabTitle'),
+    data: t('settings.tabs.export'),
   };
 
   const activeTabLabel = activeTabLabelMap[activeTab] || t('settings.title');
@@ -146,9 +146,9 @@ const Settings = () => {
               <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                 {t('settings.categories.personal')}
               </p>
-              <NavItem value="profile" icon={User} label={t('settings.tabs.profile', 'Profile')} activeTab={activeTab} onClick={setActiveTab} />
+              <NavItem value="profile" icon={User} label={t('settings.tabs.profile')} activeTab={activeTab} onClick={setActiveTab} />
               <NavItem value="appearance" icon={Palette} label={t('settings.tabs.appearance')} activeTab={activeTab} onClick={setActiveTab} />
-              <NavItem value="cookies" icon={Lock} label={t('settings.tabs.cookies', 'Cookies')} activeTab={activeTab} onClick={setActiveTab} />
+              <NavItem value="cookies" icon={Lock} label={t('settings.tabs.cookies')} activeTab={activeTab} onClick={setActiveTab} />
 
               {isAdmin && (
                 <>
@@ -157,43 +157,43 @@ const Settings = () => {
                   <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                     {t('settings.categories.company')}
                   </p>
-                  <NavItem value="company" icon={Building2} label={t('settings.tabs.company', 'Company')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="invoices" icon={FileText} label={t('settings.tabs.invoices', 'Invoices')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="company" icon={Building2} label={t('settings.tabs.company')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="invoices" icon={FileText} label={t('settings.tabs.invoices')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="expenses" icon={FileText} label={t('settings.tabs.expenses')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="cashflow" icon={Landmark} label={t('settings.tabs.cashflow')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="sharing" icon={Share2} label={t('settings.tabs.sharing')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="discount-rules" icon={Percent} label={t('settings.tabs.discount_rules', 'Discounts')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="discount-rules" icon={Percent} label={t('settings.tabs.discount_rules')} activeTab={activeTab} onClick={setActiveTab} />
 
                   {/* Features */}
                   <div className="border-t border-border/30 my-1" />
                   <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                     {t('settings.categories.features')}
                   </p>
-                  <NavItem value="ai-config" icon={Cpu} label={t('settings.tabs.ai_config', 'AI Config')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="gamification" icon={Trophy} label={t('settings.tabs.gamification', 'Gamification')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="plugins" icon={Puzzle} label={t('settings.tabs.plugins', 'Plugins')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="search" icon={Search} label={t('settings.tabs.search', 'Search')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="export" icon={ExternalLink} label={t('settings.tabs.export_destinations', 'Exports')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="ai-config" icon={Cpu} label={t('settings.tabs.ai_config')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="gamification" icon={Trophy} label={t('settings.tabs.gamification')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="plugins" icon={Puzzle} label={t('settings.tabs.plugins')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="search" icon={Search} label={t('settings.tabs.search')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="export" icon={ExternalLink} label={t('settings.tabs.export_destinations')} activeTab={activeTab} onClick={setActiveTab} />
 
                   {/* Integrations */}
                   <div className="border-t border-border/30 my-1" />
                   <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                     {t('settings.categories.integrations')}
                   </p>
-                  <NavItem value="notifications" icon={Bell} label={t('settings.tabs.email_notifications', 'Notifications')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="currencies" icon={Activity} label={t('settings.tabs.currencies', 'Currencies')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="payments" icon={CreditCard} label={t('settings.tabs.payments', 'Payments')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="api-integrations" icon={Mail} label={t('settings.tabs.email', 'Email')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="api-clients" icon={ShieldCheck} label={t('settings.tabs.api_keys', 'API Keys')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="notifications" icon={Bell} label={t('settings.tabs.email_notifications')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="currencies" icon={Activity} label={t('settings.tabs.currencies')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="payments" icon={CreditCard} label={t('settings.tabs.payments')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="api-integrations" icon={Mail} label={t('settings.tabs.email')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="api-clients" icon={ShieldCheck} label={t('settings.tabs.api_keys')} activeTab={activeTab} onClick={setActiveTab} />
 
                   {/* System */}
                   <div className="border-t border-border/30 my-1" />
                   <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                     {t('settings.categories.system')}
                   </p>
-                  <NavItem value="prompts" icon={Terminal} label={t('settings.tabs.prompts', 'Prompts')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="license" icon={Shield} label={t('settings.license.tabTitle', 'License')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="data" icon={Database} label={t('settings.tabs.export', 'Data')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="prompts" icon={Terminal} label={t('settings.tabs.prompts')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="license" icon={Shield} label={t('settings.license.tabTitle')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="data" icon={Database} label={t('settings.tabs.export')} activeTab={activeTab} onClick={setActiveTab} />
                 </>
               )}
             </nav>

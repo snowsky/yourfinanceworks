@@ -174,7 +174,7 @@ export const DiscountRulesTab: React.FC<DiscountRulesTabProps> = ({
                                 <Percent className="w-4 h-4 text-primary" />
                                 {t('settings.discount_rules.title')}
                             </ProfessionalCardTitle>
-                            <p className="text-sm text-muted-foreground mt-0.5">{t('settings.discount_rules.description', 'Automate discounts based on invoice amounts')}</p>
+                            <p className="text-sm text-muted-foreground mt-0.5">{t('settings.discount_rules.description')}</p>
                         </div>
                         <ProfessionalButton onClick={handleOpenCreateDialog} leftIcon={<Plus className="h-4 w-4" />}>
                             {t('settings.discount_rules.create_rule')}

@@ -82,13 +82,13 @@ export const InventoryItemLinkedInvoices: React.FC<InventoryItemLinkedInvoicesPr
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            {t('inventory.linked_invoices', 'Linked Invoices & Stock Movements')}
+            {t('inventory.linked_invoices')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex justify-center items-center py-8">
             <Loader2 className="h-8 w-8 animate-spin mr-2" />
-            <p>{t('common.loading', 'Loading...')}</p>
+            <p>{t('common.loading')}</p>
           </div>
         </CardContent>
       </Card>
@@ -103,7 +103,7 @@ export const InventoryItemLinkedInvoices: React.FC<InventoryItemLinkedInvoicesPr
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
-              {t('inventory.stock_movement_summary', 'Stock Movement Summary')}
+              {t('inventory.stock_movement_summary')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -132,7 +132,7 @@ export const InventoryItemLinkedInvoices: React.FC<InventoryItemLinkedInvoicesPr
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            {t('inventory.linked_invoices', 'Linked Invoices')}
+            {t('inventory.linked_invoices')}
           </CardTitle>
           <p className="text-sm text-muted-foreground">
             {t('inventory.invoices_that_affected_stock')} {itemName}

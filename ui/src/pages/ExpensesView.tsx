@@ -229,7 +229,7 @@ export default function ExpensesView() {
           title={t('expenses.view_title', { defaultValue: 'View Expense' })}
           description={t('expenses.view_description', { defaultValue: 'Review expense details and take approval actions.' })}
           breadcrumbs={[
-            { label: t('expenses.title', 'Expenses'), href: '/expenses' },
+            { label: t('expenses.title'), href: '/expenses' },
             { label: (form as any)?.description || `Expense #${id}`, href: '#' }
           ]}
           actions={

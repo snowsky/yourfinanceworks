@@ -248,7 +248,7 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
                 <CheckCircle className="h-12 w-12 text-primary/40" />
               </div>
               <h3 className="text-xl font-semibold mb-2">
-                {t('approvalDashboard.no_processed_expenses_title', 'No processed expenses')}
+                {t('approvalDashboard.no_processed_expenses_title')}
               </h3>
               <p className="text-muted-foreground max-w-sm mx-auto mb-8">
                 {t('approvalDashboard.no_processed_expenses_description', "You haven't approved or rejected any expenses yet. Your approval history will appear here.")}

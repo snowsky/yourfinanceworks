@@ -153,7 +153,7 @@ export function ProcessedInvoicesList({ onViewDetails }: ProcessedInvoicesListPr
                                 <FileText className="h-12 w-12 text-primary/40" />
                             </div>
                             <h3 className="text-xl font-semibold mb-2">
-                                {t('approvalDashboard.no_processed_invoices_title', 'No processed invoices')}
+                                {t('approvalDashboard.no_processed_invoices_title')}
                             </h3>
                             <p className="text-muted-foreground max-w-sm mx-auto mb-8">
                                 {t('approvalDashboard.no_processed_invoices_description', "You haven't approved or rejected any invoices yet. Your approval history will appear here.")}

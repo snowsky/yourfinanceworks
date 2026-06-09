@@ -23,7 +23,7 @@ export function StatusBadge({ status, extraction_method, analysis_error }: Statu
           ${status === 'merged' ? 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300 border-violet-200 dark:border-violet-800' : ''}
         `}
       >
-        {status === 'merged' ? t('common.merged') : (status === 'processed' || status === 'done') ? t('common.done', 'Done') : t(`common.${status || 'unknown'}`, status || 'Unknown')}
+        {status === 'merged' ? t('common.merged') : (status === 'processed' || status === 'done') ? t('common.done') : t(`common.${status || 'unknown'}`, status || 'Unknown')}
       </Badge>
       {status === 'processed' && extraction_method && (
         <span className="text-[10px] text-muted-foreground ml-1 uppercase font-bold tracking-tighter">

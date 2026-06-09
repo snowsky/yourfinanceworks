@@ -56,9 +56,9 @@ export function InvoiceAttachmentSection({
             <Paperclip className="h-6 w-6 text-amber-600 dark:text-amber-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.attachments', 'Attachments')}</h2>
+            <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.attachments')}</h2>
             <p className="text-sm text-muted-foreground">
-              {t('invoices.attachment_section_description', 'Upload and manage files related to this invoice.')}
+              {t('invoices.attachment_section_description')}
             </p>
           </div>
         </div>
@@ -90,10 +90,10 @@ export function InvoiceAttachmentSection({
             </div>
             <div>
               <p className="text-lg font-bold text-foreground mb-1">
-                {t('invoices.click_or_drag_to_upload', 'Click or drag to upload')}
+                {t('invoices.click_or_drag_to_upload')}
               </p>
               <p className="text-sm text-muted-foreground">
-                {t('invoices.supported_formats_limit', 'PDF, DOC, DOCX, JPG, PNG (Max 10MB)')}
+                {t('invoices.supported_formats_limit')}
               </p>
             </div>
           </Label>

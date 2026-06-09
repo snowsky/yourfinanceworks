@@ -214,7 +214,7 @@ export function StatementDetailView({
               disabled={readOnly}
               onClick={() => { setStatementToDelete(selected); setDeleteModalOpen(true); }}
             >
-              {t('common.delete', 'Delete')}
+              {t('common.delete')}
             </ProfessionalButton>
 
             <ProfessionalButton
@@ -223,7 +223,7 @@ export function StatementDetailView({
               disabled={detail?.status === 'merged'}
               leftIcon={<Columns className="h-4 w-4" />}
             >
-              {isSplitView ? t('statements.standard_view') : t('statements.parallel_view', 'Parallel View')}
+              {isSplitView ? t('statements.standard_view') : t('statements.parallel_view')}
             </ProfessionalButton>
 
             <ProfessionalButton
@@ -233,7 +233,7 @@ export function StatementDetailView({
               className="shadow-lg"
               leftIcon={detailLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             >
-              {t('common.save', 'Save')}
+              {t('common.save')}
             </ProfessionalButton>
           </div>
         </div>
@@ -281,7 +281,7 @@ export function StatementDetailView({
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center gap-3 text-amber-700 dark:text-amber-400 slide-in">
                   <Loader2 className="h-5 w-5 animate-spin" />
                   <div className="text-sm">
-                    <span className="font-bold">{t('common.processing', 'Processing')}:</span> {t('statements.processing_message', { defaultValue: 'Statement is being analyzed by AI. Editing is disabled until completion.' })}
+                    <span className="font-bold">{t('common.processing')}:</span> {t('statements.processing_message', { defaultValue: 'Statement is being analyzed by AI. Editing is disabled until completion.' })}
                   </div>
                 </div>
               )}
@@ -385,10 +385,10 @@ export function StatementDetailView({
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{t('statements.analysis_status', { defaultValue: 'Analysis Status' })}:</span>
                     {(detail.status === 'processed' || detail.status === 'done') ? (
-                      <Badge variant="success" className="h-6">{t('common.done', 'Done')}</Badge>
+                      <Badge variant="success" className="h-6">{t('common.done')}</Badge>
                     ) : detail.status === 'processing' ? (
                       <Badge variant="secondary" className="h-6 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800 capitalize">
-                        {t('common.processing', 'Processing')}
+                        {t('common.processing')}
                       </Badge>
                     ) : detail.status === 'failed' ? (
                       <Badge variant="destructive" className="h-6">Failed</Badge>
