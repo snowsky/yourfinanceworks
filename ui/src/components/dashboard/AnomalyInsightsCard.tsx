@@ -34,9 +34,9 @@ export function AnomalyInsightsCard() {
     mutationFn: (id: number) => anomaliesApi.dismiss(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['anomalies'] });
-      toast.success(t('dashboard.anomalies.dismissed', 'Item dismissed'));
+      toast.success(t('dashboard.anomalies.dismissed'));
     },
-    onError: () => toast.error(t('dashboard.anomalies.dismiss_failed', 'Could not dismiss item')),
+    onError: () => toast.error(t('dashboard.anomalies.dismiss_failed')),
   });
 
   if (!enabled || isError) return null;
@@ -69,20 +69,20 @@ export function AnomalyInsightsCard() {
           </div>
           <div className="space-y-1">
             <h3 className="text-lg font-bold">
-              {t('dashboard.anomalies.title', 'Fraud & anomaly checks')}
+              {t('dashboard.anomalies.title')}
             </h3>
             {isLoading ? (
               <Skeleton className="h-4 w-48" />
             ) : hasIssues ? (
               <p className="text-sm text-muted-foreground">
-                {t('dashboard.anomalies.flagged', '{{count}} item(s) flagged for review', {
+                {t('dashboard.anomalies.flagged', {
                   count: total,
                 })}
                 {highRisk > 0 && (
                   <>
                     {' · '}
                     <span className="font-medium text-red-600 dark:text-red-400">
-                      {t('dashboard.anomalies.high_risk', '{{count}} high risk', {
+                      {t('dashboard.anomalies.high_risk', {
                         count: highRisk,
                       })}
                     </span>
@@ -143,7 +143,7 @@ export function AnomalyInsightsCard() {
                 </button>
                 <button
                   type="button"
-                  title={t('dashboard.anomalies.dismiss', 'Dismiss')}
+                  title={t('dashboard.anomalies.dismiss')}
                   disabled={dismiss.isPending}
                   onClick={() => dismiss.mutate(a.id)}
                   className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
@@ -160,10 +160,10 @@ export function AnomalyInsightsCard() {
             onClick={() => navigate('/anomalies')}
           >
             {total > (data?.items?.length ?? 0)
-              ? t('dashboard.anomalies.view_all_count', 'View all {{count}} flagged items', {
+              ? t('dashboard.anomalies.view_all_count', {
                   count: total,
                 })
-              : t('dashboard.anomalies.view_all', 'View all flagged items')}
+              : t('dashboard.anomalies.view_all')}
             <ArrowRight className="h-3 w-3" />
           </ProfessionalButton>
         </div>

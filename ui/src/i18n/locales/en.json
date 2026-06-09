@@ -473,6 +473,34 @@
       "title": "Recent Invoices",
       "view_all": "View All",
       "failed_to_load": "Failed to load recent invoices"
+    },
+    "anomalies": {
+      "title": "Fraud & anomaly checks",
+      "flagged": "{{count}} item(s) flagged for review",
+      "high_risk": "{{count}} high risk",
+      "dismiss": "Dismiss",
+      "dismissed": "Item dismissed",
+      "dismiss_failed": "Could not dismiss item",
+      "view_all": "View all flagged items",
+      "view_all_count": "View all {{count}} flagged items"
+    },
+    "cashflow": {
+      "title": "Cash flow forecast",
+      "subtitle": "Projected over the next 30 days",
+      "view": "View forecast",
+      "end_balance": "Projected balance",
+      "net_change": "Net change",
+      "inflows": "Inflows",
+      "outflows": "Outflows",
+      "balance": "Balance"
+    },
+    "expected_payments": {
+      "title": "Expected payments",
+      "subtitle": "When outstanding invoices are likely to be paid",
+      "view_all": "All invoices",
+      "soon": "expected any day",
+      "tomorrow": "expected tomorrow",
+      "in_days": "expected in {{count}} days"
     }
   },
   "invoices": {
@@ -1973,7 +2001,15 @@
       },
       "noCustomPrompts": "No custom prompts found. Create your first custom prompt to get started."
     },
-    "ai_assistant_disabled": "AI Assistant is disabled."
+    "ai_assistant_disabled": "AI Assistant is disabled.",
+    "invoice_numbering": "Numbering",
+    "default_content": "Default Content",
+    "invoice_automation": "Automation",
+    "thank_you_email": "Thank-you email on payment",
+    "thank_you_email_description": "Automatically email the client a thank-you when their invoice is paid in full. Requires email to be configured.",
+    "payment_reminders": "Payment reminders",
+    "payment_reminders_description": "Automatically email clients about unpaid invoices on the schedule below. Requires email to be configured.",
+    "reminder_schedule": "Reminder schedule"
   },
   "users": {
     "title": "Users",
@@ -4166,5 +4202,16 @@
     "access_request_denied_success": "Access request denied",
     "access_grant_revoked_success": "Access grant revoked",
     "failed_revoke_access_grant": "Failed to revoke access grant"
+  },
+  "anomalies": {
+    "title": "Fraud & anomaly checks",
+    "empty_title": "No flagged items",
+    "col_risk": "Risk",
+    "col_issue": "Issue",
+    "col_item": "Item",
+    "col_detected": "Detected",
+    "col_action": "Action",
+    "dismiss": "Dismiss",
+    "page_of": "Page {{page}} of {{pages}}"
   }
 }

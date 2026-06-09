@@ -26,9 +26,9 @@ function fmtAmount(amount: number, currency: string) {
 
 function whenLabel(item: PaymentForecastItem, t: TFunction): string {
   const d = item.expected_in_days;
-  if (d <= 0) return t('dashboard.expected_payments.soon', 'expected any day') as string;
-  if (d === 1) return t('dashboard.expected_payments.tomorrow', 'expected tomorrow') as string;
-  return t('dashboard.expected_payments.in_days', 'expected in {{count}} days', { count: d }) as string;
+  if (d <= 0) return t('dashboard.expected_payments.soon') as string;
+  if (d === 1) return t('dashboard.expected_payments.tomorrow') as string;
+  return t('dashboard.expected_payments.in_days', { count: d }) as string;
 }
 
 /**
@@ -59,15 +59,15 @@ export function ExpectedPaymentsCard() {
           </div>
           <div>
             <h3 className="text-lg font-bold">
-              {t('dashboard.expected_payments.title', 'Expected payments')}
+              {t('dashboard.expected_payments.title')}
             </h3>
             <p className="text-sm text-muted-foreground">
-              {t('dashboard.expected_payments.subtitle', 'When outstanding invoices are likely to be paid')}
+              {t('dashboard.expected_payments.subtitle')}
             </p>
           </div>
         </div>
         <ProfessionalButton variant="ghost" size="sm" onClick={() => navigate('/invoices')}>
-          {t('dashboard.expected_payments.view_all', 'All invoices')}
+          {t('dashboard.expected_payments.view_all')}
           <ArrowRight className="h-3 w-3" />
         </ProfessionalButton>
       </div>

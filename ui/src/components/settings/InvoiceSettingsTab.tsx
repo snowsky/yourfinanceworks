@@ -104,7 +104,7 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                 <ProfessionalCardHeader>
                     <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
                         <FileText className="w-4 h-4 text-primary" />
-                        {t('settings.invoice_numbering', 'Numbering')}
+                        {t('settings.invoice_numbering')}
                     </ProfessionalCardTitle>
                 </ProfessionalCardHeader>
                 <ProfessionalCardContent>
@@ -133,7 +133,7 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                 <ProfessionalCardHeader>
                     <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
                         <FileText className="w-4 h-4 text-primary" />
-                        {t('settings.default_content', 'Default Content')}
+                        {t('settings.default_content')}
                     </ProfessionalCardTitle>
                 </ProfessionalCardHeader>
                 <ProfessionalCardContent className="space-y-6">
@@ -163,17 +163,17 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                 <ProfessionalCardHeader>
                     <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
                         <Mail className="w-4 h-4 text-primary" />
-                        {t('settings.invoice_automation', 'Automation')}
+                        {t('settings.invoice_automation')}
                     </ProfessionalCardTitle>
                 </ProfessionalCardHeader>
                 <ProfessionalCardContent>
                     <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                         <div className="space-y-0.5 pr-4">
                             <Label htmlFor="thank_you_email" className="text-base font-semibold">
-                                {t('settings.thank_you_email', 'Thank-you email on payment')}
+                                {t('settings.thank_you_email')}
                             </Label>
                             <p className="text-sm text-muted-foreground">
-                                {t('settings.thank_you_email_description', 'Automatically email the client a thank-you when their invoice is paid in full. Requires email to be configured.')}
+                                {t('settings.thank_you_email_description')}
                             </p>
                         </div>
                         <Switch
@@ -189,10 +189,10 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                         <div className="flex items-center justify-between">
                             <div className="space-y-0.5 pr-4">
                                 <Label htmlFor="payment_reminders_enabled" className="text-base font-semibold">
-                                    {t('settings.payment_reminders', 'Payment reminders')}
+                                    {t('settings.payment_reminders')}
                                 </Label>
                                 <p className="text-sm text-muted-foreground">
-                                    {t('settings.payment_reminders_description', 'Automatically email clients about unpaid invoices on the schedule below. Requires email to be configured.')}
+                                    {t('settings.payment_reminders_description')}
                                 </p>
                             </div>
                             <Switch
@@ -207,7 +207,7 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                         {invoiceSettings.payment_reminders_enabled && (
                             <div className="pt-2 border-t">
                                 <p className="text-sm font-medium mb-2">
-                                    {t('settings.reminder_schedule', 'Reminder schedule')}
+                                    {t('settings.reminder_schedule')}
                                 </p>
                                 <ReminderCadenceEditor
                                     value={invoiceSettings.reminder_cadence ?? []}

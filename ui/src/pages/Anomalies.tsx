@@ -50,9 +50,9 @@ function AnomaliesList() {
     mutationFn: (id: number) => anomaliesApi.dismiss(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['anomalies'] });
-      toast.success(t('dashboard.anomalies.dismissed', 'Item dismissed'));
+      toast.success(t('dashboard.anomalies.dismissed'));
     },
-    onError: () => toast.error(t('dashboard.anomalies.dismiss_failed', 'Could not dismiss item')),
+    onError: () => toast.error(t('dashboard.anomalies.dismiss_failed')),
   });
 
   const total = data?.total ?? 0;
@@ -64,7 +64,7 @@ function AnomaliesList() {
       <ProfessionalCardHeader>
         <ProfessionalCardTitle className="flex items-center gap-2 text-base font-semibold">
           <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-          {t('anomalies.title', 'Fraud & anomaly checks')}
+          {t('anomalies.title')}
           {total > 0 && (
             <Badge variant="outline" className="ml-1">
               {total}
@@ -88,7 +88,7 @@ function AnomaliesList() {
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <ShieldCheck className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
-            <p className="font-medium">{t('anomalies.empty_title', 'No flagged items')}</p>
+            <p className="font-medium">{t('anomalies.empty_title')}</p>
             <p className="text-sm text-muted-foreground">
               {t(
                 'anomalies.empty_description',
@@ -102,11 +102,11 @@ function AnomaliesList() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-24">{t('anomalies.col_risk', 'Risk')}</TableHead>
-                    <TableHead>{t('anomalies.col_issue', 'Issue')}</TableHead>
-                    <TableHead className="w-44">{t('anomalies.col_item', 'Item')}</TableHead>
-                    <TableHead className="w-40">{t('anomalies.col_detected', 'Detected')}</TableHead>
-                    <TableHead className="w-28 text-right">{t('anomalies.col_action', 'Action')}</TableHead>
+                    <TableHead className="w-24">{t('anomalies.col_risk')}</TableHead>
+                    <TableHead>{t('anomalies.col_issue')}</TableHead>
+                    <TableHead className="w-44">{t('anomalies.col_item')}</TableHead>
+                    <TableHead className="w-40">{t('anomalies.col_detected')}</TableHead>
+                    <TableHead className="w-28 text-right">{t('anomalies.col_action')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -150,7 +150,7 @@ function AnomaliesList() {
                             onClick={() => dismiss.mutate(a.id)}
                           >
                             <Check className="h-3.5 w-3.5" />
-                            {t('anomalies.dismiss', 'Dismiss')}
+                            {t('anomalies.dismiss')}
                           </ProfessionalButton>
                         </TableCell>
                       </TableRow>
@@ -162,7 +162,7 @@ function AnomaliesList() {
 
             <div className="mt-4 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                {t('anomalies.page_of', 'Page {{page}} of {{pages}}', {
+                {t('anomalies.page_of', {
                   page: page + 1,
                   pages: pageCount,
                 })}
@@ -175,7 +175,7 @@ function AnomaliesList() {
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  {t('common.previous', 'Previous')}
+                  {t('common.previous')}
                 </ProfessionalButton>
                 <ProfessionalButton
                   variant="outline"
@@ -183,7 +183,7 @@ function AnomaliesList() {
                   disabled={page + 1 >= pageCount}
                   onClick={() => setPage((p) => p + 1)}
                 >
-                  {t('common.next', 'Next')}
+                  {t('common.next')}
                   <ChevronRight className="h-4 w-4" />
                 </ProfessionalButton>
               </div>
