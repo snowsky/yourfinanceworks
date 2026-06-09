@@ -1,6 +1,6 @@
 # Invoice Branding + Branded Client Portal (Competitor #5) — Plan
 
-**Status:** Planned (not started)
+**Status:** ✅ Shipped — slices 1–6 merged (#362 setting+payload, #363 editor+share page, #364 download-PDF colours, #365 emailed-PDF colours, #366 download-PDF logo, #367 emailed-PDF logo). Branding is complete across web view, share page, downloaded PDF, and emailed PDF. The client-login portal is planned separately in `client-portal-plan.md`. Deferred follow-ups below remain optional.
 **Scope decided (2026-06):** MVP slice = **branded public invoice page** at `/shared/:token` driven by an **invoice-branding settings panel**. Tokenized link, **no client login**. Branding applies to the **web/share view only** (PDF + email deferred).
 
 ## Why this shape
