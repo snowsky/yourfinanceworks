@@ -295,7 +295,7 @@ export function ApprovalDashboard() {
                         </h3>
                         <p className="text-muted-foreground max-w-sm mx-auto mb-8">
                           {invoiceSearchQuery
-                            ? t('approvalDashboard.try_adjusting_filters', 'Try adjusting your search or filters to find what you are looking for.')
+                            ? t('approvalDashboard.try_adjusting_filters')
                             : t('approvalDashboard.no_pending_invoice_approvals_description', 'All invoice approvals are up to date.')}
                         </p>
                       </div>

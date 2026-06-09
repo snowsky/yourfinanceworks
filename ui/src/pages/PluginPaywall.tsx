@@ -82,28 +82,28 @@ export function PluginPaywall({ pluginId, tenantId, open, onOpenChange }: Plugin
             <Lock className="w-6 h-6 text-primary" />
           </div>
           <DialogTitle className="text-2xl text-center">
-            {t('plugins.paywall.title', 'Premium Feature')}
+            {t('plugins.paywall.title')}
           </DialogTitle>
           <DialogDescription className="text-center pt-2">
-            {t('plugins.paywall.description', 'This plugin has reached the free usage limit. Subscribe to unlock full access.')}
+            {t('plugins.paywall.description')}
           </DialogDescription>
         </DialogHeader>
         
         <div className="py-6">
           <div className="bg-muted/50 rounded-lg p-4 mb-6">
-            <h4 className="font-semibold text-sm mb-1">{t('plugins.paywall.why_upgrade', 'Why Upgrade?')}</h4>
+            <h4 className="font-semibold text-sm mb-1">{t('plugins.paywall.why_upgrade')}</h4>
             <p className="text-xs text-muted-foreground italic">
-              {t('plugins.paywall.why_upgrade_desc', 'Unlock advanced tools, priority support, and unlimited interactions.')}
+              {t('plugins.paywall.why_upgrade_desc')}
             </p>
           </div>
           
           <Button onClick={handleCheckout} className="w-full text-lg h-12" disabled={loading}>
             {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {t('plugins.paywall.subscribe', 'Unlock Full Access')}
+            {t('plugins.paywall.subscribe')}
           </Button>
           
           <p className="text-[10px] text-muted-foreground mt-4 text-center">
-            {t('plugins.paywall.secure_stripe', 'Payments are securely processed via Stripe')}
+            {t('plugins.paywall.secure_stripe')}
           </p>
         </div>
       </DialogContent>

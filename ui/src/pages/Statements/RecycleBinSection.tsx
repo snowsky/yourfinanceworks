@@ -54,7 +54,7 @@ export function RecycleBinSection({
                 <div>
                   <h3 className="font-bold text-xl text-foreground">{t('statementRecycleBin.title', { defaultValue: 'Recycle Bin' })}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {recycleBinTotalCount} {t('statementRecycleBin.items', 'items')} • Recover or permanently delete statements
+                    {recycleBinTotalCount} {t('statementRecycleBin.items')} • Recover or permanently delete statements
                   </p>
                 </div>
               </div>

@@ -503,7 +503,7 @@ export default function UsersPage() {
         <ProfessionalCard className="slide-in dashboard-highlight-block dashboard-highlight-block-primary" variant="elevated">
           <ProfessionalCardHeader>
             <ProfessionalCardTitle>{t('users.all_invites')}</ProfessionalCardTitle>
-            <ProfessionalCardDescription>{t('users.all_invites_desc', 'Pending and past invitations')}</ProfessionalCardDescription>
+            <ProfessionalCardDescription>{t('users.all_invites_desc')}</ProfessionalCardDescription>
           </ProfessionalCardHeader>
           <ProfessionalCardContent>
             <ProfessionalTable>

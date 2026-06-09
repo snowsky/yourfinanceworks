@@ -248,9 +248,9 @@ export function InvoiceForm({
           try {
             await approvalApi.submitInvoiceForApproval(invoice.id, {
               approver_id: approverIdForApproval,
-              notes: t('invoices.auto_submitted_for_approval_after_edit', 'Invoice automatically submitted for approval after edit')
+              notes: t('invoices.auto_submitted_for_approval_after_edit')
             });
-            toast.success(t('invoices.submitted_for_approval', 'Invoice submitted for approval successfully!'));
+            toast.success(t('invoices.submitted_for_approval'));
           } catch (approvalError) {
             console.error('Failed to submit invoice for approval:', approvalError);
             toast.error(t('invoices.failed_to_submit_for_approval', 'Invoice updated but failed to submit for approval'));
@@ -323,9 +323,9 @@ export function InvoiceForm({
           try {
             await approvalApi.submitInvoiceForApproval(newInvoice.id, {
               approver_id: approverIdForApproval,
-              notes: t('invoices.auto_submitted_for_approval', 'Invoice automatically submitted for approval after creation')
+              notes: t('invoices.auto_submitted_for_approval')
             });
-            toast.success(t('invoices.submitted_for_approval', 'Invoice submitted for approval successfully!'));
+            toast.success(t('invoices.submitted_for_approval'));
           } catch (approvalError) {
             console.error('Failed to submit invoice for approval:', approvalError);
             toast.error(t('invoices.failed_to_submit_for_approval', 'Invoice created but failed to submit for approval'));

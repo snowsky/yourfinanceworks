@@ -234,7 +234,7 @@ export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListP
             </h3>
             <p className="text-muted-foreground max-w-sm mx-auto">
               {searchQuery || Object.values(filters).some(v => v && v !== 'submitted_at' && v !== 'desc')
-                ? t('approvalDashboard.try_adjusting_filters', 'Try adjusting your search or filters to find what you are looking for.')
+                ? t('approvalDashboard.try_adjusting_filters')
                 : t('approvalDashboard.no_pending_approvals_description', "You're all caught up! There are no items waiting for your review at the moment.")}
             </p>
           </CardContent>

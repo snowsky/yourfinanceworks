@@ -44,14 +44,14 @@ export function ThemeSwitcher() {
           variant="ghost"
           size="icon-sm"
           className="h-8 w-8 border border-border/30 bg-background/20 hover:bg-background/30 transition-all duration-200"
-          title={t('settings.appearance.theme', 'Theme')}
+          title={t('settings.appearance.theme')}
         >
           <ActiveIcon className="h-4 w-4" />
-          <span className="sr-only">{t('settings.appearance.theme', 'Theme')}</span>
+          <span className="sr-only">{t('settings.appearance.theme')}</span>
         </ProfessionalButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuLabel>{t('settings.appearance.theme', 'Theme')}</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('settings.appearance.theme')}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {themes.map((def) => {
           const Icon = THEME_ICONS[def.id] ?? Palette;

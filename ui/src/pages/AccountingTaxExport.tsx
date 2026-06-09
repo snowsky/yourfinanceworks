@@ -201,7 +201,7 @@ const AccountingTaxExport: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="date_from">{t('reports.date_from', 'Date From')}</Label>
+                    <Label htmlFor="date_from">{t('reports.date_from')}</Label>
                     <Input
                       id="date_from"
                       type="date"
@@ -210,7 +210,7 @@ const AccountingTaxExport: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="date_to">{t('reports.date_to', 'Date To')}</Label>
+                    <Label htmlFor="date_to">{t('reports.date_to')}</Label>
                     <Input id="date_to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
                   </div>
                 </div>

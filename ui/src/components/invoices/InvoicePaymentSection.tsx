@@ -66,7 +66,7 @@ export function InvoicePaymentSection({
           </div>
           {!canEditPayment && (
             <Badge variant="secondary" className="px-3 py-1 rounded-full bg-muted text-muted-foreground border-transparent">
-              {t('invoices.read_only', 'Read Only')}
+              {t('invoices.read_only')}
             </Badge>
           )}
         </div>

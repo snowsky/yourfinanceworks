@@ -165,7 +165,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <UILabel htmlFor="enable-ai-import">
-              {t('plugins.investments.enable_ai_import', 'Enable Holdings/Transactions Import with AI')}
+              {t('plugins.investments.enable_ai_import')}
             </UILabel>
             <p className="text-sm text-muted-foreground">
               {t(
@@ -194,7 +194,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
       default:
         return (
           <p className="text-sm text-muted-foreground">
-            {t('plugins.no_settings_available', 'No settings available for this plugin')}
+            {t('plugins.no_settings_available')}
           </p>
         );
     }
@@ -206,10 +206,10 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
-            {t('plugins.configure_plugin', 'Configure Plugin')}: {pluginName}
+            {t('plugins.configure_plugin')}: {pluginName}
           </DialogTitle>
           <DialogDescription>
-            {t('plugins.configure_description', 'Manage settings and features for this plugin')}
+            {t('plugins.configure_description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -227,16 +227,16 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
             <div className="border rounded-lg p-4 space-y-4">
               <div className="flex items-center gap-2 font-medium text-sm">
                 <Globe className="w-4 h-4" />
-                {t('plugins.public_access.title', 'Public Access')}
+                {t('plugins.public_access.title')}
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <UILabel htmlFor="public-access-enabled">
-                    {t('plugins.public_access.enable', 'Enable public link')}
+                    {t('plugins.public_access.enable')}
                   </UILabel>
                   <p className="text-xs text-muted-foreground">
-                    {t('plugins.public_access.enable_desc', 'Allow access via a shareable URL')}
+                    {t('plugins.public_access.enable_desc')}
                   </p>
                 </div>
                 <Switch
@@ -253,7 +253,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <UILabel htmlFor="require-login">
-                        {t('plugins.public_access.require_login', 'Require login')}
+                        {t('plugins.public_access.require_login')}
                       </UILabel>
                       <p className="text-xs text-muted-foreground">
                         {t(
@@ -274,7 +274,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                     <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <UILabel htmlFor="free-clicks">
-                        {t('plugins.public_access.free_clicks', 'Free Clicks Allowed')}
+                        {t('plugins.public_access.free_clicks')}
                       </UILabel>
                       <p className="text-xs text-muted-foreground">
                         {t(
@@ -298,7 +298,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
                         <UILabel htmlFor="show-sidebar">
-                          {t('plugins.public_access.show_sidebar', 'Show Sidebar')}
+                          {t('plugins.public_access.show_sidebar')}
                         </UILabel>
                         <p className="text-xs text-muted-foreground">
                           {t(
@@ -323,7 +323,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
                         <UILabel htmlFor="show-header">
-                          {t('plugins.public_access.show_header', 'Show Header')}
+                          {t('plugins.public_access.show_header')}
                         </UILabel>
                         <p className="text-xs text-muted-foreground">
                           {t(
@@ -348,7 +348,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
                         <UILabel htmlFor="manual-usage-tracking">
-                          {t('plugins.public_access.manual_usage_tracking', 'Manual Usage Tracking')}
+                          {t('plugins.public_access.manual_usage_tracking')}
                         </UILabel>
                         <p className="text-xs text-muted-foreground">
                           {t(
@@ -369,7 +369,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
                         <UILabel htmlFor="stripe-price-id">
-                          {t('plugins.public_access.stripe_price_id', 'Stripe Price ID')}
+                          {t('plugins.public_access.stripe_price_id')}
                         </UILabel>
                         <p className="text-xs text-muted-foreground">
                           {t(
@@ -392,7 +392,7 @@ export const PluginSettingsModal: React.FC<PluginSettingsModalProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
                         <UILabel htmlFor="service-user-email">
-                          {t('plugins.public_access.service_user_email', 'Service User Email')}
+                          {t('plugins.public_access.service_user_email')}
                         </UILabel>
                         <p className="text-xs text-muted-foreground">
                           {t(

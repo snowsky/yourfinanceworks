@@ -266,12 +266,12 @@ export function BulkActionsToolbar({
             <AlertDialogHeader>
               <AlertDialogTitle>
                 {selectedIds.length === 1
-                  ? t('expenses.delete_single_title', 'Delete 1 Expense')
+                  ? t('expenses.delete_single_title')
                   : t('expenses.delete_multiple_title', 'Delete {{count}} Expenses', { count: selectedIds.length })}
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {selectedIds.length === 1
-                  ? t('expenses.delete_single_description', 'Are you sure you want to delete 1 expense? This will move it to the recycle bin.')
+                  ? t('expenses.delete_single_description')
                   : t('expenses.delete_multiple_description', 'Are you sure you want to delete {{count}} expenses? They will be moved to the recycle bin.', { count: selectedIds.length })}
               </AlertDialogDescription>
             </AlertDialogHeader>

@@ -83,10 +83,10 @@ export function PluginAuth({ pluginId, tenantId, onAuthenticated }: PluginAuthPr
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>
-             {isLogin ? t('plugins.auth.login', 'Sign In') : t('plugins.auth.signup', 'Sign Up')}
+             {isLogin ? t('plugins.auth.login') : t('plugins.auth.signup')}
           </CardTitle>
           <CardDescription>
-             {t('plugins.auth.instruction', 'Access this plugin.')}
+             {t('plugins.auth.instruction')}
           </CardDescription>
         </CardHeader>
         <CardContent>

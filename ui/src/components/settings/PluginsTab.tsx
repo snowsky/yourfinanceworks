@@ -610,7 +610,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
                   onClick={() => setShowSettingsModal(true)}
                 >
                   <Settings className="w-3 h-3 mr-1" />
-                  {t('plugins.configure', 'Configure')}
+                  {t('plugins.configure')}
                 </Button>
               )}
               {isAdmin && onReinstall && (
@@ -975,7 +975,7 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
-          placeholder={t('plugins.search_placeholder', 'Search plugins...')}
+          placeholder={t('plugins.search_placeholder')}
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           className="pl-9 pr-9"
@@ -1062,8 +1062,8 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
           <Puzzle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           {searchQuery ? (
             <>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('plugins.no_search_results', 'No plugins match your search')}</h3>
-              <p className="text-gray-600">{t('plugins.try_different_search', 'Try a different keyword or clear the search.')}</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('plugins.no_search_results')}</h3>
+              <p className="text-gray-600">{t('plugins.try_different_search')}</p>
             </>
           ) : (
             <>

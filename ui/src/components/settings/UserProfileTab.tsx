@@ -308,7 +308,7 @@ export const UserProfileTab: React.FC = () => {
                 <ProfessionalCardHeader>
                     <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
                         <User className="w-4 h-4 text-primary" />
-                        {t('settings.profile.personal_details', 'Personal Details')}
+                        {t('settings.profile.personal_details')}
                     </ProfessionalCardTitle>
                 </ProfessionalCardHeader>
                 <ProfessionalCardContent className="space-y-6">
@@ -319,7 +319,7 @@ export const UserProfileTab: React.FC = () => {
                         </div>
                         <div>
                             <p className="font-semibold text-foreground">
-                                {[userProfile.first_name, userProfile.last_name].filter(Boolean).join(' ') || t('settings.profile.no_name_set', 'No name set')}
+                                {[userProfile.first_name, userProfile.last_name].filter(Boolean).join(' ') || t('settings.profile.no_name_set')}
                             </p>
                             <p className="text-sm text-muted-foreground">{userProfile.email}</p>
                         </div>
@@ -349,13 +349,13 @@ export const UserProfileTab: React.FC = () => {
                     <div className="flex items-center gap-3 p-4 bg-muted/30 rounded-xl border border-border/50">
                         <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                            <Label className="text-sm font-medium">{t('settings.profile.email', 'Email Address')}</Label>
+                            <Label className="text-sm font-medium">{t('settings.profile.email')}</Label>
                             <p className="text-sm text-foreground mt-0.5">{userProfile.email}</p>
                         </div>
                         <Lock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     </div>
                     <p className="text-xs text-muted-foreground -mt-3 ml-1">
-                        {t('settings.profile.email_readonly_hint', 'Contact your administrator to change your email address.')}
+                        {t('settings.profile.email_readonly_hint')}
                     </p>
 
                 </ProfessionalCardContent>
@@ -366,7 +366,7 @@ export const UserProfileTab: React.FC = () => {
                 <ProfessionalCardHeader>
                     <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
                         <ShieldCheck className="w-4 h-4 text-primary" />
-                        {t('settings.profile.security', 'Security')}
+                        {t('settings.profile.security')}
                     </ProfessionalCardTitle>
                 </ProfessionalCardHeader>
                 <ProfessionalCardContent className="space-y-6">
@@ -386,7 +386,7 @@ export const UserProfileTab: React.FC = () => {
                             {!showPasswordChange ? (
                                 <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                                     <div className="space-y-0.5">
-                                        <Label className="text-base font-semibold">{t('settings.profile.password', 'Password')}</Label>
+                                        <Label className="text-base font-semibold">{t('settings.profile.password')}</Label>
                                         <p className="text-sm text-muted-foreground">••••••••••••</p>
                                     </div>
                                     <ProfessionalButton

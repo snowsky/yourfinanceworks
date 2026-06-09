@@ -148,7 +148,7 @@ const InventoryItemDetail: React.FC = () => {
 
           <Alert variant="destructive">
             <AlertDescription>
-              {error || t('inventory.item_not_found', 'Item not found')}
+              {error || t('inventory.item_not_found')}
             </AlertDescription>
           </Alert>
         </div>
@@ -164,7 +164,7 @@ const InventoryItemDetail: React.FC = () => {
     <div className="h-full space-y-6 fade-in">
       <PageHeader
         title={item.name}
-        description={item.description || t('inventory.no_description', 'No description provided')}
+        description={item.description || t('inventory.no_description')}
         breadcrumbs={[
           { label: t('inventory.title', 'Inventory'), href: '/inventory' },
           { label: item.name }
@@ -190,7 +190,7 @@ const InventoryItemDetail: React.FC = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ImageIcon className="w-5 h-5" />
-                  {t('inventory.primary_image', 'Primary Image')}
+                  {t('inventory.primary_image')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -344,16 +344,16 @@ const InventoryItemDetail: React.FC = () => {
               <CardContent className="p-8 text-center">
                 <ImageIcon className="mx-auto w-12 h-12 text-gray-400 mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {t('inventory.no_attachments', 'No attachments yet')}
+                  {t('inventory.no_attachments')}
                 </h3>
                 <p className="text-gray-500 mb-4">
-                  {t('inventory.attachments_description', 'Add photos and documents to better organize your inventory items.')}
+                  {t('inventory.attachments_description')}
                 </p>
                 {canPerformAction && (
                   <Button asChild>
                     <Link to={`/inventory/edit/${item.id}`}>
                       <ImageIcon className="w-4 h-4 mr-2" />
-                      {t('inventory.add_attachments', 'Add Attachments')}
+                      {t('inventory.add_attachments')}
                     </Link>
                   </Button>
                 )}
@@ -375,7 +375,7 @@ const InventoryItemDetail: React.FC = () => {
                   {t('inventory.sku', 'SKU')}
                 </span>
                 <span className="text-sm font-mono">
-                  {item.sku || t('common.none', 'None')}
+                  {item.sku || t('common.none')}
                 </span>
               </div>
 
@@ -407,7 +407,7 @@ const InventoryItemDetail: React.FC = () => {
 
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-500">
-                      {t('inventory.margin', 'Margin')}
+                      {t('inventory.margin')}
                     </span>
                     <span className="text-sm">
                       {((item.unit_price - item.cost_price) / item.unit_price * 100).toFixed(1)}%
@@ -472,7 +472,7 @@ const InventoryItemDetail: React.FC = () => {
 
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-500">
-                  {t('inventory.status', 'Status')}
+                  {t('inventory.status')}
                 </span>
                 <Badge variant={item.is_active ? "default" : "secondary"}>
                   {item.is_active ? t('common.active', 'Active') : t('common.inactive', 'Inactive')}
@@ -481,7 +481,7 @@ const InventoryItemDetail: React.FC = () => {
 
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-500">
-                  {t('common.created', 'Created')}
+                  {t('common.created')}
                 </span>
                 <span className="text-sm">
                   {formatDateTime(item.created_at)}
@@ -490,7 +490,7 @@ const InventoryItemDetail: React.FC = () => {
 
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-500">
-                  {t('common.updated', 'Updated')}
+                  {t('common.updated')}
                 </span>
                 <span className="text-sm">
                   {formatDateTime(item.updated_at)}
@@ -502,12 +502,12 @@ const InventoryItemDetail: React.FC = () => {
           {/* Quick Stats */}
           <Card>
             <CardHeader>
-              <CardTitle>{t('inventory.quick_stats', 'Quick Stats')}</CardTitle>
+              <CardTitle>{t('inventory.quick_stats')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">
-                  {t('inventory.total_attachments', 'Total Attachments')}
+                  {t('inventory.total_attachments')}
                 </span>
                 <span className="text-sm font-medium">
                   {attachments.length}
@@ -537,7 +537,7 @@ const InventoryItemDetail: React.FC = () => {
                   <Separator />
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">
-                      {t('inventory.last_updated', 'Last Updated')}
+                      {t('inventory.last_updated')}
                     </span>
                     <span className="text-sm font-medium">
                       {formatDateTime(new Date(Math.max(...attachments.map(a => new Date(a.updated_at).getTime()))))}

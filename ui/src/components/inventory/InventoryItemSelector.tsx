@@ -241,14 +241,14 @@ export const InventoryItemSelector: React.FC<InventoryItemSelectorProps> = ({
 
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               {item.sku && (
-                                <span>{t('inventory.sku_label', 'SKU')}: {item.sku}</span>
+                                <span>{t('inventory.sku_label')}: {item.sku}</span>
                               )}
-                              <span>{t('inventory.price_label', 'Price')}: ${item.unit_price.toFixed(2)}</span>
+                              <span>{t('inventory.price_label')}: ${item.unit_price.toFixed(2)}</span>
                               {item.category && (
-                                <span>{t('inventory.category_label', 'Category')}: {item.category.name}</span>
+                                <span>{t('inventory.category_label')}: {item.category.name}</span>
                               )}
                               {item.track_stock && (
-                                <span>{t('inventory.stock_colon', 'Stock')}: {item.current_stock} {item.unit_of_measure}</span>
+                                <span>{t('inventory.stock_colon')}: {item.current_stock} {item.unit_of_measure}</span>
                               )}
                             </div>
 
@@ -282,12 +282,12 @@ export const InventoryItemSelector: React.FC<InventoryItemSelectorProps> = ({
                   <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">
                     {searchQuery || selectedCategory !== "all"
-                      ? t('inventory.no_items_match', 'No items match your search criteria')
+                      ? t('inventory.no_items_match')
                       : t('inventory.no_items_found', 'No inventory items found')}
                   </p>
                   <p className="text-sm text-muted-foreground mt-2">
                     {searchQuery || selectedCategory !== "all"
-                      ? t('inventory.try_adjusting_search', 'Try adjusting your search or filter criteria')
+                      ? t('inventory.try_adjusting_search')
                       : t('inventory.add_items_first', 'Add some items to your inventory first')}
                   </p>
                 </div>
@@ -302,7 +302,7 @@ export const InventoryItemSelector: React.FC<InventoryItemSelectorProps> = ({
                   <div>
                     <p className="font-medium">{selectedItem.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      {t('inventory.price_label', 'Price')}: ${selectedItem.unit_price.toFixed(2)}
+                      {t('inventory.price_label')}: ${selectedItem.unit_price.toFixed(2)}
                       {selectedItem.track_stock && ` | ${t('inventory.stock_label', 'Stock')}: ${selectedItem.current_stock}`}
                     </p>
                   </div>

@@ -79,13 +79,13 @@ const Settings = () => {
 
   const activeTabLabelMap: Record<string, string> = {
     profile: t('settings.tabs.profile', 'Profile'),
-    appearance: t('settings.tabs.appearance', 'Appearance'),
+    appearance: t('settings.tabs.appearance'),
     cookies: t('settings.tabs.cookies', 'Cookies'),
     company: t('settings.tabs.company', 'Company'),
     invoices: t('settings.tabs.invoices', 'Invoices'),
-    expenses: t('settings.tabs.expenses', 'Expenses'),
-    cashflow: t('settings.tabs.cashflow', 'Cash Flow'),
-    sharing: t('settings.tabs.sharing', 'Sharing'),
+    expenses: t('settings.tabs.expenses'),
+    cashflow: t('settings.tabs.cashflow'),
+    sharing: t('settings.tabs.sharing'),
     'discount-rules': t('settings.tabs.discount_rules', 'Discounts'),
     'ai-config': t('settings.tabs.ai_config', 'AI Config'),
     gamification: t('settings.tabs.gamification', 'Gamification'),
@@ -126,7 +126,7 @@ const Settings = () => {
               </Badge>
               <Badge variant="secondary" className="bg-blue-500/10 text-blue-700 border-blue-500/20">
                 <User className="w-3 h-3 mr-1" />
-                {isAdmin ? t('common.admin', 'Admin') : t('common.user', 'User')}
+                {isAdmin ? t('common.admin') : t('common.user')}
               </Badge>
             </div>
           </div>
@@ -144,10 +144,10 @@ const Settings = () => {
 
               {/* Personal */}
               <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                {t('settings.categories.personal', 'Personal')}
+                {t('settings.categories.personal')}
               </p>
               <NavItem value="profile" icon={User} label={t('settings.tabs.profile', 'Profile')} activeTab={activeTab} onClick={setActiveTab} />
-              <NavItem value="appearance" icon={Palette} label={t('settings.tabs.appearance', 'Appearance')} activeTab={activeTab} onClick={setActiveTab} />
+              <NavItem value="appearance" icon={Palette} label={t('settings.tabs.appearance')} activeTab={activeTab} onClick={setActiveTab} />
               <NavItem value="cookies" icon={Lock} label={t('settings.tabs.cookies', 'Cookies')} activeTab={activeTab} onClick={setActiveTab} />
 
               {isAdmin && (
@@ -155,19 +155,19 @@ const Settings = () => {
                   {/* Company */}
                   <div className="border-t border-border/30 my-1" />
                   <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                    {t('settings.categories.company', 'Company')}
+                    {t('settings.categories.company')}
                   </p>
                   <NavItem value="company" icon={Building2} label={t('settings.tabs.company', 'Company')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="invoices" icon={FileText} label={t('settings.tabs.invoices', 'Invoices')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="expenses" icon={FileText} label={t('settings.tabs.expenses', 'Expenses')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="cashflow" icon={Landmark} label={t('settings.tabs.cashflow', 'Cash Flow')} activeTab={activeTab} onClick={setActiveTab} />
-                  <NavItem value="sharing" icon={Share2} label={t('settings.tabs.sharing', 'Sharing')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="expenses" icon={FileText} label={t('settings.tabs.expenses')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="cashflow" icon={Landmark} label={t('settings.tabs.cashflow')} activeTab={activeTab} onClick={setActiveTab} />
+                  <NavItem value="sharing" icon={Share2} label={t('settings.tabs.sharing')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="discount-rules" icon={Percent} label={t('settings.tabs.discount_rules', 'Discounts')} activeTab={activeTab} onClick={setActiveTab} />
 
                   {/* Features */}
                   <div className="border-t border-border/30 my-1" />
                   <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                    {t('settings.categories.features', 'Features')}
+                    {t('settings.categories.features')}
                   </p>
                   <NavItem value="ai-config" icon={Cpu} label={t('settings.tabs.ai_config', 'AI Config')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="gamification" icon={Trophy} label={t('settings.tabs.gamification', 'Gamification')} activeTab={activeTab} onClick={setActiveTab} />
@@ -178,7 +178,7 @@ const Settings = () => {
                   {/* Integrations */}
                   <div className="border-t border-border/30 my-1" />
                   <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                    {t('settings.categories.integrations', 'Integrations')}
+                    {t('settings.categories.integrations')}
                   </p>
                   <NavItem value="notifications" icon={Bell} label={t('settings.tabs.email_notifications', 'Notifications')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="currencies" icon={Activity} label={t('settings.tabs.currencies', 'Currencies')} activeTab={activeTab} onClick={setActiveTab} />
@@ -189,7 +189,7 @@ const Settings = () => {
                   {/* System */}
                   <div className="border-t border-border/30 my-1" />
                   <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                    {t('settings.categories.system', 'System')}
+                    {t('settings.categories.system')}
                   </p>
                   <NavItem value="prompts" icon={Terminal} label={t('settings.tabs.prompts', 'Prompts')} activeTab={activeTab} onClick={setActiveTab} />
                   <NavItem value="license" icon={Shield} label={t('settings.license.tabTitle', 'License')} activeTab={activeTab} onClick={setActiveTab} />

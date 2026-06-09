@@ -125,13 +125,13 @@ export const TenantLicenseMonitoring: React.FC = () => {
   const handleUpdateUserExemption = async (userId: number, counts: boolean) => {
     try {
       await superAdminApi.updateUserCapacityControl(userId, counts);
-      toast.success(counts ? t('superAdmin.license_capacity_monitoring.user_counts_license', 'User now counts against license') : t('superAdmin.license_capacity_monitoring.user_exempt_license', 'User now exempt from license'));
+      toast.success(counts ? t('superAdmin.license_capacity_monitoring.user_counts_license') : t('superAdmin.license_capacity_monitoring.user_exempt_license'));
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, count_against_license: counts } : u));
       // Refresh status to update totals
       const statusData = await api.get<GlobalLicenseStatus>('/license/status');
       setStatus(statusData);
     } catch (err) {
-      toast.error(t('superAdmin.license_capacity_monitoring.update_user_exemption_error', 'Failed to update user exemption'));
+      toast.error(t('superAdmin.license_capacity_monitoring.update_user_exemption_error'));
     }
   };
 
@@ -198,9 +198,9 @@ export const TenantLicenseMonitoring: React.FC = () => {
         fetchData(); // Refresh to update overview
       }
       
-      toast.success(t('superAdmin.license_capacity_monitoring.settings_updated', 'Global settings updated'));
+      toast.success(t('superAdmin.license_capacity_monitoring.settings_updated'));
     } catch (err) {
-      toast.error(t('superAdmin.license_capacity_monitoring.update_settings_error', 'Failed to update global settings'));
+      toast.error(t('superAdmin.license_capacity_monitoring.update_settings_error'));
     } finally {
       setSavingSettings(false);
     }
@@ -283,7 +283,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
                     <span className={`text-lg font-bold ${status.user_licensing_info.max_users && status.user_licensing_info.current_users_count > status.user_licensing_info.max_users ? 'text-destructive' : 'text-primary'}`}>
                       {status.user_licensing_info.current_users_count}
                     </span>
-                    <span className="text-sm text-muted-foreground"> / {status.user_licensing_info.max_users || 'Unlimited'} {t('superAdmin.license_capacity_monitoring.users', 'Users')}</span>
+                    <span className="text-sm text-muted-foreground"> / {status.user_licensing_info.max_users || 'Unlimited'} {t('superAdmin.license_capacity_monitoring.users')}</span>
                   </div>
                 </div>
               )}
@@ -506,7 +506,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
                         <span className="text-sm">{user.tenant_name || '-'}</span>
                         {user.tenant_count_against_license === false && (
                           <span className="text-[10px] text-amber-600 font-medium leading-none mt-1">
-                            {t('superAdmin.license_capacity_monitoring.org_exempted', 'Org Exempted')}
+                            {t('superAdmin.license_capacity_monitoring.org_exempted')}
                           </span>
                         )}
                       </div>
@@ -518,7 +518,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
                         </Badge>
                         {user.effectively_exempt && user.count_against_license && (
                           <Badge variant="outline" className="text-[9px] h-4 bg-amber-50 text-amber-700 border-amber-200">
-                             {t('superAdmin.license_capacity_monitoring.inherited_exempt', 'Inherited Exempt')}
+                             {t('superAdmin.license_capacity_monitoring.inherited_exempt')}
                           </Badge>
                         )}
                       </div>
@@ -544,7 +544,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
                 {users.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
-                      {t('superAdmin.license_capacity_monitoring.no_users_found', 'No users found')}
+                      {t('superAdmin.license_capacity_monitoring.no_users_found')}
                     </TableCell>
                   </TableRow>
                 )}

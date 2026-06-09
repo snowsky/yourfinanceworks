@@ -208,7 +208,7 @@ export const InventoryInvoiceItem: React.FC<InventoryInvoiceItemProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Quantity */}
             <div className="space-y-2">
-              <Label htmlFor={`quantity-${index}`}>{t('inventory.quantity', 'Quantity')} *</Label>
+              <Label htmlFor={`quantity-${index}`}>{t('inventory.quantity')} *</Label>
               <Input
                 id={`quantity-${index}`}
                 type="number"

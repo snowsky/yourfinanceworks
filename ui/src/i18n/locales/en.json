@@ -83,7 +83,20 @@
     "comfortable": "Comfortable",
     "id": "ID",
     "reference": "Reference",
-    "copy_id": "Copy ID"
+    "copy_id": "Copy ID",
+    "preview": "Preview",
+    "on": "on",
+    "type": "Type",
+    "new": "New",
+    "admin": "Admin",
+    "user": "User",
+    "none": "None",
+    "created": "Created",
+    "updated": "Updated",
+    "analysis_error": "Analysis Error",
+    "uploaded": "Uploaded",
+    "download": "Download",
+    "merged": "Merged"
   },
   "taxIntegration": {
     "title": "Tax Service Integration",
@@ -369,7 +382,9 @@
       "analytics": "Analytics",
       "analytics_desc": "Generate comprehensive reports and analyze your business data",
       "reminders": "Reminders",
-      "reminders_desc": "Manage payment reminders"
+      "reminders_desc": "Manage payment reminders",
+      "core_actions": "Core Actions",
+      "operations": "Operations"
     },
     "pending_items": {
       "title": "Needs Attention",
@@ -836,7 +851,31 @@
     "click_or_drag_to_upload": "Click or drag to upload",
     "supported_formats_limit": "PDF, DOC, DOCX, JPG, PNG (Max 10MB)",
     "payment_section_description": "Track and record payments for this invoice.",
-    "payment_update_note": "You can update paid amount for this approved invoice to record partial payments."
+    "payment_update_note": "You can update paid amount for this approved invoice to record partial payments.",
+    "invoice_approved": "This invoice was approved",
+    "invoice_rejected": "This invoice was rejected",
+    "invoice_pending_approval": "This invoice is pending approval",
+    "waiting_for_approval_from": "Waiting for approval from",
+    "submitted_at": "Submitted at",
+    "submission_notes": "Submission Notes",
+    "this_invoice_will_be_submitted_for_approval": "This invoice will be submitted for approval",
+    "select_approver": "Select Approver",
+    "choose_an_approver": "Choose an approver",
+    "auto_submitted_for_approval_after_edit": "Invoice automatically submitted for approval after edit",
+    "submitted_for_approval": "Invoice submitted for approval successfully!",
+    "auto_submitted_for_approval": "Invoice automatically submitted for approval after creation",
+    "click_add_to_start": "Click \"Add Item\" to start adding products or services.",
+    "rule_applied_desc": "This discount rule was automatically applied based on the subtotal.",
+    "rule_pending_desc": "Requires a minimum subtotal of {{amount}} to apply.",
+    "read_only": "Read Only",
+    "new_attachments": "New Attachments",
+    "ready_to_upload": "Ready to upload",
+    "existing_attachments": "Existing Attachments",
+    "delete_attachment_confirm_title": "Delete Attachment?",
+    "delete_attachment_confirm_desc": "This will permanently remove the attachment. This action cannot be undone.",
+    "preview_not_supported_desc": "This file type cannot be previewed. Please download it to view.",
+    "clone": "Clone",
+    "move_to_recycle_bin": "Move to Recycle Bin"
   },
   "clients": {
     "title": "Clients",
@@ -1034,7 +1073,10 @@
       "allow_join_lookup": "Allow users to find this organization",
       "allow_join_lookup_hint": "If enabled, users can find this organization when searching to join.",
       "join_lookup_exact_match": "Exact match only",
-      "join_lookup_exact_match_hint": "Users must type the exact name to find this organization."
+      "join_lookup_exact_match_hint": "Users must type the exact name to find this organization.",
+      "company_details": "Company Details",
+      "location_preferences": "Location & Preferences",
+      "organization_branding": "Organization & Branding"
     },
     "logo_preview": "Logo Preview",
     "upload_logo": "Upload Logo",
@@ -1057,7 +1099,15 @@
       "sso_password_message_microsoft": "You are signed in with Microsoft SSO. Manage your password in your Microsoft Account settings.",
       "sso_password_message_general": "You are signed in with SSO. Manage your password with your identity provider.",
       "show_analytics_menu": "Show Analytics Menu",
-      "show_analytics_menu_description": "Show or hide Analytics menu in the sidebar navigation"
+      "show_analytics_menu_description": "Show or hide Analytics menu in the sidebar navigation",
+      "compact_density": "Compact table density",
+      "compact_density_description": "Show more rows by reducing table row padding.",
+      "personal_details": "Personal Details",
+      "no_name_set": "No name set",
+      "email": "Email Address",
+      "email_readonly_hint": "Contact your administrator to change your email address.",
+      "security": "Security",
+      "password": "Password"
     },
     "invoice_settings": "Invoice Settings",
     "invoice_prefix": "Invoice Number Prefix",
@@ -1101,7 +1151,11 @@
       "cookies": "Cookies",
       "export": "Data Management",
       "email": "Email Settings",
-      "plugins": "Plugins"
+      "plugins": "Plugins",
+      "appearance": "Appearance",
+      "expenses": "Expenses",
+      "cashflow": "Cash Flow",
+      "sharing": "Sharing"
     },
     "payment_settings": {
       "title": "Payment",
@@ -2009,7 +2063,30 @@
     "thank_you_email_description": "Automatically email the client a thank-you when their invoice is paid in full. Requires email to be configured.",
     "payment_reminders": "Payment reminders",
     "payment_reminders_description": "Automatically email clients about unpaid invoices on the schedule below. Requires email to be configured.",
-    "reminder_schedule": "Reminder schedule"
+    "reminder_schedule": "Reminder schedule",
+    "appearance": {
+      "theme": "Theme",
+      "tables": "Tables",
+      "navigation": "Navigation",
+      "header_clock": "Header Clock",
+      "show_clock": "Show clock",
+      "show_clock_description": "Display a live clock in the top header.",
+      "show_local_clock": "Show local clock",
+      "show_local_clock_description": "Display a clock in your browser's local timezone.",
+      "show_utc_clock": "Show UTC clock",
+      "show_utc_clock_description": "Display a second clock in Coordinated Universal Time (UTC).",
+      "show_date": "Show date",
+      "show_date_description": "Display the current date alongside the clock."
+    },
+    "notification_settings_updated_successfully": "Notification settings updated successfully",
+    "notification_email_required": "Please provide an email address to send a test email.",
+    "categories": {
+      "personal": "Personal",
+      "company": "Company",
+      "features": "Features",
+      "integrations": "Integrations",
+      "system": "System"
+    }
   },
   "users": {
     "title": "Users",
@@ -2107,7 +2184,8 @@
     "resetPasswordDescription": "Enter your new password below to complete the reset process.",
     "newPassword": "New Password",
     "confirmPassword": "Confirm Password",
-    "confirmNewPassword": "Confirm New Password"
+    "confirmNewPassword": "Confirm New Password",
+    "all_invites_desc": "Pending and past invitations"
   },
   "errors": {
     "Field required": "This field is required",
@@ -2267,7 +2345,9 @@
       "download_summary": "Download Tax Summary CSV",
       "summary_success": "Tax summary downloaded.",
       "summary_error": "Tax summary export failed."
-    }
+    },
+    "date_from": "Date From",
+    "date_to": "Date To"
   },
   "analytics": {
     "title": "Analytics",
@@ -2443,7 +2523,8 @@
     "deletion_processing": "Deleting {{count}} invoice(s). You will be notified when complete.",
     "deletion_completed": "Successfully deleted {{count}} invoice(s) from the recycle bin.",
     "deletion_title": "Recycle Bin Deletion",
-    "deletion_completed_title": "Recycle Bin Emptied"
+    "deletion_completed_title": "Recycle Bin Emptied",
+    "items": "items"
   },
   "expenseRecycleBin": {
     "title": "Recycle Bin",
@@ -2481,7 +2562,8 @@
     "deletion_processing": "Deleting {{count}} expense(s). You will be notified when complete.",
     "deletion_completed": "Successfully deleted {{count}} expense(s) from the recycle bin.",
     "deletion_title": "Expense Recycle Bin Deletion",
-    "deletion_completed_title": "Expense Recycle Bin Emptied"
+    "deletion_completed_title": "Expense Recycle Bin Emptied",
+    "items": "items"
   },
   "statementRecycleBin": {
     "title": "Recycle Bin",
@@ -2516,7 +2598,8 @@
     "deletion_processing": "Deleting {{count}} statement(s). You will be notified when complete.",
     "deletion_completed": "Successfully deleted {{count}} statement(s) from the recycle bin.",
     "deletion_title": "Statement Recycle Bin Deletion",
-    "deletion_completed_title": "Statement Recycle Bin Emptied"
+    "deletion_completed_title": "Statement Recycle Bin Emptied",
+    "items": "items"
   },
   "expenses": {
     "title": "Expenses",
@@ -2762,7 +2845,9 @@
       "Transportation": "Transportation",
       "Software": "Software",
       "Supplies": "Supplies"
-    }
+    },
+    "delete_single_title": "Delete 1 Expense",
+    "delete_single_description": "Are you sure you want to delete 1 expense? This will move it to the recycle bin."
   },
   "email": {
     "subject": "Subject",
@@ -3185,7 +3270,16 @@
       "max_users_description": "Manually override the system-wide user limit.",
       "user": "User",
       "email": "Email",
-      "capacity_status": "Capacity Status"
+      "capacity_status": "Capacity Status",
+      "user_counts_license": "User now counts against license",
+      "user_exempt_license": "User now exempt from license",
+      "update_user_exemption_error": "Failed to update user exemption",
+      "settings_updated": "Global settings updated",
+      "update_settings_error": "Failed to update global settings",
+      "users": "Users",
+      "org_exempted": "Org Exempted",
+      "inherited_exempt": "Inherited Exempt",
+      "no_users_found": "No users found"
     }
   },
   "aiAssistant": {
@@ -3400,7 +3494,10 @@
     "status_merged": "Merged",
     "bulk_merge_confirm_title": "Merge Selected Statements",
     "bulk_merge_confirm_description": "Are you sure you want to merge {{count}} statements? This will create a single, non-editable statement containing all transactions. The original statements will remain in the list.",
-    "merge": "Merge"
+    "merge": "Merge",
+    "standard_view": "Standard View",
+    "original_pdf": "Original PDF",
+    "split_view_hint": "Hover a transaction to highlight it in the PDF"
   },
   "auditLog": {
     "title": "Audit Log",
@@ -3641,7 +3738,42 @@
     "no_stock_movements": "No Stock Movements",
     "stock_movements_will_be_created": "Stock movements will be created when this invoice is marked as paid or completed.",
     "no_items_found": "No inventory items found",
-    "add_items_first": "Add some items to your inventory first"
+    "add_items_first": "Add some items to your inventory first",
+    "stock_movements_should_exist": "Stock movements should have been created for this paid/completed invoice.",
+    "item": "Item",
+    "movement_type": "Movement Type",
+    "quantity": "Quantity",
+    "date": "Date",
+    "notes": "Notes",
+    "unknown_item": "Unknown Item",
+    "view_item_details": "View item details",
+    "stock_impact_summary": "Stock Impact Summary",
+    "items_affected": "Items Affected",
+    "total_movements": "Total Movements",
+    "net_stock_change": "Net Stock Change",
+    "movements": "movements",
+    "invoices_that_affected_stock": "Invoices that have affected the stock of",
+    "no_linked_invoices": "No Linked Invoices",
+    "no_invoices_affected_stock": "No invoices have affected the stock of this item yet.",
+    "invoice_items": "Invoice Items",
+    "stock_movements": "Stock Movements",
+    "sku_label": "SKU",
+    "price_label": "Price",
+    "category_label": "Category",
+    "stock_colon": "Stock",
+    "no_items_match": "No items match your search criteria",
+    "try_adjusting_search": "Try adjusting your search or filter criteria",
+    "item_not_found": "Item not found",
+    "no_description": "No description provided",
+    "primary_image": "Primary Image",
+    "no_attachments": "No attachments yet",
+    "attachments_description": "Add photos and documents to better organize your inventory items.",
+    "add_attachments": "Add Attachments",
+    "margin": "Margin",
+    "status": "Status",
+    "quick_stats": "Quick Stats",
+    "total_attachments": "Total Attachments",
+    "last_updated": "Last Updated"
   },
   "approvalDashboard": {
     "title": "Approval Dashboard",
@@ -3696,7 +3828,8 @@
     "filter_sort_options": "Filter & Sort Options",
     "processed_items": "Processed Items",
     "items_approved_rejected": "Expenses and invoices already approved or rejected",
-    "search_invoices_placeholder": "Search by invoice number or client..."
+    "search_invoices_placeholder": "Search by invoice number or client...",
+    "try_adjusting_filters": "Try adjusting your search or filters to find what you are looking for."
   },
   "approvalHelp": {
     "show_help": "Show Help",
@@ -4201,7 +4334,42 @@
     "access_request_approved_success": "Access request approved",
     "access_request_denied_success": "Access request denied",
     "access_grant_revoked_success": "Access grant revoked",
-    "failed_revoke_access_grant": "Failed to revoke access grant"
+    "failed_revoke_access_grant": "Failed to revoke access grant",
+    "investments": {
+      "enable_ai_import": "Enable Holdings/Transactions Import with AI"
+    },
+    "no_settings_available": "No settings available for this plugin",
+    "configure_plugin": "Configure Plugin",
+    "configure_description": "Manage settings and features for this plugin",
+    "public_access": {
+      "title": "Public Access",
+      "enable": "Enable public link",
+      "enable_desc": "Allow access via a shareable URL",
+      "require_login": "Require login",
+      "free_clicks": "Free Clicks Allowed",
+      "show_sidebar": "Show Sidebar",
+      "show_header": "Show Header",
+      "manual_usage_tracking": "Manual Usage Tracking",
+      "stripe_price_id": "Stripe Price ID",
+      "service_user_email": "Service User Email"
+    },
+    "configure": "Configure",
+    "search_placeholder": "Search plugins...",
+    "no_search_results": "No plugins match your search",
+    "try_different_search": "Try a different keyword or clear the search.",
+    "auth": {
+      "login": "Sign In",
+      "signup": "Sign Up",
+      "instruction": "Access this plugin."
+    },
+    "paywall": {
+      "title": "Premium Feature",
+      "description": "This plugin has reached the free usage limit. Subscribe to unlock full access.",
+      "why_upgrade": "Why Upgrade?",
+      "why_upgrade_desc": "Unlock advanced tools, priority support, and unlimited interactions.",
+      "subscribe": "Unlock Full Access",
+      "secure_stripe": "Payments are securely processed via Stripe"
+    }
   },
   "anomalies": {
     "title": "Fraud & anomaly checks",
