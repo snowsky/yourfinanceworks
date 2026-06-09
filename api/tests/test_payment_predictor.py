@@ -23,6 +23,7 @@ def _invoice(db, client, *, status, created_days_ago, due_in_days=30, number):
         number=number,
         amount=100.0,
         currency="USD",
+        subtotal=100.0,
         created_at=NOW - timedelta(days=created_days_ago),
         due_date=NOW - timedelta(days=created_days_ago) + timedelta(days=due_in_days),
         status=status,
