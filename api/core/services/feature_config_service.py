@@ -86,6 +86,14 @@ class FeatureConfigService:
             'default': False,
             'license_tier': 'commercial'
         },
+        'client_portal': {
+            'name': 'Client Portal',
+            'description': 'Passwordless portal where clients sign in to view their invoices, balances, and download branded PDFs',
+            'category': 'integration',
+            'env_var': 'FEATURE_CLIENT_PORTAL_ENABLED',
+            'default': False,
+            'license_tier': 'commercial'
+        },
         'mfa_chain': {
             'name': 'MFA Chain Authentication',
             'description': 'Multi-step authenticator chain after password or SSO sign-in',
