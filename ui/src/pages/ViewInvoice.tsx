@@ -125,6 +125,7 @@ export default function ViewInvoice() {
           clientCompany={invoice.client_company}
           showDiscount={true}
           template="modern"
+          branding={settings.invoice_branding}
         />
       ).toBlob();
 
