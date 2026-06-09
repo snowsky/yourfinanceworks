@@ -7,18 +7,22 @@ middleware and manage their own tenant context. Mounted under
 
 import logging
 import os
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from core.models.database import get_master_db, set_tenant_context, clear_tenant_context
 from core.models.models import Tenant
-from core.models.models_per_tenant import Client, backfill_client_email_hashes
+from core.models.models_per_tenant import Client, Invoice, backfill_client_email_hashes
 from core.services.tenant_database_manager import tenant_db_manager
 from core.services.client_email import build_tenant_email_service
 from core.services.email_service import EmailMessage
+from core.services.invoice_branding import get_invoice_branding
 from core.utils.client_email_hash import compute_email_hash, normalize_email
+from core.utils.pdf_generator import generate_invoice_pdf
 from core.utils.rate_limiter import record_and_check
 from core.utils.feature_gate import check_feature
 from core.services.client_portal_auth import (
@@ -179,3 +183,169 @@ def verify_login(token: str, master_db: Session = Depends(get_master_db)):
 def get_me(ctx: ClientContext = Depends(get_current_client)):
     c = ctx.client
     return {"id": c.id, "name": c.name, "email": c.email, "phone": c.phone, "address": c.address}
+
+
+class UpdateProfileBody(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+
+
+@router.patch("/me")
+def update_me(body: UpdateProfileBody, ctx: ClientContext = Depends(get_current_client)):
+    """Let the client update their own contact details (email is immutable)."""
+    c = ctx.client
+    if body.name is not None:
+        new_name = body.name.strip()
+        if len(new_name) < 1:
+            raise HTTPException(status_code=400, detail="Name cannot be empty")
+        c.name = new_name
+    if body.phone is not None:
+        c.phone = body.phone.strip()
+    if body.address is not None:
+        c.address = body.address.strip()
+    ctx.db.commit()
+    return {"id": c.id, "name": c.name, "email": c.email, "phone": c.phone, "address": c.address}
+
+
+def _paid_amount(invoice: Invoice) -> float:
+    return float(sum((p.amount or 0) for p in (invoice.payments or [])))
+
+
+def _invoice_summary(invoice: Invoice) -> dict:
+    amount = float(invoice.amount or 0)
+    paid = _paid_amount(invoice)
+    return {
+        "id": invoice.id,
+        "number": invoice.number,
+        "status": invoice.status,
+        "currency": invoice.currency,
+        "amount": amount,
+        "due_date": invoice.due_date,
+        "created_at": invoice.created_at,
+        "paid_amount": paid,
+        "outstanding": round(amount - paid, 2),
+    }
+
+
+def _client_invoice_query(ctx: ClientContext):
+    """Issued (non-draft, non-deleted) invoices belonging to the logged-in client."""
+    return (
+        ctx.db.query(Invoice)
+        .filter(
+            Invoice.client_id == ctx.client.id,
+            Invoice.is_deleted == False,
+            Invoice.status != "draft",
+        )
+    )
+
+
+@router.get("/invoices")
+def list_invoices(ctx: ClientContext = Depends(get_current_client)):
+    invoices = _client_invoice_query(ctx).order_by(Invoice.created_at.desc()).all()
+    return {"invoices": [_invoice_summary(i) for i in invoices]}
+
+
+@router.get("/invoices/{invoice_id}")
+def get_invoice(invoice_id: int, ctx: ClientContext = Depends(get_current_client)):
+    invoice = _client_invoice_query(ctx).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    summary = _invoice_summary(invoice)
+    summary.update({
+        "subtotal": float(invoice.subtotal or 0),
+        "discount_type": invoice.discount_type,
+        "discount_value": float(invoice.discount_value or 0),
+        "description": invoice.description,
+        "items": [
+            {
+                "description": it.description,
+                "quantity": it.quantity,
+                "price": it.price,
+                "amount": it.amount,
+                "unit_of_measure": it.unit_of_measure,
+            }
+            for it in (invoice.items or [])
+        ],
+    })
+    return summary
+
+
+@router.get("/invoices/{invoice_id}/pdf")
+def get_invoice_pdf(
+    invoice_id: int,
+    ctx: ClientContext = Depends(get_current_client),
+    master_db: Session = Depends(get_master_db),
+):
+    invoice = _client_invoice_query(ctx).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    tenant = master_db.query(Tenant).filter(Tenant.id == ctx.tenant_id).first()
+    company_data = {
+        "name": tenant.name if tenant else "Your Company",
+        "email": tenant.email if tenant else "",
+        "phone": tenant.phone if tenant else "",
+        "address": tenant.address if tenant else "",
+        "tax_id": tenant.tax_id if tenant else "",
+        "logo": tenant.company_logo_url if tenant else "",
+    }
+    client = ctx.client
+    client_data = {
+        "id": client.id,
+        "name": client.name,
+        "email": client.email,
+        "phone": client.phone or "",
+        "address": client.address or "",
+    }
+    invoice_data = {
+        "id": invoice.id,
+        "number": invoice.number,
+        "date": invoice.created_at.strftime("%Y-%m-%d") if invoice.created_at else "",
+        "due_date": invoice.due_date.strftime("%Y-%m-%d") if invoice.due_date else "",
+        "amount": float(invoice.amount or 0),
+        "currency": invoice.currency,
+        "subtotal": float(invoice.subtotal or 0),
+        "discount_type": invoice.discount_type,
+        "discount_value": float(invoice.discount_value or 0),
+        "paid_amount": _paid_amount(invoice),
+        "status": invoice.status,
+        "notes": invoice.notes or "",
+        "items": invoice.items,
+    }
+    pdf_bytes = generate_invoice_pdf(
+        invoice_data=invoice_data,
+        client_data=client_data,
+        company_data=company_data,
+        items=invoice.items,
+        db=ctx.db,
+        show_discount=invoice.show_discount_in_pdf,
+        branding=get_invoice_branding(ctx.db),
+    )
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename=invoice-{invoice.number}.pdf"},
+    )
+
+
+@router.get("/{portal_public_id}/branding")
+def get_portal_branding(portal_public_id: str, master_db: Session = Depends(get_master_db)):
+    """Public — lets the portal login page render company-branded before login."""
+    tenant = resolve_tenant_by_portal_id(master_db, portal_public_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Portal not found")
+    set_tenant_context(tenant.id)
+    tenant_db = tenant_db_manager.get_tenant_session(tenant.id)()
+    try:
+        branding = get_invoice_branding(tenant_db)
+    finally:
+        clear_tenant_context()
+        tenant_db.close()
+    return {
+        "company_name": tenant.name,
+        "company_logo_url": tenant.company_logo_url or None,
+        "brand_color": branding["brand_color"],
+        "accent_color": branding["accent_color"],
+        "footer_text": branding.get("footer_text") or None,
+    }
