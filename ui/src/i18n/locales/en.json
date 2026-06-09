@@ -2086,6 +2086,23 @@
       "features": "Features",
       "integrations": "Integrations",
       "system": "System"
+    },
+    "branding": {
+      "title": "Branding",
+      "description": "Customize how your invoices look on shared links and the client portal.",
+      "brand_color": "Brand color",
+      "accent_color": "Accent color",
+      "show_logo": "Show company logo",
+      "show_logo_description": "Display your uploaded logo on shared invoices.",
+      "no_logo_hint": "Upload a logo in Company Info to show it on shared invoices.",
+      "footer_text": "Invoice footer",
+      "footer_placeholder": "Thank you for your business.",
+      "preview": "Preview",
+      "your_company": "Your Company",
+      "invoice_label": "Invoice",
+      "sample_item": "Consulting services",
+      "sample_total": "Total",
+      "invalid_color": "Please enter valid 6-digit hex colors (e.g. #1e3a8a)."
     }
   },
   "users": {

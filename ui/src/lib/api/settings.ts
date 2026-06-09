@@ -22,6 +22,13 @@ export interface InvoiceSettings {
   reminder_cadence?: number[];
 }
 
+export interface InvoiceBranding {
+  brand_color: string;
+  accent_color: string;
+  show_logo: boolean;
+  footer_text: string;
+}
+
 export type ShareAccessType = 'public' | 'password' | 'question';
 
 export interface SharingSettings {
@@ -44,6 +51,7 @@ export interface Settings {
   join_lookup_exact_match?: boolean;
   expense_mobile?: ExpenseMobileServiceSettings;
   sharing_settings?: SharingSettings;
+  invoice_branding?: InvoiceBranding;
 }
 
 export interface StripePaymentSettings {
