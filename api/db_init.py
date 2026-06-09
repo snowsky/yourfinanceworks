@@ -117,6 +117,7 @@ def ensure_required_columns(database_url):
                     "archived_at": "TIMESTAMP",
                     "archived_by_id": "INTEGER",
                     "archive_reason": "TEXT",
+                    "portal_public_id": "VARCHAR",
                 }
 
                 for col_name, col_definition in required_columns_tenants.items():
