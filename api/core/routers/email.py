@@ -139,7 +139,8 @@ async def send_invoice_email(
             'email': tenant.email if tenant else 'noreply@company.com',
             'phone': tenant.phone if tenant else '',
             'address': tenant.address if tenant else '',
-            'tax_id': tenant.tax_id if tenant else ''
+            'tax_id': tenant.tax_id if tenant else '',
+            'logo': tenant.company_logo_url if tenant else ''
         }
         
         # Generate PDF if requested

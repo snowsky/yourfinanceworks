@@ -100,3 +100,21 @@ def test_pdf_generator_no_branding_uses_template():
 
     gen = InvoicePDFGenerator(template_name="classic")
     assert gen.styles["InvoiceTitle"].textColor == colors.black
+
+
+@pytest.mark.parametrize("bad", [
+    "http://evil.example.com/logo.png",   # remote URL — not served from local static
+    "/static/../../../etc/passwd",         # path traversal
+    "logos/1/x.png",                        # missing leading /static/
+    "",
+])
+def test_resolve_logo_path_rejects_unsafe(bad):
+    from core.utils.pdf_generator import InvoicePDFGenerator
+    gen = InvoicePDFGenerator()
+    assert gen._resolve_logo_path(bad) is None
+
+
+def test_resolve_logo_path_missing_file_is_none():
+    from core.utils.pdf_generator import InvoicePDFGenerator
+    gen = InvoicePDFGenerator()
+    assert gen._resolve_logo_path("/static/logos/999999/nope.png") is None
