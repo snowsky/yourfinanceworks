@@ -69,15 +69,15 @@ export function CashFlowForecastCard() {
           </div>
           <div>
             <h3 className="text-lg font-bold">
-              {t('dashboard.cashflow.title', 'Cash flow forecast')}
+              {t('dashboard.cashflow.title')}
             </h3>
             <p className="text-sm text-muted-foreground">
-              {t('dashboard.cashflow.subtitle', 'Projected over the next 30 days')}
+              {t('dashboard.cashflow.subtitle')}
             </p>
           </div>
         </div>
         <ProfessionalButton variant="ghost" size="sm" onClick={() => navigate('/cashflow')}>
-          {t('dashboard.cashflow.view', 'View forecast')}
+          {t('dashboard.cashflow.view')}
           <ArrowRight className="h-3 w-3" />
         </ProfessionalButton>
       </div>
@@ -91,23 +91,23 @@ export function CashFlowForecastCard() {
         <>
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
-              <p className="text-xs text-muted-foreground">{t('dashboard.cashflow.end_balance', 'Projected balance')}</p>
+              <p className="text-xs text-muted-foreground">{t('dashboard.cashflow.end_balance')}</p>
               <p className="text-xl font-bold tabular-nums">{fmt(data?.projected_end_balance ?? 0, currency)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">{t('dashboard.cashflow.net_change', 'Net change')}</p>
+              <p className="text-xs text-muted-foreground">{t('dashboard.cashflow.net_change')}</p>
               <p className={`text-xl font-bold tabular-nums ${positive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                 {positive ? '+' : ''}{fmt(data?.net_change ?? 0, currency)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">{t('dashboard.cashflow.inflows', 'Inflows')}</p>
+              <p className="text-xs text-muted-foreground">{t('dashboard.cashflow.inflows')}</p>
               <p className="text-base font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
                 {fmt(data?.total_projected_inflows ?? 0, currency)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">{t('dashboard.cashflow.outflows', 'Outflows')}</p>
+              <p className="text-xs text-muted-foreground">{t('dashboard.cashflow.outflows')}</p>
               <p className="text-base font-semibold tabular-nums text-red-600 dark:text-red-400">
                 {fmt(data?.total_projected_outflows ?? 0, currency)}
               </p>
@@ -126,7 +126,7 @@ export function CashFlowForecastCard() {
                   </defs>
                   <YAxis hide domain={['dataMin', 'dataMax']} />
                   <Tooltip
-                    formatter={(value: number) => [fmt(value, currency), t('dashboard.cashflow.balance', 'Balance')]}
+                    formatter={(value: number) => [fmt(value, currency), t('dashboard.cashflow.balance')]}
                     labelFormatter={(label) => label}
                     contentStyle={{ fontSize: 12 }}
                   />
