@@ -16,7 +16,7 @@ from core.models.database import (
     get_tenant_context,
     set_tenant_context,
 )
-from core.models.models import MasterUser, ShareToken
+from core.models.models import MasterUser, ShareToken, Tenant
 from core.models.models_per_tenant import (
     AuditLog, Settings,
     Invoice, InvoiceItem, Expense, Payment, Client,
@@ -30,6 +30,7 @@ from core.schemas.share_token import (
     ShareTokenCreate,
     ShareTokenResponse,
     PublicInvoiceView,
+    PublicInvoiceBranding,
     PublicInvoiceItem,
     PublicExpenseView,
     PublicPaymentView,
@@ -540,6 +541,33 @@ def _fetch_public_record(
     raise HTTPException(status_code=400, detail="Unknown record type")
 
 
+def _build_invoice_branding(
+    master_db: Session,
+    tenant_id: int,
+    tenant_db: Session,
+) -> Optional[PublicInvoiceBranding]:
+    """Assemble branding for a public invoice view from the master tenant record
+    (company name/logo/contact) and the tenant's invoice_branding setting
+    (colours/footer). Best-effort — returns None if the tenant is missing."""
+    from core.services.invoice_branding import get_invoice_branding
+
+    tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        return None
+    branding = get_invoice_branding(tenant_db)
+    show_logo = branding.get("show_logo", True)
+    return PublicInvoiceBranding(
+        company_name=tenant.name,
+        company_logo_url=(tenant.company_logo_url or None) if show_logo else None,
+        company_email=tenant.email or None,
+        company_phone=tenant.phone or None,
+        company_address=tenant.address or None,
+        brand_color=branding["brand_color"],
+        accent_color=branding["accent_color"],
+        footer_text=branding.get("footer_text") or None,
+    )
+
+
 def _get_shared_record_response(token: str, request: Request, access_payload: Optional[ShareTokenAccessRequest] = None):
     """Public endpoint helper. Returns a sanitized view after optional link-level access checks."""
     master_db = SessionLocal()
@@ -598,6 +626,11 @@ def _get_shared_record_response(token: str, request: Request, access_payload: Op
 
             _validate_share_access(share, access_payload)
             result = _fetch_public_record(tenant_db, share.record_type, share.record_id)
+            if isinstance(result, PublicInvoiceView):
+                try:
+                    result.branding = _build_invoice_branding(master_db, share.tenant_id, tenant_db)
+                except Exception:
+                    logger.exception("Failed to build invoice branding for share token")
             share.access_count = (share.access_count or 0) + 1
             master_db.commit()
 

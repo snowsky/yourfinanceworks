@@ -58,6 +58,18 @@ class PublicInvoiceItem(BaseModel):
     unit_of_measure: Optional[str] = None
 
 
+class PublicInvoiceBranding(BaseModel):
+    """Tenant branding surfaced on the public (unauthenticated) invoice view."""
+    company_name: Optional[str] = None
+    company_logo_url: Optional[str] = None
+    company_email: Optional[str] = None
+    company_phone: Optional[str] = None
+    company_address: Optional[str] = None
+    brand_color: str = "#1e3a8a"
+    accent_color: str = "#3b82f6"
+    footer_text: Optional[str] = None
+
+
 class PublicInvoiceView(BaseModel):
     record_type: str = "invoice"
     id: int
@@ -75,6 +87,7 @@ class PublicInvoiceView(BaseModel):
     client_name: Optional[str] = None
     client_company: Optional[str] = None
     items: List[PublicInvoiceItem] = []
+    branding: Optional[PublicInvoiceBranding] = None
 
 
 class PublicExpenseView(BaseModel):

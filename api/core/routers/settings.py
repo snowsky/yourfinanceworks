@@ -20,6 +20,7 @@ from core.utils.feature_gate import feature_enabled
 from core.constants.error_codes import FAILED_TO_IMPORT_DATA
 from core.services.tenant_database_manager import tenant_db_manager
 from core.services.expense_mobile_service import get_expense_mobile_config, save_expense_mobile_config
+from core.services.invoice_branding import DEFAULT_INVOICE_BRANDING, validate_invoice_branding
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ async def get_settings(
             raise HTTPException(status_code=404, detail="Tenant not found")
 
         # Fetch all needed settings in a single query
-        _setting_keys = {"invoice_settings", "ai_chat_history_retention_days", "timezone", "sharing_settings"}
+        _setting_keys = {"invoice_settings", "ai_chat_history_retention_days", "timezone", "sharing_settings", "invoice_branding"}
         _settings_map = {
             s.key: s
             for s in db.query(Settings).filter(Settings.key.in_(_setting_keys)).all()
@@ -107,6 +108,12 @@ async def get_settings(
         else:
             sharing_settings = DEFAULT_SHARING_SETTINGS
 
+        branding_record = _settings_map.get("invoice_branding")
+        if branding_record and branding_record.value:
+            invoice_branding = {**DEFAULT_INVOICE_BRANDING, **branding_record.value}
+        else:
+            invoice_branding = dict(DEFAULT_INVOICE_BRANDING)
+
         # Return tenant info formatted as settings
         settings_data = {
             "company_info": {
@@ -125,6 +132,7 @@ async def get_settings(
             "join_lookup_exact_match": tenant.join_lookup_exact_match if tenant.join_lookup_exact_match is not None else False,
             "expense_mobile": get_expense_mobile_config(master_db, tenant),
             "sharing_settings": sharing_settings,
+            "invoice_branding": invoice_branding,
         }
 
         # If AI assistant is enabled, validate license status
@@ -262,6 +270,41 @@ async def update_settings(
             resource_name="Invoice Settings",
             details=invoice_settings,
             status="success"
+        )
+
+    # Update invoice branding (colours / footer) in tenant database
+    if "invoice_branding" in settings and settings["invoice_branding"] is not None:
+        try:
+            cleaned_branding = validate_invoice_branding(settings["invoice_branding"])
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+        branding_record = db.query(Settings).filter(Settings.key == "invoice_branding").first()
+        if branding_record:
+            current_value = branding_record.value or {}
+            branding_record.value = {**current_value, **cleaned_branding}
+            branding_record.updated_at = datetime.now(timezone.utc)
+        else:
+            branding_record = Settings(
+                key="invoice_branding",
+                value={**DEFAULT_INVOICE_BRANDING, **cleaned_branding},
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+            )
+            db.add(branding_record)
+
+        db.commit()
+
+        log_audit_event(
+            db=db,
+            user_id=current_user.id,
+            user_email=current_user.email,
+            action="UPDATE",
+            resource_type="invoice_branding",
+            resource_id="1",
+            resource_name="Invoice Branding",
+            details=cleaned_branding,
+            status="success",
         )
 
     # Update timezone setting in tenant database
