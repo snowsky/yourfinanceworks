@@ -86,7 +86,9 @@ export async function apiRequest<T>(
       if (!config.isLogin && response.status === 401) {
         // Don't log out for super-admin or plugin endpoints - they might fail for other reasons
         // ALSO: Never redirect if we are currently on a public plugin portal page (/p/*)
-        const isPublicPortal = window.location.pathname.startsWith('/p/');
+        const isPublicPortal = window.location.pathname.startsWith('/p/')
+          || window.location.pathname.startsWith('/portal/')
+          || window.location.pathname.startsWith('/shared/');
         
         if (!requestUrl.includes('/super-admin/') && !requestUrl.includes('/plugins/') && !isPublicPortal) {
           // Session expired — clear local user data and redirect to login
@@ -108,7 +110,9 @@ export async function apiRequest<T>(
       if (response.status === 403) {
         // Check if it's a tenant context error (but not for super-admin or plugin endpoints)
         // ALSO: Never redirect if we are currently on a public plugin portal page (/p/*)
-        const isPublicPortal = window.location.pathname.startsWith('/p/');
+        const isPublicPortal = window.location.pathname.startsWith('/p/')
+          || window.location.pathname.startsWith('/portal/')
+          || window.location.pathname.startsWith('/shared/');
 
         if (!requestUrl.includes('/super-admin/') && !requestUrl.includes('/plugins/') && !isPublicPortal && errorData.detail && errorData.detail.includes('Tenant context required')) {
           // This is a session/tenant context issue - log out the user
@@ -127,7 +131,9 @@ export async function apiRequest<T>(
       if (response.status === 400 && errorData.detail && typeof errorData.detail === 'string' && errorData.detail.includes('Tenant context required')) {
         // This is a session/tenant context issue - log out the user (but not for super-admin or plugin endpoints)
         // ALSO: Never redirect if we are currently on a public plugin portal page (/p/*)
-        const isPublicPortal = window.location.pathname.startsWith('/p/');
+        const isPublicPortal = window.location.pathname.startsWith('/p/')
+          || window.location.pathname.startsWith('/portal/')
+          || window.location.pathname.startsWith('/shared/');
 
         if (!requestUrl.includes('/super-admin/') && !requestUrl.includes('/plugins/') && !isPublicPortal) {
           localStorage.removeItem('user');
