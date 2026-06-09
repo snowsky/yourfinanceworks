@@ -143,6 +143,7 @@ class Tenant(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     subdomain = Column(String, unique=True, nullable=True, index=True)  # Optional subdomain
+    portal_public_id = Column(String, unique=True, nullable=True, index=True)  # Opaque id for the client-portal URL
     is_active = Column(Boolean, default=True, nullable=False)
     is_enabled = Column(Boolean, default=True, nullable=False)  # License-based tenant control
     count_against_license = Column(Boolean, default=True, nullable=False)  # Whether this tenant counts against global capacity
