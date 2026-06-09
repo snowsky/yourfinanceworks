@@ -72,3 +72,31 @@ def test_get_handles_empty_value(db_session):
     db_session.add(Settings(key=INVOICE_BRANDING_KEY, value=None))
     db_session.commit()
     assert get_invoice_branding(db_session) == DEFAULT_INVOICE_BRANDING
+
+
+# --- PDF generator branding override -------------------------------------------
+
+def test_pdf_generator_applies_brand_color():
+    from reportlab.lib import colors
+    from core.utils.pdf_generator import InvoicePDFGenerator
+
+    gen = InvoicePDFGenerator(branding={"brand_color": "#AABBCC"})
+    assert gen.styles["InvoiceTitle"].textColor == colors.HexColor("#aabbcc")
+    assert gen.styles["CompanyName"].textColor == colors.HexColor("#aabbcc")
+
+
+def test_pdf_generator_falls_back_on_invalid_brand_color():
+    from reportlab.lib import colors
+    from core.utils.pdf_generator import InvoicePDFGenerator
+
+    gen = InvoicePDFGenerator(template_name="modern", branding={"brand_color": "not-a-hex"})
+    # modern template title colour is darkblue
+    assert gen.styles["InvoiceTitle"].textColor == colors.darkblue
+
+
+def test_pdf_generator_no_branding_uses_template():
+    from reportlab.lib import colors
+    from core.utils.pdf_generator import InvoicePDFGenerator
+
+    gen = InvoicePDFGenerator(template_name="classic")
+    assert gen.styles["InvoiceTitle"].textColor == colors.black

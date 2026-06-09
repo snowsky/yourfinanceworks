@@ -15,6 +15,7 @@ from core.schemas.email import (
 from core.routers.auth import get_current_user
 from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
 from core.utils.pdf_generator import generate_invoice_pdf
+from core.services.invoice_branding import get_invoice_branding
 from core.constants.error_codes import FAILED_TO_SEND_EMAIL
 
 logger = logging.getLogger(__name__)
@@ -153,7 +154,8 @@ async def send_invoice_email(
                     company_data=company_data,
                     items=invoice.items, # Pass items to PDF generator
                     db=db,
-                    show_discount=show_discount
+                    show_discount=show_discount,
+                    branding=get_invoice_branding(db)
                 )
             except Exception as e:
                 logger.error(f"Failed to generate PDF: {str(e)}")
