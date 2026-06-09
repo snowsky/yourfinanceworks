@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { FileText, Loader2, Mail } from "lucide-react";
+import { FileText, Loader2, Mail, Palette } from "lucide-react";
 import {
     ProfessionalCard,
     ProfessionalCardHeader,
@@ -13,7 +13,8 @@ import { ProfessionalTextarea } from "@/components/ui/professional-textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ReminderCadenceEditor } from "@/components/settings/ReminderCadenceEditor";
-import { settingsApi, InvoiceSettings } from "@/lib/api";
+import { settingsApi, InvoiceSettings, InvoiceBranding } from "@/lib/api";
+import { DEFAULT_BRANDING, isHexColor, readableTextColor } from "@/lib/invoice-branding";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -43,11 +44,16 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
         reminder_cadence: [-7, -1, 3, 7, 14],
     });
 
+    const [branding, setBranding] = useState<InvoiceBranding>(DEFAULT_BRANDING);
+
     const { data: settings, isLoading } = useQuery({
         queryKey: ['settings'],
         queryFn: () => settingsApi.getSettings(),
         enabled: isAdmin,
     });
+
+    const companyName = settings?.company_info?.name || '';
+    const companyLogo = settings?.company_info?.logo || '';
 
     useEffect(() => {
         if (settings && settings.invoice_settings) {
@@ -60,6 +66,9 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                     ? settings.invoice_settings.notes
                     : BACKEND_DEFAULT_NOTES,
             });
+        }
+        if (settings && settings.invoice_branding) {
+            setBranding({ ...DEFAULT_BRANDING, ...settings.invoice_branding });
         }
     }, [settings]);
 
@@ -83,9 +92,20 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
     const handleSave = async () => {
         if (!isAdmin) return;
 
+        if (!isHexColor(branding.brand_color) || !isHexColor(branding.accent_color)) {
+            toast.error(t('settings.branding.invalid_color'));
+            return;
+        }
+
         updateSettingsMutation.mutate({
-            invoice_settings: invoiceSettings
+            invoice_settings: invoiceSettings,
+            invoice_branding: branding,
         });
+    };
+
+    const setBrandColor = (key: 'brand_color' | 'accent_color', value: string) => {
+        const next = value.startsWith('#') ? value : `#${value}`;
+        setBranding((prev) => ({ ...prev, [key]: next }));
     };
 
     if (isLoading) {
@@ -217,6 +237,128 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                                 />
                             </div>
                         )}
+                    </div>
+                </ProfessionalCardContent>
+            </ProfessionalCard>
+
+            {/* Branding Card */}
+            <ProfessionalCard variant="elevated">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
+                        <Palette className="w-4 h-4 text-primary" />
+                        {t('settings.branding.title')}
+                    </ProfessionalCardTitle>
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent className="space-y-6">
+                    <p className="text-sm text-muted-foreground">
+                        {t('settings.branding.description')}
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="brand_color">{t('settings.branding.brand_color')}</Label>
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="color"
+                                    aria-label={t('settings.branding.brand_color')}
+                                    value={isHexColor(branding.brand_color) ? branding.brand_color : '#1e3a8a'}
+                                    onChange={(e) => setBrandColor('brand_color', e.target.value)}
+                                    className="h-10 w-14 cursor-pointer rounded-md border border-input bg-background p-1"
+                                />
+                                <ProfessionalInput
+                                    id="brand_color"
+                                    value={branding.brand_color}
+                                    onChange={(e) => setBrandColor('brand_color', e.target.value)}
+                                    className="font-mono"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="accent_color">{t('settings.branding.accent_color')}</Label>
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="color"
+                                    aria-label={t('settings.branding.accent_color')}
+                                    value={isHexColor(branding.accent_color) ? branding.accent_color : '#3b82f6'}
+                                    onChange={(e) => setBrandColor('accent_color', e.target.value)}
+                                    className="h-10 w-14 cursor-pointer rounded-md border border-input bg-background p-1"
+                                />
+                                <ProfessionalInput
+                                    id="accent_color"
+                                    value={branding.accent_color}
+                                    onChange={(e) => setBrandColor('accent_color', e.target.value)}
+                                    className="font-mono"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                        <div className="space-y-0.5 pr-4">
+                            <Label htmlFor="show_logo" className="text-base font-semibold">
+                                {t('settings.branding.show_logo')}
+                            </Label>
+                            <p className="text-sm text-muted-foreground">
+                                {companyLogo
+                                    ? t('settings.branding.show_logo_description')
+                                    : t('settings.branding.no_logo_hint')}
+                            </p>
+                        </div>
+                        <Switch
+                            id="show_logo"
+                            checked={!!branding.show_logo}
+                            onCheckedChange={(checked) => setBranding((prev) => ({ ...prev, show_logo: checked }))}
+                        />
+                    </div>
+
+                    <ProfessionalTextarea
+                        label={t('settings.branding.footer_text')}
+                        id="branding_footer"
+                        name="branding_footer"
+                        rows={2}
+                        maxLength={500}
+                        value={branding.footer_text || ''}
+                        onChange={(e) => setBranding((prev) => ({ ...prev, footer_text: e.target.value }))}
+                        placeholder={t('settings.branding.footer_placeholder')}
+                    />
+
+                    {/* Live preview */}
+                    <div>
+                        <p className="text-sm font-medium mb-2">{t('settings.branding.preview')}</p>
+                        <div className="rounded-xl border overflow-hidden bg-white text-gray-900 shadow-sm">
+                            <div
+                                className="flex items-center justify-between gap-4 px-5 py-4"
+                                style={{
+                                    backgroundColor: isHexColor(branding.brand_color) ? branding.brand_color : '#1e3a8a',
+                                    color: readableTextColor(branding.brand_color),
+                                }}
+                            >
+                                <div className="flex items-center gap-3 min-w-0">
+                                    {branding.show_logo && companyLogo && (
+                                        <img src={companyLogo} alt="" className="h-8 w-8 rounded bg-white/90 object-contain p-0.5" />
+                                    )}
+                                    <span className="font-semibold truncate">{companyName || t('settings.branding.your_company')}</span>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-xs uppercase tracking-wide opacity-80">{t('settings.branding.invoice_label')}</div>
+                                    <div className="font-mono font-semibold">INV-0001</div>
+                                </div>
+                            </div>
+                            <div className="px-5 py-4 space-y-3">
+                                <div className="h-1 w-16 rounded" style={{ backgroundColor: isHexColor(branding.accent_color) ? branding.accent_color : '#3b82f6' }} />
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">{t('settings.branding.sample_item')}</span>
+                                    <span className="font-medium">$1,200.00</span>
+                                </div>
+                                <div className="flex justify-between text-base font-bold" style={{ color: isHexColor(branding.brand_color) ? branding.brand_color : '#1e3a8a' }}>
+                                    <span>{t('settings.branding.sample_total')}</span>
+                                    <span>$1,200.00</span>
+                                </div>
+                                {branding.footer_text && (
+                                    <p className="pt-2 border-t text-xs text-gray-500">{branding.footer_text}</p>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </ProfessionalCardContent>
             </ProfessionalCard>

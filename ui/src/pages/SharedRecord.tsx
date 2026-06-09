@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DEFAULT_BRANDING, isHexColor, readableTextColor } from '@/lib/invoice-branding';
 
 const RECORD_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   invoice: FileText,
@@ -29,20 +30,54 @@ function formatDate(d: string | null | undefined) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function InvoiceView({ data }: { data: any }) {
+  const b = data.branding || null;
+  const brandColor = b && isHexColor(b.brand_color) ? b.brand_color : DEFAULT_BRANDING.brand_color;
+  const accentColor = b && isHexColor(b.accent_color) ? b.accent_color : DEFAULT_BRANDING.accent_color;
+  const headerText = readableTextColor(brandColor);
+
   return (
     <div className="space-y-6">
+      {b && (
+        <div
+          className="px-5 py-4 flex items-start justify-between gap-4 rounded-lg"
+          style={{ backgroundColor: brandColor, color: headerText }}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            {b.company_logo_url && (
+              <img src={b.company_logo_url} alt="" className="h-12 w-12 rounded bg-white/95 object-contain p-1 shrink-0" />
+            )}
+            <div className="min-w-0">
+              {b.company_name && <p className="font-bold text-lg leading-tight truncate">{b.company_name}</p>}
+              <p className="text-xs opacity-80 leading-tight">
+                {[b.company_email, b.company_phone].filter(Boolean).join(' · ')}
+              </p>
+              {b.company_address && <p className="text-xs opacity-80 leading-tight">{b.company_address}</p>}
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-xs uppercase tracking-wide opacity-80">Invoice</p>
+            <p className="font-mono font-bold">{data.number}</p>
+            <p className="text-xs capitalize opacity-80">{data.status}</p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4 text-sm">
-        <div><span className="text-muted-foreground">Invoice #</span><p className="font-medium">{data.number}</p></div>
-        <div><span className="text-muted-foreground">Status</span><p className="font-medium capitalize">{data.status}</p></div>
+        {!b && <div><span className="text-muted-foreground">Invoice #</span><p className="font-medium">{data.number}</p></div>}
+        {!b && <div><span className="text-muted-foreground">Status</span><p className="font-medium capitalize">{data.status}</p></div>}
         <div><span className="text-muted-foreground">Due date</span><p className="font-medium">{formatDate(data.due_date)}</p></div>
-        <div><span className="text-muted-foreground">Client</span><p className="font-medium">{data.client_name || '—'}{data.client_company ? ` · ${data.client_company}` : ''}</p></div>
+        <div><span className="text-muted-foreground">Bill to</span><p className="font-medium">{data.client_name || '—'}{data.client_company ? ` · ${data.client_company}` : ''}</p></div>
         {data.description && <div className="col-span-2"><span className="text-muted-foreground">Description</span><p className="font-medium">{data.description}</p></div>}
       </div>
       {data.items?.length > 0 && (
         <div>
           <p className="text-sm font-semibold mb-2">Line items</p>
           <table className="w-full text-sm border-collapse">
-            <thead><tr className="border-b text-muted-foreground"><th className="text-left py-1">Description</th><th className="text-right py-1">Qty</th><th className="text-right py-1">Price</th><th className="text-right py-1">Amount</th></tr></thead>
+            <thead>
+              <tr className="text-muted-foreground" style={{ borderBottom: `2px solid ${accentColor}` }}>
+                <th className="text-left py-1">Description</th><th className="text-right py-1">Qty</th><th className="text-right py-1">Price</th><th className="text-right py-1">Amount</th>
+              </tr>
+            </thead>
             <tbody>
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {data.items.map((item: any, i: number) => (
@@ -60,8 +95,11 @@ function InvoiceView({ data }: { data: any }) {
       <div className="text-right space-y-1 text-sm">
         <p>Subtotal: {formatCurrency(data.subtotal, data.currency)}</p>
         {data.discount_value > 0 && <p>Discount ({data.discount_type}): {data.discount_type === 'percentage' ? `${data.discount_value}%` : formatCurrency(data.discount_value, data.currency)}</p>}
-        <p className="text-base font-bold">Total: {formatCurrency(data.amount, data.currency)}</p>
+        <p className="text-base font-bold" style={b ? { color: brandColor } : undefined}>Total: {formatCurrency(data.amount, data.currency)}</p>
       </div>
+      {b?.footer_text && (
+        <p className="pt-3 border-t text-xs text-muted-foreground text-center">{b.footer_text}</p>
+      )}
     </div>
   );
 }
