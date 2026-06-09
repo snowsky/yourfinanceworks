@@ -10,6 +10,7 @@ from core.models.models_per_tenant import Invoice, Client
 from core.models.models import MasterUser
 from core.routers.auth import get_current_user
 from core.utils.pdf_generator import generate_invoice_pdf
+from core.services.invoice_branding import get_invoice_branding
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,8 @@ async def download_invoice_pdf(
             items=invoice.items,
             db=db,
             show_discount=invoice.show_discount_in_pdf,
-            template_name=template
+            template_name=template,
+            branding=get_invoice_branding(db)
         )
         return StreamingResponse(
             iter([pdf_bytes]),

@@ -4,7 +4,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import io
 from datetime import datetime
 from xml.sax.saxutils import escape as xml_escape
@@ -12,6 +12,7 @@ import logging
 from sqlalchemy.orm import Session
 from core.models.database import get_db
 from core.models.models import SupportedCurrency
+from core.services.invoice_branding import HEX_COLOR_RE
 from templates.invoice_templates import get_template
 
 logger = logging.getLogger(__name__)
@@ -19,14 +20,21 @@ logger = logging.getLogger(__name__)
 class InvoicePDFGenerator:
     """Generate PDF invoices using ReportLab"""
     
-    def __init__(self, template_name: str = 'modern'):
+    def __init__(self, template_name: str = 'modern', branding: Optional[Dict[str, Any]] = None):
         self.styles = getSampleStyleSheet()
         self.template = get_template(template_name)
+        self.branding = branding or {}
         self._create_custom_styles()
-    
+
     def _create_custom_styles(self):
         """Create custom paragraph styles"""
         template_colors = self.template.get_colors()
+
+        # Tenant branding overrides the template palette when a valid hex is set.
+        brand = self.branding.get('brand_color')
+        if isinstance(brand, str) and HEX_COLOR_RE.match(brand.strip()):
+            brand_color = colors.HexColor(brand.strip())
+            template_colors = {**template_colors, 'title': brand_color, 'header': brand_color}
         
         self.styles.add(ParagraphStyle(
             name='InvoiceTitle',
@@ -389,7 +397,9 @@ class InvoicePDFGenerator:
         elements.append(Spacer(1, 30))
         
         footer_text = "Thank you for your business!"
-        if company_data.get('name'):
+        if self.branding.get('footer_text'):
+            footer_text = str(self.branding['footer_text'])
+        elif company_data.get('name'):
             footer_text = f"Thank you for choosing {company_data['name']}!"
 
         elements.append(Paragraph(xml_escape(footer_text), self.styles['Normal']))
@@ -444,8 +454,9 @@ def generate_invoice_pdf(
     items: List[Dict[str, Any]] = None,
     db: Session = None,
     show_discount: bool = False,
-    template_name: str = 'modern'
+    template_name: str = 'modern',
+    branding: Optional[Dict[str, Any]] = None
 ) -> bytes:
     """Convenience function to generate invoice PDF"""
-    generator = InvoicePDFGenerator(template_name)
-    return generator.generate_invoice_pdf(invoice_data, client_data, company_data, items, db, show_discount) 
+    generator = InvoicePDFGenerator(template_name, branding)
+    return generator.generate_invoice_pdf(invoice_data, client_data, company_data, items, db, show_discount)
