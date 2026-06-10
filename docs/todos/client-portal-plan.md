@@ -1,6 +1,12 @@
 # Client-Login Portal (Competitor #5, final piece) — Plan
 
-**Status:** Planned (not started)
+**Status:** ✅ Built — app PRs #368 (data), #369 (auth), #370 (data API), #371 (frontend), #372 (feature), #373 (staff link), #374 (email link); generator PR snowsky/finance-app-landing#25 (license feature). Phases 1–4 below all shipped.
+
+**Fixes / gotchas found during live testing:**
+- **#375** — the ReportLab PDF generator's `_build_items_table` expects item **dicts** (`item.get(...)`); the portal/staff/email PDF paths passed ORM `InvoiceItem` rows → 500 on download. Fixed by normalizing ORM rows in the generator.
+- `/portal/*` and `/shared/*` were being bounced to staff `/login` by the global 401 handler in `ui/src/lib/api/_base.ts` — added them to the public-path exemption.
+- A **new commercial feature can't be granted by already-issued licenses**; grant `client_portal` via `GlobalInstallationInfo`/`InstallationInfo.licensed_features`, or issue a license with it (generator PR #25). Dev grant snippet documented.
+- `Client.email` is encrypted → look up by the `email_hash` HMAC; some tenant DBs also have a `clients.owner_user_id` schema drift (select specific columns when scanning).
 **Decisions (2026-06):** Passwordless **magic-link** auth · capabilities = invoice list + branded view/download **+ payment status/balance + contact-info editing** · **commercial feature-gated** (`client_portal`).
 
 Builds on the shipped branding work (#362–#367) — the portal itself reuses `invoice_branding` so it's company-branded.

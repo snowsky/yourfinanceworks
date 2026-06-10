@@ -263,6 +263,14 @@ class InvoicePDFGenerator:
         
         # Table rows
         for item in items:
+            # Tolerate ORM InvoiceItem rows as well as plain dicts.
+            if not isinstance(item, dict):
+                item = {
+                    'description': getattr(item, 'description', ''),
+                    'quantity': getattr(item, 'quantity', 1),
+                    'price': getattr(item, 'price', 0),
+                    'amount': getattr(item, 'amount', 0),
+                }
             display_price = item.get('price', 0)
             display_amount = item.get('amount', 0)
 

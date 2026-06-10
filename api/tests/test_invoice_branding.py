@@ -118,3 +118,20 @@ def test_resolve_logo_path_missing_file_is_none():
     from core.utils.pdf_generator import InvoicePDFGenerator
     gen = InvoicePDFGenerator()
     assert gen._resolve_logo_path("/static/logos/999999/nope.png") is None
+
+
+def test_build_items_table_accepts_orm_rows():
+    # Regression: the client portal / emailed PDF pass ORM InvoiceItem rows
+    # (not dicts); the table builder must tolerate both. (db=None -> the
+    # currency lookup falls back, so no DB needed.)
+    from types import SimpleNamespace
+    from core.utils.pdf_generator import InvoicePDFGenerator
+
+    gen = InvoicePDFGenerator()
+    orm_item = SimpleNamespace(description="Widget", quantity=2, price=10.0, amount=20.0, unit_of_measure=None)
+    elements = gen._build_items_table([orm_item], "USD", None, False, 0, "percentage", 0)
+    assert elements  # built without raising AttributeError
+
+    # dicts still work
+    dict_item = {"description": "Gadget", "quantity": 1, "price": 5.0, "amount": 5.0}
+    assert gen._build_items_table([dict_item], "USD", None, False, 0, "percentage", 0)
