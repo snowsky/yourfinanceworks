@@ -249,6 +249,17 @@ def ensure_tenant_required_columns(tenant_db_url: str, tenant_id: int) -> bool:
                         text("CREATE INDEX IF NOT EXISTS ix_clients_email_hash ON clients (email_hash)")
                     )
                     conn.commit()
+                # owner_user_id: some older tenant DBs predate this column, which
+                # breaks every full-entity Client query (UndefinedColumn).
+                if "owner_user_id" not in existing:
+                    logger.info(f"[tenant {tenant_id}] Adding clients.owner_user_id")
+                    conn.execute(
+                        text("ALTER TABLE clients ADD COLUMN owner_user_id INTEGER REFERENCES users(id)")
+                    )
+                    conn.execute(
+                        text("CREATE INDEX IF NOT EXISTS ix_clients_owner_user_id ON clients (owner_user_id)")
+                    )
+                    conn.commit()
         return True
     except Exception as e:
         logger.error(f"[tenant {tenant_id}] Error ensuring tenant columns: {e}")
