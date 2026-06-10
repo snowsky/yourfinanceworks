@@ -101,7 +101,7 @@ export function QuickActionsDemo() {
   const getActionStyles = (variant: string) => {
     switch (variant) {
       case 'primary':
-        return 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 border-0';
+        return 'bg-primary text-primary-foreground hover:bg-primary/90 border-0';
       case 'warning':
         return 'bg-gradient-to-r from-orange-500 to-amber-600 text-white hover:from-orange-600 hover:to-amber-700 border-0';
       default:
@@ -114,7 +114,7 @@ export function QuickActionsDemo() {
       case 'warning':
         return 'bg-orange-100 text-orange-800 border-orange-200';
       default:
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-primary/10 text-primary border-primary/20';
     }
   };
 
@@ -127,10 +127,10 @@ export function QuickActionsDemo() {
         </div>
 
         {/* Quick Actions Card */}
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-50 to-white mb-6">
+        <Card className="border-0 shadow-lg bg-card mb-6">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
-              <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">
+              <div className="p-2 bg-primary rounded-lg">
                 <Zap className="h-5 w-5 text-white" />
               </div>
               <div>
@@ -268,13 +268,13 @@ export function QuickActionsDemo() {
                 <h3 className="font-semibold text-green-900 mb-2">Reduced Clicks</h3>
                 <p className="text-sm text-green-700">Direct access to common actions from the dashboard reduces navigation time by 60%</p>
               </div>
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="font-semibold text-blue-900 mb-2">Visual Hierarchy</h3>
-                <p className="text-sm text-blue-700">Primary actions are prominently displayed with secondary actions easily accessible</p>
+              <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+                <h3 className="font-semibold text-foreground mb-2">Visual Hierarchy</h3>
+                <p className="text-sm text-primary">Primary actions are prominently displayed with secondary actions easily accessible</p>
               </div>
-              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                <h3 className="font-semibold text-purple-900 mb-2">Contextual Alerts</h3>
-                <p className="text-sm text-purple-700">Pending items are highlighted with clear priority indicators and quick actions</p>
+              <div className="p-4 bg-accent/10 rounded-lg border border-accent/20">
+                <h3 className="font-semibold text-foreground mb-2">Contextual Alerts</h3>
+                <p className="text-sm text-accent">Pending items are highlighted with clear priority indicators and quick actions</p>
               </div>
             </div>
           </CardContent>

@@ -206,7 +206,7 @@ export function QuickActions() {
             case 'success':
                 return 'bg-green-100 text-green-800 border-green-200';
             default:
-                return 'bg-blue-100 text-blue-800 border-blue-200';
+                return 'bg-primary/10 text-primary border-primary/20';
         }
     };
 

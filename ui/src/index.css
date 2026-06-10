@@ -618,7 +618,7 @@
 
 /* Professional Dashboard Enhancements */
 .professional-dashboard {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.02), transparent);
+  background: linear-gradient(135deg, hsl(var(--card) / 0.02), transparent);
   border-radius: 24px;
   padding: 8px;
 }
@@ -697,9 +697,9 @@
 }
 
 .professional-card {
-  background: rgba(255, 255, 255, 0.95);
+  background: hsl(var(--card) / 0.95);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid hsl(var(--border) / 0.6);
   border-radius: 16px;
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.08),
@@ -773,8 +773,8 @@
 }
 
 .dark .professional-card {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: hsl(var(--card) / 0.75);
+  border: 1px solid hsl(var(--border) / 0.5);
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.3),
     0 1px 3px rgba(0, 0, 0, 0.4);
@@ -788,11 +788,7 @@
 
 /* Enhanced stat cards */
 .professional-dashboard .grid > div > div[class*="border-l-4"] {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.9),
-    rgba(255, 255, 255, 0.7)
-  );
+  background: hsl(var(--card) / 0.85);
   backdrop-filter: blur(10px);
   border-radius: 12px;
   transition: all 0.2s ease;
