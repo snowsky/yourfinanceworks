@@ -228,6 +228,8 @@ export const promptImprovementApi = {
 export const settingsApi = {
   getSettings: () => apiRequest<Settings>("/settings/"),
   getSharingSettings: () => apiRequest<SharingSettings>("/settings/sharing"),
+  getClientPortalLink: () =>
+    apiRequest<{ enabled: boolean; portal_url: string | null; path: string | null }>("/settings/client-portal-link"),
   updateSettings: (settings: Partial<Settings>) =>
     apiRequest<Settings>("/settings/", {
       method: 'PUT',

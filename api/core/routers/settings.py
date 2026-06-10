@@ -161,6 +161,36 @@ async def get_sharing_settings(
         raise HTTPException(status_code=403, detail="Inactive user")
     return _get_sharing_settings(db)
 
+
+@router.get("/client-portal-link")
+async def get_client_portal_link(
+    current_user: MasterUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db),
+):
+    """Return the tenant's client-portal URL (generating its opaque id on first
+    use). Gated on the client_portal feature; staff/admin only."""
+    require_component_permission(db, current_user, "settings", "admin", "view client portal link")
+
+    enabled = feature_enabled("client_portal", db)
+    if not enabled:
+        return {"enabled": False, "portal_url": None, "path": None}
+
+    tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    from core.services.client_portal_auth import get_or_create_portal_public_id
+    portal_id = get_or_create_portal_public_id(tenant, master_db)
+    path = f"/portal/{portal_id}"
+    frontend_url = os.getenv("FRONTEND_URL", "").rstrip("/")
+    return {
+        "enabled": True,
+        "portal_url": f"{frontend_url}{path}" if frontend_url else path,
+        "path": path,
+    }
+
+
 @router.put("/")
 async def update_settings(
     settings: Dict[str, Any],

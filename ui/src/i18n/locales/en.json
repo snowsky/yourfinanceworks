@@ -2103,6 +2103,13 @@
       "sample_item": "Consulting services",
       "sample_total": "Total",
       "invalid_color": "Please enter valid 6-digit hex colors (e.g. #1e3a8a)."
+    },
+    "client_portal": {
+      "title": "Client Portal",
+      "description": "Share this link with your clients so they can sign in (no password needed) to view their invoices, balances, and download branded PDFs.",
+      "copy": "Copy",
+      "copied": "Portal link copied",
+      "requires_license": "The Client Portal feature is not enabled on your current license."
     }
   },
   "users": {
