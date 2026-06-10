@@ -126,7 +126,7 @@ export function InvoiceChart() {
                   bottom: 25,
                 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis 
                   tick={{ fontSize: 12 }} 
@@ -159,9 +159,10 @@ export function InvoiceChart() {
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #e0e0e0",
-                    borderRadius: "6px",
+                    backgroundColor: "hsl(var(--popover))",
+                    color: "hsl(var(--popover-foreground))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "var(--radius)",
                     boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
                   }}
                   formatter={(value, name, props) => {
@@ -209,52 +210,42 @@ export function InvoiceChart() {
                   Object.keys(item || {}).filter(key => key.startsWith('paid_') || key.startsWith('pending_') || key.startsWith('partiallyPaid_'))
                     .map(key => key.split('_')[1])
                 ))).map((currency, currencyIndex) => {
-                  // Color palette for different currencies
-                  const currencyColors = {
-                    // Traditional currencies
-                    'USD': { paid: '#10B981', partiallyPaid: '#F59E0B', pending: '#3B82F6' },
-                    'EUR': { paid: '#059669', partiallyPaid: '#D97706', pending: '#2563EB' },
-                    'GBP': { paid: '#047857', partiallyPaid: '#B45309', pending: '#1D4ED8' },
-                    'CAD': { paid: '#065F46', partiallyPaid: '#92400E', pending: '#1E40AF' },
-                    'AUD': { paid: '#064E3B', partiallyPaid: '#78350F', pending: '#1E3A8A' },
-                    'JPY': { paid: '#022C22', partiallyPaid: '#451A03', pending: '#1E293B' },
-                    'CHF': { paid: '#0F766E', partiallyPaid: '#92400E', pending: '#1E40AF' },
-                    'CNY': { paid: '#134E4A', partiallyPaid: '#78350F', pending: '#1E3A8A' },
-                    'INR': { paid: '#115E59', partiallyPaid: '#92400E', pending: '#1E40AF' },
-                    'BRL': { paid: '#164E63', partiallyPaid: '#92400E', pending: '#1E40AF' },
-                    // Cryptocurrencies
-                    'BTC': { paid: '#F59E0B', partiallyPaid: '#F97316', pending: '#EF4444' },
-                    'ETH': { paid: '#8B5CF6', partiallyPaid: '#A855F7', pending: '#C084FC' },
-                    'XRP': { paid: '#06B6D4', partiallyPaid: '#0891B2', pending: '#0E7490' },
-                    'SOL': { paid: '#84CC16', partiallyPaid: '#65A30D', pending: '#4D7C0F' },
-                    // Default colors for unknown currencies
-                    'default': { paid: '#10B981', partiallyPaid: '#F59E0B', pending: '#3B82F6' }
+                  // Semantic, theme-driven series colors; currencies are
+                  // distinguished by opacity so every theme stays on-palette.
+                  const seriesColors = {
+                    paid: "hsl(var(--chart-1))",
+                    partiallyPaid: "hsl(var(--chart-2))",
+                    pending: "hsl(var(--chart-3))",
                   };
-                  
-                  const colors = currencyColors[currency as keyof typeof currencyColors] || currencyColors.default;
-                  
+                  const CURRENCY_OPACITIES = [1, 0.78, 0.6, 0.45, 0.34];
+                  const fillOpacity =
+                    CURRENCY_OPACITIES[currencyIndex % CURRENCY_OPACITIES.length];
+
                   return (
                     <React.Fragment key={currency}>
-                      <Bar 
-                        dataKey={`paid_${currency}`} 
-                        name={`Paid (${currency})`} 
-                        fill={colors.paid}
-                        radius={[4, 4, 0, 0]} 
-                        stackId={`stack_${currency}`} 
+                      <Bar
+                        dataKey={`paid_${currency}`}
+                        name={`Paid (${currency})`}
+                        fill={seriesColors.paid}
+                        fillOpacity={fillOpacity}
+                        radius={[4, 4, 0, 0]}
+                        stackId={`stack_${currency}`}
                       />
-                      <Bar 
-                        dataKey={`partiallyPaid_${currency}`} 
-                        name={`Partially Paid (${currency})`} 
-                        fill={colors.partiallyPaid}
-                        radius={[4, 4, 0, 0]} 
-                        stackId={`stack_${currency}`} 
+                      <Bar
+                        dataKey={`partiallyPaid_${currency}`}
+                        name={`Partially Paid (${currency})`}
+                        fill={seriesColors.partiallyPaid}
+                        fillOpacity={fillOpacity}
+                        radius={[4, 4, 0, 0]}
+                        stackId={`stack_${currency}`}
                       />
-                      <Bar 
-                        dataKey={`pending_${currency}`} 
-                        name={`Pending (${currency})`} 
-                        fill={colors.pending}
-                        radius={[4, 4, 0, 0]} 
-                        stackId={`stack_${currency}`} 
+                      <Bar
+                        dataKey={`pending_${currency}`}
+                        name={`Pending (${currency})`}
+                        fill={seriesColors.pending}
+                        fillOpacity={fillOpacity}
+                        radius={[4, 4, 0, 0]}
+                        stackId={`stack_${currency}`}
                       />
                     </React.Fragment>
                   );
