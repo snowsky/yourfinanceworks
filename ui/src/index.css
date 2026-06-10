@@ -210,6 +210,66 @@
   }
 
   /*
+   * Premium Dark — indigo glass and glow. Layered on top of `.dark`
+   * (see ThemeProvider), so it must come AFTER the `.dark` block.
+   */
+  .theme-premium-dark {
+    --background: 225 20% 7%;
+    --foreground: 228 28% 93%;
+
+    --card: 227 18% 10%;
+    --card-foreground: 228 28% 93%;
+
+    --popover: 227 18% 9%;
+    --popover-foreground: 228 28% 93%;
+
+    /* Indigo primary */
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 228 16% 16%;
+    --secondary-foreground: 228 28% 93%;
+
+    --muted: 228 16% 13%;
+    --muted-foreground: 227 14% 60%;
+
+    /* Violet accent */
+    --accent: 258 90% 66%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 64%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 160 64% 52%;
+    --success-foreground: 160 60% 8%;
+
+    --warning: 43 96% 56%;
+    --warning-foreground: 30 40% 8%;
+
+    --border: 222 19% 20%;
+    --input: 222 19% 18%;
+    --ring: 239 84% 67%;
+
+    --radius: 0.75rem;
+
+    --chart-1: 239 84% 67%;
+    --chart-2: 258 90% 66%;
+    --chart-3: 160 64% 52%;
+    --chart-4: 43 96% 56%;
+    --chart-5: 199 89% 48%;
+    --chart-grid: 222 19% 20%;
+
+    --sidebar-background: 225 18% 8%;
+    --sidebar-foreground: 227 14% 62%;
+    --sidebar-primary: 239 84% 67%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 233 30% 17%;
+    --sidebar-accent-foreground: 228 28% 93%;
+    --sidebar-border: 224 18% 14%;
+    --sidebar-ring: 239 84% 67%;
+  }
+
+  /*
    * Terminal theme — green CRT phosphor on near-black with an amber accent.
    * Layered on top of `.dark` (see ThemeProvider), so it must come AFTER the
    * `.dark` block to win the equal-specificity cascade. Sharp corners and the
@@ -894,5 +954,36 @@
 @media (prefers-reduced-motion: reduce) {
   .theme-terminal .dashboard-hero h1::after {
     animation: none;
+  }
+}
+
+/* ============================================================
+ * Premium Dark theme — scoped glass & glow flourishes
+ * Everything lives under `.theme-premium-dark`, so other themes
+ * are never affected.
+ * ========================================================== */
+
+/* Subtle indigo wash behind everything */
+.theme-premium-dark body {
+  background:
+    radial-gradient(90% 60% at 12% 0%, hsl(248 40% 14% / 0.55), transparent 60%),
+    linear-gradient(160deg, hsl(228 20% 9%), hsl(225 20% 7%));
+  background-attachment: fixed;
+}
+
+/* Glassy cards */
+.theme-premium-dark .bg-card {
+  background-color: hsl(var(--card) / 0.6);
+  backdrop-filter: blur(14px);
+}
+
+/* Soft neon glow on primary-filled elements (buttons, active nav) */
+.theme-premium-dark .bg-primary {
+  box-shadow: 0 0 16px hsl(var(--primary) / 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-premium-dark body {
+    background-attachment: scroll;
   }
 }

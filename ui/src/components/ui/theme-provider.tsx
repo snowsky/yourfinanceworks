@@ -17,6 +17,7 @@ export type ThemeId =
   | 'light'
   | 'dark'
   | 'system'
+  | 'premium-dark'
   | 'terminal'
   | 'amber-terminal'
   | 'sepia';
@@ -42,16 +43,24 @@ export const THEMES: ThemeDefinition[] = [
   {
     id: 'light',
     label: 'Light',
-    description: 'Bright, high-contrast surfaces for daytime work.',
+    description: 'Warm paper, ink text, and a deep green accent.',
     base: 'light',
-    preview: { bg: '#f3f6f9', surface: '#ffffff', accent: '#2563eb', text: '#1f2937' },
+    preview: { bg: '#fbfbfa', surface: '#ffffff', accent: '#0e7a4d', text: '#1a1a18' },
   },
   {
     id: 'dark',
     label: 'Dark',
-    description: 'Dimmed navy surfaces that are easy on the eyes.',
+    description: 'Warm ink surfaces with a bright green accent.',
     base: 'dark',
-    preview: { bg: '#14171c', surface: '#1b1f26', accent: '#3b82f6', text: '#e8edf2' },
+    preview: { bg: '#161614', surface: '#1e1e1b', accent: '#3ecf8e', text: '#f2f2ee' },
+  },
+  {
+    id: 'premium-dark',
+    label: 'Premium Dark',
+    description: 'Indigo glass surfaces with a soft neon glow.',
+    base: 'dark',
+    className: 'theme-premium-dark',
+    preview: { bg: '#0e1015', surface: '#171a23', accent: '#6366f1', text: '#e8eaf2' },
   },
   {
     id: 'terminal',
