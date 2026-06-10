@@ -465,10 +465,12 @@ Update the `light` and `dark` entries (new look, new swatches) and insert `premi
 
     --radius: 0.75rem;
 
+    /* chart-2 amber (not violet): partially-paid series reads as "warning"
+     * and stays distinguishable from indigo chart-1 (review amendment) */
     --chart-1: 239 84% 64%;
-    --chart-2: 258 90% 66%;
+    --chart-2: 43 96% 56%;
     --chart-3: 160 64% 52%;
-    --chart-4: 43 96% 56%;
+    --chart-4: 258 90% 66%;
     --chart-5: 199 89% 48%;
     --chart-grid: 222 19% 20%;
 
