@@ -31,6 +31,9 @@ import { useTranslation } from "react-i18next";
 
 // Lazy load only page components for code splitting
 const SharedRecord = React.lazy(() => import("./pages/SharedRecord"));
+const PortalLogin = React.lazy(() => import("./pages/portal/PortalLogin"));
+const PortalVerify = React.lazy(() => import("./pages/portal/PortalVerify"));
+const PortalDashboard = React.lazy(() => import("./pages/portal/PortalDashboard"));
 const Index = React.lazy(() => import("./pages/Index"));
 const Login = React.lazy(() => import("./pages/Login"));
 const OAuthCallback = React.lazy(() => import("./pages/OAuthCallback"));
@@ -242,6 +245,9 @@ const AppContent = () => {
                 <React.Suspense fallback={<LoadingSpinner fullScreen />}>
                   <Routes>
                   <Route path="/shared/:token" element={<SharedRecord />} />
+                  <Route path="/portal/verify/:token" element={<PortalVerify />} />
+                  <Route path="/portal/dashboard" element={<PortalDashboard />} />
+                  <Route path="/portal/:slug" element={<PortalLogin />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/oauth-callback" element={<OAuthCallback />} />
                   <Route path="/signup" element={<Signup />} />
