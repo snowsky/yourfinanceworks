@@ -42,6 +42,10 @@ router = APIRouter(prefix="/client-portal", tags=["client-portal"])
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8080")
 
+# When DEBUG is on, request-link returns the verify link + email-send status in
+# its response (for local testing). MUST be off in production.
+_DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+
 # Tenants whose existing clients have had email_hash backfilled this process —
 # a one-time lazy migration so pre-existing clients can log in immediately.
 _BACKFILLED_TENANTS: set = set()
@@ -64,12 +68,13 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _send_magic_link(tenant_db: Session, tenant: Tenant, email: str, raw_token: str) -> None:
+def _send_magic_link(tenant_db: Session, tenant: Tenant, email: str, raw_token: str) -> bool:
+    """Send the magic-link email. Returns True if the provider accepted it."""
     try:
         email_service = build_tenant_email_service(tenant_db)
         if not email_service:
             logger.warning("client portal: no email config for tenant %s; cannot send link", tenant.id)
-            return
+            return False
         link = f"{FRONTEND_URL}/portal/verify/{raw_token}"
         subject = f"Your {tenant.name} invoice portal sign-in link"
         html = (
@@ -85,7 +90,7 @@ def _send_magic_link(tenant_db: Session, tenant: Tenant, email: str, raw_token: 
         )
         from_email = getattr(email_service.config, "from_email", None) or "noreply@yourfinanceworks.com"
         from_name = getattr(email_service.config, "from_name", None) or tenant.name
-        email_service.send_email(
+        return bool(email_service.send_email(
             EmailMessage(
                 to_email=email,
                 to_name=email,
@@ -95,9 +100,10 @@ def _send_magic_link(tenant_db: Session, tenant: Tenant, email: str, raw_token: 
                 from_email=from_email,
                 from_name=from_name,
             )
-        )
+        ))
     except Exception:
         logger.exception("client portal: failed to send magic link for tenant %s", tenant.id)
+        return False
 
 
 @router.post("/{portal_public_id}/request-link")
@@ -121,6 +127,7 @@ def request_login_link(
     ):
         raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
 
+    debug_extra = {}
     set_tenant_context(tenant.id)
     tenant_db = tenant_db_manager.get_tenant_session(tenant.id)()
     try:
@@ -143,11 +150,24 @@ def request_login_link(
         )
         if client:
             token = create_login_token(master_db, tenant.id, client.id)
-            _send_magic_link(tenant_db, tenant, body.email, token.token)
+            sent = _send_magic_link(tenant_db, tenant, body.email, token.token)
+            if _DEBUG:
+                debug_extra = {
+                    "debug_client_matched": True,
+                    "debug_email_sent": sent,
+                    "debug_verify_url": f"{FRONTEND_URL}/portal/verify/{token.token}",
+                }
+        elif _DEBUG:
+            debug_extra = {"debug_client_matched": False, "debug_email_sent": False}
     finally:
         clear_tenant_context()
         tenant_db.close()
 
+    # DEBUG only (never enable in production): surface the link + send status so
+    # the portal can be tested without inspecting the DB / email. Guarded on the
+    # DEBUG env flag, so the no-enumeration response is unchanged in prod.
+    if _DEBUG and debug_extra:
+        return {**_GENERIC_LINK_RESPONSE, **debug_extra}
     return _GENERIC_LINK_RESPONSE
 
 
