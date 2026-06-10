@@ -88,63 +88,69 @@
 
 @layer base {
   :root {
-    /* Professional Financial Theme */
-    --background: 210 20% 98%;
-    --foreground: 220 13% 18%;
+    /* Modern Fintech — warm paper & ink */
+    --background: 60 10% 98%;
+    --foreground: 60 4% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 13% 18%;
+    --card-foreground: 60 4% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 13% 18%;
+    --popover-foreground: 60 4% 10%;
 
-    /* Deep Navy Primary */
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 20% 98%;
+    /* Deep green — the single brand accent */
+    --primary: 155 79% 27%;
+    --primary-foreground: 60 10% 98%;
 
-    /* Muted Forest Green Secondary */
-    --secondary: 160 30% 42%;
-    --secondary-foreground: 0 0% 100%;
+    /* Quiet warm-gray secondary (secondary buttons, chips) */
+    --secondary: 60 7% 92%;
+    --secondary-foreground: 60 4% 10%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 60 10% 94%;
+    --muted-foreground: 60 3% 45%;
 
-    /* Teal Accent — distinct from warning */
-    --accent: 188 78% 41%;
+    /* Teal-green accent — stays colored for accent-foreground contracts */
+    --accent: 165 60% 30%;
     --accent-foreground: 0 0% 100%;
 
-    /* Rose Destructive */
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 20% 98%;
+    /* Brick red destructive */
+    --destructive: 7 76% 40%;
+    --destructive-foreground: 60 10% 98%;
 
-    /* Success - Emerald */
-    --success: 160 84% 39%;
+    --success: 155 70% 30%;
     --success-foreground: 0 0% 100%;
 
-    /* Warning - Amber */
-    --warning: 43 96% 56%;
-    --warning-foreground: 220 13% 18%;
+    --warning: 43 96% 50%;
+    --warning-foreground: 60 4% 10%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    --border: 60 7% 89%;
+    --input: 60 7% 89%;
+    --ring: 155 79% 27%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
     /* Typography tokens — themes may override */
     --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --font-display: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, "SFMono-Regular", monospace;
 
-    /* Professional Sidebar */
-    --sidebar-background: 220 26% 14%;
-    --sidebar-foreground: 210 20% 98%;
-    --sidebar-primary: 221 83% 60%;
+    /* Chart palette */
+    --chart-1: 155 79% 30%;
+    --chart-2: 43 96% 50%;
+    --chart-3: 60 4% 55%;
+    --chart-4: 17 60% 45%;
+    --chart-5: 188 60% 35%;
+    --chart-grid: 60 7% 89%;
+
+    /* Paper sidebar — light surface, ink text */
+    --sidebar-background: 60 8% 95%;
+    --sidebar-foreground: 60 4% 28%;
+    --sidebar-primary: 155 79% 27%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 26% 18%;
-    --sidebar-accent-foreground: 210 20% 98%;
-    --sidebar-border: 220 26% 18%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-accent: 60 8% 89%;
+    --sidebar-accent-foreground: 60 4% 10%;
+    --sidebar-border: 60 7% 88%;
+    --sidebar-ring: 155 79% 27%;
   }
 
   .dark {
