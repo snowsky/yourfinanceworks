@@ -137,12 +137,12 @@ export function OrganizationSwitcher() {
         }}
         disabled={isSwitchingOrg}
         className={`w-full group flex items-center gap-3 p-2 rounded-xl transition-all duration-200 
-          ${showDropdown ? 'bg-slate-800/60 ring-2 ring-blue-500/20' : 'hover:bg-slate-800/40'}
+          ${showDropdown ? 'bg-sidebar-accent/60 ring-2 ring-sidebar-ring/20' : 'hover:bg-sidebar-accent/40'}
           ${isSwitchingOrg ? 'cursor-default' : 'cursor-pointer'}
         `}
       >
         {/* Logo container */}
-        <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg ring-1 ring-white/10 overflow-hidden">
+        <div className="flex-shrink-0 h-10 w-10 bg-sidebar-primary rounded-lg flex items-center justify-center shadow-lg ring-1 ring-sidebar-border overflow-hidden">
           {companyLogoUrl ? (
             <img
               src={companyLogoUrl.startsWith('http') ? companyLogoUrl : `${API_BASE_URL}${companyLogoUrl}`}
@@ -158,28 +158,28 @@ export function OrganizationSwitcher() {
               }}
             />
           ) : (
-            <Building className="h-5 w-5 text-white" />
+            <Building className="h-5 w-5 text-sidebar-primary-foreground" />
           )}
         </div>
 
         {/* Text container */}
         <div className="flex-1 min-w-0 flex flex-col items-start gap-0.5">
-          <span className="text-sm font-bold text-white truncate w-full text-left leading-tight">
+          <span className="text-sm font-bold text-sidebar-foreground truncate w-full text-left leading-tight">
             {isSwitchingOrg ? 'Switching...' : currentOrgName}
           </span>
-          <span className="text-xs text-slate-400 font-medium truncate w-full text-left">
+          <span className="text-xs text-sidebar-foreground/60 font-medium truncate w-full text-left">
             {userOrganizations.length > 1 ? 'Switch Organization' : 'YourFinanceWORKS'}
           </span>
         </div>
 
         {/* Chevron - Always visible to indicate this is a dropdown/menu */}
-        <ChevronsUpDown className="h-4 w-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+        <ChevronsUpDown className="h-4 w-4 text-sidebar-foreground/60 group-hover:text-sidebar-foreground transition-colors" />
       </button>
 
       {showDropdown && buttonRect && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed bg-slate-900/95 border border-slate-700/50 rounded-xl shadow-2xl z-[100] backdrop-blur-md overflow-hidden ring-1 ring-white/10"
+          className="fixed bg-popover border border-border rounded-xl shadow-2xl z-[100] backdrop-blur-md overflow-hidden ring-1 ring-border/30"
           style={{
             top: `${buttonRect.bottom + 6}px`,
             left: `${buttonRect.left}px`,
@@ -188,7 +188,7 @@ export function OrganizationSwitcher() {
           }}
         >
           <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto custom-scrollbar">
-            <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Organizations
             </div>
             {userOrganizations.map((org) => (
@@ -201,11 +201,11 @@ export function OrganizationSwitcher() {
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all
                   ${org.id.toString() === currentOrgId
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'}
+                    ? 'bg-primary text-primary-foreground shadow-md'
+                    : 'text-foreground/80 hover:bg-accent hover:text-accent-foreground'}
                 `}
               >
-                <div className={`p-1.5 rounded-md ${org.id.toString() === currentOrgId ? 'bg-white/20' : 'bg-slate-800'}`}>
+                <div className={`p-1.5 rounded-md ${org.id.toString() === currentOrgId ? 'bg-white/20' : 'bg-muted'}`}>
                   <Building className="h-4 w-4" />
                 </div>
                 <span className="flex-1 text-left truncate font-medium">{org.name}</span>

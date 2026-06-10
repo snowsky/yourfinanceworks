@@ -487,8 +487,8 @@ export function AppSidebar() {
 
   return (
     <>
-      <Sidebar data-tour="sidebar" className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-r border-slate-700/50 shadow-2xl backdrop-blur-xl">
-        <SidebarHeader className="py-3 px-4 border-b border-slate-700/30">
+      <Sidebar data-tour="sidebar" className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-2xl backdrop-blur-xl">
+        <SidebarHeader className="py-3 px-4 border-b border-sidebar-border">
           <OrganizationSwitcher />
         </SidebarHeader>
 
@@ -496,14 +496,14 @@ export function AppSidebar() {
         <div className="flex-1 min-h-0 relative flex flex-col">
           {/* Scroll Up Indicator */}
           <div
-            className={`absolute top-0 left-0 right-0 h-10 bg-gradient-to-b from-slate-900 via-slate-900/80 to-transparent z-10 flex items-start justify-center pt-1 transition-opacity duration-300 pointer-events-none ${canScrollUp ? 'opacity-100' : 'opacity-0'}`}
+            className={`absolute top-0 left-0 right-0 h-10 bg-gradient-to-b from-sidebar via-sidebar/80 to-transparent z-10 flex items-start justify-center pt-1 transition-opacity duration-300 pointer-events-none ${canScrollUp ? 'opacity-100' : 'opacity-0'}`}
           >
             <button
               onClick={() => scrollToDirection('up')}
               className={`rounded-full p-1.5 shadow-lg border transition-all pointer-events-auto cursor-pointer ${
                 canScrollUp
-                  ? "bg-blue-600/90 border-blue-400/60 text-white hover:bg-blue-500 ring-2 ring-blue-400/40"
-                  : "bg-slate-800/80 border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700"
+                  ? "bg-sidebar-primary/90 border-sidebar-primary/60 text-sidebar-primary-foreground hover:bg-sidebar-primary ring-2 ring-sidebar-ring/40"
+                  : "bg-sidebar-accent/80 border-sidebar-border text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent"
               }`}
               tabIndex={canScrollUp ? 0 : -1}
               aria-label="Scroll up"
@@ -520,7 +520,7 @@ export function AppSidebar() {
               {/* Core Navigation Section */}
               <div className="space-y-1">
                 <div className="px-3 mb-3">
-                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
                     {t('navigation.section.core', { defaultValue: 'Core' })}
                   </h3>
                 </div>
@@ -529,8 +529,8 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
-                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
-                        : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm ring-1 ring-sidebar-ring/30"
+                        : "text-sidebar-foreground/80 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent hover:shadow-sm"
                         }`}
                       isActive={isActive(item.path)}
                     >
@@ -542,7 +542,7 @@ export function AppSidebar() {
                       >
                         <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
                           ? "bg-white/20 shadow-sm"
-                          : "bg-slate-700/30 group-hover:bg-slate-600/30"
+                          : "bg-sidebar-accent/60 group-hover:bg-sidebar-accent"
                           }`}>
                           {item.icon}
                         </div>
@@ -555,13 +555,13 @@ export function AppSidebar() {
 
               {/* Separator */}
               <div className="px-3">
-                <div className="border-t border-slate-700/30"></div>
+                <div className="border-t border-sidebar-border"></div>
               </div>
 
               {/* Administration Section */}
               <div className="space-y-1">
                 <div className="px-3 mb-3">
-                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
                     {t('navigation.section.administration', { defaultValue: 'Administration' })}
                   </h3>
                 </div>
@@ -570,8 +570,8 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
-                        ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
-                        : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm ring-1 ring-sidebar-ring/30"
+                        : "text-sidebar-foreground/80 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent hover:shadow-sm"
                         }`}
                       isActive={isActive(item.path)}
                     >
@@ -583,7 +583,7 @@ export function AppSidebar() {
                       >
                         <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
                           ? "bg-white/20 shadow-sm"
-                          : "bg-slate-700/30 group-hover:bg-slate-600/30"
+                          : "bg-sidebar-accent/60 group-hover:bg-sidebar-accent"
                           }`}>
                           {item.icon}
                         </div>
@@ -599,12 +599,12 @@ export function AppSidebar() {
                 <>
                   {/* Separator */}
                   <div className="px-3">
-                    <div className="border-t border-slate-700/30"></div>
+                    <div className="border-t border-sidebar-border"></div>
                   </div>
 
                   <div className="space-y-1">
                     <div className="px-3 mb-3">
-                      <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
                         {t('navigation.section.plugins', { defaultValue: 'Plugins' })}
                       </h3>
                     </div>
@@ -619,8 +619,8 @@ export function AppSidebar() {
                             <SidebarMenuButton
                               asChild
                               className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
-                                ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20"
-                                : "text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm"
+                                ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm ring-1 ring-sidebar-ring/30"
+                                : "text-sidebar-foreground/80 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent hover:shadow-sm"
                                 }`}
                               isActive={isActive(item.path)}
                             >
@@ -632,7 +632,7 @@ export function AppSidebar() {
                               >
                                 <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
                                   ? "bg-white/20 shadow-sm"
-                                  : "bg-slate-700/30 group-hover:bg-slate-600/30"
+                                  : "bg-sidebar-accent/60 group-hover:bg-sidebar-accent"
                                   }`}>
                                   {IconComponent && <IconComponent className="w-5 h-5" />}
                                 </div>
@@ -652,14 +652,14 @@ export function AppSidebar() {
 
           {/* Scroll Down Indicator */}
           <div
-            className={`absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent z-10 flex items-end justify-center pb-1 transition-opacity duration-300 pointer-events-none ${canScrollDown ? 'opacity-100' : 'opacity-0'}`}
+            className={`absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-sidebar via-sidebar/80 to-transparent z-10 flex items-end justify-center pb-1 transition-opacity duration-300 pointer-events-none ${canScrollDown ? 'opacity-100' : 'opacity-0'}`}
           >
             <button
               onClick={() => scrollToDirection('down')}
               className={`rounded-full p-1.5 shadow-lg border transition-all pointer-events-auto cursor-pointer ${
                 canScrollDown
-                  ? "bg-blue-600/90 border-blue-400/60 text-white hover:bg-blue-500 ring-2 ring-blue-400/40"
-                  : "bg-slate-800/80 border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700"
+                  ? "bg-sidebar-primary/90 border-sidebar-primary/60 text-sidebar-primary-foreground hover:bg-sidebar-primary ring-2 ring-sidebar-ring/40"
+                  : "bg-sidebar-accent/80 border-sidebar-border text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent"
               }`}
               tabIndex={canScrollDown ? 0 : -1}
               aria-label="Scroll down"
@@ -670,12 +670,12 @@ export function AppSidebar() {
         </div>
 
 
-        <SidebarFooter className="py-3 px-4 border-t border-slate-700/30">
+        <SidebarFooter className="py-3 px-4 border-t border-sidebar-border">
           {/* User identity + actions zone */}
           <div className="flex items-center gap-2.5 mb-3">
-            <Avatar className="h-8 w-8 shrink-0 ring-2 ring-slate-600/30">
+            <Avatar className="h-8 w-8 shrink-0 ring-2 ring-sidebar-border">
               <AvatarImage src={undefined as any} alt={currentUser?.email || 'User'} />
-              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs font-bold">
+              <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs font-bold">
                 {(() => {
                   const first = (currentUser?.first_name || '').trim();
                   const last = (currentUser?.last_name || '').trim();
@@ -687,7 +687,7 @@ export function AppSidebar() {
               </AvatarFallback>
             </Avatar>
             <div className="flex flex-col leading-tight flex-1 min-w-0">
-              <span className="text-xs font-semibold text-white truncate">
+              <span className="text-xs font-semibold text-sidebar-foreground truncate">
                 {(() => {
                   const first = (currentUser?.first_name || '').trim();
                   const last = (currentUser?.last_name || '').trim();
@@ -695,7 +695,7 @@ export function AppSidebar() {
                   return name || (currentUser?.email?.split('@')[0] || 'User');
                 })()}
               </span>
-              <span className="text-[11px] text-slate-400 truncate">
+              <span className="text-[11px] text-sidebar-foreground/60 truncate">
                 {currentOrgRole === 'admin'
                   ? t('roles.administrator', { defaultValue: 'Administrator' })
                   : t('roles.user', { defaultValue: 'User' })}
@@ -707,7 +707,7 @@ export function AppSidebar() {
               aria-label={t('auth.logout')}
               title={t('auth.logout')}
               onClick={handleLogout}
-              className="h-7 w-7 shrink-0 text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 rounded-lg"
+              className="h-7 w-7 shrink-0 text-sidebar-foreground/60 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 rounded-lg"
             >
               <LogOut className="w-3.5 h-3.5" />
             </Button>
@@ -724,7 +724,7 @@ export function AppSidebar() {
               aria-label={t('navigation.dark_mode')}
               title={t('navigation.dark_mode')}
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="h-8 w-8 border border-slate-600/30 bg-slate-700/20 hover:bg-slate-600/20 text-slate-300 hover:text-white transition-all duration-200 rounded-lg shrink-0"
+              className="h-8 w-8 border border-sidebar-border bg-sidebar-accent/20 hover:bg-sidebar-accent/60 text-sidebar-foreground/80 hover:text-sidebar-accent-foreground transition-all duration-200 rounded-lg shrink-0"
             >
               {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
