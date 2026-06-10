@@ -164,7 +164,7 @@ Modern Fintech light: warm paper, ink text, deep green primary, paper sidebar, c
     --sidebar-foreground: 60 4% 28%;
     --sidebar-primary: 155 79% 27%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 60 8% 89%;
+    --sidebar-accent: 60 8% 86%; /* 86 (not 89): perceptible hover vs 95% bg */
     --sidebar-accent-foreground: 60 4% 10%;
     --sidebar-border: 60 7% 88%;
     --sidebar-ring: 155 79% 27%;
@@ -245,7 +245,7 @@ Warm ink dark — deliberately not blue.
     --sidebar-foreground: 60 4% 60%;
     --sidebar-primary: 153 60% 53%;
     --sidebar-primary-foreground: 155 50% 8%;
-    --sidebar-accent: 60 5% 16%;
+    --sidebar-accent: 60 5% 18%; /* 18 (not 16): perceptible hover vs 10% bg */
     --sidebar-accent-foreground: 60 14% 94%;
     --sidebar-border: 60 5% 17%;
     --sidebar-ring: 153 60% 53%;
@@ -569,10 +569,15 @@ Replace every `slate-*`/`blue-*`/`indigo-*` utility in the sidebar with `sidebar
 | `bg-gradient-to-b from-slate-900 via-slate-900/80 to-transparent` (scroll-up fade) | `bg-gradient-to-b from-sidebar via-sidebar/80 to-transparent` |
 | `bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent` (scroll-down fade) | `bg-gradient-to-t from-sidebar via-sidebar/80 to-transparent` |
 | `bg-blue-600/90 border-blue-400/60 text-white hover:bg-blue-500 ring-2 ring-blue-400/40` (scroll button, active) | `bg-sidebar-primary/90 border-sidebar-primary/60 text-sidebar-primary-foreground hover:bg-sidebar-primary ring-2 ring-sidebar-ring/40` |
-| `bg-slate-800/80 border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700` (scroll button, idle) | `bg-sidebar-accent/80 border-sidebar-border text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent` |
-| `text-slate-400 uppercase tracking-wider` (section headings) | `text-sidebar-foreground/60 uppercase tracking-wider` |
+| `bg-slate-800/80 border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700` (scroll button, idle) | `bg-sidebar-accent/80 border-sidebar-border text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent` |
+| `text-slate-400 uppercase tracking-wider` (section headings) | `text-sidebar-foreground uppercase tracking-wider` |
 | `bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg ring-2 ring-blue-500/20` (active nav item) | `bg-sidebar-primary text-sidebar-primary-foreground shadow-sm ring-1 ring-sidebar-ring/30` |
-| `text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm` (idle nav item) | `text-sidebar-foreground/80 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent hover:shadow-sm` |
+| `text-slate-300 hover:text-white hover:bg-slate-700/30 hover:shadow-sm` (idle nav item) | `text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent hover:shadow-sm` |
+
+Review amendment: NO alpha modifiers on `text-sidebar-foreground` anywhere — `/60`-`/80` dimming
+fails WCAG AA on both the paper and ink palettes; the token is already the muted tone. Also drop
+`shadow-2xl backdrop-blur-xl` from the sidebar root and use `bg-sidebar-primary-foreground/20`
+instead of `bg-white/20` on active icon chips.
 | `bg-slate-700/30 group-hover:bg-slate-600/30` (icon chip) | `bg-sidebar-accent/60 group-hover:bg-sidebar-accent` |
 | `ring-2 ring-slate-600/30` (avatar) | `ring-2 ring-sidebar-border` |
 | `bg-gradient-to-br from-blue-500 to-indigo-600 text-white` (avatar fallback) | `bg-sidebar-primary text-sidebar-primary-foreground` |
