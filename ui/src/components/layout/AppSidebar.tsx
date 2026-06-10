@@ -17,6 +17,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useThemePreference } from "@/hooks/useThemePreference";
+import { getThemeDefinition } from "@/components/ui/theme-provider";
 
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import {
@@ -81,24 +83,11 @@ export function AppSidebar() {
   const { isFeatureEnabled } = useFeatures();
   const [forceUpdate, setForceUpdate] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
-  const [theme, setTheme] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('theme');
-      if (stored === 'dark' || stored === 'light') return stored;
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return 'light';
-  });
-
-  useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    localStorage.setItem('theme', theme);
-    // Optionally: update user profile theme in backend here
-  }, [theme]);
+  // Quick light/dark toggle, driven by the canonical theme system (persists to
+  // the backend and survives reload). Owning the <html> class here directly would
+  // fight ThemeProvider and strip the theme on reload — let the provider own it.
+  const { resolvedTheme, setTheme } = useThemePreference();
+  const isDark = getThemeDefinition(resolvedTheme).base === 'dark';
 
   // Get current user data from localStorage
   const user = getCurrentUser();
@@ -723,10 +712,10 @@ export function AppSidebar() {
               size="icon"
               aria-label={t('navigation.dark_mode')}
               title={t('navigation.dark_mode')}
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              onClick={() => setTheme(isDark ? 'light' : 'dark')}
               className="h-8 w-8 border border-sidebar-border bg-sidebar-accent/20 hover:bg-sidebar-accent/60 text-sidebar-foreground hover:text-sidebar-accent-foreground transition-all duration-200 rounded-lg shrink-0"
             >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
           </div>
         </SidebarFooter>

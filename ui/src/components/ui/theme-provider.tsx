@@ -25,6 +25,14 @@ export type ThemeId =
 // Backwards-compatible alias — older code imported `Theme`.
 export type Theme = ThemeId;
 
+/**
+ * The single localStorage key for the persisted theme. Exported so the pre-React
+ * bootstrap in `main.tsx` reads the same key the provider writes — there must be
+ * exactly one theme source of truth (a second one fighting it strips classes on
+ * reload). See `applyTheme`.
+ */
+export const THEME_STORAGE_KEY = 'invoice-app-theme';
+
 export interface ThemeDefinition {
   id: ThemeId;
   /** English fallback label; UI translates via `settings.appearance.themes.<id>`. */
@@ -138,7 +146,13 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
-function applyTheme(theme: ThemeId): Exclude<ThemeId, 'system'> {
+/**
+ * Resolve a theme id to the classes on <html>: clears every managed class, then
+ * adds the base ('light'/'dark') plus any scoped class. Exported so the pre-React
+ * bootstrap can apply the persisted theme before first paint (no flash) using the
+ * exact same logic the provider uses on mount.
+ */
+export function applyTheme(theme: ThemeId): Exclude<ThemeId, 'system'> {
   const root = window.document.documentElement;
   root.classList.remove(...MANAGED_CLASSES);
 
@@ -158,7 +172,7 @@ function applyTheme(theme: ThemeId): Exclude<ThemeId, 'system'> {
 export function ThemeProvider({
   children,
   defaultTheme = 'system',
-  storageKey = 'vite-ui-theme',
+  storageKey = THEME_STORAGE_KEY,
   ...props
 }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<ThemeId>(() => {
