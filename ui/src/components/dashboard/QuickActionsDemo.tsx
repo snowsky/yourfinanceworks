@@ -131,7 +131,7 @@ export function QuickActionsDemo() {
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2">
               <div className="p-2 bg-primary rounded-lg">
-                <Zap className="h-5 w-5 text-white" />
+                <Zap className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
                 <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
@@ -152,16 +152,16 @@ export function QuickActionsDemo() {
                   >
                     <div className="flex items-center gap-3 w-full">
                       <div className={`p-2 rounded-lg ${
-                        action.variant === 'primary' ? 'bg-white/20' : 'bg-gray-100'
+                        action.variant === 'primary' ? 'bg-primary-foreground/20' : 'bg-gray-100'
                       }`}>
                         <Icon className={`h-5 w-5 ${
-                          action.variant === 'primary' ? 'text-white' : 'text-gray-600'
+                          action.variant === 'primary' ? 'text-primary-foreground' : 'text-gray-600'
                         }`} />
                       </div>
                       <div className="flex-1">
                         <div className="font-medium text-sm">{action.title}</div>
                         <div className={`text-xs opacity-80 ${
-                          action.variant === 'primary' ? 'text-white' : 'text-muted-foreground'
+                          action.variant === 'primary' ? 'text-primary-foreground' : 'text-muted-foreground'
                         }`}>
                           {action.description}
                         </div>
