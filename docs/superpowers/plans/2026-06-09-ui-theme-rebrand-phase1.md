@@ -436,8 +436,8 @@ Update the `light` and `dark` entries (new look, new swatches) and insert `premi
     --popover: 227 18% 9%;
     --popover-foreground: 228 28% 93%;
 
-    /* Indigo primary */
-    --primary: 239 84% 67%;
+    /* Indigo primary — L64 (not 67): white text needs >=4.5:1 per review */
+    --primary: 239 84% 64%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 228 16% 16%;
@@ -446,11 +446,11 @@ Update the `light` and `dark` entries (new look, new swatches) and insert `premi
     --muted: 228 16% 13%;
     --muted-foreground: 227 14% 60%;
 
-    /* Violet accent */
-    --accent: 258 90% 66%;
+    /* Violet accent — darkened for AA with white text */
+    --accent: 258 84% 62%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 64%;
+    --destructive: 0 72% 53%;
     --destructive-foreground: 0 0% 100%;
 
     --success: 160 64% 52%;
@@ -461,11 +461,11 @@ Update the `light` and `dark` entries (new look, new swatches) and insert `premi
 
     --border: 222 19% 20%;
     --input: 222 19% 18%;
-    --ring: 239 84% 67%;
+    --ring: 239 84% 64%;
 
     --radius: 0.75rem;
 
-    --chart-1: 239 84% 67%;
+    --chart-1: 239 84% 64%;
     --chart-2: 258 90% 66%;
     --chart-3: 160 64% 52%;
     --chart-4: 43 96% 56%;
@@ -474,12 +474,12 @@ Update the `light` and `dark` entries (new look, new swatches) and insert `premi
 
     --sidebar-background: 225 18% 8%;
     --sidebar-foreground: 227 14% 62%;
-    --sidebar-primary: 239 84% 67%;
+    --sidebar-primary: 239 84% 64%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 233 30% 17%;
     --sidebar-accent-foreground: 228 28% 93%;
     --sidebar-border: 224 18% 14%;
-    --sidebar-ring: 239 84% 67%;
+    --sidebar-ring: 239 84% 64%;
   }
 ```
 
@@ -503,17 +503,32 @@ Update the `light` and `dark` entries (new look, new swatches) and insert `premi
 /* Glassy cards */
 .theme-premium-dark .bg-card {
   background-color: hsl(var(--card) / 0.6);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(10px);
 }
 
-/* Soft neon glow on primary-filled elements (buttons, active nav) */
-.theme-premium-dark .bg-primary {
-  box-shadow: 0 0 16px hsl(var(--primary) / 0.35);
+/* Soft neon glow on primary-filled buttons/links. Scoped to interactive
+ * elements (a bare .bg-primary match would also hit badges, progress bars,
+ * calendar cells) and composed with Tailwind's ring/shadow variables so
+ * keyboard-focus rings and shadow utilities still render on top. */
+.theme-premium-dark button.bg-primary,
+.theme-premium-dark a.bg-primary {
+  box-shadow:
+    var(--tw-ring-offset-shadow, 0 0 #0000),
+    var(--tw-ring-shadow, 0 0 #0000),
+    0 0 16px hsl(var(--primary) / 0.35),
+    var(--tw-shadow, 0 0 #0000);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .theme-premium-dark body {
     background-attachment: scroll;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .theme-premium-dark .bg-card {
+    background-color: hsl(var(--card));
+    backdrop-filter: none;
   }
 }
 ```
