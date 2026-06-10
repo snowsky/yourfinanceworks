@@ -193,7 +193,7 @@ const Login = () => {
   }, [t]);
 
   return (
-    <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen flex bg-background">
       {/* ── Left brand panel (desktop only) ── */}
       <div className="hidden lg:flex lg:w-[44%] xl:w-2/5 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex-col justify-between p-12 relative overflow-hidden flex-shrink-0">
         {/* Subtle dot-grid overlay */}
@@ -258,20 +258,20 @@ const Login = () => {
         <div className="lg:hidden mb-8 text-center">
           <div className="flex items-center justify-center gap-2 mb-1">
             <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow">
-              <TrendingUp className="h-5 w-5 text-white" />
+              <TrendingUp className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-slate-900 dark:text-white text-lg font-bold tracking-tight">YourFinanceWORKS</span>
+            <span className="text-foreground text-lg font-bold tracking-tight">YourFinanceWORKS</span>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-xs">Financial Management Platform</p>
+          <p className="text-muted-foreground text-xs">Financial Management Platform</p>
         </div>
 
         <div className="w-full max-w-sm">
           {/* Heading */}
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">
               {t("auth.login")}
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+            <p className="text-muted-foreground text-sm mt-1">
               {t("auth.login_description")}
             </p>
           </div>
@@ -281,7 +281,7 @@ const Login = () => {
             <div
               role="alert"
               aria-live="assertive"
-              className="mb-5 flex items-start gap-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300 px-4 py-3 rounded-xl"
+              className="mb-5 flex items-start gap-3 bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-xl"
             >
               <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
               <p className="text-sm">{error}</p>
@@ -338,9 +338,9 @@ const Login = () => {
 
           {mfaRequired && (
             <form onSubmit={handleMFAVerify} className="space-y-4">
-              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100/50 dark:bg-slate-900/40 p-3">
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">MFA Chain Challenge</p>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Current step: {mfaFactorLabel}</p>
+              <div className="rounded-xl border border-border bg-muted/50 p-3">
+                <p className="text-sm font-medium text-foreground">MFA Chain Challenge</p>
+                <p className="text-xs text-muted-foreground mt-1">Current step: {mfaFactorLabel}</p>
               </div>
               <ProfessionalInput
                 id="mfa_code"
@@ -370,10 +370,10 @@ const Login = () => {
             <>
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-slate-200 dark:border-slate-700" />
+                  <span className="w-full border-t border-border" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-slate-50 dark:bg-slate-950 px-3 text-slate-400 tracking-wide">
+                  <span className="bg-background px-3 text-muted-foreground tracking-wide">
                     {t("auth.or_continue_with")}
                   </span>
                 </div>
@@ -414,7 +414,7 @@ const Login = () => {
 
           {/* Sign-up link */}
           {!mfaRequired && (
-          <p className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-8 text-center text-sm text-muted-foreground">
             {t("auth.no_account")}{" "}
             <Link
               to="/signup"
