@@ -20,11 +20,11 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
-				mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
-				heading: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
-				body: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
-				display: ['DM Serif Display', 'Georgia', 'serif'],
+				sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+				mono: ['var(--font-mono)', 'monospace'],
+				heading: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+				body: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+				display: ['var(--font-display)', 'system-ui', 'sans-serif'],
 			},
 			fontWeight: {
 				light: '300',

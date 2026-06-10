@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..800;1,14..32,400&family=JetBrains+Mono:wght@400;500;700;800&display=swap");
 @import "./styles/professional-enhancements.css";
 
 @tailwind base;
@@ -130,6 +130,11 @@
     --ring: 221 83% 53%;
 
     --radius: 0.75rem;
+
+    /* Typography tokens — themes may override */
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-display: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, "SFMono-Regular", monospace;
 
     /* Professional Sidebar */
     --sidebar-background: 220 26% 14%;
@@ -371,12 +376,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family:
-      "Plus Jakarta Sans",
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      sans-serif;
+    font-family: var(--font-sans);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.011em;
@@ -384,7 +384,7 @@
 
   /* Display font for large numbers, metric values, page titles */
   .font-display {
-    font-family: "DM Serif Display", Georgia, serif;
+    font-family: var(--font-display);
     font-feature-settings: normal;
     letter-spacing: -0.02em;
   }
