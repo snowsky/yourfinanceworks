@@ -107,7 +107,7 @@
     --secondary-foreground: 60 4% 10%;
 
     --muted: 60 10% 94%;
-    --muted-foreground: 60 3% 45%;
+    --muted-foreground: 60 3% 40%;
 
     /* Teal-green accent — stays colored for accent-foreground contracts */
     --accent: 165 60% 30%;
@@ -120,8 +120,8 @@
     --success: 155 70% 30%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 43 96% 50%;
-    --warning-foreground: 60 4% 10%;
+    --warning: 43 96% 30%;
+    --warning-foreground: 0 0% 100%;
 
     --border: 60 7% 89%;
     --input: 60 7% 89%;
