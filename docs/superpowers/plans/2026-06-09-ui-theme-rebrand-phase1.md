@@ -123,7 +123,7 @@ Modern Fintech light: warm paper, ink text, deep green primary, paper sidebar, c
     --secondary-foreground: 60 4% 10%;
 
     --muted: 60 10% 94%;
-    --muted-foreground: 60 3% 45%;
+    --muted-foreground: 60 3% 40%; /* L40 (not 45): AA on --muted and --background per review */
 
     /* Teal-green accent — stays colored for accent-foreground contracts */
     --accent: 165 60% 30%;
@@ -136,8 +136,9 @@ Modern Fintech light: warm paper, ink text, deep green primary, paper sidebar, c
     --success: 155 70% 30%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 43 96% 50%;
-    --warning-foreground: 60 4% 10%;
+    /* Dark amber: legible as text-warning on light surfaces (status badges) */
+    --warning: 43 96% 30%;
+    --warning-foreground: 0 0% 100%;
 
     --border: 60 7% 89%;
     --input: 60 7% 89%;
