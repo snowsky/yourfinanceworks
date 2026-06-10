@@ -254,9 +254,9 @@ export function ProfessionalDashboard() {
                 if (quickActionsElement) {
                   quickActionsElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   // Add a subtle highlight effect
-                  quickActionsElement.classList.add('ring-2', 'ring-blue-500/50', 'ring-offset-2');
+                  quickActionsElement.classList.add('ring-2', 'ring-ring/50', 'ring-offset-2');
                   setTimeout(() => {
-                    quickActionsElement.classList.remove('ring-2', 'ring-blue-500/50', 'ring-offset-2');
+                    quickActionsElement.classList.remove('ring-2', 'ring-ring/50', 'ring-offset-2');
                   }, 2000);
                 }
               }}
@@ -455,7 +455,7 @@ export function ProfessionalDashboard() {
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-blue-600" />
+                  <DollarSign className="h-4 w-4 text-primary" />
                   <span className="text-sm font-medium">{t('dashboard.metrics.monthly_growth')}</span>
                 </div>
                 <span className={`text-lg font-bold ${dashboardStats.trends.income.isPositive ? 'text-green-600' : 'text-red-600'}`}>
@@ -465,7 +465,7 @@ export function ProfessionalDashboard() {
 
               <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-purple-600" />
+                  <Users className="h-4 w-4 text-accent" />
                   <span className="text-sm font-medium">{t('dashboard.metrics.active_clients')}</span>
                 </div>
                 <span className="text-lg font-bold">{dashboardStats.totalClients}</span>
@@ -473,7 +473,7 @@ export function ProfessionalDashboard() {
 
               <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-indigo-600" />
+                  <TrendingUp className="h-4 w-4 text-accent" />
                   <span className="text-sm font-medium">{t('dashboard.metrics.revenue_trend')}</span>
                 </div>
                 <span className="text-lg font-bold text-green-600">
@@ -482,9 +482,9 @@ export function ProfessionalDashboard() {
               </div>
 
               {/* Gamification Link */}
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-accent/10 border border-accent/20 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <Gamepad2 className="h-4 w-4 text-purple-600" />
+                  <Gamepad2 className="h-4 w-4 text-accent" />
                   <div>
                     <span className="text-sm font-medium">{t('dashboard.metrics.gamification_score')}</span>
                     <p className="text-xs text-muted-foreground">{t('dashboard.metrics.gamification_desc')}</p>
@@ -494,7 +494,7 @@ export function ProfessionalDashboard() {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate('/settings?tab=gamification')}
-                  className="text-purple-600 hover:bg-purple-100 h-8 px-3"
+                  className="text-accent hover:bg-accent/10 h-8 px-3"
                 >
                   {t('dashboard.actions.view_score')}
                   <ArrowRight className="h-3 w-3 ml-1" />

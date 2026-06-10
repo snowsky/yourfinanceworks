@@ -17,12 +17,21 @@ export type ThemeId =
   | 'light'
   | 'dark'
   | 'system'
+  | 'premium-dark'
   | 'terminal'
   | 'amber-terminal'
   | 'sepia';
 
 // Backwards-compatible alias — older code imported `Theme`.
 export type Theme = ThemeId;
+
+/**
+ * The single localStorage key for the persisted theme. Exported so the pre-React
+ * bootstrap in `main.tsx` reads the same key the provider writes — there must be
+ * exactly one theme source of truth (a second one fighting it strips classes on
+ * reload). See `applyTheme`.
+ */
+export const THEME_STORAGE_KEY = 'invoice-app-theme';
 
 export interface ThemeDefinition {
   id: ThemeId;
@@ -42,16 +51,24 @@ export const THEMES: ThemeDefinition[] = [
   {
     id: 'light',
     label: 'Light',
-    description: 'Bright, high-contrast surfaces for daytime work.',
+    description: 'Warm paper, ink text, and a deep green accent.',
     base: 'light',
-    preview: { bg: '#f3f6f9', surface: '#ffffff', accent: '#2563eb', text: '#1f2937' },
+    preview: { bg: '#fbfbfa', surface: '#ffffff', accent: '#0e7a4d', text: '#1a1a18' },
   },
   {
     id: 'dark',
     label: 'Dark',
-    description: 'Dimmed navy surfaces that are easy on the eyes.',
+    description: 'Warm ink surfaces with a bright green accent.',
     base: 'dark',
-    preview: { bg: '#14171c', surface: '#1b1f26', accent: '#3b82f6', text: '#e8edf2' },
+    preview: { bg: '#161614', surface: '#1e1e1b', accent: '#3ecf8e', text: '#f2f2ee' },
+  },
+  {
+    id: 'premium-dark',
+    label: 'Premium Dark',
+    description: 'Indigo glass surfaces with a soft neon glow.',
+    base: 'dark',
+    className: 'theme-premium-dark',
+    preview: { bg: '#0e1015', surface: '#171a23', accent: '#6366f1', text: '#e8eaf2' },
   },
   {
     id: 'terminal',
@@ -129,7 +146,13 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
-function applyTheme(theme: ThemeId): Exclude<ThemeId, 'system'> {
+/**
+ * Resolve a theme id to the classes on <html>: clears every managed class, then
+ * adds the base ('light'/'dark') plus any scoped class. Exported so the pre-React
+ * bootstrap can apply the persisted theme before first paint (no flash) using the
+ * exact same logic the provider uses on mount.
+ */
+export function applyTheme(theme: ThemeId): Exclude<ThemeId, 'system'> {
   const root = window.document.documentElement;
   root.classList.remove(...MANAGED_CLASSES);
 
@@ -149,7 +172,7 @@ function applyTheme(theme: ThemeId): Exclude<ThemeId, 'system'> {
 export function ThemeProvider({
   children,
   defaultTheme = 'system',
-  storageKey = 'vite-ui-theme',
+  storageKey = THEME_STORAGE_KEY,
   ...props
 }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<ThemeId>(() => {

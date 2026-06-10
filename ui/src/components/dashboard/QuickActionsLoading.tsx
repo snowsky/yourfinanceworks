@@ -3,7 +3,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export function QuickActionsLoading() {
   return (
-    <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-50 to-white">
+    <Card className="border-0 shadow-lg bg-card">
       <CardHeader className="pb-4">
         <div className="flex items-center gap-2">
           <Skeleton className="h-9 w-9 rounded-lg" />

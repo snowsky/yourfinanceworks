@@ -9,7 +9,7 @@ import React from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
-import { ThemeProvider } from "@/components/ui/theme-provider";
+import { ThemeProvider, THEME_STORAGE_KEY } from "@/components/ui/theme-provider";
 import { ThemeSync } from "@/components/ui/ThemeSync";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { RoleProtectedRoute } from "./components/auth/RoleProtectedRoute";
@@ -404,7 +404,7 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <I18nextProvider i18n={i18n}>
-        <ThemeProvider defaultTheme="system" storageKey="invoice-app-theme">
+        <ThemeProvider defaultTheme="system" storageKey={THEME_STORAGE_KEY}>
           <ThemeSync />
           <AppContent />
         </ThemeProvider>

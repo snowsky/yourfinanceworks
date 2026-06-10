@@ -21,12 +21,12 @@ export function RecentActivity({ refreshKey }: RecentActivityProps) {
 
   const getActivityIcon = (type: ActivityItem['type']) => {
     switch (type) {
-      case 'invoice':   return <FileText className="h-3.5 w-3.5 text-blue-500" />;
+      case 'invoice':   return <FileText className="h-3.5 w-3.5 text-primary" />;
       case 'client':    return <Users className="h-3.5 w-3.5 text-emerald-500" />;
-      case 'inventory': return <Package className="h-3.5 w-3.5 text-purple-500" />;
+      case 'inventory': return <Package className="h-3.5 w-3.5 text-accent" />;
       case 'approval':  return <CheckCircle className="h-3.5 w-3.5 text-orange-500" />;
       case 'reminder':  return <Bell className="h-3.5 w-3.5 text-red-500" />;
-      case 'expense':   return <TrendingUp className="h-3.5 w-3.5 text-indigo-500" />;
+      case 'expense':   return <TrendingUp className="h-3.5 w-3.5 text-accent" />;
       case 'report':    return <Calendar className="h-3.5 w-3.5 text-teal-500" />;
       default:          return <FileText className="h-3.5 w-3.5 text-muted-foreground" />;
     }
@@ -47,12 +47,12 @@ export function RecentActivity({ refreshKey }: RecentActivityProps) {
     }
 
     switch (type) {
-      case 'invoice':   return <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 border-0">{t('dashboard.activity.badges.invoice')}</Badge>;
+      case 'invoice':   return <Badge className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-0">{t('dashboard.activity.badges.invoice')}</Badge>;
       case 'client':    return <Badge className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border-0">{t('dashboard.activity.badges.client')}</Badge>;
-      case 'inventory': return <Badge className="text-[10px] px-1.5 py-0 bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 border-0">{t('dashboard.activity.badges.inventory')}</Badge>;
+      case 'inventory': return <Badge className="text-[10px] px-1.5 py-0 bg-accent/10 text-accent border-0">{t('dashboard.activity.badges.inventory')}</Badge>;
       case 'approval':  return <Badge className="text-[10px] px-1.5 py-0 bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400 border-0">{t('dashboard.activity.badges.approval')}</Badge>;
       case 'reminder':  return <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border-0">{t('dashboard.activity.badges.reminder')}</Badge>;
-      case 'expense':   return <Badge className="text-[10px] px-1.5 py-0 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400 border-0">{t('dashboard.activity.badges.expense')}</Badge>;
+      case 'expense':   return <Badge className="text-[10px] px-1.5 py-0 bg-accent/10 text-accent border-0">{t('dashboard.activity.badges.expense')}</Badge>;
       case 'report':    return <Badge className="text-[10px] px-1.5 py-0 bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400 border-0">{t('dashboard.activity.badges.report')}</Badge>;
       default:          return <Badge className="text-[10px] px-1.5 py-0 bg-muted text-muted-foreground border-0">{t('dashboard.activity.badges.activity')}</Badge>;
     }

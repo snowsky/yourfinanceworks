@@ -12,6 +12,8 @@ export interface User {
   tenant_id?: number;
   is_superuser?: boolean;
   show_analytics?: boolean;
+  /** Persisted theme preference (matches a ThemeId, e.g. "system", "terminal"). */
+  theme?: string;
 }
 
 export type UserRole = 'admin' | 'user' | 'viewer' | 'super_admin';

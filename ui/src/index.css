@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..800;1,14..32,400&family=JetBrains+Mono:wght@400;500;700;800&display=swap");
 @import "./styles/professional-enhancements.css";
 
 @tailwind base;
@@ -88,111 +88,187 @@
 
 @layer base {
   :root {
-    /* Professional Financial Theme */
-    --background: 210 20% 98%;
-    --foreground: 220 13% 18%;
+    /* Modern Fintech — warm paper & ink */
+    --background: 60 10% 98%;
+    --foreground: 60 4% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 13% 18%;
+    --card-foreground: 60 4% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 13% 18%;
+    --popover-foreground: 60 4% 10%;
 
-    /* Deep Navy Primary */
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 20% 98%;
+    /* Deep green — the single brand accent */
+    --primary: 155 79% 27%;
+    --primary-foreground: 60 10% 98%;
 
-    /* Muted Forest Green Secondary */
-    --secondary: 160 30% 42%;
-    --secondary-foreground: 0 0% 100%;
+    /* Quiet warm-gray secondary (secondary buttons, chips) */
+    --secondary: 60 7% 92%;
+    --secondary-foreground: 60 4% 10%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 60 10% 94%;
+    --muted-foreground: 60 3% 40%;
 
-    /* Teal Accent — distinct from warning */
-    --accent: 188 78% 41%;
+    /* Teal-green accent — stays colored for accent-foreground contracts */
+    --accent: 165 60% 30%;
     --accent-foreground: 0 0% 100%;
 
-    /* Rose Destructive */
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 20% 98%;
+    /* Brick red destructive */
+    --destructive: 7 76% 40%;
+    --destructive-foreground: 60 10% 98%;
 
-    /* Success - Emerald */
-    --success: 160 84% 39%;
+    --success: 155 70% 30%;
     --success-foreground: 0 0% 100%;
 
-    /* Warning - Amber */
-    --warning: 43 96% 56%;
-    --warning-foreground: 220 13% 18%;
+    --warning: 43 96% 30%;
+    --warning-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    --border: 60 7% 89%;
+    --input: 60 7% 89%;
+    --ring: 155 79% 27%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    /* Professional Sidebar */
-    --sidebar-background: 220 26% 14%;
-    --sidebar-foreground: 210 20% 98%;
-    --sidebar-primary: 221 83% 60%;
+    /* Typography tokens — themes may override */
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-display: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, "SFMono-Regular", monospace;
+
+    /* Chart palette */
+    --chart-1: 155 79% 30%;
+    --chart-2: 43 96% 50%;
+    --chart-3: 60 4% 55%;
+    --chart-4: 17 60% 45%;
+    --chart-5: 188 60% 35%;
+    --chart-grid: 60 7% 89%;
+
+    /* Paper sidebar — light surface, ink text */
+    --sidebar-background: 60 8% 95%;
+    --sidebar-foreground: 60 4% 28%;
+    --sidebar-primary: 155 79% 27%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 26% 18%;
-    --sidebar-accent-foreground: 210 20% 98%;
-    --sidebar-border: 220 26% 18%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-accent: 60 8% 86%;
+    --sidebar-accent-foreground: 60 4% 10%;
+    --sidebar-border: 60 7% 88%;
+    --sidebar-ring: 155 79% 27%;
   }
 
   .dark {
-    /* Professional Dark Financial Theme */
-    --background: 220 13% 9%;
-    --foreground: 210 20% 98%;
+    /* Modern Fintech — warm ink dark */
+    --background: 60 5% 8%;
+    --foreground: 60 14% 94%;
 
-    --card: 220 13% 11%;
-    --card-foreground: 210 20% 98%;
+    --card: 60 5% 11%;
+    --card-foreground: 60 14% 94%;
 
-    --popover: 220 13% 11%;
-    --popover-foreground: 210 20% 98%;
+    --popover: 60 5% 10%;
+    --popover-foreground: 60 14% 94%;
 
-    /* Brighter Navy for Dark Mode */
-    --primary: 221 83% 53%;
-    --primary-foreground: 0 0% 100%;
+    /* Brightened green for dark surfaces */
+    --primary: 153 60% 53%;
+    --primary-foreground: 155 50% 8%;
 
-    /* Softer Forest Green for Dark Mode */
-    --secondary: 160 35% 45%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 60 4% 16%;
+    --secondary-foreground: 60 14% 94%;
 
-    --muted: 220 13% 15%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 60 4% 14%;
+    --muted-foreground: 60 4% 55%;
 
-    /* Teal Accent for Dark Mode */
-    --accent: 188 78% 48%;
-    --accent-foreground: 220 13% 9%;
+    --accent: 165 55% 45%;
+    --accent-foreground: 155 50% 8%;
 
-    /* Brighter Rose for Dark Mode — visible on dark backgrounds */
-    --destructive: 0 72% 51%;
+    --destructive: 0 72% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Success - Emerald */
-    --success: 160 84% 39%;
-    --success-foreground: 0 0% 100%;
+    --success: 153 60% 48%;
+    --success-foreground: 155 50% 8%;
 
-    /* Warning - Amber */
     --warning: 43 96% 56%;
-    --warning-foreground: 220 13% 9%;
+    --warning-foreground: 60 4% 10%;
 
-    --border: 220 13% 15%;
-    --input: 220 13% 15%;
-    --ring: 221 83% 53%;
+    --border: 60 5% 17%;
+    --input: 60 5% 17%;
+    --ring: 153 60% 53%;
 
-    /* Dark Professional Sidebar */
-    --sidebar-background: 220 26% 8%;
-    --sidebar-foreground: 210 20% 98%;
-    --sidebar-primary: 221 83% 60%;
+    /* Chart palette — brighter on dark */
+    --chart-1: 153 60% 53%;
+    --chart-2: 43 96% 56%;
+    --chart-3: 60 4% 50%;
+    --chart-4: 17 70% 60%;
+    --chart-5: 188 60% 50%;
+    --chart-grid: 60 5% 17%;
+
+    /* Warm ink sidebar */
+    --sidebar-background: 60 5% 10%;
+    --sidebar-foreground: 60 4% 60%;
+    --sidebar-primary: 153 60% 53%;
+    --sidebar-primary-foreground: 155 50% 8%;
+    --sidebar-accent: 60 5% 18%;
+    --sidebar-accent-foreground: 60 14% 94%;
+    --sidebar-border: 60 5% 17%;
+    --sidebar-ring: 153 60% 53%;
+  }
+
+  /*
+   * Premium Dark — indigo glass and glow. Layered on top of `.dark`
+   * (see ThemeProvider), so it must come AFTER the `.dark` block.
+   */
+  .theme-premium-dark {
+    --background: 225 20% 7%;
+    --foreground: 228 28% 93%;
+
+    --card: 227 18% 10%;
+    --card-foreground: 228 28% 93%;
+
+    --popover: 227 18% 9%;
+    --popover-foreground: 228 28% 93%;
+
+    /* Indigo primary */
+    --primary: 239 84% 64%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 228 16% 16%;
+    --secondary-foreground: 228 28% 93%;
+
+    --muted: 228 16% 13%;
+    --muted-foreground: 227 14% 60%;
+
+    /* Violet accent */
+    --accent: 258 84% 62%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 53%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 160 64% 52%;
+    --success-foreground: 160 60% 8%;
+
+    --warning: 43 96% 56%;
+    --warning-foreground: 30 40% 8%;
+
+    --border: 222 19% 20%;
+    --input: 222 19% 18%;
+    --ring: 239 84% 64%;
+
+    --radius: 0.75rem;
+
+    /* chart-2 is amber (not violet): the partially-paid series needs to read
+     * as "warning" and stay distinguishable from the indigo chart-1 */
+    --chart-1: 239 84% 64%;
+    --chart-2: 43 96% 56%;
+    --chart-3: 160 64% 52%;
+    --chart-4: 258 90% 66%;
+    --chart-5: 199 89% 48%;
+    --chart-grid: 222 19% 20%;
+
+    --sidebar-background: 225 18% 8%;
+    --sidebar-foreground: 227 14% 62%;
+    --sidebar-primary: 239 84% 64%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 26% 12%;
-    --sidebar-accent-foreground: 210 20% 98%;
-    --sidebar-border: 220 26% 12%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-accent: 233 30% 17%;
+    --sidebar-accent-foreground: 228 28% 93%;
+    --sidebar-border: 224 18% 14%;
+    --sidebar-ring: 239 84% 64%;
   }
 
   /*
@@ -250,6 +326,13 @@
     --sidebar-accent-foreground: 142 64% 80%;
     --sidebar-border: 150 30% 12%;
     --sidebar-ring: 142 84% 52%;
+
+    --chart-1: 142 84% 52%;
+    --chart-2: 40 96% 56%;
+    --chart-3: 142 24% 52%;
+    --chart-4: 0 90% 62%;
+    --chart-5: 180 70% 45%;
+    --chart-grid: 150 36% 16%;
   }
 
   /*
@@ -305,6 +388,13 @@
     --sidebar-accent-foreground: 40 86% 74%;
     --sidebar-border: 30 30% 12%;
     --sidebar-ring: 38 96% 56%;
+
+    --chart-1: 38 96% 56%;
+    --chart-2: 142 72% 50%;
+    --chart-3: 36 32% 54%;
+    --chart-4: 0 90% 62%;
+    --chart-5: 28 58% 44%;
+    --chart-grid: 34 44% 16%;
   }
 
   /*
@@ -361,6 +451,13 @@
     --sidebar-accent-foreground: 40 36% 90%;
     --sidebar-border: 28 22% 26%;
     --sidebar-ring: 28 58% 52%;
+
+    --chart-1: 154 44% 32%;
+    --chart-2: 36 72% 46%;
+    --chart-3: 30 18% 42%;
+    --chart-4: 8 62% 46%;
+    --chart-5: 200 40% 38%;
+    --chart-grid: 36 28% 78%;
   }
 }
 
@@ -371,12 +468,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family:
-      "Plus Jakarta Sans",
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      sans-serif;
+    font-family: var(--font-sans);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.011em;
@@ -384,7 +476,7 @@
 
   /* Display font for large numbers, metric values, page titles */
   .font-display {
-    font-family: "DM Serif Display", Georgia, serif;
+    font-family: var(--font-display);
     font-feature-settings: normal;
     letter-spacing: -0.02em;
   }
@@ -526,7 +618,7 @@
 
 /* Professional Dashboard Enhancements */
 .professional-dashboard {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.02), transparent);
+  background: linear-gradient(135deg, hsl(var(--card) / 0.02), transparent);
   border-radius: 24px;
   padding: 8px;
 }
@@ -605,9 +697,9 @@
 }
 
 .professional-card {
-  background: rgba(255, 255, 255, 0.95);
+  background: hsl(var(--card) / 0.95);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid hsl(var(--border) / 0.6);
   border-radius: 16px;
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.08),
@@ -681,8 +773,8 @@
 }
 
 .dark .professional-card {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: hsl(var(--card) / 0.75);
+  border: 1px solid hsl(var(--border) / 0.5);
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.3),
     0 1px 3px rgba(0, 0, 0, 0.4);
@@ -696,11 +788,7 @@
 
 /* Enhanced stat cards */
 .professional-dashboard .grid > div > div[class*="border-l-4"] {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.9),
-    rgba(255, 255, 255, 0.7)
-  );
+  background: hsl(var(--card) / 0.85);
   backdrop-filter: blur(10px);
   border-radius: 12px;
   transition: all 0.2s ease;
@@ -864,5 +952,51 @@
 @media (prefers-reduced-motion: reduce) {
   .theme-terminal .dashboard-hero h1::after {
     animation: none;
+  }
+}
+
+/* ============================================================
+ * Premium Dark theme — scoped glass & glow flourishes
+ * Everything lives under `.theme-premium-dark`, so other themes
+ * are never affected.
+ * ========================================================== */
+
+/* Subtle indigo wash behind everything */
+.theme-premium-dark body {
+  background:
+    radial-gradient(90% 60% at 12% 0%, hsl(248 40% 14% / 0.55), transparent 60%),
+    linear-gradient(160deg, hsl(228 20% 9%), hsl(225 20% 7%));
+  background-attachment: fixed;
+}
+
+/* Glassy cards */
+.theme-premium-dark .bg-card {
+  background-color: hsl(var(--card) / 0.6);
+  backdrop-filter: blur(10px);
+}
+
+/* Soft neon glow on primary-filled buttons/links. Scoped to interactive
+ * elements (a bare .bg-primary match would also hit badges, progress bars,
+ * calendar cells) and composed with Tailwind's ring/shadow variables so
+ * keyboard-focus rings and shadow utilities still render on top. */
+.theme-premium-dark button.bg-primary,
+.theme-premium-dark a.bg-primary {
+  box-shadow:
+    var(--tw-ring-offset-shadow, 0 0 #0000),
+    var(--tw-ring-shadow, 0 0 #0000),
+    0 0 16px hsl(var(--primary) / 0.35),
+    var(--tw-shadow, 0 0 #0000);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-premium-dark body {
+    background-attachment: scroll;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .theme-premium-dark .bg-card {
+    background-color: hsl(var(--card));
+    backdrop-filter: none;
   }
 }
