@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTheme, type ThemeId } from "@/components/ui/theme-provider";
+import { setPendingTheme, clearPendingTheme } from "@/components/ui/theme-sync-state";
 import { authApi } from "@/lib/api";
 import { isAuthenticated, updateCurrentUser } from "@/utils/auth";
 
@@ -34,10 +35,17 @@ export function useThemePreference() {
         old && typeof old === "object" ? { ...old, theme: id } : old
       );
 
-      authApi.updateCurrentUser({ theme: id }).catch(() => {
-        // Local + localStorage are already updated; the next successful change
-        // will reconcile the server. Nothing actionable for the user here.
-      });
+      // Mark this choice as not-yet-confirmed by the server. If a reload aborts
+      // the PUT below before it lands, the marker survives so ThemeSync keeps the
+      // local choice (and re-pushes it) instead of reverting to a stale server read.
+      setPendingTheme(id);
+      authApi
+        .updateCurrentUser({ theme: id })
+        .then(() => clearPendingTheme(id))
+        .catch(() => {
+          // Keep the pending marker: local + localStorage stay authoritative and
+          // ThemeSync reconciles the server on the next load. Nothing actionable here.
+        });
     },
     [ctx, queryClient]
   );
