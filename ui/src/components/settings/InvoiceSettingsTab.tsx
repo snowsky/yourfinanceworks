@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { FileText, Loader2, Mail, Palette } from "lucide-react";
+import { FileText, Loader2, Mail, Palette, Link2, Copy } from "lucide-react";
 import {
     ProfessionalCard,
     ProfessionalCardHeader,
@@ -54,6 +54,19 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
 
     const companyName = settings?.company_info?.name || '';
     const companyLogo = settings?.company_info?.logo || '';
+
+    const { data: portalLink } = useQuery({
+        queryKey: ['client-portal-link'],
+        queryFn: () => settingsApi.getClientPortalLink(),
+        enabled: isAdmin,
+    });
+
+    const copyPortalLink = () => {
+        if (portalLink?.portal_url) {
+            navigator.clipboard.writeText(portalLink.portal_url);
+            toast.success(t('settings.client_portal.copied'));
+        }
+    };
 
     useEffect(() => {
         if (settings && settings.invoice_settings) {
@@ -360,6 +373,39 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                             </div>
                         </div>
                     </div>
+                </ProfessionalCardContent>
+            </ProfessionalCard>
+
+            {/* Client Portal Card */}
+            <ProfessionalCard variant="elevated">
+                <ProfessionalCardHeader>
+                    <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
+                        <Link2 className="w-4 h-4 text-primary" />
+                        {t('settings.client_portal.title')}
+                    </ProfessionalCardTitle>
+                </ProfessionalCardHeader>
+                <ProfessionalCardContent className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                        {t('settings.client_portal.description')}
+                    </p>
+                    {portalLink?.enabled && portalLink.portal_url ? (
+                        <div className="flex items-center gap-2">
+                            <input
+                                readOnly
+                                value={portalLink.portal_url}
+                                onFocus={(e) => e.currentTarget.select()}
+                                className="flex-1 rounded-lg border border-input bg-muted/30 px-3 py-2 text-sm font-mono"
+                            />
+                            <ProfessionalButton variant="outline" size="sm" onClick={copyPortalLink}>
+                                <Copy className="h-4 w-4" />
+                                {t('settings.client_portal.copy')}
+                            </ProfessionalButton>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-amber-600 dark:text-amber-500">
+                            {t('settings.client_portal.requires_license')}
+                        </p>
+                    )}
                 </ProfessionalCardContent>
             </ProfessionalCard>
 
