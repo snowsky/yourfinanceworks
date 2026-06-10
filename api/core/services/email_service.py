@@ -340,13 +340,14 @@ class EmailService:
         client_data: Dict[str, Any],
         company_data: Dict[str, Any],
         pdf_content: bytes,
-        template_type: str = "invoice"
+        template_type: str = "invoice",
+        portal_url: Optional[str] = None
     ) -> bool:
         """Send an invoice email with PDF attachment"""
         try:
             # Create email message
             message = self._create_invoice_message(
-                invoice_data, client_data, company_data, pdf_content, template_type
+                invoice_data, client_data, company_data, pdf_content, template_type, portal_url
             )
             
             # Send email
@@ -662,25 +663,42 @@ class EmailService:
         client_data: Dict[str, Any],
         company_data: Dict[str, Any],
         pdf_content: bytes,
-        template_type: str
+        template_type: str,
+        portal_url: Optional[str] = None
     ) -> EmailMessage:
         """Create an email message for invoice delivery"""
-        
+
         # Load email templates
         html_template = self._get_email_template(template_type, "html")
         text_template = self._get_email_template(template_type, "text")
-        
+
         # Prepare template context
         context = {
             'invoice': invoice_data,
             'client': client_data,
             'company': company_data,
-            'current_date': datetime.now(timezone.utc).strftime('%B %d, %Y')
+            'current_date': datetime.now(timezone.utc).strftime('%B %d, %Y'),
+            'portal_url': portal_url
         }
-        
+
         # Render templates
         html_body = _html_env.from_string(html_template).render(**context)
         text_body = Template(text_template).render(**context)
+
+        # Append a "view all my invoices" portal link (when the client portal is
+        # enabled). Done post-render so it works regardless of the template body.
+        if portal_url and 'portal/' not in html_body:
+            cta = (
+                '<div style="margin:24px 0;text-align:center;">'
+                f'<a href="{portal_url}" style="display:inline-block;padding:12px 24px;'
+                'background:#1e3a8a;color:#ffffff;text-decoration:none;border-radius:8px;'
+                'font-weight:600;">View all my invoices</a></div>'
+            )
+            if '</body>' in html_body:
+                html_body = html_body.replace('</body>', cta + '</body>', 1)
+            else:
+                html_body = html_body + cta
+            text_body = f"{text_body}\n\nView all your invoices online: {portal_url}\n"
         
         # Create PDF attachment
         attachment = EmailAttachment(

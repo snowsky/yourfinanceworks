@@ -14,8 +14,10 @@ from core.schemas.email import (
 )
 from core.routers.auth import get_current_user
 from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
+import os
 from core.utils.pdf_generator import generate_invoice_pdf
 from core.services.invoice_branding import get_invoice_branding
+from core.utils.feature_gate import feature_enabled
 from core.constants.error_codes import FAILED_TO_SEND_EMAIL
 
 logger = logging.getLogger(__name__)
@@ -165,12 +167,26 @@ async def send_invoice_email(
                     detail=f"Failed to generate PDF: {str(e)}"
                 )
         
+        # Include a "view all my invoices" portal link when the client portal is
+        # enabled and a public frontend URL is configured.
+        portal_url = None
+        try:
+            if feature_enabled("client_portal", db) and tenant:
+                frontend = os.getenv("FRONTEND_URL", "").rstrip("/")
+                if frontend:
+                    from core.services.client_portal_auth import get_or_create_portal_public_id
+                    portal_id = get_or_create_portal_public_id(tenant, master_db)
+                    portal_url = f"{frontend}/portal/{portal_id}"
+        except Exception:
+            logger.warning("Could not build client portal link for invoice email", exc_info=True)
+
         # Send email
         success = email_service.send_invoice_email(
             invoice_data=invoice_data,
             client_data=client_data,
             company_data=company_data,
-            pdf_content=pdf_content
+            pdf_content=pdf_content,
+            portal_url=portal_url
         )
         
         if success:
