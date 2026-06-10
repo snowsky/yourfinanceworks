@@ -298,6 +298,17 @@ def get_invoice_pdf(
         "phone": client.phone or "",
         "address": client.address or "",
     }
+    # The ReportLab generator expects items as dicts (item.get(...)), not ORM rows.
+    item_dicts = [
+        {
+            "description": it.description,
+            "quantity": it.quantity,
+            "price": it.price,
+            "amount": it.amount,
+            "unit_of_measure": it.unit_of_measure,
+        }
+        for it in (invoice.items or [])
+    ]
     invoice_data = {
         "id": invoice.id,
         "number": invoice.number,
@@ -311,13 +322,13 @@ def get_invoice_pdf(
         "paid_amount": _paid_amount(invoice),
         "status": invoice.status,
         "notes": invoice.notes or "",
-        "items": invoice.items,
+        "items": item_dicts,
     }
     pdf_bytes = generate_invoice_pdf(
         invoice_data=invoice_data,
         client_data=client_data,
         company_data=company_data,
-        items=invoice.items,
+        items=item_dicts,
         db=ctx.db,
         show_discount=invoice.show_discount_in_pdf,
         branding=get_invoice_branding(ctx.db),
