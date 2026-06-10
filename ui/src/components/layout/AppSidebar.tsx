@@ -487,7 +487,7 @@ export function AppSidebar() {
 
   return (
     <>
-      <Sidebar data-tour="sidebar" className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-2xl backdrop-blur-xl">
+      <Sidebar data-tour="sidebar" className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
         <SidebarHeader className="py-3 px-4 border-b border-sidebar-border">
           <OrganizationSwitcher />
         </SidebarHeader>
@@ -503,7 +503,7 @@ export function AppSidebar() {
               className={`rounded-full p-1.5 shadow-lg border transition-all pointer-events-auto cursor-pointer ${
                 canScrollUp
                   ? "bg-sidebar-primary/90 border-sidebar-primary/60 text-sidebar-primary-foreground hover:bg-sidebar-primary ring-2 ring-sidebar-ring/40"
-                  : "bg-sidebar-accent/80 border-sidebar-border text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent"
+                  : "bg-sidebar-accent/80 border-sidebar-border text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent"
               }`}
               tabIndex={canScrollUp ? 0 : -1}
               aria-label="Scroll up"
@@ -520,7 +520,7 @@ export function AppSidebar() {
               {/* Core Navigation Section */}
               <div className="space-y-1">
                 <div className="px-3 mb-3">
-                  <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
+                  <h3 className="text-xs font-semibold text-sidebar-foreground uppercase tracking-wider">
                     {t('navigation.section.core', { defaultValue: 'Core' })}
                   </h3>
                 </div>
@@ -530,7 +530,7 @@ export function AppSidebar() {
                       asChild
                       className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
                         ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm ring-1 ring-sidebar-ring/30"
-                        : "text-sidebar-foreground/80 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent hover:shadow-sm"
+                        : "text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent hover:shadow-sm"
                         }`}
                       isActive={isActive(item.path)}
                     >
@@ -541,7 +541,7 @@ export function AppSidebar() {
                         onClick={handleNavigation}
                       >
                         <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
-                          ? "bg-white/20 shadow-sm"
+                          ? "bg-sidebar-primary-foreground/20 shadow-sm"
                           : "bg-sidebar-accent/60 group-hover:bg-sidebar-accent"
                           }`}>
                           {item.icon}
@@ -561,7 +561,7 @@ export function AppSidebar() {
               {/* Administration Section */}
               <div className="space-y-1">
                 <div className="px-3 mb-3">
-                  <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
+                  <h3 className="text-xs font-semibold text-sidebar-foreground uppercase tracking-wider">
                     {t('navigation.section.administration', { defaultValue: 'Administration' })}
                   </h3>
                 </div>
@@ -571,7 +571,7 @@ export function AppSidebar() {
                       asChild
                       className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
                         ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm ring-1 ring-sidebar-ring/30"
-                        : "text-sidebar-foreground/80 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent hover:shadow-sm"
+                        : "text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent hover:shadow-sm"
                         }`}
                       isActive={isActive(item.path)}
                     >
@@ -582,7 +582,7 @@ export function AppSidebar() {
                         onClick={handleNavigation}
                       >
                         <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
-                          ? "bg-white/20 shadow-sm"
+                          ? "bg-sidebar-primary-foreground/20 shadow-sm"
                           : "bg-sidebar-accent/60 group-hover:bg-sidebar-accent"
                           }`}>
                           {item.icon}
@@ -604,7 +604,7 @@ export function AppSidebar() {
 
                   <div className="space-y-1">
                     <div className="px-3 mb-3">
-                      <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
+                      <h3 className="text-xs font-semibold text-sidebar-foreground uppercase tracking-wider">
                         {t('navigation.section.plugins', { defaultValue: 'Plugins' })}
                       </h3>
                     </div>
@@ -620,7 +620,7 @@ export function AppSidebar() {
                               asChild
                               className={`mx-2 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive(item.path)
                                 ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm ring-1 ring-sidebar-ring/30"
-                                : "text-sidebar-foreground/80 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent hover:shadow-sm"
+                                : "text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent hover:shadow-sm"
                                 }`}
                               isActive={isActive(item.path)}
                             >
@@ -631,7 +631,7 @@ export function AppSidebar() {
                                 onClick={handleNavigation}
                               >
                                 <div className={`p-2 rounded-lg transition-all duration-200 ${isActive(item.path)
-                                  ? "bg-white/20 shadow-sm"
+                                  ? "bg-sidebar-primary-foreground/20 shadow-sm"
                                   : "bg-sidebar-accent/60 group-hover:bg-sidebar-accent"
                                   }`}>
                                   {IconComponent && <IconComponent className="w-5 h-5" />}
@@ -659,7 +659,7 @@ export function AppSidebar() {
               className={`rounded-full p-1.5 shadow-lg border transition-all pointer-events-auto cursor-pointer ${
                 canScrollDown
                   ? "bg-sidebar-primary/90 border-sidebar-primary/60 text-sidebar-primary-foreground hover:bg-sidebar-primary ring-2 ring-sidebar-ring/40"
-                  : "bg-sidebar-accent/80 border-sidebar-border text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent"
+                  : "bg-sidebar-accent/80 border-sidebar-border text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent"
               }`}
               tabIndex={canScrollDown ? 0 : -1}
               aria-label="Scroll down"
@@ -695,7 +695,7 @@ export function AppSidebar() {
                   return name || (currentUser?.email?.split('@')[0] || 'User');
                 })()}
               </span>
-              <span className="text-[11px] text-sidebar-foreground/60 truncate">
+              <span className="text-[11px] text-sidebar-foreground truncate">
                 {currentOrgRole === 'admin'
                   ? t('roles.administrator', { defaultValue: 'Administrator' })
                   : t('roles.user', { defaultValue: 'User' })}
@@ -707,7 +707,7 @@ export function AppSidebar() {
               aria-label={t('auth.logout')}
               title={t('auth.logout')}
               onClick={handleLogout}
-              className="h-7 w-7 shrink-0 text-sidebar-foreground/60 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 rounded-lg"
+              className="h-7 w-7 shrink-0 text-sidebar-foreground hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 rounded-lg"
             >
               <LogOut className="w-3.5 h-3.5" />
             </Button>
@@ -724,7 +724,7 @@ export function AppSidebar() {
               aria-label={t('navigation.dark_mode')}
               title={t('navigation.dark_mode')}
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="h-8 w-8 border border-sidebar-border bg-sidebar-accent/20 hover:bg-sidebar-accent/60 text-sidebar-foreground/80 hover:text-sidebar-accent-foreground transition-all duration-200 rounded-lg shrink-0"
+              className="h-8 w-8 border border-sidebar-border bg-sidebar-accent/20 hover:bg-sidebar-accent/60 text-sidebar-foreground hover:text-sidebar-accent-foreground transition-all duration-200 rounded-lg shrink-0"
             >
               {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>

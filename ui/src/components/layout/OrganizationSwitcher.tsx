@@ -167,13 +167,13 @@ export function OrganizationSwitcher() {
           <span className="text-sm font-bold text-sidebar-foreground truncate w-full text-left leading-tight">
             {isSwitchingOrg ? 'Switching...' : currentOrgName}
           </span>
-          <span className="text-xs text-sidebar-foreground/60 font-medium truncate w-full text-left">
+          <span className="text-xs text-sidebar-foreground font-medium truncate w-full text-left">
             {userOrganizations.length > 1 ? 'Switch Organization' : 'YourFinanceWORKS'}
           </span>
         </div>
 
         {/* Chevron - Always visible to indicate this is a dropdown/menu */}
-        <ChevronsUpDown className="h-4 w-4 text-sidebar-foreground/60 group-hover:text-sidebar-foreground transition-colors" />
+        <ChevronsUpDown className="h-4 w-4 text-sidebar-foreground group-hover:text-sidebar-foreground transition-colors" />
       </button>
 
       {showDropdown && buttonRect && createPortal(
@@ -205,7 +205,7 @@ export function OrganizationSwitcher() {
                     : 'text-foreground/80 hover:bg-accent hover:text-accent-foreground'}
                 `}
               >
-                <div className={`p-1.5 rounded-md ${org.id.toString() === currentOrgId ? 'bg-white/20' : 'bg-muted'}`}>
+                <div className={`p-1.5 rounded-md ${org.id.toString() === currentOrgId ? 'bg-sidebar-primary-foreground/20' : 'bg-muted'}`}>
                   <Building className="h-4 w-4" />
                 </div>
                 <span className="flex-1 text-left truncate font-medium">{org.name}</span>
