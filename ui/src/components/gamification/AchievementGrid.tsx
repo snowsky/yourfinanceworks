@@ -45,19 +45,19 @@ interface AchievementCardProps {
 
 function AchievementCard({ achievement, t }: AchievementCardProps) {
   const IconComponent = categoryIcons[achievement.achievement.category as keyof typeof categoryIcons] || Award;
-  const iconColor = categoryColors[achievement.achievement.category as keyof typeof categoryColors] || 'text-gray-500';
+  const iconColor = categoryColors[achievement.achievement.category as keyof typeof categoryColors] || 'text-muted-foreground';
   const difficultyColor = difficultyColors[achievement.achievement.difficulty as keyof typeof difficultyColors] || 'bg-gray-100 text-gray-800';
 
   const isCompleted = achievement.is_completed;
   const progress = Math.round(achievement.progress * 100);
 
   return (
-    <ProfessionalCard className={`transition-all duration-200 hover:shadow-md ${isCompleted ? 'ring-2 ring-green-200 bg-green-50 dark:bg-green-900/10 dark:ring-green-900/30' : ''}`}>
+    <ProfessionalCard className={`transition-all duration-200 hover:shadow-md ${isCompleted ? 'ring-2 ring-success/30 bg-success/5' : ''}`}>
       <ProfessionalCardContent className="p-4">
         <div className="flex items-start space-x-3">
-          <div className={`flex-shrink-0 p-2 rounded-lg ${isCompleted ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-muted'}`}>
+          <div className={`flex-shrink-0 p-2 rounded-lg ${isCompleted ? 'bg-success/15' : 'bg-muted'}`}>
             {isCompleted ? (
-              <Trophy className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <Trophy className="h-6 w-6 text-success" />
             ) : (
               <IconComponent className={`h-6 w-6 ${iconColor}`} />
             )}
@@ -65,7 +65,7 @@ function AchievementCard({ achievement, t }: AchievementCardProps) {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-2">
-              <h3 className={`font-medium text-sm ${isCompleted ? 'text-green-800 dark:text-green-300' : 'text-foreground'}`}>
+              <h3 className={`font-medium text-sm ${isCompleted ? 'text-success' : 'text-foreground'}`}>
                 {achievement.achievement.name}
               </h3>
               <Badge variant="secondary" className={`text-xs ${difficultyColor}`}>
@@ -88,14 +88,14 @@ function AchievementCard({ achievement, t }: AchievementCardProps) {
             )}
 
             {isCompleted && achievement.unlocked_at && (
-              <div className="flex items-center space-x-1 text-xs text-green-600 dark:text-green-400">
+              <div className="flex items-center space-x-1 text-xs text-success">
                 <Trophy className="h-3 w-3" />
                 <span>{t('settings.gamification.achievements.unlocked')} {new Date(achievement.unlocked_at).toLocaleDateString()}</span>
               </div>
             )}
 
             {achievement.achievement.reward_xp > 0 && (
-              <div className="flex items-center space-x-1 text-xs text-blue-600 dark:text-blue-400 mt-2">
+              <div className="flex items-center space-x-1 text-xs text-primary mt-2">
                 <Star className="h-3 w-3" />
                 <span>{achievement.achievement.reward_xp} XP</span>
               </div>
@@ -157,13 +157,13 @@ export function AchievementGrid() {
 
   if (error) {
     return (
-      <ProfessionalCard variant="elevated" className="border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30">
+      <ProfessionalCard variant="elevated" className="bg-destructive/10 border-destructive/30">
         <ProfessionalCardContent className="p-6">
-          <div className="flex items-center space-x-2 text-red-600 dark:text-red-400">
+          <div className="flex items-center space-x-2 text-destructive">
             <Award className="h-5 w-5" />
             <span className="font-medium">{t('settings.gamification.achievements.error')}</span>
           </div>
-          <p className="text-red-600 dark:text-red-400 text-sm mt-2">{error}</p>
+          <p className="text-destructive text-sm mt-2">{error}</p>
         </ProfessionalCardContent>
       </ProfessionalCard>
     );

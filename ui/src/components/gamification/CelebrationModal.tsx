@@ -59,9 +59,9 @@ export function CelebrationModal({
       </div>
       
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold text-gray-900">Achievement Unlocked!</h2>
+        <h2 className="text-2xl font-bold text-foreground">Achievement Unlocked!</h2>
         <h3 className="text-xl font-semibold text-yellow-600">{achievement.name}</h3>
-        <p className="text-gray-600">{achievement.description}</p>
+        <p className="text-muted-foreground">{achievement.description}</p>
       </div>
       
       <div className="flex items-center justify-center space-x-4">
@@ -92,34 +92,34 @@ export function CelebrationModal({
       </div>
       
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold text-gray-900">Level Up!</h2>
+        <h2 className="text-2xl font-bold text-foreground">Level Up!</h2>
         <div className="flex items-center justify-center space-x-2">
-          <span className="text-lg text-gray-600">Level {levelData.old_level}</span>
+          <span className="text-lg text-muted-foreground">Level {levelData.old_level}</span>
           <span className="text-2xl">→</span>
           <span className="text-2xl font-bold text-blue-600">Level {levelData.new_level}</span>
         </div>
-        <p className="text-gray-600">
+        <p className="text-muted-foreground">
           Congratulations! You've reached a new level in your financial journey.
         </p>
       </div>
-      
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-medium text-blue-800 mb-2">New Level Benefits:</h4>
+
+      <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
+        <h4 className="font-medium text-foreground mb-2">New Level Benefits:</h4>
         <div className="flex flex-wrap justify-center gap-2">
-          <Badge variant="outline" className="bg-blue-100 text-blue-700">
+          <Badge variant="outline" className="bg-primary/10 text-primary">
             +5% XP Bonus
           </Badge>
-          <Badge variant="outline" className="bg-blue-100 text-blue-700">
+          <Badge variant="outline" className="bg-primary/10 text-primary">
             New Achievements
           </Badge>
-          <Badge variant="outline" className="bg-blue-100 text-blue-700">
+          <Badge variant="outline" className="bg-primary/10 text-primary">
             Exclusive Challenges
           </Badge>
         </div>
       </div>
-      
+
       {pointsAwarded > 0 && (
-        <div className="flex items-center justify-center space-x-1 text-green-600">
+        <div className="flex items-center justify-center space-x-1 text-success">
           <Gift className="h-4 w-4" />
           <span className="font-medium">Level up bonus: +{pointsAwarded} XP</span>
         </div>
@@ -141,12 +141,12 @@ export function CelebrationModal({
       </div>
       
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold text-gray-900">Streak Milestone!</h2>
+        <h2 className="text-2xl font-bold text-foreground">Streak Milestone!</h2>
         <div className="flex items-center justify-center space-x-2">
           <Flame className="h-6 w-6 text-orange-500" />
           <span className="text-2xl font-bold text-orange-600">{streak.current_length} Days</span>
         </div>
-        <p className="text-gray-600">
+        <p className="text-muted-foreground">
           Amazing consistency! You've maintained your {streak.habit_type.replace('_', ' ')} streak.
         </p>
       </div>
@@ -160,7 +160,7 @@ export function CelebrationModal({
       </div>
       
       {pointsAwarded > 0 && (
-        <div className="flex items-center justify-center space-x-1 text-green-600">
+        <div className="flex items-center justify-center space-x-1 text-success">
           <Zap className="h-4 w-4" />
           <span className="font-medium">Streak bonus: +{pointsAwarded} XP</span>
         </div>

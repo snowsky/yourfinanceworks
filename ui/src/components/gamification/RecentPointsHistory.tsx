@@ -50,7 +50,7 @@ export function RecentPointsHistory({ points, compact = false }: RecentPointsHis
       <ProfessionalCard variant="elevated">
         <ProfessionalCardHeader>
           <ProfessionalCardTitle className="flex items-center space-x-2">
-            <Zap className="h-5 w-5 text-blue-500" />
+            <Zap className="h-5 w-5 text-primary" />
             <span>{t('settings.gamification.recent_points.title')}</span>
           </ProfessionalCardTitle>
         </ProfessionalCardHeader>
@@ -74,10 +74,10 @@ export function RecentPointsHistory({ points, compact = false }: RecentPointsHis
       <ProfessionalCardHeader>
         <ProfessionalCardTitle className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Zap className="h-5 w-5 text-blue-500" />
+            <Zap className="h-5 w-5 text-primary" />
             <span>{t('settings.gamification.recent_points.title')}</span>
           </div>
-          <Badge variant="outline" className="text-blue-600 bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/30">
+          <Badge variant="outline" className="text-primary bg-primary/10 border-primary/30">
             +{totalRecentPoints} XP
           </Badge>
         </ProfessionalCardTitle>
@@ -87,7 +87,7 @@ export function RecentPointsHistory({ points, compact = false }: RecentPointsHis
           {points.slice(0, 8).map((point) => {
             const IconComponent = actionTypeIcons[point.action_type as keyof typeof actionTypeIcons] || Target;
             const actionLabel = actionTypeLabels[point.action_type as keyof typeof actionTypeLabels] || point.action_type;
-            const iconColor = actionTypeColors[point.action_type as keyof typeof actionTypeColors] || 'text-gray-500';
+            const iconColor = actionTypeColors[point.action_type as keyof typeof actionTypeColors] || 'text-muted-foreground';
 
             return (
               <div key={point.id} className="flex items-center justify-between p-3 bg-muted/40 rounded-lg border border-border/50 hover:bg-muted/60 transition-colors">
@@ -109,8 +109,8 @@ export function RecentPointsHistory({ points, compact = false }: RecentPointsHis
 
                 <div className="text-right">
                   <div className="flex items-center space-x-1">
-                    <Zap className="h-3 w-3 text-blue-500" />
-                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                    <Zap className="h-3 w-3 text-primary" />
+                    <span className="text-sm font-bold text-primary">
                       +{point.points_awarded}
                     </span>
                   </div>

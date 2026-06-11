@@ -145,15 +145,15 @@ const PaymentCharts: React.FC<PaymentChartsProps> = ({ chartData, payments }) =>
       </div>
 
       {/* Payment Methods Chart */}
-      <div className="bg-white/50 dark:bg-gray-900/50 border border-white/20 dark:border-gray-800 backdrop-blur-sm rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800/50 flex items-center gap-2">
+      <div className="bg-card/50 border border-border/20 backdrop-blur-sm rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-border/50 flex items-center gap-2">
           <CreditCard className="h-4 w-4 text-muted-foreground" />
           <h3 className="font-semibold text-sm">{t('dashboard.paymentMethodsDistribution')}</h3>
         </div>
         <div className="p-3">
           <div className="space-y-2">
             {chartData.by_method.map((method, index) => (
-              <div key={method.method} className="flex items-center justify-between p-2.5 bg-white/60 dark:bg-black/20 rounded-lg border border-gray-100 dark:border-gray-800/50">
+              <div key={method.method} className="flex items-center justify-between p-2.5 bg-card/60 rounded-lg border border-border/50">
                 <div className="flex items-center gap-2">
                   <div className={`p-1.5 rounded-md ${getMethodColor(method.method).split(' ')[0]}`}>
                     {getMethodIcon(method.method)}
@@ -162,10 +162,10 @@ const PaymentCharts: React.FC<PaymentChartsProps> = ({ chartData, payments }) =>
                     <p className="font-medium capitalize text-xs">
                       {method.method.replace('_', ' ')}
                     </p>
-                    <div className="w-24 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full mt-1 overflow-hidden">
+                    <div className="w-24 h-1.5 bg-muted rounded-full mt-1 overflow-hidden">
                       <div
-                        className="h-full bg-indigo-500 rounded-full"
-                        style={{ width: `${(method.amount / chartData.summary.total_amount) * 100}%` }}
+                        className="h-full rounded-full"
+                        style={{ backgroundColor: "hsl(var(--chart-1))", width: `${(method.amount / chartData.summary.total_amount) * 100}%` }}
                       />
                     </div>
                   </div>
@@ -182,8 +182,8 @@ const PaymentCharts: React.FC<PaymentChartsProps> = ({ chartData, payments }) =>
 
       {/* Timeline Chart - simplified for chat */}
       {chartData.timeline.length > 0 && (
-        <div className="bg-white/50 dark:bg-gray-900/50 border border-white/20 dark:border-gray-800 backdrop-blur-sm rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800/50 flex items-center gap-2">
+        <div className="bg-card/50 border border-border/20 backdrop-blur-sm rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-border/50 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
             <h3 className="font-semibold text-sm">Recent Activity</h3>
           </div>

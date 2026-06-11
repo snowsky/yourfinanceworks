@@ -31,7 +31,7 @@ interface ChallengeCardProps {
 
 function ChallengeCard({ challenge, onOptIn, onOptOut }: ChallengeCardProps) {
   const IconComponent = challengeTypeIcons[challenge.challenge.challenge_type as keyof typeof challengeTypeIcons] || Target;
-  const typeColor = challengeTypeColors[challenge.challenge.challenge_type as keyof typeof challengeTypeColors] || 'text-gray-500 bg-gray-50 border-gray-200';
+  const typeColor = challengeTypeColors[challenge.challenge.challenge_type as keyof typeof challengeTypeColors] || 'text-muted-foreground bg-muted border-border';
 
   const progress = Math.round(challenge.progress * 100);
   const isCompleted = challenge.is_completed;
@@ -68,7 +68,7 @@ function ChallengeCard({ challenge, onOptIn, onOptOut }: ChallengeCardProps) {
             </div>
             <div>
               <h3 className="font-medium text-sm">{challenge.challenge.name}</h3>
-              <p className="text-xs text-gray-600 capitalize">
+              <p className="text-xs text-muted-foreground capitalize">
                 {challenge.challenge.challenge_type} Challenge
               </p>
             </div>
@@ -88,7 +88,7 @@ function ChallengeCard({ challenge, onOptIn, onOptOut }: ChallengeCardProps) {
         </ProfessionalCardTitle>
       </ProfessionalCardHeader>
       <ProfessionalCardContent className="space-y-4">
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground">
           {challenge.challenge.description}
         </p>
 
@@ -96,7 +96,7 @@ function ChallengeCard({ challenge, onOptIn, onOptOut }: ChallengeCardProps) {
         {isOptedIn && !isCompleted && (
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Progress</span>
+              <span className="text-muted-foreground">Progress</span>
               <span className="font-medium">{progress}%</span>
             </div>
             <Progress value={progress} className="h-2" />
@@ -105,11 +105,11 @@ function ChallengeCard({ challenge, onOptIn, onOptOut }: ChallengeCardProps) {
 
         {/* Requirements */}
         <div className="space-y-2">
-          <p className="text-xs font-medium text-gray-700">Requirements:</p>
+          <p className="text-xs font-medium text-foreground">Requirements:</p>
           <div className="space-y-1">
             {challenge.challenge.requirements.map((req, index) => (
               <div key={index} className="flex items-center justify-between text-xs">
-                <span className="text-gray-600">
+                <span className="text-muted-foreground">
                   {req.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                 </span>
                 <span className="font-medium">
@@ -124,13 +124,13 @@ function ChallengeCard({ challenge, onOptIn, onOptOut }: ChallengeCardProps) {
         {challenge.challenge.reward_xp > 0 && (
           <div className="flex items-center space-x-2 text-sm">
             <Star className="h-4 w-4 text-yellow-500" />
-            <span className="text-gray-600">Reward:</span>
-            <span className="font-medium text-blue-600">{challenge.challenge.reward_xp} XP</span>
+            <span className="text-muted-foreground">Reward:</span>
+            <span className="font-medium text-primary">{challenge.challenge.reward_xp} XP</span>
           </div>
         )}
 
         {/* Time info */}
-        <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center space-x-1">
             <Clock className="h-3 w-3" />
             <span>
@@ -256,13 +256,13 @@ export function ChallengeCards({ challenges: propChallenges }: ChallengeCardsPro
 
   if (error) {
     return (
-      <ProfessionalCard variant="elevated" className="border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30">
+      <ProfessionalCard variant="elevated" className="bg-destructive/10 border-destructive/30">
         <ProfessionalCardContent className="p-6">
-          <div className="flex items-center space-x-2 text-red-600 dark:text-red-400">
+          <div className="flex items-center space-x-2 text-destructive">
             <Target className="h-5 w-5" />
             <span className="font-medium">Error loading challenges</span>
           </div>
-          <p className="text-red-600 dark:text-red-400 text-sm mt-2">{error}</p>
+          <p className="text-destructive text-sm mt-2">{error}</p>
         </ProfessionalCardContent>
       </ProfessionalCard>
     );
