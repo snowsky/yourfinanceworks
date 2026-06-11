@@ -103,10 +103,10 @@ const StatusMessage = ({ status }: { status: AvailabilityStatus }) => {
     <div
       className={`mt-2 p-3 rounded-lg text-xs font-medium ${
         isSuccess
-          ? "bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+          ? "bg-success/10 border border-success/30 text-success"
           : isError
-          ? "bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300"
-          : "bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
+          ? "bg-destructive/10 border border-destructive/30 text-destructive"
+          : "bg-muted/50 border border-border text-muted-foreground"
       }`}
     >
       {status.message}
@@ -369,7 +369,7 @@ const Signup: React.FC = () => {
   }, [formData.password, passwordRequirements, specialCharRegex]);
 
   const CheckItem = ({ met, label }: { met: boolean; label: string }) => (
-    <div className={`flex items-center gap-1.5 text-xs ${met ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500"}`}>
+    <div className={`flex items-center gap-1.5 text-xs ${met ? "text-success" : "text-muted-foreground"}`}>
       {met ? <CheckCircle className="h-3 w-3 flex-shrink-0" /> : <XCircle className="h-3 w-3 flex-shrink-0" />}
       {label}
     </div>
@@ -378,7 +378,7 @@ const Signup: React.FC = () => {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen flex bg-background">
       {/* ── Left brand panel (desktop only) ── */}
       <div className="hidden lg:flex lg:w-[44%] xl:w-2/5 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex-col justify-between p-12 relative overflow-hidden flex-shrink-0">
         <div
@@ -441,20 +441,20 @@ const Signup: React.FC = () => {
         <div className="lg:hidden mb-8 text-center w-full">
           <div className="flex items-center justify-center gap-2 mb-1">
             <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow">
-              <TrendingUp className="h-5 w-5 text-white" />
+              <TrendingUp className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-slate-900 dark:text-white text-lg font-bold tracking-tight">YourFinanceWORKS</span>
+            <span className="text-foreground text-lg font-bold tracking-tight">YourFinanceWORKS</span>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-xs">Financial Management Platform</p>
+          <p className="text-muted-foreground text-xs">Financial Management Platform</p>
         </div>
 
         <div className="w-full max-w-sm">
           {/* Heading */}
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">
               {t("auth.signup.title")}
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+            <p className="text-muted-foreground text-sm mt-1">
               {t("auth.signup.subtitle")}
             </p>
           </div>
@@ -465,7 +465,7 @@ const Signup: React.FC = () => {
               <div
                 role="alert"
                 aria-live="assertive"
-                className="flex items-start gap-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300 px-4 py-3 rounded-xl"
+                className="flex items-start gap-3 bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-xl"
               >
                 <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <p className="text-sm">{error}</p>
@@ -474,7 +474,7 @@ const Signup: React.FC = () => {
 
             {/* Mode selector */}
             <div>
-              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">
+              <p className="text-sm font-semibold text-foreground mb-3">
                 {t("auth.signup.how_to_get_started")}
               </p>
               <div className="grid grid-cols-2 gap-2">
@@ -522,11 +522,11 @@ const Signup: React.FC = () => {
                   leftIcon={<Building2 />}
                   rightIcon={
                     orgStatus.checking ? (
-                      <Loader2 className="animate-spin text-slate-400" />
+                      <Loader2 className="animate-spin text-muted-foreground" />
                     ) : orgStatus.available === true ? (
-                      <CheckCircle className="text-emerald-500" />
+                      <CheckCircle className="text-success" />
                     ) : orgStatus.available === false ? (
-                      <XCircle className="text-red-500" />
+                      <XCircle className="text-destructive" />
                     ) : undefined
                   }
                   error={orgStatus.available === false}
@@ -534,7 +534,7 @@ const Signup: React.FC = () => {
               </div>
               <StatusMessage status={orgStatus} />
               {orgStatus.code === "taken" && (
-                <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-1.5 text-xs text-muted-foreground">
                   {t("auth.signup.tips.org_taken_tip")}
                 </p>
               )}
@@ -583,18 +583,18 @@ const Signup: React.FC = () => {
                 inputSize="lg"
                 rightIcon={
                   emailStatus.checking ? (
-                    <Loader2 className="animate-spin text-slate-400" />
+                    <Loader2 className="animate-spin text-muted-foreground" />
                   ) : emailStatus.available === true ? (
-                    <CheckCircle className="text-emerald-500" />
+                    <CheckCircle className="text-success" />
                   ) : emailStatus.available === false ? (
-                    <XCircle className="text-red-500" />
+                    <XCircle className="text-destructive" />
                   ) : undefined
                 }
                 error={emailStatus.available === false}
               />
               <StatusMessage status={emailStatus} />
               {emailStatus.code === "taken" && (
-                <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-1.5 text-xs text-muted-foreground">
                   {t("auth.signup.tips.email_taken_tip")}
                 </p>
               )}
@@ -616,8 +616,8 @@ const Signup: React.FC = () => {
               />
               {/* Live password requirements */}
               {formData.password && pwChecks && passwordRequirements && (
-                <div className="mt-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700/50">
-                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                <div className="mt-2 p-3 bg-muted/50 rounded-lg border border-border">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">
                     {t("auth.signup.password_requirements_label", { defaultValue: "Password requirements" })}
                   </p>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1">
@@ -667,7 +667,7 @@ const Signup: React.FC = () => {
                 <div className="space-y-2">
                   <label
                     htmlFor="requested_role"
-                    className="text-sm font-medium leading-none text-slate-900 dark:text-slate-100"
+                    className="text-sm font-medium leading-none text-foreground"
                   >
                     {t("auth.signup.requested_role", { defaultValue: "Requested Role" })}
                   </label>
@@ -715,7 +715,7 @@ const Signup: React.FC = () => {
             </ProfessionalButton>
 
             {/* Terms */}
-            <p className="text-center text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            <p className="text-center text-xs text-muted-foreground leading-relaxed">
               {t("auth.signup.terms_agreement", { defaultValue: "By creating an account, you agree to our" })}{" "}
               <a href="/terms" className="text-primary hover:text-primary/80 transition-colors font-medium">
                 {t("auth.signup.terms", { defaultValue: "Terms of Service" })}
@@ -733,10 +733,10 @@ const Signup: React.FC = () => {
             <>
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-slate-200 dark:border-slate-700" />
+                  <span className="w-full border-t border-border" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-slate-50 dark:bg-slate-950 px-3 text-slate-400 tracking-wide">
+                  <span className="bg-background px-3 text-muted-foreground tracking-wide">
                     {t("auth.signup.or_continue_with")}
                   </span>
                 </div>
@@ -776,7 +776,7 @@ const Signup: React.FC = () => {
           )}
 
           {/* Sign-in link */}
-          <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-6 text-center text-sm text-muted-foreground">
             {t("auth.signup.already_have_account")}{" "}
             <Link to="/login" className="text-primary hover:text-primary/80 font-semibold transition-colors">
               {t("auth.signup.sign_in")}
