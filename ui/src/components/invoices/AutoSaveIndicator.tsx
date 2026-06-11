@@ -19,7 +19,7 @@ export function AutoSaveIndicator({ status, lastSaved, className }: AutoSaveIndi
           icon: <Loader2 className="h-3 w-3 animate-spin" />,
           text: "Saving...",
           variant: "secondary" as const,
-          className: "text-blue-600 bg-blue-50 border-blue-200"
+          className: "text-primary bg-primary/10 border-primary/30"
         };
       case "saved":
         return {

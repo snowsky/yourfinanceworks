@@ -308,7 +308,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
           </ProfessionalCardHeader>
           <ProfessionalCardContent>
             <div className="space-y-4">
-              <div className="p-3 bg-blue-50 text-blue-800 rounded-lg flex items-start gap-2 text-xs">
+              <div className="p-3 bg-primary/10 text-primary rounded-lg flex items-start gap-2 text-xs">
                 <Info className="h-4 w-4 shrink-0" />
                 <p>{t('superAdmin.license_capacity_monitoring.global_license_info')}</p>
               </div>
@@ -465,9 +465,9 @@ export const TenantLicenseMonitoring: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="text-xs text-amber-800 space-y-1">
+          <div className="mt-8 p-4 bg-warning/10 border border-warning/30 rounded-lg flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+            <div className="text-xs text-warning space-y-1">
               <p className="font-bold uppercase tracking-tight">{t('superAdmin.license_capacity_monitoring.important_security_note')}</p>
               <p>{t('superAdmin.license_capacity_monitoring.security_note_description')}</p>
               <p>{t('superAdmin.license_capacity_monitoring.initial_admin_note')}</p>
@@ -505,7 +505,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
                       <div className="flex flex-col">
                         <span className="text-sm">{user.tenant_name || '-'}</span>
                         {user.tenant_count_against_license === false && (
-                          <span className="text-[10px] text-amber-600 font-medium leading-none mt-1">
+                          <span className="text-[10px] text-warning font-medium leading-none mt-1">
                             {t('superAdmin.license_capacity_monitoring.org_exempted')}
                           </span>
                         )}
@@ -517,7 +517,7 @@ export const TenantLicenseMonitoring: React.FC = () => {
                           {user.is_active ? t('superAdmin.license_capacity_monitoring.active') : t('common.inactive')}
                         </Badge>
                         {user.effectively_exempt && user.count_against_license && (
-                          <Badge variant="outline" className="text-[9px] h-4 bg-amber-50 text-amber-700 border-amber-200">
+                          <Badge variant="outline" className="text-[9px] h-4 bg-warning/10 text-warning border-warning/30">
                              {t('superAdmin.license_capacity_monitoring.inherited_exempt')}
                           </Badge>
                         )}

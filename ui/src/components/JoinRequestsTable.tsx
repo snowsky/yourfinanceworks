@@ -183,13 +183,13 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
 
       {loading ? (
         <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">{t('organizationJoinRequests.loading_requests')}</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">{t('organizationJoinRequests.loading_requests')}</p>
         </div>
       ) : requests.length === 0 ? (
         <div className="text-center py-8">
-          <UserPlus className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">{t('organizationJoinRequests.no_pending_requests')}</p>
+          <UserPlus className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">{t('organizationJoinRequests.no_pending_requests')}</p>
         </div>
       ) : (
         <Table>
@@ -215,7 +215,7 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
                       }
                     </p>
                     {request.message && (
-                      <p className="text-sm text-gray-500 truncate max-w-xs">
+                      <p className="text-sm text-muted-foreground truncate max-w-xs">
                         {request.message}
                       </p>
                     )}
@@ -295,7 +295,7 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
               {selectedRequest.message && (
                 <div>
                   <Label>{t('organizationJoinRequests.message_from_applicant')}</Label>
-                  <div className="bg-gray-50 p-3 rounded-md">
+                  <div className="bg-muted p-3 rounded-md">
                     <p className="text-sm">{selectedRequest.message}</p>
                   </div>
                 </div>
@@ -317,8 +317,8 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
                   {selectedRequest.rejection_reason && (
                     <div className="mt-4">
                       <Label>{t('organizationJoinRequests.rejection_reason')}</Label>
-                      <div className="bg-red-50 border border-red-200 p-3 rounded-md">
-                        <p className="text-sm text-red-700">{selectedRequest.rejection_reason}</p>
+                      <div className="bg-destructive/10 border border-destructive/30 p-3 rounded-md">
+                        <p className="text-sm text-destructive">{selectedRequest.rejection_reason}</p>
                       </div>
                     </div>
                   )}
@@ -326,7 +326,7 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
                   {selectedRequest.notes && (
                     <div className="mt-4">
                       <Label>{t('organizationJoinRequests.admin_notes')}</Label>
-                      <div className="bg-gray-50 p-3 rounded-md">
+                      <div className="bg-muted p-3 rounded-md">
                         <p className="text-sm">{selectedRequest.notes}</p>
                       </div>
                     </div>
@@ -422,7 +422,7 @@ export const JoinRequestsTable: React.FC<JoinRequestsTableProps> = ({
               <Button
                 onClick={handleApproval}
                 disabled={submitting}
-                className={approvalForm.status === 'approved' ? '' : 'bg-red-600 hover:bg-red-700'}
+                className={approvalForm.status === 'approved' ? '' : 'bg-destructive hover:bg-destructive/90'}
               >
                 {submitting ? t('organizationJoinRequests.processing') : (approvalForm.status === 'approved' ? t('organizationJoinRequests.approve') : t('organizationJoinRequests.reject'))}
               </Button>

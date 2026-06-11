@@ -247,7 +247,7 @@ const RecycleBin = () => {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem className="text-green-600 focus:text-green-600" onClick={() => handleRestore(invoice.id)}>
+                              <DropdownMenuItem className="text-success focus:text-success" onClick={() => handleRestore(invoice.id)}>
                                 <RotateCcw className="mr-2 h-4 w-4" /> {t('recycleBin.restore_invoice')}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />

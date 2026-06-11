@@ -121,13 +121,13 @@ const SubscriptionDetailPage: React.FC = () => {
         />
 
         {showPriceAlert && sub ? (
-          <ProfessionalCard className="border-amber-200 bg-amber-50">
+          <ProfessionalCard className="border-warning/30 bg-warning/10">
             <ProfessionalCardContent className="flex items-center justify-between gap-3 py-3">
               <div className="flex items-center gap-3">
                 {change != null && change > 0 ? (
-                  <TrendingUp className="h-4 w-4 text-red-600" />
+                  <TrendingUp className="h-4 w-4 text-destructive" />
                 ) : (
-                  <TrendingDown className="h-4 w-4 text-emerald-600" />
+                  <TrendingDown className="h-4 w-4 text-success" />
                 )}
                 <div>
                   <div className="text-sm font-medium">

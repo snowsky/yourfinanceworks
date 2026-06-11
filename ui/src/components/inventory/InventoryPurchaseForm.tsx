@@ -247,20 +247,20 @@ export const InventoryPurchaseForm: React.FC<InventoryPurchaseFormProps> = ({
 
       {/* Purchase Items Summary (when not in dialog) */}
       {purchaseItems.length > 0 && (
-        <Card className="bg-purple-50/50 border-purple-200">
+        <Card className="bg-primary/10 border-primary/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-purple-600" />
-                <span className="font-medium text-purple-900">
+                <Package className="h-5 w-5 text-primary" />
+                <span className="font-medium text-foreground">
                   {t('inventory.inventory_purchase')}: {purchaseItems.length} {t('inventory.items')}
                 </span>
               </div>
               <div className="text-right">
-                <div className="font-bold text-purple-900">
+                <div className="font-bold text-foreground">
                   ${calculateTotal().toFixed(2)} {currency}
                 </div>
-                <div className="text-sm text-purple-700">
+                <div className="text-sm text-muted-foreground">
                   {purchaseItems.reduce((total, item) => total + item.quantity, 0)} {t('inventory.units_total')}
                 </div>
               </div>
@@ -268,12 +268,12 @@ export const InventoryPurchaseForm: React.FC<InventoryPurchaseFormProps> = ({
 
             {/* Validation Warning */}
             {totalAmount > 0 && Math.abs(calculateTotal() - totalAmount) > 0.01 && (
-              <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                <div className="flex items-center gap-2 text-orange-800">
+              <div className="mt-3 p-3 bg-warning/10 border border-warning/30 rounded-lg">
+                <div className="flex items-center gap-2 text-warning">
                   <AlertTriangle className="h-4 w-4" />
                   <span className="text-sm font-medium">{t('inventory.amount_mismatch')}</span>
                 </div>
-                <p className="text-sm text-orange-700 mt-1">
+                <p className="text-sm text-warning mt-1">
                   {t('inventory.purchase_total_mismatch', { purchaseTotal: calculateTotal().toFixed(2), expenseAmount: totalAmount.toFixed(2) })}
                 </p>
               </div>

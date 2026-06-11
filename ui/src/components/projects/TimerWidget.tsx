@@ -74,7 +74,7 @@ export function TimerWidget() {
           <Button
             onClick={handleStop}
             disabled={stopping || isLoading}
-            className="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl py-2 flex items-center justify-center gap-2 transition-colors"
+            className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground text-sm font-semibold rounded-xl py-2 flex items-center justify-center gap-2 transition-colors"
           >
             <Square className="w-3 h-3 fill-current" />
             {stopping ? 'Stopping…' : 'Stop & Log Time'}

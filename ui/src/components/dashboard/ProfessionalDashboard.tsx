@@ -410,26 +410,26 @@ export function ProfessionalDashboard() {
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <CheckCircle className="h-4 w-4 text-success" />
                   <span className="text-sm font-medium">{t('dashboard.metrics.on_time_payments')}</span>
                 </div>
-                <span className="text-lg font-bold text-green-600">{dashboardStats.paymentTrends.onTimePaymentRate}%</span>
+                <span className="text-lg font-bold text-success">{dashboardStats.paymentTrends.onTimePaymentRate}%</span>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-yellow-600" />
+                  <Clock className="h-4 w-4 text-warning" />
                   <span className="text-sm font-medium">{t('dashboard.metrics.average_payment_time')}</span>
                 </div>
-                <span className="text-lg font-bold text-yellow-600">{dashboardStats.paymentTrends.averagePaymentTime} days</span>
+                <span className="text-lg font-bold text-warning">{dashboardStats.paymentTrends.averagePaymentTime} days</span>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <AlertCircle className="h-4 w-4 text-destructive" />
                   <span className="text-sm font-medium">{t('dashboard.metrics.overdue_rate')}</span>
                 </div>
-                <span className="text-lg font-bold text-red-600">{dashboardStats.paymentTrends.overdueRate}%</span>
+                <span className="text-lg font-bold text-destructive">{dashboardStats.paymentTrends.overdueRate}%</span>
               </div>
             </div>
           </div>
@@ -443,8 +443,8 @@ export function ProfessionalDashboard() {
         >
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-emerald-500/10 rounded-xl">
-                <Users className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+              <div className="p-3 bg-success/10 rounded-xl">
+                <Users className="h-6 w-6 text-success" />
               </div>
               <div>
                 <h3 className="text-lg font-bold">{t('dashboard.sections.business_health')}</h3>
@@ -458,7 +458,7 @@ export function ProfessionalDashboard() {
                   <DollarSign className="h-4 w-4 text-primary" />
                   <span className="text-sm font-medium">{t('dashboard.metrics.monthly_growth')}</span>
                 </div>
-                <span className={`text-lg font-bold ${dashboardStats.trends.income.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`text-lg font-bold ${dashboardStats.trends.income.isPositive ? 'text-success' : 'text-destructive'}`}>
                   {dashboardStats.trends.income.isPositive ? '+' : ''}{dashboardStats.trends.income.value}%
                 </span>
               </div>
@@ -476,7 +476,7 @@ export function ProfessionalDashboard() {
                   <TrendingUp className="h-4 w-4 text-accent" />
                   <span className="text-sm font-medium">{t('dashboard.metrics.revenue_trend')}</span>
                 </div>
-                <span className="text-lg font-bold text-green-600">
+                <span className="text-lg font-bold text-success">
                   {dashboardStats.trends.income.isPositive ? '↗' : '↘'} {dashboardStats.trends.income.value}%
                 </span>
               </div>

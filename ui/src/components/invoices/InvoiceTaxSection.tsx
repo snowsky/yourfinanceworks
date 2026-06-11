@@ -42,8 +42,8 @@ export function InvoiceTaxSection({ form }: InvoiceTaxSectionProps) {
     <ProfessionalCard variant="elevated" className="overflow-hidden border-0">
       <div className="pb-6 border-b border-border/50 mb-8">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-amber-100 dark:bg-amber-900/30 rounded-xl">
-            <ReceiptText className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+          <div className="p-3 bg-warning/10 rounded-xl">
+            <ReceiptText className="h-6 w-6 text-warning" />
           </div>
           <div>
             <h2 className="text-2xl font-bold text-foreground tracking-tight">

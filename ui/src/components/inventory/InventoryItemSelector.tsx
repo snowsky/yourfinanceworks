@@ -260,7 +260,7 @@ export const InventoryItemSelector: React.FC<InventoryItemSelectorProps> = ({
 
                             {/* Stock Warnings */}
                             {item.track_stock && item.current_stock <= item.minimum_stock && (
-                              <div className="flex items-center gap-2 mt-2 text-sm text-orange-600">
+                              <div className="flex items-center gap-2 mt-2 text-sm text-warning">
                                 <AlertTriangle className="h-4 w-4" />
                                 <span>{t('inventory.low_stock_alert', { count: item.current_stock })}</span>
                               </div>

@@ -402,7 +402,7 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                             </ProfessionalButton>
                         </div>
                     ) : (
-                        <p className="text-sm text-amber-600 dark:text-amber-500">
+                        <p className="text-sm text-warning">
                             {t('settings.client_portal.requires_license')}
                         </p>
                     )}

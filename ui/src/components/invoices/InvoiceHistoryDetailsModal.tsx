@@ -191,7 +191,7 @@ export function InvoiceHistoryDetailsModal({ open, onClose, historyEntry, client
                         <div className="flex items-center gap-3 text-sm">
                           <div className="flex-1">
                             <div className="text-muted-foreground mb-1">Previous:</div>
-                            <div className="bg-red-50 border border-red-200 rounded px-2 py-1 text-red-800">
+                            <div className="bg-destructive/10 border border-destructive/30 rounded px-2 py-1 text-destructive">
                               {formatValue(field, previousValue, clients)}
                             </div>
                           </div>
@@ -200,7 +200,7 @@ export function InvoiceHistoryDetailsModal({ open, onClose, historyEntry, client
                           
                           <div className="flex-1">
                             <div className="text-muted-foreground mb-1">Current:</div>
-                            <div className="bg-green-50 border border-green-200 rounded px-2 py-1 text-green-800">
+                            <div className="bg-success/10 border border-success/30 rounded px-2 py-1 text-success">
                               {formatValue(field, currentValue, clients)}
                             </div>
                           </div>

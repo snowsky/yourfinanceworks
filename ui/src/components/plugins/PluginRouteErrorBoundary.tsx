@@ -97,8 +97,8 @@ export class PluginRouteErrorBoundary extends Component<Props, State> {
           <div className="w-full max-w-2xl">
             <Card>
               <CardHeader className="text-center pb-6">
-                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
-                  <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" />
+                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+                  <AlertTriangle className="h-8 w-8 text-destructive" />
                 </div>
                 <CardTitle className="text-2xl">
                   {pluginName} Plugin Error

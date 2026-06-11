@@ -525,7 +525,7 @@ const Invoices = () => {
                 <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/25">
                   {t('common.total', { defaultValue: 'Total' })}: {totalInvoices}
                 </Badge>
-                <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 border-amber-500/20">
+                <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/20">
                   {t('invoices.review.title', { defaultValue: 'Review' })}: {pendingReviewCount}
                 </Badge>
               </div>
@@ -1165,7 +1165,7 @@ const Invoices = () => {
                           </TableCell>}
                           {isVisible('statement') && <TableCell>
                             {typeof invoice.statement_id === 'number' && typeof invoice.statement_transaction_id === 'number' ? (
-                              <Link to={`/statements?id=${invoice.statement_id}&txn=${invoice.statement_transaction_id}`} className="text-blue-600 hover:underline">#{invoice.statement_transaction_id}</Link>
+                              <Link to={`/statements?id=${invoice.statement_id}&txn=${invoice.statement_transaction_id}`} className="text-primary hover:underline">#{invoice.statement_transaction_id}</Link>
                             ) : (
                               <span className="text-muted-foreground">{t('expenses.none', { defaultValue: '—' })}</span>
                             )}

@@ -60,11 +60,11 @@ export function CashFlowForecastCard() {
     <ProfessionalCard variant="elevated" className="p-5 md:p-6" data-tour="dashboard-cashflow">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <div className={`p-3 rounded-xl ${positive ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+          <div className={`p-3 rounded-xl ${positive ? 'bg-success/10' : 'bg-destructive/10'}`}>
             {positive ? (
-              <TrendingUp className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+              <TrendingUp className="h-6 w-6 text-success" />
             ) : (
-              <TrendingDown className="h-6 w-6 text-red-600 dark:text-red-400" />
+              <TrendingDown className="h-6 w-6 text-destructive" />
             )}
           </div>
           <div>
@@ -96,19 +96,19 @@ export function CashFlowForecastCard() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">{t('dashboard.cashflow.net_change')}</p>
-              <p className={`text-xl font-bold tabular-nums ${positive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+              <p className={`text-xl font-bold tabular-nums ${positive ? 'text-success' : 'text-destructive'}`}>
                 {positive ? '+' : ''}{fmt(data?.net_change ?? 0, currency)}
               </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">{t('dashboard.cashflow.inflows')}</p>
-              <p className="text-base font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+              <p className="text-base font-semibold tabular-nums text-success">
                 {fmt(data?.total_projected_inflows ?? 0, currency)}
               </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">{t('dashboard.cashflow.outflows')}</p>
-              <p className="text-base font-semibold tabular-nums text-red-600 dark:text-red-400">
+              <p className="text-base font-semibold tabular-nums text-destructive">
                 {fmt(data?.total_projected_outflows ?? 0, currency)}
               </p>
             </div>
@@ -143,9 +143,9 @@ export function CashFlowForecastCard() {
           )}
 
           {(data?.alerts?.length ?? 0) > 0 && (
-            <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2">
-              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-              <p className="text-sm text-amber-700 dark:text-amber-300">{data!.alerts[0]}</p>
+            <div className="mt-3 flex items-start gap-2 rounded-lg bg-warning/10 px-3 py-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-warning mt-0.5" />
+              <p className="text-sm text-warning">{data!.alerts[0]}</p>
             </div>
           )}
         </>

@@ -198,11 +198,11 @@ const Clients = () => {
                   <Users className="h-3 w-3 mr-1" />
                   {t('common.total', { defaultValue: 'Total' })}: {totalClients}
                 </Badge>
-                <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20">
+                <Badge variant="secondary" className="bg-success/10 text-success border-success/20">
                   <DollarSign className="h-3 w-3 mr-1" />
                   {t('clients.table.total_paid')}: ${filteredSummary.paid.toFixed(2)}
                 </Badge>
-                <Badge variant="secondary" className="bg-orange-500/10 text-orange-700 border-orange-500/20">
+                <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/20">
                   <AlertCircle className="h-3 w-3 mr-1" />
                   {t('clients.table.outstanding_balance')}: ${filteredSummary.outstanding.toFixed(2)}
                 </Badge>
@@ -492,7 +492,7 @@ const Clients = () => {
                           ${client.paid_amount.toFixed(2)}
                         </TableCell>}
                         {isVisible('outstanding_balance') && <TableCell className="text-right">
-                          <span className={(client.outstanding_balance || 0) > 0 ? 'text-orange-600 font-semibold' : 'text-green-600 font-semibold'}>
+                          <span className={(client.outstanding_balance || 0) > 0 ? 'text-warning font-semibold' : 'text-success font-semibold'}>
                             ${(client.outstanding_balance || 0).toFixed(2)}
                           </span>
                         </TableCell>}

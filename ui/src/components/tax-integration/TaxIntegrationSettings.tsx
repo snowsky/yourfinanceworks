@@ -42,9 +42,9 @@ export const TaxIntegrationSettings: React.FC = () => {
   }, []);
 
   const getStatusIcon = (enabled: boolean, configured: boolean) => {
-    if (!enabled) return <XCircle className="h-4 w-4 text-red-500" />;
-    if (!configured) return <XCircle className="h-4 w-4 text-yellow-500" />;
-    return <CheckCircle className="h-4 w-4 text-green-500" />;
+    if (!enabled) return <XCircle className="h-4 w-4 text-destructive" />;
+    if (!configured) return <XCircle className="h-4 w-4 text-warning" />;
+    return <CheckCircle className="h-4 w-4 text-success" />;
   };
 
   const maskApiKey = (apiKey: string) => {
@@ -73,10 +73,10 @@ export const TaxIntegrationSettings: React.FC = () => {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Development Notice */}
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+        <div className="p-3 bg-warning/10 border border-warning/30 rounded-md">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <p className="text-sm text-amber-800">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            <p className="text-sm text-warning">
               {t('taxIntegration.developmentNotice')}
             </p>
           </div>
@@ -104,7 +104,7 @@ export const TaxIntegrationSettings: React.FC = () => {
                   id="base_url"
                   value={settings.base_url}
                   readOnly
-                  className="bg-gray-50"
+                  className="bg-muted"
                 />
               </div>
 
@@ -114,7 +114,7 @@ export const TaxIntegrationSettings: React.FC = () => {
                   id="timeout"
                   value={`${settings.timeout}s`}
                   readOnly
-                  className="bg-gray-50"
+                  className="bg-muted"
                 />
               </div>
 
@@ -124,7 +124,7 @@ export const TaxIntegrationSettings: React.FC = () => {
                   id="retry_attempts"
                   value={settings.retry_attempts}
                   readOnly
-                  className="bg-gray-50"
+                  className="bg-muted"
                 />
               </div>
 
@@ -136,7 +136,7 @@ export const TaxIntegrationSettings: React.FC = () => {
                     type={showApiKey ? "text" : "password"}
                     value={showApiKey ? settings.api_key : maskApiKey(settings.api_key)}
                     readOnly
-                    className="bg-gray-50 pr-10"
+                    className="bg-muted pr-10"
                   />
                   <Button
                     type="button"
@@ -156,11 +156,11 @@ export const TaxIntegrationSettings: React.FC = () => {
             </div>
 
             {/* Configuration Hints */}
-            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
-              <h4 className="text-sm font-medium text-blue-900 mb-2">
+            <div className="mt-4 p-4 bg-primary/10 border border-primary/30 rounded-md">
+              <h4 className="text-sm font-medium text-primary mb-2">
                 {t('taxIntegration.settings.configurationHelp')}
               </h4>
-              <ul className="text-sm text-blue-800 space-y-1">
+              <ul className="text-sm text-primary space-y-1">
                 <li>• {t('taxIntegration.settings.help.apiKey')}</li>
                 <li>• {t('taxIntegration.settings.help.baseUrl')}</li>
                 <li>• {t('taxIntegration.settings.help.environment')}</li>
@@ -183,8 +183,8 @@ export const TaxIntegrationSettings: React.FC = () => {
           </>
         ) : (
           <div className="text-center py-8">
-            <Settings className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">{t('taxIntegration.settings.notAvailable')}</p>
+            <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">{t('taxIntegration.settings.notAvailable')}</p>
           </div>
         )}
       </CardContent>

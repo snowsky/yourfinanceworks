@@ -22,10 +22,10 @@ export const SearchSettingsTab: React.FC<SearchSettingsTabProps> = ({ isAdmin })
         <FeatureGate
             feature="advanced_search"
             fallback={
-                <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
+                <ProfessionalCard variant="elevated" className="border-primary/30 bg-primary/10">
                     <ProfessionalCardContent className="p-12 text-center">
-                        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                            <Search className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                        <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                            <Search className="w-8 h-8 text-primary" />
                         </div>
                         <h3 className="text-2xl font-bold text-foreground mb-3">{t('settings.search_settings.business_license_required')}</h3>
                         <p className="text-muted-foreground mb-8 max-w-lg mx-auto leading-relaxed">
@@ -38,19 +38,19 @@ export const SearchSettingsTab: React.FC<SearchSettingsTabProps> = ({ isAdmin })
                             </h4>
                             <ul className="text-left space-y-3 text-sm text-foreground/80">
                                 <li className="flex items-start">
-                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                                    <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                                     <span>{t('settings.search_settings.full_text_search')}</span>
                                 </li>
                                 <li className="flex items-start">
-                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                                    <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                                     <span>{t('settings.search_settings.opensearch_integration')}</span>
                                 </li>
                                 <li className="flex items-start">
-                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                                    <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                                     <span>{t('settings.search_settings.intelligent_search_filters')}</span>
                                 </li>
                                 <li className="flex items-start">
-                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                                    <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                                     <span>{t('settings.search_settings.real_time_search_indexing')}</span>
                                 </li>
                             </ul>

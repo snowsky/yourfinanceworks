@@ -52,8 +52,8 @@ export function InvoiceAttachmentSection({
     <ProfessionalCard variant="elevated" className="overflow-hidden border-0">
       <div className="pb-6 border-b border-border/50 mb-8">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-amber-100 dark:bg-amber-900/30 rounded-xl">
-            <Paperclip className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+          <div className="p-3 bg-primary/10 rounded-xl">
+            <Paperclip className="h-6 w-6 text-primary" />
           </div>
           <div>
             <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.attachments')}</h2>
@@ -159,8 +159,8 @@ export function InvoiceAttachmentSection({
               {existingAttachments.map((att) => (
                 <div key={att.id} className="p-6 rounded-3xl bg-secondary/30 border border-border/50 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
                   <div className="flex flex-col md:flex-row items-center gap-6">
-                    <div className="p-4 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl">
-                      <FileText className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                    <div className="p-4 bg-primary/10 rounded-2xl">
+                      <FileText className="h-8 w-8 text-primary" />
                     </div>
 
                     <div className="flex-1 text-center md:text-left min-w-0">

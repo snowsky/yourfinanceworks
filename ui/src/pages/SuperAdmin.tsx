@@ -23,7 +23,7 @@ const SuperAdminDashboard: React.FC = () => {
 
   if (!user?.is_superuser) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Alert className="max-w-md">
           <ShieldCheck className="h-4 w-4" />
           <AlertDescription>
@@ -99,7 +99,7 @@ const SuperAdminDashboardContent: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading super admin dashboard...</p>
@@ -134,7 +134,7 @@ const SuperAdminDashboardContent: React.FC = () => {
             <ul className="list-disc ml-6 mt-2">
               {tenantEmailsMissingUsers.map(tenant => (
                 <li key={tenant.id}>
-                  <b>{tenant.name}</b>: <span className="text-red-600">{tenant.email}</span>
+                  <b>{tenant.name}</b>: <span className="text-destructive">{tenant.email}</span>
                 </li>
               ))}
             </ul>

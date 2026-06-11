@@ -60,7 +60,7 @@ export function ApprovalActionButtons({ approval, onAction }: ApprovalActionButt
         <DialogTrigger asChild>
           <Button
             size="sm"
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-success hover:bg-success/90 text-white"
             disabled={loading !== null}
           >
             {loading === 'approve' ? (
@@ -107,7 +107,7 @@ export function ApprovalActionButtons({ approval, onAction }: ApprovalActionButt
               <Button
                 onClick={handleApprove}
                 disabled={loading === 'approve'}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-success hover:bg-success/90"
               >
                 {loading === 'approve' ? (
                   <>

@@ -43,30 +43,30 @@ export function ApprovalHistoryTimeline({ expenseId }: ApprovalHistoryTimelinePr
   const getActionIcon = (action: string, status: string) => {
     switch (action) {
       case 'submitted':
-        return <Send className="h-4 w-4 text-blue-500" />;
+        return <Send className="h-4 w-4 text-primary" />;
       case 'approved':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-success" />;
       case 'rejected':
-        return <XCircle className="h-4 w-4 text-red-500" />;
+        return <XCircle className="h-4 w-4 text-destructive" />;
       case 'delegated':
         return <UserCheck className="h-4 w-4 text-purple-500" />;
       default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
+        return <Clock className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
   const getActionColor = (action: string, status: string) => {
     switch (action) {
       case 'submitted':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-primary/10 text-primary';
       case 'approved':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success/10 text-success';
       case 'rejected':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/10 text-destructive';
       case 'delegated':
         return 'bg-purple-100 text-purple-800';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-foreground';
     }
   };
 
@@ -181,7 +181,7 @@ export function ApprovalHistoryTimeline({ expenseId }: ApprovalHistoryTimelinePr
                     </div>
                     
                     {entry.rejection_reason && (
-                      <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-800 text-sm">
+                      <div className="mt-2 p-2 bg-destructive/10 border border-destructive/30 rounded text-destructive text-sm">
                         <strong>Reason:</strong> {entry.rejection_reason}
                       </div>
                     )}

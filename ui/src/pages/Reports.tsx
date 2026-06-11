@@ -25,7 +25,7 @@ const Reports: React.FC = () => {
                 <BarChart3 className="h-3 w-3 mr-1" />
                 {t('navigation.analytics')}
               </Badge>
-              <Badge variant="secondary" className="bg-blue-500/10 text-blue-700 border-blue-500/20">
+              <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/30">
                 <FileText className="h-3 w-3 mr-1" />
                 {t('navigation.reports')}
               </Badge>

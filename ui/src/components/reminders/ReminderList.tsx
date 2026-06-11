@@ -563,11 +563,11 @@ export function ReminderList({ className }: ReminderListProps) {
                 <List className="h-3 w-3 mr-1" />
                 {t('common.total', { defaultValue: 'Total' })}: {totalCount}
               </Badge>
-              <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 border-amber-500/20">
+              <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/30">
                 <AlertCircle className="h-3 w-3 mr-1" />
                 {t('reminders.overdue')}: {counts.overdue}
               </Badge>
-              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20">
+              <Badge variant="secondary" className="bg-success/10 text-success border-success/30">
                 <CheckCircle className="h-3 w-3 mr-1" />
                 {t('reminders.completed')}: {counts.completed}
               </Badge>

@@ -126,7 +126,7 @@ export function SearchDialog() {
       className="fixed inset-0 z-50"
     >
       <div className="fixed inset-0 bg-black/50" onClick={() => handleOpenChange(false)} />
-      <div className="fixed left-1/2 top-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-2xl border">
+      <div className="fixed left-1/2 top-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 bg-card rounded-lg shadow-2xl border">
         <FeatureGate
           feature="advanced_search"
           showUpgradePrompt={true}
@@ -142,7 +142,7 @@ export function SearchDialog() {
                 className="flex h-12 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
               />
               {loading && (
-                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-border border-t-primary" />
               )}
             </div>
 
@@ -156,7 +156,7 @@ export function SearchDialog() {
               )}
 
               {error && (
-                <div className="py-6 text-center text-sm text-red-600">
+                <div className="py-6 text-center text-sm text-destructive">
                   <p>{error}</p>
                 </div>
               )}
@@ -178,7 +178,7 @@ export function SearchDialog() {
                     value={`${result.title} ${result.subtitle || ''}`}
                     onSelect={() => handleSelect(result)}
                     onClick={() => handleSelect(result)}
-                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 aria-selected:bg-gray-100"
+                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm cursor-pointer hover:bg-muted aria-selected:bg-muted"
                   >
                     <Icon className={`h-4 w-4 ${colorClass}`} />
                     <div className="flex-1 min-w-0">

@@ -124,7 +124,7 @@ const Settings = () => {
                 <Settings2 className="w-3 h-3 mr-1" />
                 {activeTabLabel}
               </Badge>
-              <Badge variant="secondary" className="bg-blue-500/10 text-blue-700 border-blue-500/20">
+              <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
                 <User className="w-3 h-3 mr-1" />
                 {isAdmin ? t('common.admin') : t('common.user')}
               </Badge>

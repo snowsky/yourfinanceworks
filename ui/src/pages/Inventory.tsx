@@ -217,7 +217,7 @@ const Inventory = () => {
                 <span className="inline-flex items-center rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
                   {t('common.total', { defaultValue: 'Total' })}: {analytics?.total_items ?? items.length}
                 </span>
-                <span className="inline-flex items-center rounded-md border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700">
+                <span className="inline-flex items-center rounded-md border border-warning/20 bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning">
                   {t('inventory.analytics.low_stock_items')}: {analytics?.low_stock_items ?? 0}
                 </span>
               </div>
@@ -390,7 +390,7 @@ const Inventory = () => {
                               </TableCell>
                               <TableCell className="text-right">
                                 {item.track_stock ? (
-                                  <span className={item.current_stock <= item.minimum_stock ? 'text-red-600 font-medium' : ''}>
+                                  <span className={item.current_stock <= item.minimum_stock ? 'text-destructive font-medium' : ''}>
                                     {item.current_stock}
                                   </span>
                                 ) : (
@@ -736,19 +736,19 @@ const Inventory = () => {
                   <CardContent>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-green-600">
+                        <div className="text-2xl font-bold text-success">
                           {salesVelocity.summary.high_velocity_items}
                         </div>
                         <div className="text-sm text-muted-foreground">High Velocity Items</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-red-600">
+                        <div className="text-2xl font-bold text-destructive">
                           {salesVelocity.summary.out_of_stock_risk}
                         </div>
                         <div className="text-sm text-muted-foreground">Out of Stock Risk</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-orange-600">
+                        <div className="text-2xl font-bold text-warning">
                           {salesVelocity.summary.overstocked_items}
                         </div>
                         <div className="text-sm text-muted-foreground">Overstocked Items</div>

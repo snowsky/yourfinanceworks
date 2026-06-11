@@ -299,9 +299,9 @@ export const BarcodeScanner = ({
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
                     {validationResult.valid ? (
-                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <CheckCircle className="h-4 w-4 text-success" />
                     ) : (
-                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                      <AlertTriangle className="h-4 w-4 text-destructive" />
                     )}
                     Validation Result
                   </CardTitle>
@@ -333,7 +333,7 @@ export const BarcodeScanner = ({
                       </>
                     )}
                     {!validationResult.valid && (
-                      <div className="text-red-600 text-sm">
+                      <div className="text-destructive text-sm">
                         {validationResult.error}
                       </div>
                     )}
@@ -344,9 +344,9 @@ export const BarcodeScanner = ({
 
             {/* Found Item */}
             {foundItem && (
-              <Card className="border-green-200 bg-green-50">
+              <Card className="border-success/30 bg-success/10">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm text-green-700">Item Found</CardTitle>
+                  <CardTitle className="text-sm text-success">Item Found</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">

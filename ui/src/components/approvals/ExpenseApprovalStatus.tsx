@@ -35,28 +35,28 @@ export function ExpenseApprovalStatus({ expense, approvals = [], className }: Ex
       case 'pending_approval':
         return (
           <div className="flex items-center gap-1">
-            <Clock className="w-3 h-3 text-amber-600" />
+            <Clock className="w-3 h-3 text-warning" />
             <Badge variant="warning">Pending Approval</Badge>
           </div>
         );
       case 'approved':
         return (
           <div className="flex items-center gap-1">
-            <CheckCircle className="w-3 h-3 text-green-600" />
+            <CheckCircle className="w-3 h-3 text-success" />
             <Badge variant="success">Approved</Badge>
           </div>
         );
       case 'rejected':
         return (
           <div className="flex items-center gap-1">
-            <XCircle className="w-3 h-3 text-red-600" />
+            <XCircle className="w-3 h-3 text-destructive" />
             <Badge variant="destructive">Rejected</Badge>
           </div>
         );
       case 'resubmitted':
         return (
           <div className="flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3 text-blue-600" />
+            <AlertTriangle className="w-3 h-3 text-primary" />
             <Badge variant="info">Resubmitted</Badge>
           </div>
         );

@@ -66,21 +66,21 @@ export const TaxIntegrationStatus: React.FC = () => {
   }, []);
 
   const getStatusIcon = () => {
-    if (!status) return <AlertCircle className="h-4 w-4 text-gray-500" />;
+    if (!status) return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
 
     if (!status.enabled) {
-      return <XCircle className="h-4 w-4 text-red-500" />;
+      return <XCircle className="h-4 w-4 text-destructive" />;
     }
 
     if (!status.configured) {
-      return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+      return <AlertCircle className="h-4 w-4 text-warning" />;
     }
 
     if (!status.connection_tested) {
-      return <XCircle className="h-4 w-4 text-red-500" />;
+      return <XCircle className="h-4 w-4 text-destructive" />;
     }
 
-    return <CheckCircle className="h-4 w-4 text-green-500" />;
+    return <CheckCircle className="h-4 w-4 text-success" />;
   };
 
   const getStatusText = () => {
@@ -128,10 +128,10 @@ export const TaxIntegrationStatus: React.FC = () => {
       </CardHeader>
       <CardContent>
         {/* Development Notice */}
-        <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+        <div className="mb-3 p-3 bg-warning/10 border border-warning/30 rounded-md">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <p className="text-sm text-amber-800">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            <p className="text-sm text-warning">
               {t('taxIntegration.developmentNotice')}
             </p>
           </div>
@@ -170,16 +170,16 @@ export const TaxIntegrationStatus: React.FC = () => {
         </div>
 
         {!status?.enabled && (
-          <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-            <p className="text-sm text-yellow-800">
+          <div className="mt-3 p-3 bg-warning/10 border border-warning/30 rounded-md">
+            <p className="text-sm text-warning">
               {t('taxIntegration.warnings.notEnabled')}
             </p>
           </div>
         )}
 
         {status?.enabled && !status?.configured && (
-          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="text-sm text-blue-800">
+          <div className="mt-3 p-3 bg-primary/10 border border-primary/30 rounded-md">
+            <p className="text-sm text-primary">
               {t('taxIntegration.warnings.notConfigured')}
             </p>
           </div>

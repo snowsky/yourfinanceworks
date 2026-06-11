@@ -8,7 +8,7 @@ export function AttachmentTest() {
   const [testAttachment, setTestAttachment] = useState<File | null>(null);
 
   return (
-    <div className="p-6 border rounded-lg bg-white">
+    <div className="p-6 border rounded-lg bg-card">
       <h2 className="text-lg font-semibold mb-4">Attachment Test Component</h2>
       
       {/* Test attachment section */}
@@ -17,10 +17,10 @@ export function AttachmentTest() {
         
         {/* Show uploaded attachment */}
         {testAttachment && (
-          <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
-            <FileText className="h-4 w-4 text-gray-500" />
-            <span className="text-sm text-gray-700">{testAttachment.name}</span>
-            <span className="text-xs text-gray-500">({(testAttachment.size / 1024 / 1024).toFixed(2)} MB)</span>
+          <div className="flex items-center gap-2 p-3 bg-muted rounded-lg border">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">{testAttachment.name}</span>
+            <span className="text-xs text-muted-foreground">({(testAttachment.size / 1024 / 1024).toFixed(2)} MB)</span>
             <Button
               type="button"
               size="sm"
@@ -48,15 +48,15 @@ export function AttachmentTest() {
               }}
               className="cursor-pointer"
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               {t('invoices.supported_formats')}: PDF, DOC, DOCX, JPG, PNG (Max 10MB)
             </p>
           </div>
         )}
       </div>
       
-      <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
-        <p className="text-sm text-blue-700">
+      <div className="mt-4 p-3 bg-primary/10 rounded border border-primary/30">
+        <p className="text-sm text-primary">
           <strong>Test Status:</strong> {testAttachment ? `File selected: ${testAttachment.name}` : 'No file selected'}
         </p>
       </div>

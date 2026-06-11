@@ -16,7 +16,7 @@ export function CardTypeBadge({ type }: CardTypeBadgeProps) {
     return (
       <Badge
         variant="secondary"
-        className="flex items-center gap-1.5 h-6 px-2.5 font-medium border shadow-sm bg-gray-100 text-gray-600 dark:bg-gray-800/40 dark:text-gray-400 border-gray-200 dark:border-gray-700"
+        className="flex items-center gap-1.5 h-6 px-2.5 font-medium border shadow-sm bg-muted text-muted-foreground border-border"
       >
         <Wallet className="h-3.5 w-3.5" />
         {t('statements.card_type.auto')}

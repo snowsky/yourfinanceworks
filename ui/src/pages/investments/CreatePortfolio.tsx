@@ -82,7 +82,7 @@ const CreatePortfolio: React.FC = () => {
             <ProfessionalCard variant="elevated" className="border-border/40 shadow-xl overflow-hidden">
               <div className="bg-primary/5 p-6 border-b border-primary/10">
                 <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-2xl bg-primary text-white shadow-lg">
+                  <div className="p-3 rounded-2xl bg-primary text-primary-foreground shadow-lg">
                     <Wallet className="w-6 h-6" />
                   </div>
                   <div>
@@ -189,19 +189,19 @@ const CreatePortfolio: React.FC = () => {
             </h4>
             <div className="space-y-4">
               <div className="flex gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0" />
                 <p className="text-sm text-muted-foreground">
                   {t('Use specific names like "Fidelity ROTH IRA" for better organization.')}
                 </p>
               </div>
               <div className="flex gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0" />
                 <p className="text-sm text-muted-foreground">
                   {t('Portfolios can be archived later if you close the account.')}
                 </p>
               </div>
               <div className="flex gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0" />
                 <p className="text-sm text-muted-foreground">
                   {t('Multi-currency support allows tracking international investments.')}
                 </p>

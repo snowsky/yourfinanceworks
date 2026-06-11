@@ -44,8 +44,8 @@ export const PluginRouteGuard: React.FC<PluginRouteGuardProps> = ({
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/20">
-              <AlertTriangle className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-warning/10">
+              <AlertTriangle className="h-6 w-6 text-warning" />
             </div>
             <CardTitle className="text-lg">
               {pluginName} is Disabled

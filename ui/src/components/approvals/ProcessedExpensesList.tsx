@@ -97,7 +97,7 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
     switch (status) {
       case 'approved':
         return (
-          <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100">
+          <Badge variant="default" className="bg-success/10 text-success hover:bg-success/10">
             <CheckCircle className="w-3 h-3 mr-1" />
             {t('approvalDashboard.approved')}
           </Badge>
@@ -126,7 +126,7 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               placeholder={t('expenses.search_placeholder', { defaultValue: 'Search by vendor, category, or notes...' })}
               value={searchQuery}
@@ -262,13 +262,13 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-medium text-gray-900 truncate">
+                      <h3 className="font-medium text-foreground truncate">
                         {expense.description || `${expense.category} - ${expense.vendor || 'Unknown vendor'}`}
                       </h3>
                       {getStatusBadge(expense.status)}
                     </div>
 
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <DollarSign className="h-3 w-3" />
                         {formatCurrency(expense.amount, expense.currency)}
@@ -309,7 +309,7 @@ export function ProcessedExpensesList({ onViewDetails }: ProcessedExpensesListPr
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-muted-foreground">
             {t('approvalDashboard.showing')} {page * pageSize + 1}-{Math.min((page + 1) * pageSize, total)} {t('approvalDashboard.of')} {total} {t('approvalDashboard.expenses')}
           </div>
 

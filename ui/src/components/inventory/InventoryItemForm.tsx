@@ -458,7 +458,7 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                   <div className="space-y-4">
                     {/* Unlimited Stock Option for Services */}
                     {formData.item_type === 'service' && (
-                      <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="p-3 bg-primary/10 rounded-lg border border-primary/30">
                         <div className="flex items-center space-x-2">
                           <Switch
                             id="unlimited_stock"
@@ -473,7 +473,7 @@ const InventoryItemForm = ({ isEdit = false }: InventoryItemFormProps) => {
                           {t('inventory.unlimited_stock_help')}
                         </p>
                         {formData.unlimited_stock && (
-                          <div className="mt-2 text-sm text-green-600 dark:text-green-400 flex items-center">
+                          <div className="mt-2 text-sm text-success flex items-center">
                             <span>✓ Available: Unlimited</span>
                           </div>
                         )}

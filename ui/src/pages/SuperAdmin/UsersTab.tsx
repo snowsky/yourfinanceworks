@@ -362,8 +362,8 @@ export const UsersTab: React.FC<UsersTabProps> = ({
                       </div>
                     )}
                     {createUserForm.is_sso && (
-                      <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                        <p className="text-sm text-blue-800 dark:text-blue-200">
+                      <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg">
+                        <p className="text-sm text-primary">
                           <strong>SSO User:</strong> The user will be able to sign in using any configured SSO provider.
                           No password is required for SSO users.
                         </p>
@@ -511,8 +511,8 @@ export const UsersTab: React.FC<UsersTabProps> = ({
                   const tenantId = tenant.id.toString();
                   const isSelected = editUserForm.tenant_ids.includes(tenantId);
                   return (
-                    <div key={tenant.id} className={`flex items-center justify-between space-x-2 ${isOwnOrg ? 'bg-gray-50' : ''} p-2 rounded`}>
-                      <label className={`flex items-center space-x-2 ${isOwnOrg ? 'text-gray-600' : ''}`}>
+                    <div key={tenant.id} className={`flex items-center justify-between space-x-2 ${isOwnOrg ? 'bg-muted' : ''} p-2 rounded`}>
+                      <label className={`flex items-center space-x-2 ${isOwnOrg ? 'text-muted-foreground' : ''}`}>
                         <input
                           type="checkbox"
                           checked={isSelected}

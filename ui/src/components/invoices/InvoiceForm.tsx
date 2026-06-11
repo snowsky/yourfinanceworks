@@ -471,12 +471,12 @@ export function InvoiceForm({
       {attachmentManagement.invoiceAttachments.length > 0 && !isEdit && (
         <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg shadow-sm">
           <div className="flex items-center gap-3">
-            <FileText className="h-6 w-6 text-blue-600" />
+            <FileText className="h-6 w-6 text-primary" />
             <div className="flex-1">
-              <h4 className="text-sm font-semibold text-gray-900">
+              <h4 className="text-sm font-semibold text-foreground">
                 📄 {attachmentManagement.invoiceAttachments.length} {attachmentManagement.invoiceAttachments.length === 1 ? 'File' : 'Files'} Ready to Upload
               </h4>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 <span className="font-medium">
                   {attachmentManagement.invoiceAttachments.map(f => f.name).join(', ')}
                 </span>

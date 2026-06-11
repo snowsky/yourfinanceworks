@@ -58,9 +58,9 @@ const PortfolioAnalytics: React.FC<PortfolioAnalyticsProps> = ({ portfolioId }) 
   }
 
   const getDiversificationColor = (score: number) => {
-    if (score >= 80) return 'text-emerald-600';
-    if (score >= 60) return 'text-amber-600';
-    return 'text-rose-600';
+    if (score >= 80) return 'text-success';
+    if (score >= 60) return 'text-warning';
+    return 'text-destructive';
   };
 
   const getDiversificationLabel = (score: number) => {
@@ -106,12 +106,12 @@ const PortfolioAnalytics: React.FC<PortfolioAnalyticsProps> = ({ portfolioId }) 
                 <div className="space-y-3">
                   <div className="flex justify-between items-center py-2 border-b border-border/30">
                     <span className="text-sm text-muted-foreground">Largest Holding</span>
-                    <span className={cn("font-bold text-sm", diversification.concentration_risk.largest_holding_percentage > 30 ? 'text-rose-600' : 'text-foreground')}>
+                    <span className={cn("font-bold text-sm", diversification.concentration_risk.largest_holding_percentage > 30 ? 'text-destructive' : 'text-foreground')}>
                       {formatter.formatPercent(diversification.concentration_risk.largest_holding_percentage / 100, 1)}
                     </span>
                   </div>
                   {diversification.concentration_risk.largest_holding_percentage > 30 && (
-                    <div className="flex gap-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-900/10 border border-rose-200/50 text-rose-800 dark:text-rose-200">
+                    <div className="flex gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive">
                       <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                       <p className="text-xs">High concentration risk detected</p>
                     </div>
@@ -135,7 +135,7 @@ const PortfolioAnalytics: React.FC<PortfolioAnalyticsProps> = ({ portfolioId }) 
                     return (
                       <div key={symbol} className="flex justify-between items-center p-3 rounded-lg bg-muted/30 border border-border/50">
                         <span className="font-mono text-sm font-semibold">{symbol}</span>
-                        <span className={cn("font-bold text-sm", yieldNum > 0 ? 'text-emerald-600' : 'text-muted-foreground')}>
+                        <span className={cn("font-bold text-sm", yieldNum > 0 ? 'text-success' : 'text-muted-foreground')}>
                           {formatter.formatPercent(yieldNum / 100, 2)}
                         </span>
                       </div>
@@ -212,14 +212,14 @@ const PortfolioAnalytics: React.FC<PortfolioAnalyticsProps> = ({ portfolioId }) 
 
             {dividendForecast ? (
               <>
-                <div className="p-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200/50">
-                  <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">
+                <div className="p-4 rounded-lg bg-success/10 border border-success/30">
+                  <p className="text-xs font-semibold text-success mb-1">
                     {t('Projected Income')}
                   </p>
-                  <p className="text-2xl font-bold text-emerald-600">
+                  <p className="text-2xl font-bold text-success">
                     {formatter.formatCurrency(typeof dividendForecast.total_forecast === 'number' ? dividendForecast.total_forecast : parseFloat(String(dividendForecast.total_forecast)) || 0)}
                   </p>
-                  <p className="text-xs text-emerald-600/70 mt-2">
+                  <p className="text-xs text-success/70 mt-2">
                     {t('Next')} {forecastMonths} {t('months')}
                   </p>
                 </div>
@@ -233,7 +233,7 @@ const PortfolioAnalytics: React.FC<PortfolioAnalyticsProps> = ({ portfolioId }) 
                         return (
                           <div key={symbol} className="flex justify-between items-center text-xs p-2 rounded bg-muted/30">
                             <span className="font-mono font-semibold">{symbol}</span>
-                            <span className="text-emerald-600 font-bold">{formatter.formatCurrency(expectedIncome)}</span>
+                            <span className="text-success font-bold">{formatter.formatCurrency(expectedIncome)}</span>
                           </div>
                         );
                       })}
@@ -249,7 +249,7 @@ const PortfolioAnalytics: React.FC<PortfolioAnalyticsProps> = ({ portfolioId }) 
       </div>
 
       {/* Info Box */}
-      <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200/50 text-blue-800 dark:text-blue-200">
+      <div className="p-4 rounded-2xl bg-primary/10 border border-primary/30 text-primary">
         <div className="flex gap-3 items-start">
           <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <div className="space-y-2 text-sm">

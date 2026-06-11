@@ -57,8 +57,8 @@ export function InvoiceClientSection({
     <ProfessionalCard variant="elevated" className="overflow-hidden border-0">
       <div className="pb-6 border-b border-border/50 mb-8">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
-            <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+          <div className="p-3 bg-primary/10 rounded-xl">
+            <Users className="h-6 w-6 text-primary" />
           </div>
           <div>
             <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.client_info')}</h2>
@@ -203,8 +203,8 @@ export function InvoiceClientSection({
         <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-2xl">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                <Plus className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Plus className="h-5 w-5 text-primary" />
               </div>
               {t('invoices.add_new_client')}
             </DialogTitle>

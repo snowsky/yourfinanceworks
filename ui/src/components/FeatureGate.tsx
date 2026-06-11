@@ -29,7 +29,7 @@ export const FeatureGate: React.FC<FeatureGateProps> = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center p-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
       </div>
     );
   }
@@ -42,14 +42,14 @@ export const FeatureGate: React.FC<FeatureGateProps> = ({
   if (featureIsExpired && showExpiredContent && !featureIsEnabled) {
     return (
       <>
-        <Alert className="border-amber-300 bg-amber-50 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <Alert className="border-warning/30 bg-warning/10 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex gap-3">
             <div className="shrink-0 mt-0.5">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertTriangle className="h-4 w-4 text-warning" />
             </div>
             <div>
-              <AlertTitle className="text-amber-900">{t('settings.license.expired')}</AlertTitle>
-              <AlertDescription className="text-amber-800 mt-1">
+              <AlertTitle className="text-warning">{t('settings.license.expired')}</AlertTitle>
+              <AlertDescription className="text-warning mt-1">
                 {t('settings.license.expired_message')}
               </AlertDescription>
             </div>
@@ -72,14 +72,14 @@ export const FeatureGate: React.FC<FeatureGateProps> = ({
       const isLicenseExpired = licenseStatus && licenseStatus.is_license_expired;
 
       return (
-        <Alert className="border-amber-200 bg-amber-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <Alert className="border-warning/30 bg-warning/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex gap-3">
             <div className="shrink-0 mt-0.5">
-              <Lock className="h-4 w-4 text-amber-600" />
+              <Lock className="h-4 w-4 text-warning" />
             </div>
             <div>
-              <AlertTitle className="text-amber-900">{t('settings.license.feature_locked')}</AlertTitle>
-              <AlertDescription className="text-amber-800 mt-1 space-y-2">
+              <AlertTitle className="text-warning">{t('settings.license.feature_locked')}</AlertTitle>
+              <AlertDescription className="text-warning mt-1 space-y-2">
                 <p>{defaultMessage}</p>
                 {isTrialExpired && (
                   <p className="text-sm">{t('settings.license.trial_ended')}</p>
@@ -125,14 +125,14 @@ export const FeatureAlert: React.FC<FeatureAlertProps> = ({
   const isLicenseExpired = licenseStatus && licenseStatus.is_license_expired;
 
   return (
-    <Alert className="border-blue-200 bg-blue-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <Alert className="border-primary/30 bg-primary/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div className="flex gap-3">
         <div className="shrink-0 mt-0.5">
-          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertCircle className="h-4 w-4 text-primary" />
         </div>
         <div>
-          <AlertTitle className="text-blue-900">{title}</AlertTitle>
-          <AlertDescription className="text-blue-800 mt-1 space-y-2">
+          <AlertTitle className="text-primary">{title}</AlertTitle>
+          <AlertDescription className="text-primary mt-1 space-y-2">
             <p>{defaultMessage}</p>
             {isTrialExpired && (
               <p className="text-sm">{t('settings.license.trial_ended_access')}</p>
