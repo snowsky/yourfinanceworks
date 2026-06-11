@@ -163,31 +163,31 @@ const InvestmentAnalytics: React.FC = () => {
         <div className="space-y-6">
           <ProfessionalCard title={t('Performance Insights')} className="border-border/40">
             <div className="space-y-6 pt-4">
-              <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200/50 flex gap-4">
-                <ArrowUpRight className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+              <div className="p-4 rounded-xl bg-success/10 border border-success/30 flex gap-4">
+                <ArrowUpRight className="w-5 h-5 text-success flex-shrink-0" />
                 <div className="space-y-1">
-                  <p className="text-sm font-bold text-emerald-800 dark:text-emerald-200">{t('Above Average Return')}</p>
-                  <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80 leading-relaxed">
+                  <p className="text-sm font-bold text-success">{t('Above Average Return')}</p>
+                  <p className="text-xs text-success/80 leading-relaxed">
                     {t('Your combined portfolio is outperforming the broad market benchmarks (S&P 500) over the current period.')}
                   </p>
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200/50 flex gap-4">
-                <Target className="w-5 h-5 text-blue-600 flex-shrink-0" />
+              <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 flex gap-4">
+                <Target className="w-5 h-5 text-primary flex-shrink-0" />
                 <div className="space-y-1">
-                  <p className="text-sm font-bold text-blue-800 dark:text-blue-200">{t('Allocation Diversified')}</p>
-                  <p className="text-xs text-blue-700/80 dark:text-blue-300/80 leading-relaxed">
+                  <p className="text-sm font-bold text-primary">{t('Allocation Diversified')}</p>
+                  <p className="text-xs text-primary/80 leading-relaxed">
                     {t('You have healthy exposure across 3+ asset classes, reducing single-point-of-failure risk.')}
                   </p>
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 flex gap-4">
-                <Info className="w-5 h-5 text-amber-600 flex-shrink-0" />
+              <div className="p-4 rounded-xl bg-warning/10 border border-warning/30 flex gap-4">
+                <Info className="w-5 h-5 text-warning flex-shrink-0" />
                 <div className="space-y-1">
-                  <p className="text-sm font-bold text-amber-800 dark:text-amber-200">{t('Rebalancing Suggestion')}</p>
-                  <p className="text-xs text-amber-700/80 dark:text-amber-300/80 leading-relaxed">
+                  <p className="text-sm font-bold text-warning">{t('Rebalancing Suggestion')}</p>
+                  <p className="text-xs text-warning/80 leading-relaxed">
                     {t('Some asset classes have drifted from target weights. Consider rebalancing to maintain your risk profile.')}
                   </p>
                 </div>

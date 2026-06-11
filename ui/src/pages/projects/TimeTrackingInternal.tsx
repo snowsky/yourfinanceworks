@@ -101,7 +101,7 @@ export default function TimeTracking() {
                 onClick={() => setTab(id)}
                 className={cn(
                   "h-8 px-4 rounded-lg font-medium transition-all duration-200",
-                  activeTab === id && "bg-white dark:bg-slate-800 shadow-sm text-primary"
+                  activeTab === id && "bg-card shadow-sm text-primary"
                 )}
               >
                 <Icon className="w-4 h-4 mr-2" />
@@ -251,7 +251,7 @@ function ProjectsTab() {
                 onClick={() => setStatusFilter(s)}
                 className={cn(
                   "h-8 px-3 rounded-lg font-medium transition-all duration-200",
-                  statusFilter === s && "bg-white dark:bg-slate-800 shadow-sm text-primary"
+                  statusFilter === s && "bg-card shadow-sm text-primary"
                 )}
               >
                 {s === '' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -262,7 +262,7 @@ function ProjectsTab() {
             <Button
               variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
               size="icon"
-              className={cn("h-8 w-8 rounded-lg", viewMode === 'cards' && "bg-white dark:bg-slate-800 shadow-sm text-primary")}
+              className={cn("h-8 w-8 rounded-lg", viewMode === 'cards' && "bg-card shadow-sm text-primary")}
               onClick={() => setViewMode('cards')}
               title="Card view"
             >
@@ -271,7 +271,7 @@ function ProjectsTab() {
             <Button
               variant={viewMode === 'list' ? 'secondary' : 'ghost'}
               size="icon"
-              className={cn("h-8 w-8 rounded-lg", viewMode === 'list' && "bg-white dark:bg-slate-800 shadow-sm text-primary")}
+              className={cn("h-8 w-8 rounded-lg", viewMode === 'list' && "bg-card shadow-sm text-primary")}
               onClick={() => setViewMode('list')}
               title="List view"
             >
@@ -568,7 +568,7 @@ function ProjectCardUI({
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-             <div className="p-1.5 rounded-lg bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300 shadow-sm border border-primary/10">
+             <div className="p-1.5 rounded-lg bg-primary/5 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300 shadow-sm border border-primary/10">
                 <FolderKanban className="w-4 h-4" />
              </div>
              <h3 className="text-lg font-bold group-hover:text-primary transition-colors line-clamp-1">{project.name}</h3>
@@ -802,7 +802,7 @@ function MyTimeTab() {
               <div className="grid gap-3 rounded-xl border border-border/50 bg-background/40 p-4">
                 <div className="text-sm font-medium text-foreground">Task name column</div>
                 {csvPreviewError ? (
-                  <div className="text-sm text-red-600 dark:text-red-300">{csvPreviewError}</div>
+                  <div className="text-sm text-destructive">{csvPreviewError}</div>
                 ) : csvPreview ? (
                   <div className="overflow-x-auto rounded-lg border border-border/50">
                     <table className="min-w-full text-left text-xs">
@@ -911,7 +911,7 @@ function MyTimeTab() {
               </ProfessionalButton>
             </div>
             {importErrors.length > 0 && (
-              <div className="rounded-xl border border-red-200/60 bg-red-50/70 p-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+              <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 <div className="font-semibold mb-2">Rows that could not be imported</div>
                 <ul className="space-y-1">
                   {importErrors.slice(0, 6).map((error) => (
@@ -984,7 +984,7 @@ function MyTimeTab() {
               <ProfessionalCard key={entry.id} className="p-4 bg-card/50 border border-border/50 hover:border-primary/20 transition-all hover:shadow-md group">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="p-2 rounded-xl bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white transition-colors border border-primary/10">
+                    <div className="p-2 rounded-xl bg-primary/5 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors border border-primary/10">
                       <Clock className="h-5 w-5" />
                     </div>
                     <div className="flex-1 min-w-0">

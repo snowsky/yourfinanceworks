@@ -126,8 +126,8 @@ export function ReminderCard({
   return (
     <Card className={cn(
       "transition-all duration-200 hover:shadow-md h-full flex flex-col",
-      isOverdue && "border-red-300 bg-red-50",
-      isDueToday && "border-orange-300 bg-orange-50",
+      isOverdue && "border-destructive/30 bg-destructive/10",
+      isDueToday && "border-warning/30 bg-warning/10",
       reminder.is_pinned && "border-primary/50 bg-primary/5 shadow-sm",
       reminder.status === 'completed' && "opacity-75",
       className
@@ -180,12 +180,12 @@ export function ReminderCard({
               <Calendar className="h-3 w-3" />
               <span className={cn(
                 "font-medium",
-                isOverdue && "text-red-500",
-                isDueToday && "text-orange-500"
+                isOverdue && "text-destructive",
+                isDueToday && "text-warning"
               )}>
                 {formatDueDate(dueDate)}
               </span>
-              {isOverdue && <AlertCircle className="h-3 w-3 text-red-500" />}
+              {isOverdue && <AlertCircle className="h-3 w-3 text-destructive" />}
             </div>
             
             <div className="flex items-center gap-1 ml-auto">
@@ -235,7 +235,7 @@ export function ReminderCard({
           )}
 
           {typeof reminder.snooze_count === 'number' && reminder.snooze_count > 0 && (
-            <div className="flex items-center gap-1 text-blue-600">
+            <div className="flex items-center gap-1 text-primary">
               <Timer className="h-2.5 w-2.5" />
               <span>{t('reminders.snoozed')} {reminder.snooze_count}x</span>
             </div>
@@ -253,13 +253,13 @@ export function ReminderCard({
         )}
 
         {reminder.snoozed_until && (
-          <div className="text-[10px] text-blue-600 mb-1">
+          <div className="text-[10px] text-primary mb-1">
             {t('reminders.snoozed_until')} {format(new Date(reminder.snoozed_until), 'MMM d, yyyy h:mm a')}
           </div>
         )}
 
         {reminder.completed_at && (
-          <div className="text-[10px] text-green-600 mb-1">
+          <div className="text-[10px] text-success mb-1">
             {t('reminders.completed_on')} {format(new Date(reminder.completed_at), 'MMM d, yyyy h:mm a')}
           </div>
         )}
@@ -304,7 +304,7 @@ export function ReminderCard({
                   size="sm"
                   variant="outline"
                   onClick={() => onUnsnooze?.(reminder.id)}
-                  className="h-7 w-7 p-0 text-blue-600"
+                  className="h-7 w-7 p-0 text-primary"
                   title={t('reminders.unsnooze')}
                 >
                   <Play className="h-3.5 w-3.5" />
@@ -330,7 +330,7 @@ export function ReminderCard({
                 variant="ghost"
                 size="sm"
                 onClick={() => onDelete?.(reminder.id)}
-                className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
+                className="h-7 w-7 p-0 text-destructive/60 hover:text-destructive hover:bg-destructive/10"
                 title={t('common.delete')}
               >
                 <Trash2 className="h-3.5 w-3.5" />

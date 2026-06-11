@@ -37,36 +37,36 @@ export function DuplicateExpensePanel({ groups }: DuplicateExpensePanelProps) {
   };
 
   return (
-    <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 mb-3 overflow-hidden shadow-sm">
+    <div className="rounded-xl border border-warning/30 bg-warning/10 mb-3 overflow-hidden shadow-sm">
       {/* Header row — always visible, click to expand */}
       <button
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-warning/20 transition-colors"
         onClick={() => setExpanded(v => !v)}
         aria-expanded={expanded}
       >
-        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-        <span className="flex-1 text-sm font-medium text-amber-800 dark:text-amber-300">
+        <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0" />
+        <span className="flex-1 text-sm font-medium text-warning">
           <span className="font-bold">{count}</span>{' '}
           potential duplicate expense {count !== 1 ? 'groups' : 'group'} detected — same amount, vendor, and similar dates.{' '}
           <span className="font-normal opacity-80">Click to {expanded ? 'hide' : 'review'}.</span>
         </span>
         {expanded
-          ? <ChevronUp className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-          : <ChevronDown className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          ? <ChevronUp className="h-4 w-4 text-warning flex-shrink-0" />
+          : <ChevronDown className="h-4 w-4 text-warning flex-shrink-0" />
         }
       </button>
 
       {/* Expandable body */}
       {expanded && (
-        <div className="border-t border-amber-200 dark:border-amber-800 divide-y divide-amber-200 dark:divide-amber-800">
+        <div className="border-t border-warning/30 divide-y divide-warning/30">
           {groups.map((group, gi) => (
-            <div key={gi} className="bg-white dark:bg-background">
+            <div key={gi} className="bg-card">
               {/* Group header */}
               <button
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-amber-50 dark:hover:bg-amber-950/10 transition-colors"
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-warning/10 transition-colors"
                 onClick={() => toggleGroup(gi)}
               >
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 min-w-[60px]">
+                <span className="text-xs font-bold uppercase tracking-wider text-warning min-w-[60px]">
                   Group {gi + 1}
                 </span>
                 <span className="flex-1 text-xs text-muted-foreground truncate">
@@ -79,7 +79,7 @@ export function DuplicateExpensePanel({ groups }: DuplicateExpensePanelProps) {
                   {group[0]?.category && (
                     <span className="mr-2 opacity-70">{group[0].category}</span>
                   )}
-                  <span className="text-amber-600 dark:text-amber-500">
+                  <span className="text-warning">
                     · {group.length} occurrences
                   </span>
                 </span>
@@ -95,7 +95,7 @@ export function DuplicateExpensePanel({ groups }: DuplicateExpensePanelProps) {
                   {group.map((exp, ei) => (
                     <div
                       key={ei}
-                      className="flex items-center gap-3 rounded-lg border border-amber-100 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-950/10 px-3 py-2 text-xs"
+                      className="flex items-center gap-3 rounded-lg border border-warning/20 bg-warning/5 px-3 py-2 text-xs"
                     >
                       <div className="flex-1 min-w-0">
                         <span className="font-medium text-foreground truncate block">
@@ -115,7 +115,7 @@ export function DuplicateExpensePanel({ groups }: DuplicateExpensePanelProps) {
                       </div>
                       <Link
                         to={`/expenses/view/${exp.id}`}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-200 dark:bg-amber-800/40 text-amber-800 dark:text-amber-300 hover:bg-amber-300 dark:hover:bg-amber-700/50 transition-colors flex-shrink-0 whitespace-nowrap"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-warning/20 text-warning hover:bg-warning/30 transition-colors flex-shrink-0 whitespace-nowrap"
                         title={`View expense #${exp.id}`}
                       >
                         <ExternalLink className="h-3 w-3" />

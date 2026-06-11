@@ -197,7 +197,7 @@ export const CookieSettingsTab: React.FC = () => {
             <div className="flex flex-col gap-3 p-5 rounded-xl border border-border/50 bg-card/50 hover:bg-card transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="p-2.5 bg-green-50 text-green-600 rounded-lg">
+                  <div className="p-2.5 bg-primary/10 text-primary rounded-lg">
                     <Shield className="w-5 h-5" />
                   </div>
                   <div>
@@ -212,7 +212,7 @@ export const CookieSettingsTab: React.FC = () => {
                     checked={preferences.essential}
                     disabled={true}
                     aria-label={t('cookieConsent.settings.categories.essential.ariaLabel')}
-                    className="data-[state=checked]:bg-green-600 opacity-80"
+                    className="data-[state=checked]:bg-success opacity-80"
                   />
                 </div>
               </div>
@@ -225,18 +225,18 @@ export const CookieSettingsTab: React.FC = () => {
             <div className={cn(
               "flex flex-col gap-3 p-5 rounded-xl border transition-all duration-200",
               preferences.analytics
-                ? "border-blue-200 bg-blue-50/30"
+                ? "border-primary/30 bg-primary/10"
                 : "border-border/50 bg-card/50 hover:bg-card"
             )}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className={cn("p-2.5 rounded-lg", preferences.analytics ? "bg-blue-100 text-blue-600" : "bg-muted text-muted-foreground")}>
+                  <div className={cn("p-2.5 rounded-lg", preferences.analytics ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
                     <Eye className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <Label className="text-base font-semibold">{t('cookieConsent.settings.categories.analytics.title')}</Label>
-                      {preferences.analytics && <Badge variant="default" className="bg-blue-600 text-[10px] uppercase tracking-wider">{t('cookieConsent.settings.enabled')}</Badge>}
+                      {preferences.analytics && <Badge variant="default" className="bg-primary text-[10px] uppercase tracking-wider">{t('cookieConsent.settings.enabled')}</Badge>}
                     </div>
                   </div>
                 </div>
@@ -244,7 +244,7 @@ export const CookieSettingsTab: React.FC = () => {
                   checked={preferences.analytics}
                   onCheckedChange={(checked) => handlePreferenceChange('analytics', checked)}
                   aria-label={t('cookieConsent.settings.categories.analytics.ariaLabel')}
-                  className="data-[state=checked]:bg-blue-600"
+                  className="data-[state=checked]:bg-primary"
                 />
               </div>
               <p className="text-sm text-muted-foreground pl-[52px] leading-relaxed">
@@ -288,13 +288,13 @@ export const CookieSettingsTab: React.FC = () => {
 
           {/* Save Actions */}
           {hasUnsavedChanges && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 animate-in slide-in-from-bottom-2 duration-300">
+            <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 animate-in slide-in-from-bottom-2 duration-300">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-amber-100 text-amber-600 rounded-full">
+                  <div className="p-2 bg-warning/10 text-warning rounded-full">
                     <RefreshCw className="w-4 h-4" />
                   </div>
-                  <span className="font-medium text-amber-900">
+                  <span className="font-medium text-warning">
                     {t('cookieConsent.settings.unsavedChanges')}
                   </span>
                 </div>
@@ -303,7 +303,7 @@ export const CookieSettingsTab: React.FC = () => {
                     onClick={handleReset}
                     variant="ghost"
                     size="sm"
-                    className="flex-1 sm:flex-none text-amber-700 hover:text-amber-900 hover:bg-amber-100"
+                    className="flex-1 sm:flex-none text-warning hover:text-warning hover:bg-warning/10"
                   >
                     {t('cookieConsent.settings.reset')}
                   </ProfessionalButton>
@@ -312,7 +312,7 @@ export const CookieSettingsTab: React.FC = () => {
                     size="sm"
                     disabled={isSaving}
                     loading={isSaving}
-                    className="flex-1 sm:flex-none bg-amber-600 hover:bg-amber-700 text-white shadow-sm border-amber-700/20"
+                    className="flex-1 sm:flex-none bg-warning hover:bg-warning text-white shadow-sm border-warning/20"
                   >
                     {!isSaving && <Save className="w-4 h-4 mr-2" />}
                     {t('cookieConsent.settings.saveChanges')}
@@ -323,9 +323,9 @@ export const CookieSettingsTab: React.FC = () => {
           )}
 
           {!hasUnsavedChanges && !isLoading && (
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 text-green-800 animate-in fade-in duration-300">
-              <div className="p-1.5 bg-green-100 rounded-full">
-                <Check className="w-4 h-4 text-green-600" />
+            <div className="bg-success/10 border border-success/30 rounded-xl p-4 flex items-center gap-3 text-success animate-in fade-in duration-300">
+              <div className="p-1.5 bg-success/10 rounded-full">
+                <Check className="w-4 h-4 text-success" />
               </div>
               <span className="font-medium">
                 {t('cookieConsent.settings.upToDate')}

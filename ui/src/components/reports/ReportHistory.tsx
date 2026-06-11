@@ -86,10 +86,10 @@ const STATUS_LABELS = {
 };
 
 const STATUS_COLORS = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  generating: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-800'
+  pending: 'bg-warning/10 text-warning',
+  generating: 'bg-primary/10 text-primary',
+  completed: 'bg-success/10 text-success',
+  failed: 'bg-destructive/10 text-destructive'
 };
 
 const STATUS_ICONS = {
@@ -267,7 +267,7 @@ export function ReportHistory({ className }: ReportHistoryProps) {
           <div className="flex flex-wrap gap-4 mb-6">
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
                   placeholder={t('reports.search_placeholder', { defaultValue: 'Search reports...' })}
                   value={filters.search}
@@ -315,8 +315,8 @@ export function ReportHistory({ className }: ReportHistoryProps) {
               Loading reports...
             </div>
           ) : filteredReports.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <div className="text-center py-8 text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p>No reports found</p>
               <p className="text-sm">Generate your first report to see it here</p>
             </div>
@@ -342,7 +342,7 @@ export function ReportHistory({ className }: ReportHistoryProps) {
                             {REPORT_TYPE_LABELS[report.report_type as keyof typeof REPORT_TYPE_LABELS]}
                           </div>
                           {report.parameters.filters?.client_name && (
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-muted-foreground">
                               Client: {report.parameters.filters.client_name}
                             </div>
                           )}
@@ -358,17 +358,17 @@ export function ReportHistory({ className }: ReportHistoryProps) {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4 text-gray-400" />
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
                           {format(new Date(report.generated_at), 'MMM dd, yyyy HH:mm')}
                         </div>
                       </TableCell>
                       <TableCell>
                         {report.expires_at ? (
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-muted-foreground">
                             {format(new Date(report.expires_at), 'MMM dd, yyyy')}
                           </div>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -419,7 +419,7 @@ export function ReportHistory({ className }: ReportHistoryProps) {
                                   setReportToDelete(report);
                                   setDeleteDialogOpen(true);
                                 }}
-                                className="text-red-600"
+                                className="text-destructive"
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Delete
@@ -436,7 +436,7 @@ export function ReportHistory({ className }: ReportHistoryProps) {
               {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-muted-foreground">
                     Showing {page * limit + 1} to {Math.min((page + 1) * limit, total)} of {total} reports
                   </div>
                   <div className="flex gap-2">
@@ -472,7 +472,7 @@ export function ReportHistory({ className }: ReportHistoryProps) {
             <AlertDialogDescription>
               Are you sure you want to delete this report? This action cannot be undone.
               {reportToDelete && (
-                <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
+                <div className="mt-2 p-2 bg-muted rounded text-sm">
                   <strong>{REPORT_TYPE_LABELS[reportToDelete.report_type as keyof typeof REPORT_TYPE_LABELS]}</strong>
                   <br />
                   Generated: {format(new Date(reportToDelete.generated_at), 'MMM dd, yyyy HH:mm')}
@@ -482,7 +482,7 @@ export function ReportHistory({ className }: ReportHistoryProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
               Delete Report
             </AlertDialogAction>
           </AlertDialogFooter>

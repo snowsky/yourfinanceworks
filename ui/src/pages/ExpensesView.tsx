@@ -246,7 +246,7 @@ export default function ExpensesView() {
                   onClick={handleUnsubmit}
                   variant="outline"
                   disabled={unsubmitLoading}
-                  className="border-amber-200 text-amber-700 hover:bg-amber-50"
+                  className="border-warning/30 text-warning hover:bg-warning/10"
                 >
                   <AlertCircle className="mr-2 h-4 w-4" />
                   {t('expenses.unsubmit', { defaultValue: 'Unsubmit' })}
@@ -330,37 +330,37 @@ export default function ExpensesView() {
 
         {/* Show approval request message if exists */}
         {approval && approval.notes && (
-          <Card className="slide-in border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50">
+          <Card className="slide-in border-primary/30 bg-primary/10">
             <CardHeader>
-              <CardTitle className="text-blue-900 dark:text-blue-100">{t('expenses.approval_request_message', { defaultValue: 'Approval Request Message' })}</CardTitle>
+              <CardTitle className="text-primary">{t('expenses.approval_request_message', { defaultValue: 'Approval Request Message' })}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-blue-800 dark:text-blue-200">{approval.notes}</p>
+              <p className="text-sm text-primary">{approval.notes}</p>
             </CardContent>
           </Card>
         )}
 
         {/* Show approval/rejection information if expense has been processed */}
         {approval && approval.status === 'approved' && approval.approved_by_username && (
-          <Card className="slide-in border-green-200 bg-green-50">
+          <Card className="slide-in border-success/30 bg-success/10">
             <CardHeader>
-              <CardTitle className="text-green-900">{t('expenses.approval_information', { defaultValue: 'Approval Information' })}</CardTitle>
+              <CardTitle className="text-success">{t('expenses.approval_information', { defaultValue: 'Approval Information' })}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div>
-                <span className="text-sm font-medium text-green-800">{t('expenses.approved_by', { defaultValue: 'Approved by' })}: </span>
-                <span className="text-sm text-green-700">{approval.approved_by_username}</span>
+                <span className="text-sm font-medium text-success">{t('expenses.approved_by', { defaultValue: 'Approved by' })}: </span>
+                <span className="text-sm text-success">{approval.approved_by_username}</span>
               </div>
               {approval.decided_at && (
                 <div>
-                  <span className="text-sm font-medium text-green-800">{t('expenses.approved_at', { defaultValue: 'Approved at' })}: </span>
-                  <span className="text-sm text-green-700">{new Date(approval.decided_at).toLocaleString()}</span>
+                  <span className="text-sm font-medium text-success">{t('expenses.approved_at', { defaultValue: 'Approved at' })}: </span>
+                  <span className="text-sm text-success">{new Date(approval.decided_at).toLocaleString()}</span>
                 </div>
               )}
               {approval.notes && (
                 <div>
-                  <span className="text-sm font-medium text-green-800">{t('expenses.approval_notes', { defaultValue: 'Notes' })}: </span>
-                  <span className="text-sm text-green-700">{approval.notes}</span>
+                  <span className="text-sm font-medium text-success">{t('expenses.approval_notes', { defaultValue: 'Notes' })}: </span>
+                  <span className="text-sm text-success">{approval.notes}</span>
                 </div>
               )}
             </CardContent>
@@ -368,31 +368,31 @@ export default function ExpensesView() {
         )}
 
         {approval && approval.status === 'rejected' && approval.rejected_by_username && (
-          <Card className="slide-in border-red-200 bg-red-50">
+          <Card className="slide-in border-destructive/30 bg-destructive/10">
             <CardHeader>
-              <CardTitle className="text-red-900">{t('expenses.rejection_information', { defaultValue: 'Rejection Information' })}</CardTitle>
+              <CardTitle className="text-destructive">{t('expenses.rejection_information', { defaultValue: 'Rejection Information' })}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div>
-                <span className="text-sm font-medium text-red-800">{t('expenses.rejected_by', { defaultValue: 'Rejected by' })}: </span>
-                <span className="text-sm text-red-700">{approval.rejected_by_username}</span>
+                <span className="text-sm font-medium text-destructive">{t('expenses.rejected_by', { defaultValue: 'Rejected by' })}: </span>
+                <span className="text-sm text-destructive">{approval.rejected_by_username}</span>
               </div>
               {approval.decided_at && (
                 <div>
-                  <span className="text-sm font-medium text-red-800">{t('expenses.rejected_at', { defaultValue: 'Rejected at' })}: </span>
-                  <span className="text-sm text-red-700">{new Date(approval.decided_at).toLocaleString()}</span>
+                  <span className="text-sm font-medium text-destructive">{t('expenses.rejected_at', { defaultValue: 'Rejected at' })}: </span>
+                  <span className="text-sm text-destructive">{new Date(approval.decided_at).toLocaleString()}</span>
                 </div>
               )}
               {approval.rejection_reason && (
                 <div>
-                  <span className="text-sm font-medium text-red-800">{t('expenses.rejection_reason', { defaultValue: 'Reason' })}: </span>
-                  <span className="text-sm text-red-700">{approval.rejection_reason}</span>
+                  <span className="text-sm font-medium text-destructive">{t('expenses.rejection_reason', { defaultValue: 'Reason' })}: </span>
+                  <span className="text-sm text-destructive">{approval.rejection_reason}</span>
                 </div>
               )}
               {approval.notes && (
                 <div>
-                  <span className="text-sm font-medium text-red-800">{t('expenses.rejection_notes', { defaultValue: 'Notes' })}: </span>
-                  <span className="text-sm text-red-700">{approval.notes}</span>
+                  <span className="text-sm font-medium text-destructive">{t('expenses.rejection_notes', { defaultValue: 'Notes' })}: </span>
+                  <span className="text-sm text-destructive">{approval.notes}</span>
                 </div>
               )}
             </CardContent>
@@ -439,7 +439,7 @@ export default function ExpensesView() {
                     {form.analysis_status === 'done' ? (
                       <Badge variant="success" className="h-6">{t('expenses.status_done')}</Badge>
                     ) : form.analysis_status === 'processing' || form.analysis_status === 'queued' ? (
-                      <Badge variant="secondary" className="h-6 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800 capitalize">
+                      <Badge variant="secondary" className="h-6 bg-warning/10 text-warning border-warning/30 capitalize">
                         {form.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}
                       </Badge>
                     ) : form.analysis_status === 'failed' ? (
@@ -447,18 +447,18 @@ export default function ExpensesView() {
                     ) : form.analysis_status === 'cancelled' ? (
                       <Badge variant="secondary" className="h-6">Cancelled</Badge>
                     ) : (form as any)?.imported_from_attachment ? (
-                      <Badge variant="outline" className="h-6 border-blue-200 text-blue-700 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                      <Badge variant="outline" className="h-6 border-primary/30 text-primary bg-primary/10">
                         Not Started
                       </Badge>
                     ) : null}
                   </div>
                   {(form as any)?.analysis_error && (form as any)?.analysis_status === 'failed' && (
-                    <Alert className="border-red-200 bg-red-50">
-                      <AlertCircle className="h-4 w-4 text-red-600" />
-                      <AlertDescription className="text-red-800">
+                    <Alert className="border-destructive/30 bg-destructive/10">
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                      <AlertDescription className="text-destructive">
                         <details className="cursor-pointer">
                           <summary className="font-medium mb-1">{t('expenses.analysis_failed_click_details', { defaultValue: 'Analysis failed (click for details)' })}</summary>
-                          <div className="mt-2 text-xs font-mono bg-red-100 p-2 rounded border border-red-200 overflow-x-auto">
+                          <div className="mt-2 text-xs font-mono bg-destructive/10 p-2 rounded border border-destructive/20 overflow-x-auto">
                             {(form as any).analysis_error}
                           </div>
                         </details>
@@ -539,12 +539,12 @@ export default function ExpensesView() {
                   {(() => {
                     const statusColors: Record<string, string> = {
                       draft: 'bg-muted text-muted-foreground border-border',
-                      recorded: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700',
-                      pending_approval: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800',
-                      approved: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800',
-                      rejected: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800',
-                      resubmitted: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800',
-                      reimbursed: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800',
+                      recorded: 'bg-muted text-muted-foreground border-border',
+                      pending_approval: 'bg-warning/10 text-warning border-warning/30',
+                      approved: 'bg-success/10 text-success border-success/30',
+                      rejected: 'bg-destructive/10 text-destructive border-destructive/30',
+                      resubmitted: 'bg-warning/10 text-warning border-warning/30',
+                      reimbursed: 'bg-primary/10 text-primary border-primary/30',
                     };
                     const status = form.status || 'recorded';
                     const labelKey = EXPENSE_STATUS_OPTIONS.find(o => o.value === status)?.labelKey;
@@ -584,7 +584,7 @@ export default function ExpensesView() {
               {/* Inventory Consumption Section - Only show if this is an inventory expense */}
               {isInventoryConsumption && (
                 <div className="sm:col-span-2">
-                  <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
+                  <div className="space-y-3 p-4 border rounded-lg bg-muted">
                     <div className="flex items-center gap-2">
                       <Package className="h-4 w-4" />
                       <span className="text-sm font-medium">{t('expenses.inventory_integration')}</span>
@@ -605,12 +605,12 @@ export default function ExpensesView() {
                     </div>
 
                     <div className="space-y-4">
-                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                        <div className="flex items-center gap-2 text-orange-800 mb-3">
+                      <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
+                        <div className="flex items-center gap-2 text-warning mb-3">
                           <Package className="h-4 w-4" />
                           <span className="text-sm font-medium">{t('expenses.inventory_consumption_details')}</span>
                         </div>
-                        <p className="text-sm text-orange-700 mb-4">
+                        <p className="text-sm text-warning mb-4">
                           {t('expenses.viewing_inventory_consumption', { defaultValue: 'This expense consumed the following inventory items:' })}
                         </p>
 
@@ -622,8 +622,8 @@ export default function ExpensesView() {
                       </div>
 
                       {consumptionItems.length > 0 && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                          <div className="flex items-center gap-2 text-green-800">
+                        <div className="bg-success/10 border border-success/30 rounded-lg p-3">
+                          <div className="flex items-center gap-2 text-success">
                             <Package className="h-4 w-4" />
                             <span className="text-sm font-medium">
                               {t('expenses.consumed_items_count', { count: consumptionItems.length, defaultValue: `${consumptionItems.length} item(s) consumed` })}

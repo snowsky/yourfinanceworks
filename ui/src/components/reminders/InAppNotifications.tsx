@@ -135,11 +135,11 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
 
   const getNotificationIcon = (type: string, priority: string) => {
     if (type === 'overdue') {
-      return <AlertCircle className="h-4 w-4 text-red-500" />;
+      return <AlertCircle className="h-4 w-4 text-destructive" />;
     } else if (type === 'due' || priority === 'urgent') {
-      return <Clock className="h-4 w-4 text-orange-500" />;
+      return <Clock className="h-4 w-4 text-warning" />;
     }
-    return <Bell className="h-4 w-4 text-blue-500" />;
+    return <Bell className="h-4 w-4 text-primary" />;
   };
 
   const getNotificationMessage = (notification: InAppNotification) => {
@@ -292,7 +292,7 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
                       <div 
                         className={cn(
                           "flex items-start gap-3 p-3 rounded-lg transition-colors hover:bg-muted/50",
-                          !notification.is_read && "bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/50",
+                          !notification.is_read && "bg-primary/10 border border-primary/30",
                           notification.reminder && getPriorityColor(notification.reminder.priority),
                           (notification.notification_type === 'join_request' || 
                            notification.notification_type === 'expense_approval' || 
@@ -344,49 +344,49 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
                             )}
                             
                             {notification.notification_type === 'join_request' && (
-                              <Badge variant="outline" className="text-xs border-blue-500 text-blue-700">
+                              <Badge variant="outline" className="text-xs border-primary/30 text-primary">
                                 Join Request
                               </Badge>
                             )}
 
                             {notification.notification_type === 'expense_approval' && (
-                              <Badge variant="outline" className="text-xs border-orange-500 text-orange-700">
+                              <Badge variant="outline" className="text-xs border-warning/30 text-warning">
                                 Approval Needed
                               </Badge>
                             )}
 
                             {notification.notification_type === 'expense_approved' && (
-                              <Badge variant="outline" className="text-xs border-green-500 text-green-700">
+                              <Badge variant="outline" className="text-xs border-success/30 text-success">
                                 Approved
                               </Badge>
                             )}
 
                             {notification.notification_type === 'expense_rejected' && (
-                              <Badge variant="outline" className="text-xs border-red-500 text-red-700">
+                              <Badge variant="outline" className="text-xs border-destructive/30 text-destructive">
                                 Rejected
                               </Badge>
                             )}
 
                             {notification.notification_type === 'invoice_approval' && (
-                              <Badge variant="outline" className="text-xs border-orange-500 text-orange-700">
+                              <Badge variant="outline" className="text-xs border-warning/30 text-warning">
                                 Invoice Approval
                               </Badge>
                             )}
 
                             {notification.notification_type === 'invoice_submitted_for_approval' && (
-                              <Badge variant="outline" className="text-xs border-orange-500 text-orange-700">
+                              <Badge variant="outline" className="text-xs border-warning/30 text-warning">
                                 Invoice Approval
                               </Badge>
                             )}
 
                             {notification.notification_type === 'invoice_fully_approved' && (
-                              <Badge variant="outline" className="text-xs border-green-500 text-green-700">
+                              <Badge variant="outline" className="text-xs border-success/30 text-success">
                                 Invoice Approved
                               </Badge>
                             )}
 
                             {notification.notification_type === 'invoice_rejected' && (
-                              <Badge variant="outline" className="text-xs border-red-500 text-red-700">
+                              <Badge variant="outline" className="text-xs border-destructive/30 text-destructive">
                                 Invoice Rejected
                               </Badge>
                             )}

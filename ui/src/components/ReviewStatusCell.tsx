@@ -53,37 +53,37 @@ const statusConfig: Record<ReviewStatus | 'unknown', {
     label: 'Needs review',
     description: 'Reviewer found differences',
     icon: AlertCircle,
-    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800',
+    badgeClass: 'bg-warning/10 text-warning border-warning/30',
   },
   reviewed: {
     label: 'Accepted',
     description: 'Reviewer changes accepted',
     icon: CheckCircle2,
-    badgeClass: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800',
+    badgeClass: 'bg-success/10 text-success border-success/30',
   },
   no_diff: {
     label: 'Verified',
     description: 'No differences found',
     icon: ShieldCheck,
-    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800',
+    badgeClass: 'bg-primary/10 text-primary border-primary/30',
   },
   pending: {
     label: 'In review',
     description: 'Review is queued or running',
     icon: Clock3,
-    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800',
+    badgeClass: 'bg-primary/10 text-primary border-primary/30',
   },
   failed: {
     label: 'Failed',
     description: 'Review could not complete',
     icon: XCircle,
-    badgeClass: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800',
+    badgeClass: 'bg-destructive/10 text-destructive border-destructive/30',
   },
   rejected: {
     label: 'Dismissed',
     description: 'Review result dismissed',
     icon: XCircle,
-    badgeClass: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/50 dark:text-slate-300 dark:border-slate-700',
+    badgeClass: 'bg-muted text-muted-foreground border-border',
   },
   not_started: {
     label: 'Not started',
@@ -176,7 +176,7 @@ export function ReviewStatusCell({
           {canView && (
             <IconButton
               label={labels?.view || (normalizedStatus === 'diff_found' ? 'Review differences' : 'View review report')}
-              className={normalizedStatus === 'diff_found' ? 'text-amber-700 hover:bg-amber-50 hover:text-amber-800' : undefined}
+              className={normalizedStatus === 'diff_found' ? 'text-warning hover:bg-warning/10 hover:text-warning' : undefined}
               onClick={onView}
             >
               <Eye className="h-3.5 w-3.5" />

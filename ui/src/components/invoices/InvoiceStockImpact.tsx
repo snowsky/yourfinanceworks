@@ -81,26 +81,26 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
   const getMovementTypeIcon = (type: string) => {
     switch (type.toLowerCase()) {
       case 'sale':
-        return <TrendingDown className="h-4 w-4 text-red-500" />;
+        return <TrendingDown className="h-4 w-4 text-destructive" />;
       case 'purchase':
-        return <TrendingUp className="h-4 w-4 text-green-500" />;
+        return <TrendingUp className="h-4 w-4 text-success" />;
       case 'adjustment':
-        return <Package className="h-4 w-4 text-blue-500" />;
+        return <Package className="h-4 w-4 text-primary" />;
       default:
-        return <Package className="h-4 w-4 text-gray-500" />;
+        return <Package className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
   const getMovementTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
       case 'sale':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/10 text-destructive border-destructive/30';
       case 'purchase':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success/10 text-success border-success/30';
       case 'adjustment':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-primary/10 text-primary border-primary/30';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -140,7 +140,7 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
             <div className="text-sm text-muted-foreground">
               {t('inventory.total_stock_impact')}
             </div>
-            <div className={`font-semibold ${totalImpact < 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <div className={`font-semibold ${totalImpact < 0 ? 'text-destructive' : 'text-success'}`}>
               {totalImpact > 0 ? '+' : ''}{totalImpact}
             </div>
           </div>
@@ -151,21 +151,21 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
         {inventoryItems.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-4">
-              <Info className="h-4 w-4 text-blue-500" />
+              <Info className="h-4 w-4 text-primary" />
               <h4 className="font-medium">Inventory Items in this Invoice</h4>
             </div>
             <div className="space-y-3">
               {inventoryItems.map((item, index) => {
                 const { invoiceItem, inventoryItem } = item;
                 return (
-                  <div key={index} className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div key={index} className="p-4 bg-primary/10 border border-primary/30 rounded-lg">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium text-foreground">
                           {inventoryItem?.name || invoiceItem.description}
                         </div>
                         {inventoryItem && (
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-muted-foreground">
                             SKU: {inventoryItem.sku || 'N/A'}
                           </div>
                         )}
@@ -184,15 +184,15 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
                     {inventoryItem ? (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
-                          <span className="text-gray-500">Unit Price:</span>
+                          <span className="text-muted-foreground">Unit Price:</span>
                           <div className="font-medium">${(inventoryItem.unit_price || 0).toFixed(2)}</div>
                         </div>
                         <div>
-                          <span className="text-gray-500">Quantity Sold:</span>
+                          <span className="text-muted-foreground">Quantity Sold:</span>
                           <div className="font-medium">{invoiceItem.quantity} {inventoryItem.unit_of_measure || 'units'}</div>
                         </div>
                         <div>
-                          <span className="text-gray-500">Current Stock:</span>
+                          <span className="text-muted-foreground">Current Stock:</span>
                           <div className="font-medium">
                             {inventoryItem.track_stock 
                               ? `${inventoryItem.current_stock || 0} ${inventoryItem.unit_of_measure || 'units'}`
@@ -201,12 +201,12 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
                           </div>
                         </div>
                         <div>
-                          <span className="text-gray-500">Total Value:</span>
+                          <span className="text-muted-foreground">Total Value:</span>
                           <div className="font-medium">${((invoiceItem.quantity || 0) * (invoiceItem.price || 0)).toFixed(2)}</div>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-muted-foreground">
                         Loading inventory information...
                       </div>
                     )}
@@ -260,7 +260,7 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className={movement.quantity < 0 ? 'text-red-600' : 'text-green-600'}>
+                      <span className={movement.quantity < 0 ? 'text-destructive' : 'text-success'}>
                         {movement.quantity > 0 ? '+' : ''}{movement.quantity}
                       </span>
                     </TableCell>
@@ -315,7 +315,7 @@ export const InvoiceStockImpact: React.FC<InvoiceStockImpactProps> = ({
                   <span className="text-muted-foreground">
                     {t('inventory.net_stock_change')}:
                   </span>
-                  <span className={`ml-2 font-medium ${totalImpact < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  <span className={`ml-2 font-medium ${totalImpact < 0 ? 'text-destructive' : 'text-success'}`}>
                     {totalImpact > 0 ? '+' : ''}{totalImpact}
                   </span>
                 </div>

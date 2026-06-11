@@ -81,10 +81,10 @@ const PromptManagement = () => {
     <FeatureGate
       feature="prompt_management"
       fallback={
-        <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
+        <ProfessionalCard variant="elevated" className="border-primary/30 bg-primary/10">
           <ProfessionalCardContent className="p-12 text-center">
-            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-              <Terminal className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+              <Terminal className="w-8 h-8 text-primary" />
             </div>
             <h3 className="text-2xl font-bold text-foreground mb-3">Business License Required</h3>
             <p className="text-muted-foreground mb-8 max-w-lg mx-auto leading-relaxed">
@@ -98,19 +98,19 @@ const PromptManagement = () => {
               </h4>
               <ul className="text-left space-y-3 text-sm text-foreground/80">
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>Create custom AI prompts for specialized workflows</span>
                 </li>
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>Version control and prompt history tracking</span>
                 </li>
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>Test and optimize prompts with real-time preview</span>
                 </li>
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>Advanced template variables and conditional logic</span>
                 </li>
               </ul>
@@ -477,7 +477,7 @@ const PromptManagementContent = () => {
                   disabled={loading}
                   loading={loading}
                   variant="outline"
-                  className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                  className="border-success/30 text-success hover:bg-success/10"
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
                   {t('settings.promptManagement.applyVersion')}
@@ -592,7 +592,7 @@ const PromptManagementContent = () => {
                               size="icon"
                               onClick={() => handleResetPrompt(prompt.name)}
                               title={t('settings.promptManagement.reset')}
-                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              className="text-warning hover:text-warning hover:bg-warning/10"
                             >
                               <RotateCcw className="h-4 w-4" />
                             </ProfessionalButton>
@@ -674,7 +674,7 @@ const PromptManagementContent = () => {
                           size="icon"
                           onClick={() => handleTestPrompt(prompt)}
                           title={t('settings.promptManagement.testPrompt')}
-                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                          className="text-success hover:text-success hover:bg-success/10"
                         >
                           <Play className="h-4 w-4" />
                         </ProfessionalButton>
@@ -683,7 +683,7 @@ const PromptManagementContent = () => {
                           size="icon"
                           onClick={() => handleDeletePrompt(prompt.name)}
                           title={t('settings.promptManagement.delete')}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         >
                           <Trash2 className="h-4 w-4" />
                         </ProfessionalButton>
@@ -710,10 +710,10 @@ const PromptManagementContent = () => {
     if (!selectedPrompt || !isEditing) return null;
 
     return (
-      <ProfessionalCard variant="elevated" className="mt-6 border-indigo-200 shadow-indigo-50">
+      <ProfessionalCard variant="elevated" className="mt-6 border-primary/30">
         <ProfessionalCardHeader>
           <ProfessionalCardTitle className="flex items-center gap-2">
-            <Play className="h-5 w-5 text-indigo-500" />
+            <Play className="h-5 w-5 text-primary" />
             {t('settings.promptManagement.testPrompt')}
           </ProfessionalCardTitle>
         </ProfessionalCardHeader>
@@ -749,7 +749,7 @@ const PromptManagementContent = () => {
           {testResult && (
             <div className="mt-6">
               <h4 className="font-semibold mb-2 flex items-center gap-2">
-                <Activity className="h-4 w-4 text-green-600" />
+                <Activity className="h-4 w-4 text-success" />
                 {t('settings.promptManagement.testResult')}
               </h4>
               <div className="bg-muted p-4 rounded-xl border border-border/50 overflow-x-auto">
@@ -863,7 +863,7 @@ const PromptManagementContent = () => {
                             </p>
                           )}
                           {version.is_active && (
-                            <p className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                            <p className="flex items-center gap-2 text-success">
                               <CheckCircle2 className="h-3.5 w-3.5" />
                               Active
                             </p>

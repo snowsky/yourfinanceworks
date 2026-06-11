@@ -162,32 +162,32 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending':
-        return <Clock className="w-5 h-5 text-amber-500" />;
+        return <Clock className="w-5 h-5 text-warning" />;
       case 'processing':
-        return <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />;
+        return <Loader2 className="w-5 h-5 text-primary animate-spin" />;
       case 'completed':
-        return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
+        return <CheckCircle2 className="w-5 h-5 text-success" />;
       case 'failed':
-        return <AlertCircle className="w-5 h-5 text-red-500" />;
+        return <AlertCircle className="w-5 h-5 text-destructive" />;
       case 'partial':
-        return <AlertCircle className="w-5 h-5 text-amber-500" />;
+        return <AlertCircle className="w-5 h-5 text-warning" />;
       default:
-        return <FileText className="w-5 h-5 text-gray-500" />;
+        return <FileText className="w-5 h-5 text-muted-foreground" />;
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">{t('Pending')}</Badge>;
+        return <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">{t('Pending')}</Badge>;
       case 'processing':
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">{t('Processing')}</Badge>;
+        return <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">{t('Processing')}</Badge>;
       case 'completed':
-        return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">{t('Completed')}</Badge>;
+        return <Badge variant="outline" className="bg-success/10 text-success border-success/30">{t('Completed')}</Badge>;
       case 'failed':
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">{t('Failed')}</Badge>;
+        return <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30">{t('Failed')}</Badge>;
       case 'partial':
-        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">{t('Partial')}</Badge>;
+        return <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">{t('Partial')}</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -231,7 +231,7 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
       <ProfessionalCard variant="elevated" className="border-border/40 shadow-xl overflow-hidden">
         <div className="bg-primary/5 p-6 border-b border-primary/10">
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-2xl bg-primary text-white shadow-lg">
+            <div className="p-3 rounded-2xl bg-primary text-primary-foreground shadow-lg">
               <FileText className="w-6 h-6" />
             </div>
             <div>
@@ -268,8 +268,8 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
                     </div>
 
                     {attachment.status === 'completed' && (
-                      <div className="mt-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-                        <p className="text-sm text-emerald-700">
+                      <div className="mt-3 p-3 rounded-lg bg-success/10 border border-success/30">
+                        <p className="text-sm text-success">
                           {attachment.extracted_transactions_count > 0 ? (
                             t('file_upload.x_holdings_y_transactions_created', {
                               holdings: attachment.extracted_holdings_count,
@@ -285,8 +285,8 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
                     )}
 
                     {attachment.status === 'partial' && (
-                      <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
-                        <p className="text-sm text-amber-700">
+                      <div className="mt-3 p-3 rounded-lg bg-warning/10 border border-warning/30">
+                        <p className="text-sm text-warning">
                           {(attachment.failed_holdings_count > 0 || attachment.failed_transactions_count > 0) ? (
                             t('file_upload.x_holdings_y_transactions_z_failed', {
                               holdings: attachment.extracted_holdings_count,
@@ -304,16 +304,16 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
                     )}
 
                     {attachment.status === 'pending' && attachment.extraction_error && (
-                      <div className="mt-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
-                        <p className="text-sm text-blue-700">
+                      <div className="mt-3 p-3 rounded-lg bg-primary/10 border border-primary/30">
+                        <p className="text-sm text-primary">
                           <span className="font-medium">{t('Info')}:</span> {attachment.extraction_error}
                         </p>
                       </div>
                     )}
 
                     {attachment.status === 'failed' && attachment.extraction_error && (
-                      <div className="mt-3 p-3 rounded-lg bg-red-50 border border-red-200">
-                        <p className="text-sm text-red-700">
+                      <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/30">
+                        <p className="text-sm text-destructive">
                           <span className="font-medium">{t('Error')}:</span> {attachment.extraction_error}
                         </p>
                       </div>
@@ -353,7 +353,7 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
                       attachment.status === 'processing' ||
                       (attachment.status === 'pending' && !attachment.extraction_error)
                     }
-                    className="rounded-lg text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                    className="rounded-lg text-primary hover:text-primary hover:bg-primary/10"
                     title={t('Reprocess file')}
                   >
                     <RefreshCw className={`w-4 h-4 ${reprocessAttachmentMutation.isPending && reprocessAttachmentMutation.variables === attachment.id ? 'animate-spin' : ''}`} />
@@ -363,7 +363,7 @@ const FileAttachmentsList: React.FC<FileAttachmentsListProps> = ({
                     size="sm"
                     onClick={() => deleteAttachmentMutation.mutate(attachment.id)}
                     disabled={deleteAttachmentMutation.isPending}
-                    className="rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50"
+                    className="rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
                     <Trash2 className="w-4 h-4" />
                   </ProfessionalButton>

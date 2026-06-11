@@ -62,17 +62,17 @@ const SOURCE_LABELS: Record<TimelineEvent["source"], string> = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  paid: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  paid: "bg-success/10 text-success",
   reconciled:
-    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    "bg-success/10 text-success",
   completed:
-    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  overdue: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+    "bg-success/10 text-success",
+  overdue: "bg-destructive/10 text-destructive",
   pending:
-    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-  draft: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
+    "bg-warning/10 text-warning",
+  draft: "bg-muted text-muted-foreground",
   matched:
-    "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+    "bg-primary/10 text-primary",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -232,7 +232,7 @@ function TimelineEventCard({
 
             {/* Matched label for inferred bank txns */}
             {isMatched && event.event_type === "bank_transaction" && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 text-[10px] font-medium uppercase tracking-wide">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-primary/10 text-primary text-[10px] font-medium uppercase tracking-wide">
                 Matched
               </span>
             )}

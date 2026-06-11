@@ -183,7 +183,7 @@ export function InvoiceCreationChoice({ onManualCreate, onPdfImport, onInventory
                 </div>
 
                 {selectedFile ? (
-                  <div className="text-sm text-blue-600 bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-center justify-center gap-2">
+                  <div className="text-sm text-primary bg-primary/10 border border-primary/30 p-3 rounded-lg flex items-center justify-center gap-2">
                     <FileText className="w-4 h-4" />
                     <span className="truncate max-w-[200px]">{selectedFile.name}</span>
                   </div>
@@ -243,7 +243,7 @@ export function InvoiceCreationChoice({ onManualCreate, onPdfImport, onInventory
                   />
                   <div className="h-10 w-full border border-input rounded-md bg-background flex items-center px-3 text-sm text-muted-foreground">
                     {manualAttachment ? (
-                      <span className="text-emerald-600 flex items-center gap-2">
+                      <span className="text-success flex items-center gap-2">
                         <FileText className="w-4 h-4" />
                         {manualAttachment.name}
                       </span>

@@ -20,13 +20,13 @@ type ModalState = 'form' | 'installing' | 'done' | 'failed';
 const StepIcon: React.FC<{ status: InstallJob['steps'][0]['status'] }> = ({ status }) => {
   switch (status) {
     case 'done':
-      return <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />;
+      return <CheckCircle className="w-4 h-4 text-success shrink-0" />;
     case 'failed':
-      return <XCircle className="w-4 h-4 text-red-500 shrink-0" />;
+      return <XCircle className="w-4 h-4 text-destructive shrink-0" />;
     case 'running':
-      return <Loader2 className="w-4 h-4 text-blue-500 animate-spin shrink-0" />;
+      return <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />;
     default:
-      return <Clock className="w-4 h-4 text-gray-300 shrink-0" />;
+      return <Clock className="w-4 h-4 text-muted-foreground shrink-0" />;
   }
 };
 
@@ -113,7 +113,7 @@ export const InstallPluginModal: React.FC<InstallPluginModalProps> = ({ open, on
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Download className="w-5 h-5 text-blue-600" />
+            <Download className="w-5 h-5 text-primary" />
             Install Plugin from Git
           </DialogTitle>
           <DialogDescription>
@@ -166,9 +166,9 @@ export const InstallPluginModal: React.FC<InstallPluginModalProps> = ({ open, on
                 </p>
               </div>
 
-              <Alert className="border-amber-200 bg-amber-50">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <AlertDescription className="text-amber-800 text-sm">
+              <Alert className="border-warning/30 bg-warning/10">
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-warning text-sm">
                   <strong>Restart required.</strong> After installation the server must be
                   restarted and the frontend rebuilt before the plugin becomes active.
                   Only install plugins from sources you trust.
@@ -181,7 +181,7 @@ export const InstallPluginModal: React.FC<InstallPluginModalProps> = ({ open, on
               <Button
                 onClick={handleInstall}
                 disabled={submitting || !gitUrl.trim()}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-primary hover:bg-primary/90"
               >
                 {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Install Plugin
@@ -197,17 +197,17 @@ export const InstallPluginModal: React.FC<InstallPluginModalProps> = ({ open, on
               {/* Status badge */}
               <div className="flex items-center gap-2">
                 {modalState === 'installing' && (
-                  <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                  <Badge className="bg-primary/10 text-primary border-primary/30">
                     <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Installing…
                   </Badge>
                 )}
                 {modalState === 'done' && (
-                  <Badge className="bg-green-100 text-green-700 border-green-200">
+                  <Badge className="bg-success/10 text-success border-success/30">
                     <CheckCircle className="w-3 h-3 mr-1" /> Installed
                   </Badge>
                 )}
                 {modalState === 'failed' && (
-                  <Badge className="bg-red-100 text-red-700 border-red-200">
+                  <Badge className="bg-destructive/10 text-destructive border-destructive/30">
                     <XCircle className="w-3 h-3 mr-1" /> Failed
                   </Badge>
                 )}
@@ -217,12 +217,12 @@ export const InstallPluginModal: React.FC<InstallPluginModalProps> = ({ open, on
               </div>
 
               {/* Steps */}
-              <div className="rounded-md border bg-gray-50 p-3 space-y-2">
+              <div className="rounded-md border bg-muted p-3 space-y-2">
                 {job.steps.map((step, i) => (
                   <div key={i} className="flex items-start gap-2 text-sm">
                     <StepIcon status={step.status} />
                     <div className="flex-1">
-                      <span className={step.status === 'pending' ? 'text-gray-400' : 'text-gray-800'}>
+                      <span className={step.status === 'pending' ? 'text-muted-foreground' : 'text-foreground'}>
                         {step.label}
                       </span>
                       {step.detail && (
@@ -232,7 +232,7 @@ export const InstallPluginModal: React.FC<InstallPluginModalProps> = ({ open, on
                   </div>
                 ))}
                 {modalState === 'installing' && job.steps.length === 0 && (
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Starting…
                   </div>
@@ -241,19 +241,19 @@ export const InstallPluginModal: React.FC<InstallPluginModalProps> = ({ open, on
 
               {/* Error detail */}
               {modalState === 'failed' && job.error && (
-                <Alert className="border-red-200 bg-red-50">
-                  <XCircle className="h-4 w-4 text-red-600" />
-                  <AlertDescription className="text-red-800 text-sm">{job.error}</AlertDescription>
+                <Alert className="border-destructive/30 bg-destructive/10">
+                  <XCircle className="h-4 w-4 text-destructive" />
+                  <AlertDescription className="text-destructive text-sm">{job.error}</AlertDescription>
                 </Alert>
               )}
 
               {/* Success note */}
               {modalState === 'done' && (
-                <Alert className="border-blue-200 bg-blue-50">
-                  <AlertTriangle className="h-4 w-4 text-blue-600" />
-                  <AlertDescription className="text-blue-800 text-sm">
+                <Alert className="border-primary/30 bg-primary/10">
+                  <AlertTriangle className="h-4 w-4 text-primary" />
+                  <AlertDescription className="text-primary text-sm">
                     <strong>Restart required.</strong> Run{' '}
-                    <code className="bg-blue-100 px-1 rounded">docker-compose restart</code> and
+                    <code className="bg-primary/10 px-1 rounded">docker-compose restart</code> and
                     rebuild the frontend to activate the plugin.
                   </AlertDescription>
                 </Alert>

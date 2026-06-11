@@ -54,8 +54,8 @@ export function InvoicePaymentSection({
       <div className="pb-6 border-b border-border/50 mb-8">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
-              <Wallet className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+            <div className="p-3 bg-primary/10 rounded-xl">
+              <Wallet className="h-6 w-6 text-primary" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.payment_status')}</h2>
@@ -117,12 +117,12 @@ export function InvoicePaymentSection({
           />
 
           <div className={`p-6 rounded-3xl border-2 transition-all ${outstandingAmount > 0
-            ? 'bg-amber-50/50 border-amber-100 dark:bg-amber-900/10 dark:border-amber-900/30'
-            : 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-900/10 dark:border-emerald-900/30'}`}>
-            <p className={`text-[10px] font-bold uppercase tracking-widest leading-none mb-2 ${outstandingAmount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+            ? 'bg-warning/10 border-warning/30'
+            : 'bg-success/10 border-success/30'}`}>
+            <p className={`text-[10px] font-bold uppercase tracking-widest leading-none mb-2 ${outstandingAmount > 0 ? 'text-warning' : 'text-success'}`}>
               {t('invoices.outstanding')}
             </p>
-            <div className={`text-2xl font-black tracking-tight flex items-center gap-2 ${outstandingAmount > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+            <div className={`text-2xl font-black tracking-tight flex items-center gap-2 ${outstandingAmount > 0 ? 'text-warning' : 'text-success'}`}>
               {outstandingAmount > 0 ? <AlertCircle className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
               <CurrencyDisplay amount={outstandingAmount} currency={form.watch("currency")} />
             </div>
@@ -130,9 +130,9 @@ export function InvoicePaymentSection({
         </div>
 
         {canEditPayment && (
-          <div className="flex items-start gap-4 p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-900/30 italic">
-            <CheckCircle2 className="h-5 w-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-            <p className="text-sm text-indigo-900/70 dark:text-indigo-400/70">
+          <div className="flex items-start gap-4 p-5 rounded-2xl bg-primary/10 border border-primary/30 italic">
+            <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+            <p className="text-sm text-primary/70">
               {t('invoices.payment_update_note')}
             </p>
           </div>

@@ -29,10 +29,10 @@ export const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ is
     <FeatureGate
       feature="advanced_export"
       fallback={
-        <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
+        <ProfessionalCard variant="elevated" className="border-primary/30 bg-primary/10">
           <ProfessionalCardContent className="p-12 text-center">
-            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-              <ExternalLink className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+              <ExternalLink className="w-8 h-8 text-primary" />
             </div>
             <h3 className="text-2xl font-bold text-foreground mb-3">Business License Required</h3>
             <p className="text-muted-foreground mb-8 max-w-lg mx-auto leading-relaxed">
@@ -46,19 +46,19 @@ export const ExportDestinationsTab: React.FC<ExportDestinationsTabProps> = ({ is
               </h4>
               <ul className="text-left space-y-3 text-sm text-foreground/80">
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>Connect to AWS S3, Azure Blob, and Google Cloud Storage</span>
                 </li>
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>Automated batch export and scheduled transfers</span>
                 </li>
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>Secure credential management and connection testing</span>
                 </li>
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>Integration with Google Drive and local file systems</span>
                 </li>
               </ul>
@@ -464,14 +464,14 @@ const ExportDestinationsContent: React.FC<ExportDestinationsTabProps> = ({ isAdm
                   </div>
 
                   <div className="flex items-center gap-3 pl-[52px]">
-                    <Badge variant={destination.is_active ? 'default' : 'secondary'} className={destination.is_active ? "bg-green-100 text-green-700 hover:bg-green-200 border-transparent shadow-none" : ""}>
+                    <Badge variant={destination.is_active ? 'default' : 'secondary'} className={destination.is_active ? "bg-success/10 text-success hover:bg-success/20 border-transparent shadow-none" : ""}>
                       {destination.is_active ? t('settings.active') : t('settings.inactive')}
                     </Badge>
 
                     {destination.last_test_success !== null && (
                       <div className={`flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${destination.last_test_success
-                        ? 'bg-green-50 text-green-700'
-                        : 'bg-red-50 text-red-700'
+                        ? 'bg-success/10 text-success'
+                        : 'bg-destructive/10 text-destructive'
                         }`}>
                         {destination.last_test_success ? (
                           <CheckCircle className="h-3 w-3" />
@@ -484,7 +484,7 @@ const ExportDestinationsContent: React.FC<ExportDestinationsTabProps> = ({ isAdm
                   </div>
 
                   {destination.last_test_error && (
-                    <div className="ml-[52px] mt-2 p-2 bg-red-50 border border-red-100 rounded-md text-xs text-red-700">
+                    <div className="ml-[52px] mt-2 p-2 bg-destructive/10 border border-destructive/30 rounded-md text-xs text-destructive">
                       <span className="font-medium">{t('settings.error')}:</span> {destination.last_test_error}
                     </div>
                   )}
@@ -565,16 +565,16 @@ const ExportDestinationsContent: React.FC<ExportDestinationsTabProps> = ({ isAdm
             </div>
 
             {/* Env vars info */}
-            <div className="rounded-xl bg-blue-50/60 border border-blue-200/50 p-4 space-y-3">
+            <div className="rounded-xl bg-primary/10 border border-primary/30 p-4 space-y-3">
               <div className="flex gap-2.5 items-start">
-                <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+                <AlertCircle className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                 <div className="text-sm">
-                  <p className="font-medium text-blue-900">{t('settings.no_destinations_configured')}</p>
-                  <p className="text-blue-700 mt-0.5">{t('settings.environment_variables_will_be_used')}</p>
+                  <p className="font-medium text-foreground">{t('settings.no_destinations_configured')}</p>
+                  <p className="text-muted-foreground mt-0.5">{t('settings.environment_variables_will_be_used')}</p>
                 </div>
               </div>
-              <div className="border-t border-blue-200/60 pt-3">
-                <p className="text-xs font-semibold uppercase tracking-widest text-blue-600/70 mb-2">{t('settings.supported_env_vars')}</p>
+              <div className="border-t border-primary/30 pt-3">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">{t('settings.supported_env_vars')}</p>
                 <div className="flex flex-col gap-1.5">
                   {[
                     { provider: 'AWS S3', vars: 'AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY' },
@@ -582,8 +582,8 @@ const ExportDestinationsContent: React.FC<ExportDestinationsTabProps> = ({ isAdm
                     { provider: 'Google', vars: 'GOOGLE_APPLICATION_CREDENTIALS' },
                   ].map(({ provider, vars }) => (
                     <div key={provider} className="flex items-center gap-2">
-                      <span className="text-xs text-blue-600/70 w-12 shrink-0">{provider}</span>
-                      <code className="text-xs bg-blue-100/80 text-blue-800 px-2 py-0.5 rounded font-mono">{vars}</code>
+                      <span className="text-xs text-muted-foreground w-12 shrink-0">{provider}</span>
+                      <code className="text-xs bg-muted text-foreground px-2 py-0.5 rounded font-mono">{vars}</code>
                     </div>
                   ))}
                 </div>
@@ -651,7 +651,7 @@ const ExportDestinationsContent: React.FC<ExportDestinationsTabProps> = ({ isAdm
                   AWS S3 {t('settings.credentials')}
                 </h4>
                 {editingDestination && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 flex items-center gap-2">
+                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-3 text-sm text-primary flex items-center gap-2">
                     <EyeOff className="h-4 w-4" />
                     <p>{t('settings.secret_fields_are_masked')}</p>
                   </div>
@@ -737,7 +737,7 @@ const ExportDestinationsContent: React.FC<ExportDestinationsTabProps> = ({ isAdm
                   Azure Blob Storage {t('settings.credentials')}
                 </h4>
                 {editingDestination && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 flex items-center gap-2">
+                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-3 text-sm text-primary flex items-center gap-2">
                     <EyeOff className="h-4 w-4" />
                     <p>{t('settings.secret_fields_are_masked')}</p>
                   </div>
@@ -829,7 +829,7 @@ const ExportDestinationsContent: React.FC<ExportDestinationsTabProps> = ({ isAdm
                   Google Cloud Storage {t('settings.credentials')}
                 </h4>
                 {editingDestination && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 flex items-center gap-2">
+                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-3 text-sm text-primary flex items-center gap-2">
                     <EyeOff className="h-4 w-4" />
                     <p>{t('settings.secret_fields_are_masked')}</p>
                   </div>
@@ -914,14 +914,14 @@ const ExportDestinationsContent: React.FC<ExportDestinationsTabProps> = ({ isAdm
                   Google Drive {t('settings.credentials')}
                 </h4>
                 {editingDestination && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 flex items-center gap-2">
+                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-3 text-sm text-primary flex items-center gap-2">
                     <EyeOff className="h-4 w-4" />
                     <p>{t('settings.secret_fields_are_masked')}</p>
                   </div>
                 )}
                 <div className="space-y-4">
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                    <p className="text-sm text-yellow-800">
+                  <div className="bg-warning/10 border border-warning/30 rounded-lg p-3">
+                    <p className="text-sm text-warning">
                       {t('settings.google_drive_oauth_note')}
                     </p>
                   </div>

@@ -89,25 +89,25 @@ export function ExpenseTable({
           return {
             label: t('expenses.status_done'),
             icon: CheckCircle2,
-            className: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800',
+            className: 'bg-success/10 text-success border-success/30',
           };
         case 'processing':
           return {
             label: t('expenses.status_processing'),
             icon: Loader2,
-            className: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800',
+            className: 'bg-primary/10 text-primary border-primary/30',
           };
         case 'queued':
           return {
             label: t('expenses.status_queued'),
             icon: Clock3,
-            className: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800',
+            className: 'bg-warning/10 text-warning border-warning/30',
           };
         case 'failed':
           return {
             label: t('common.failed', { defaultValue: 'Failed' }),
             icon: AlertCircle,
-            className: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800',
+            className: 'bg-destructive/10 text-destructive border-destructive/30',
           };
         case 'cancelled':
           return {
@@ -119,7 +119,7 @@ export function ExpenseTable({
           return {
             label: t('common.not_started', { defaultValue: 'Not Started' }),
             icon: FileSearch,
-            className: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/50 dark:text-slate-300 dark:border-slate-700',
+            className: 'bg-muted text-muted-foreground border-border',
           };
         default:
           return {
@@ -187,7 +187,7 @@ export function ExpenseTable({
             variant="outline"
             className={`h-6 gap-1.5 whitespace-nowrap px-2 font-medium shadow-none ${
               fileCount > 0
-                ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800'
+                ? 'bg-primary/10 text-primary border-primary/30'
                 : 'bg-muted/50 text-muted-foreground border-transparent'
             }`}
           >
@@ -371,14 +371,14 @@ export function ExpenseTable({
                 {isVisible('total') && <TableCell><CurrencyDisplay amount={e.total_amount || e.amount || 0} currency={e.currency || 'USD'} /></TableCell>}
                 {isVisible('invoice') && <TableCell>
                   {typeof e.invoice_id === 'number' ? (
-                    <Link to={`/invoices/edit/${e.invoice_id}`} className="text-blue-600 hover:underline">#{e.invoice_id}</Link>
+                    <Link to={`/invoices/edit/${e.invoice_id}`} className="text-primary hover:underline">#{e.invoice_id}</Link>
                   ) : (
                     <span className="text-muted-foreground">{t('expenses.none')}</span>
                   )}
                 </TableCell>}
                 {isVisible('statement') && <TableCell>
                   {typeof e.statement_id === 'number' && typeof e.statement_transaction_id === 'number' ? (
-                    <Link to={`/statements?id=${e.statement_id}&txn=${e.statement_transaction_id}`} className="text-blue-600 hover:underline">#{e.statement_transaction_id}</Link>
+                    <Link to={`/statements?id=${e.statement_id}&txn=${e.statement_transaction_id}`} className="text-primary hover:underline">#{e.statement_transaction_id}</Link>
                   ) : (
                     <span className="text-muted-foreground">{t('expenses.none')}</span>
                   )}

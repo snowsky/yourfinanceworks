@@ -193,10 +193,10 @@ export function ReportRegeneration({
   };
 
   const getProgressIcon = () => {
-    if (error) return <XCircle className="h-5 w-5 text-red-500" />;
-    if (newReportId) return <CheckCircle className="h-5 w-5 text-green-500" />;
-    if (regenerating) return <RefreshCw className="h-5 w-5 animate-spin text-blue-500" />;
-    return <Clock className="h-5 w-5 text-gray-400" />;
+    if (error) return <XCircle className="h-5 w-5 text-destructive" />;
+    if (newReportId) return <CheckCircle className="h-5 w-5 text-success" />;
+    if (regenerating) return <RefreshCw className="h-5 w-5 animate-spin text-primary" />;
+    return <Clock className="h-5 w-5 text-muted-foreground" />;
   };
 
   const getStatusMessage = () => {
@@ -239,25 +239,25 @@ export function ReportRegeneration({
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Type</p>
+                    <p className="text-sm font-medium text-muted-foreground">Type</p>
                     <p className="capitalize">{report.report_type} Report</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Format</p>
+                    <p className="text-sm font-medium text-muted-foreground">Format</p>
                     <Badge variant="outline">
                       {(report.parameters.export_format || 'pdf').toUpperCase()}
                     </Badge>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Generated</p>
+                    <p className="text-sm font-medium text-muted-foreground">Generated</p>
                     <p className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4 text-gray-400" />
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
                       {format(new Date(report.generated_at), 'MMM dd, yyyy HH:mm')}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Status</p>
-                    <Badge className="bg-green-100 text-green-800">
+                    <p className="text-sm font-medium text-muted-foreground">Status</p>
+                    <Badge className="bg-success/10 text-success">
                       {report.status}
                     </Badge>
                   </div>
@@ -266,13 +266,13 @@ export function ReportRegeneration({
                 {/* Show filters if available */}
                 {report.parameters.filters && Object.keys(report.parameters.filters).length > 0 && (
                   <div>
-                    <p className="text-sm font-medium text-gray-500 mb-2">Applied Filters</p>
-                    <div className="bg-gray-50 p-3 rounded-lg">
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Applied Filters</p>
+                    <div className="bg-muted p-3 rounded-lg">
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         {Object.entries(report.parameters.filters).map(([key, value]) => (
                           <div key={key}>
                             <span className="font-medium capitalize">{key.replace('_', ' ')}:</span>{' '}
-                            <span className="text-gray-600">
+                            <span className="text-muted-foreground">
                               {Array.isArray(value) ? value.join(', ') : String(value)}
                             </span>
                           </div>
@@ -296,7 +296,7 @@ export function ReportRegeneration({
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">{getStatusMessage()}</p>
                   {progress?.estimatedTimeRemaining && (
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       ~{formatTimeRemaining(progress.estimatedTimeRemaining)} remaining
                     </p>
                   )}
@@ -305,7 +305,7 @@ export function ReportRegeneration({
                 {(regenerating || progress) && (
                   <div className="space-y-2">
                     <Progress value={progress?.progress || 0} className="w-full" />
-                    <div className="flex justify-between text-xs text-gray-500">
+                    <div className="flex justify-between text-xs text-muted-foreground">
                       <span>0%</span>
                       <span>{progress?.progress || 0}%</span>
                       <span>100%</span>
@@ -314,21 +314,21 @@ export function ReportRegeneration({
                 )}
 
                 {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3">
                     <div className="flex items-center gap-2">
-                      <XCircle className="h-4 w-4 text-red-500" />
-                      <p className="text-sm font-medium text-red-800">Error</p>
+                      <XCircle className="h-4 w-4 text-destructive" />
+                      <p className="text-sm font-medium text-destructive">Error</p>
                     </div>
-                    <p className="text-sm text-red-700 mt-1">{error}</p>
+                    <p className="text-sm text-destructive mt-1">{error}</p>
                   </div>
                 )}
 
                 {newReportId && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="bg-success/10 border border-success/30 rounded-lg p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                        <p className="text-sm font-medium text-green-800">
+                        <CheckCircle className="h-4 w-4 text-success" />
+                        <p className="text-sm font-medium text-success">
                           Report regenerated successfully
                         </p>
                       </div>
@@ -337,7 +337,7 @@ export function ReportRegeneration({
                         Download
                       </Button>
                     </div>
-                    <p className="text-sm text-green-700 mt-1">
+                    <p className="text-sm text-success mt-1">
                       New report ID: #{newReportId}
                     </p>
                   </div>
@@ -347,15 +347,15 @@ export function ReportRegeneration({
 
             {/* Warning about data changes */}
             {!regenerating && !newReportId && !error && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <div className="bg-warning/10 border border-warning/30 rounded-lg p-3">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5" />
+                  <AlertTriangle className="h-4 w-4 text-warning mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-yellow-800">
+                    <p className="text-sm font-medium text-warning">
                       Data Changes Notice
                     </p>
-                    <p className="text-sm text-yellow-700 mt-1">
-                      The regenerated report will use current data, which may differ from the original report. 
+                    <p className="text-sm text-warning mt-1">
+                      The regenerated report will use current data, which may differ from the original report.
                       Any changes in your data since the original generation will be reflected in the new report.
                     </p>
                   </div>

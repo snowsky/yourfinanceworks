@@ -36,11 +36,11 @@ export function RecentActivity({ refreshKey }: RecentActivityProps) {
     if (status) {
       switch (status) {
         case 'paid': case 'approved': case 'completed':
-          return <Badge className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border-0">{t('dashboard.activity.badges.completed')}</Badge>;
+          return <Badge className="text-[10px] px-1.5 py-0 bg-success/10 text-success border-0">{t('dashboard.activity.badges.completed')}</Badge>;
         case 'pending': case 'draft':
-          return <Badge className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border-0">{t('dashboard.activity.badges.pending')}</Badge>;
+          return <Badge className="text-[10px] px-1.5 py-0 bg-warning/10 text-warning border-0">{t('dashboard.activity.badges.pending')}</Badge>;
         case 'overdue': case 'rejected':
-          return <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border-0">{t('dashboard.activity.badges.attention')}</Badge>;
+          return <Badge className="text-[10px] px-1.5 py-0 bg-destructive/10 text-destructive border-0">{t('dashboard.activity.badges.attention')}</Badge>;
         default:
           return <Badge className="text-[10px] px-1.5 py-0 bg-muted text-muted-foreground border-0">{status}</Badge>;
       }

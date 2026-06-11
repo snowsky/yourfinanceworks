@@ -390,7 +390,7 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
 
   return (
     <>
-      <div className="rounded-xl border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-800 mb-3 overflow-hidden shadow-sm">
+      <div className="rounded-xl border border-warning/30 bg-warning/10 mb-3 overflow-hidden shadow-sm">
         {/* Header row — always visible */}
         <div className="flex items-center gap-2 px-4 py-3">
           <button
@@ -398,22 +398,22 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
             onClick={() => setExpanded(v => !v)}
             aria-expanded={expanded}
           >
-            <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
-            <span className="flex-1 text-sm font-medium text-yellow-800 dark:text-yellow-300">
+            <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0" />
+            <span className="flex-1 text-sm font-medium text-warning">
               <span className="font-bold">{count}</span>{' '}
               potential duplicate transaction {count !== 1 ? 'groups' : 'group'} detected across statements.{' '}
               <span className="font-normal opacity-80">Click to {expanded ? 'hide' : 'review'}.</span>
             </span>
             {expanded
-              ? <ChevronUp className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
-              : <ChevronDown className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+              ? <ChevronUp className="h-4 w-4 text-warning flex-shrink-0" />
+              : <ChevronDown className="h-4 w-4 text-warning flex-shrink-0" />
             }
           </button>
 
           {/* Review All button */}
           <button
             onClick={e => { e.stopPropagation(); setShowBulkReview(true); }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/40 transition-colors flex-shrink-0 whitespace-nowrap"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-warning/10 text-warning hover:bg-warning/20 transition-colors flex-shrink-0 whitespace-nowrap"
             title="Review all duplicate groups at once"
           >
             <Archive className="h-3 w-3" />
@@ -423,16 +423,16 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
 
         {/* Expandable body */}
         {expanded && (
-          <div className="border-t border-yellow-200 dark:border-yellow-800 divide-y divide-yellow-200 dark:divide-yellow-800">
+          <div className="border-t border-warning/30 divide-y divide-warning/30">
             {groups.map((group, gi) => (
-              <div key={gi} className="bg-white dark:bg-background">
+              <div key={gi} className="bg-card">
                 {/* Group header */}
                 <div className="flex items-center gap-2 px-4 py-2.5">
                   <button
-                    className="flex items-center gap-2 flex-1 text-left hover:bg-yellow-50 dark:hover:bg-yellow-950/10 transition-colors rounded"
+                    className="flex items-center gap-2 flex-1 text-left hover:bg-warning/10 transition-colors rounded"
                     onClick={() => toggleGroup(gi)}
                   >
-                    <span className="text-xs font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-400 min-w-[60px]">
+                    <span className="text-xs font-bold uppercase tracking-wider text-warning min-w-[60px]">
                       Group {gi + 1}
                     </span>
                     <span className="flex-1 text-xs text-muted-foreground truncate">
@@ -445,7 +445,7 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
                       {group[0]?.amount !== undefined && (
                         <span className="font-mono">{formatAmount(group[0].amount)}</span>
                       )}
-                      <span className="ml-2 text-yellow-600 dark:text-yellow-500">
+                      <span className="ml-2 text-warning">
                         · {group.length} occurrences across {new Set(group.map(t => t.statement_id)).size} statements
                       </span>
                     </span>
@@ -458,7 +458,7 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
                   {/* Per-group Review & Delete button */}
                   <button
                     onClick={e => { e.stopPropagation(); setReviewGroupIndex(gi); }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800/40 transition-colors flex-shrink-0 whitespace-nowrap"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors flex-shrink-0 whitespace-nowrap"
                     title="Review and delete duplicates in this group"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -472,7 +472,7 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
                     {group.map((txn, ti) => (
                       <div
                         key={ti}
-                        className="flex items-center gap-3 rounded-lg border border-yellow-100 dark:border-yellow-900/40 bg-yellow-50/50 dark:bg-yellow-950/10 px-3 py-2 text-xs"
+                        className="flex items-center gap-3 rounded-lg border border-warning/20 bg-warning/5 px-3 py-2 text-xs"
                       >
                         <div className="flex-1 min-w-0">
                           <span className="font-medium text-foreground truncate block">{txn.description}</span>
@@ -486,7 +486,7 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
                         </div>
                         <button
                           onClick={() => onViewTransaction(txn.statement_id, txn.id)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-yellow-200 dark:bg-yellow-800/40 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-300 dark:hover:bg-yellow-700/50 transition-colors flex-shrink-0 whitespace-nowrap"
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-warning/20 text-warning hover:bg-warning/30 transition-colors flex-shrink-0 whitespace-nowrap"
                           title={`Open statement: ${txn.statement_filename}`}
                         >
                           <ExternalLink className="h-3 w-3" />

@@ -90,8 +90,8 @@ const ApprovalHelpTooltips: React.FC<ApprovalHelpTooltipsProps> = ({ context, ch
         onClick={toggleHelpMode}
         className={`fixed top-4 right-4 z-50 p-2 rounded-full shadow-lg transition-colors ${
           isHelpMode 
-            ? 'bg-blue-600 text-white' 
-            : 'bg-white text-gray-600 hover:bg-gray-50'
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-card text-muted-foreground hover:bg-muted'
         }`}
         title={isHelpMode ? t('approvalHelp.exit_help') : t('approvalHelp.show_help')}
       >
@@ -100,20 +100,20 @@ const ApprovalHelpTooltips: React.FC<ApprovalHelpTooltipsProps> = ({ context, ch
 
       {/* Tour Navigation */}
       {showTour && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 bg-white rounded-lg shadow-xl border p-4 min-w-80">
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 bg-card rounded-lg shadow-xl border p-4 min-w-80">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-900">
+            <h3 className="font-semibold text-foreground">
               {t(`approvalHelp.${context}.${contextTooltips[currentTooltip]?.id}.title`)}
             </h3>
             <button
               onClick={endTour}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-muted-foreground hover:text-foreground"
             >
               <X size={16} />
             </button>
           </div>
-          
-          <p className="text-gray-700 mb-4">
+
+          <p className="text-muted-foreground mb-4">
             {t(`approvalHelp.${context}.${contextTooltips[currentTooltip]?.id}.content`)}
           </p>
           
@@ -122,7 +122,7 @@ const ApprovalHelpTooltips: React.FC<ApprovalHelpTooltipsProps> = ({ context, ch
               <button
                 onClick={prevTooltip}
                 disabled={currentTooltip === 0}
-                className="flex items-center px-3 py-1 text-sm bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200"
+                className="flex items-center px-3 py-1 text-sm bg-muted rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted/80"
               >
                 <ChevronLeft size={16} className="mr-1" />
                 {t('approvalHelp.previous')}
@@ -130,7 +130,7 @@ const ApprovalHelpTooltips: React.FC<ApprovalHelpTooltipsProps> = ({ context, ch
               
               <button
                 onClick={nextTooltip}
-                className="flex items-center px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="flex items-center px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
               >
                 {currentTooltip === contextTooltips.length - 1 ? t('approvalHelp.finish') : t('approvalHelp.next')}
                 {currentTooltip < contextTooltips.length - 1 && (
@@ -139,7 +139,7 @@ const ApprovalHelpTooltips: React.FC<ApprovalHelpTooltipsProps> = ({ context, ch
               </button>
             </div>
             
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-muted-foreground">
               {currentTooltip + 1} of {contextTooltips.length}
             </span>
           </div>
@@ -181,7 +181,7 @@ export const HelpTooltip: React.FC<TooltipProps> = ({ id, context, children, cla
       {children}
       
       {showTooltip && (
-        <div className={`absolute z-50 px-3 py-2 text-sm bg-gray-900 text-white rounded-lg shadow-lg max-w-xs ${
+        <div className={`absolute z-50 px-3 py-2 text-sm bg-foreground text-background rounded-lg shadow-lg max-w-xs ${
           tooltipData.position === 'top' ? 'bottom-full mb-2 left-1/2 transform -translate-x-1/2' :
           tooltipData.position === 'bottom' ? 'top-full mt-2 left-1/2 transform -translate-x-1/2' :
           tooltipData.position === 'left' ? 'right-full mr-2 top-1/2 transform -translate-y-1/2' :
@@ -191,7 +191,7 @@ export const HelpTooltip: React.FC<TooltipProps> = ({ id, context, children, cla
           <div className="text-xs">{t(`approvalHelp.${context}.${tooltipData.id}.content`)}</div>
           
           {/* Tooltip Arrow */}
-          <div className={`absolute w-2 h-2 bg-gray-900 transform rotate-45 ${
+          <div className={`absolute w-2 h-2 bg-foreground transform rotate-45 ${
             tooltipData.position === 'top' ? 'top-full left-1/2 -translate-x-1/2 -mt-1' :
             tooltipData.position === 'bottom' ? 'bottom-full left-1/2 -translate-x-1/2 -mb-1' :
             tooltipData.position === 'left' ? 'left-full top-1/2 -translate-y-1/2 -ml-1' :
@@ -219,19 +219,19 @@ export const QuickHelp: React.FC<QuickHelpProps> = ({ context, className = '' })
     <div className={`relative ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+        className="flex items-center text-sm text-primary hover:text-primary/80"
       >
         <HelpCircle size={16} className="mr-1" />
         {t('approvalHelp.quick_help')}
       </button>
       
       {isOpen && (
-        <div className="absolute top-full mt-2 right-0 bg-white border rounded-lg shadow-lg p-4 w-80 z-50">
+        <div className="absolute top-full mt-2 right-0 bg-card border rounded-lg shadow-lg p-4 w-80 z-50">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-medium text-gray-900">{t('approvalHelp.quick_tips')}</h4>
+            <h4 className="font-medium text-foreground">{t('approvalHelp.quick_tips')}</h4>
             <button
               onClick={() => setIsOpen(false)}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-muted-foreground hover:text-foreground"
             >
               <X size={16} />
             </button>
@@ -239,8 +239,8 @@ export const QuickHelp: React.FC<QuickHelpProps> = ({ context, className = '' })
           
           <ul className="space-y-2">
             {tips.map((tip, index) => (
-              <li key={index} className="flex items-start text-sm text-gray-700">
-                <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0" />
+              <li key={index} className="flex items-start text-sm text-muted-foreground">
+                <span className="w-2 h-2 bg-primary rounded-full mt-2 mr-3 flex-shrink-0" />
                 {tip}
               </li>
             ))}

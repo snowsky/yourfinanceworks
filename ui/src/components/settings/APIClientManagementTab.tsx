@@ -123,10 +123,10 @@ export const APIClientManagementTab: React.FC = () => {
     <FeatureGate
       feature="external_api"
       fallback={
-        <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
+        <ProfessionalCard variant="elevated" className="border-primary/30 bg-primary/10">
           <ProfessionalCardContent className="p-12 text-center">
-            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-              <Key className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+              <Key className="w-8 h-8 text-primary" />
             </div>
             <h3 className="text-2xl font-bold text-foreground mb-3">{t('settings.api_keys.business_license_required')}</h3>
             <p className="text-muted-foreground mb-8 max-w-lg mx-auto leading-relaxed">
@@ -139,19 +139,19 @@ export const APIClientManagementTab: React.FC = () => {
               </h4>
               <ul className="text-left space-y-3 text-sm text-foreground/80">
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>{t('settings.api_keys.create_up_to_2_api_keys')}</span>
                 </li>
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>{t('settings.api_keys.configurable_rate_limits')}</span>
                 </li>
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>{t('settings.api_keys.webhook_notifications')}</span>
                 </li>
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>{t('settings.api_keys.ip_whitelisting')}</span>
                 </li>
               </ul>
@@ -524,8 +524,8 @@ const APIClientManagementContent: React.FC = () => {
                   </DialogHeader>
 
                   {clients.length === 1 && (
-                    <Alert className="bg-blue-50 border-blue-200">
-                      <AlertDescription className="text-blue-800">
+                    <Alert className="bg-primary/10 border-primary/30">
+                      <AlertDescription className="text-primary">
                         <strong>{t('settings.api_keys.note_can_create_1_more')}</strong>
                       </AlertDescription>
                     </Alert>
@@ -700,7 +700,7 @@ const APIClientManagementContent: React.FC = () => {
         <Dialog open={!!showApiKey} onOpenChange={() => setShowApiKey(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-green-600">
+              <DialogTitle className="flex items-center gap-2 text-success">
                 <CheckCircle2 className="h-6 w-6" />
                 {t('settings.api_keys.api_key_generated_successfully')}
               </DialogTitle>
@@ -709,9 +709,9 @@ const APIClientManagementContent: React.FC = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-6 pt-4">
-              <Alert className="bg-amber-50 border-amber-200">
-                <LockKeyhole className="h-4 w-4 text-amber-600" />
-                <AlertDescription className="text-amber-800 font-medium">
+              <Alert className="bg-warning/10 border-warning/30">
+                <LockKeyhole className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-warning font-medium">
                   {t('settings.api_keys.copy_and_save_securely')}
                 </AlertDescription>
               </Alert>
@@ -833,7 +833,7 @@ const APIClientManagementContent: React.FC = () => {
         <Dialog open={!!showRegenerateConfirm} onOpenChange={() => setShowRegenerateConfirm(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-orange-600">
+              <DialogTitle className="flex items-center gap-2 text-warning">
                 <RotateCcw className="w-5 h-5" />
                 Regenerate API Key
               </DialogTitle>
@@ -842,7 +842,7 @@ const APIClientManagementContent: React.FC = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <Alert className="bg-orange-50 border-orange-200 text-orange-900">
+              <Alert className="bg-warning/10 border-warning/30 text-warning">
                 <AlertDescription>
                   <strong>Warning:</strong> This will generate a new API key and invalidate the current one. Any applications using the current key will lose access immediately.
                 </AlertDescription>
@@ -862,7 +862,7 @@ const APIClientManagementContent: React.FC = () => {
                   Cancel
                 </ProfessionalButton>
                 <ProfessionalButton
-                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                  className="bg-warning hover:bg-warning/90 text-warning-foreground"
                   onClick={confirmRegenerateApiKey}
                 >
                   Regenerate Key
@@ -875,9 +875,9 @@ const APIClientManagementContent: React.FC = () => {
 
       {/* API Key Limit Warning */}
       {clients.length >= 2 && (
-        <Alert className="bg-amber-50 border-amber-200">
-          <Shield className="h-4 w-4 text-amber-600" />
-          <AlertDescription className="text-amber-800">
+        <Alert className="bg-warning/10 border-warning/30">
+          <Shield className="h-4 w-4 text-warning" />
+          <AlertDescription className="text-warning">
             <strong>API Key Limit Reached:</strong> You have reached the maximum limit of 2 API keys per account. To create a new API key, you must first revoke an existing one.
           </AlertDescription>
         </Alert>
@@ -912,8 +912,8 @@ const APIClientManagementContent: React.FC = () => {
               <div className="p-6 border-b border-border/50 bg-card/50 backdrop-blur-sm">
                 <div className="flex flex-col md:flex-row justify-between md:items-start gap-4">
                   <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
-                      <Key className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
+                      <Key className="w-6 h-6 text-primary" />
                     </div>
                     <div>
                       <div className="flex items-center flex-wrap gap-2 mb-1">
@@ -923,7 +923,7 @@ const APIClientManagementContent: React.FC = () => {
                             Sandbox
                           </Badge>
                         )}
-                        <Badge variant={client.is_active ? "default" : "destructive"} className={cn(client.is_active ? "bg-green-600 hover:bg-green-700" : "")}>
+                        <Badge variant={client.is_active ? "default" : "destructive"} className={cn(client.is_active ? "bg-success hover:bg-success/90" : "")}>
                           {client.is_active ? 'Active' : 'Inactive'}
                         </Badge>
                       </div>

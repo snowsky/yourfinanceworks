@@ -129,7 +129,7 @@ const InventoryItemDetail: React.FC = () => {
     return (
       <>
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       </>
     );
@@ -194,7 +194,7 @@ const InventoryItemDetail: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+                <div className="aspect-video bg-muted rounded-lg overflow-hidden">
                   <img
                     src={imageUrls[primaryImage.id] || `/api/v1/inventory/${item.id}/attachments/${primaryImage.id}/download`}
                     alt={primaryImage.alt_text || primaryImage.filename}
@@ -204,7 +204,7 @@ const InventoryItemDetail: React.FC = () => {
                     }}
                   />
                 </div>
-                <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
+                <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
                   <span>{primaryImage.filename}</span>
                   <div className="flex gap-2">
                     <Button
@@ -342,11 +342,11 @@ const InventoryItemDetail: React.FC = () => {
           {attachments.length === 0 && !attachmentsLoading && (
             <Card>
               <CardContent className="p-8 text-center">
-                <ImageIcon className="mx-auto w-12 h-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                <ImageIcon className="mx-auto w-12 h-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">
                   {t('inventory.no_attachments')}
                 </h3>
-                <p className="text-gray-500 mb-4">
+                <p className="text-muted-foreground mb-4">
                   {t('inventory.attachments_description')}
                 </p>
                 {canPerformAction && (
@@ -371,7 +371,7 @@ const InventoryItemDetail: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-500">
+                <span className="text-sm font-medium text-muted-foreground">
                   {t('inventory.sku')}
                 </span>
                 <span className="text-sm font-mono">
@@ -382,7 +382,7 @@ const InventoryItemDetail: React.FC = () => {
               <Separator />
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-500">
+                <span className="text-sm font-medium text-muted-foreground">
                   {t('inventory.unit_price')}
                 </span>
                 <CurrencyDisplay
@@ -395,7 +395,7 @@ const InventoryItemDetail: React.FC = () => {
               {item.cost_price && (
                 <>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-500">
+                    <span className="text-sm font-medium text-muted-foreground">
                       {t('inventory.cost_price')}
                     </span>
                     <CurrencyDisplay
@@ -406,7 +406,7 @@ const InventoryItemDetail: React.FC = () => {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-500">
+                    <span className="text-sm font-medium text-muted-foreground">
                       {t('inventory.margin')}
                     </span>
                     <span className="text-sm">
@@ -419,7 +419,7 @@ const InventoryItemDetail: React.FC = () => {
               <Separator />
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-500">
+                <span className="text-sm font-medium text-muted-foreground">
                   {t('inventory.category')}
                 </span>
                 <Badge variant="outline">
@@ -428,7 +428,7 @@ const InventoryItemDetail: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-500">
+                <span className="text-sm font-medium text-muted-foreground">
                   {t('inventory.item_type')}
                 </span>
                 <Badge>
@@ -437,7 +437,7 @@ const InventoryItemDetail: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-500">
+                <span className="text-sm font-medium text-muted-foreground">
                   {t('inventory.unit_of_measure')}
                 </span>
                 <span className="text-sm">
@@ -449,7 +449,7 @@ const InventoryItemDetail: React.FC = () => {
                 <>
                   <Separator />
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-500">
+                    <span className="text-sm font-medium text-muted-foreground">
                       {t('inventory.current_stock')}
                     </span>
                     <span className="text-sm font-medium">
@@ -458,7 +458,7 @@ const InventoryItemDetail: React.FC = () => {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-500">
+                    <span className="text-sm font-medium text-muted-foreground">
                       {t('inventory.minimum_stock')}
                     </span>
                     <span className="text-sm">
@@ -471,7 +471,7 @@ const InventoryItemDetail: React.FC = () => {
               <Separator />
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-500">
+                <span className="text-sm font-medium text-muted-foreground">
                   {t('inventory.status')}
                 </span>
                 <Badge variant={item.is_active ? "default" : "secondary"}>
@@ -480,7 +480,7 @@ const InventoryItemDetail: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-500">
+                <span className="text-sm font-medium text-muted-foreground">
                   {t('common.created')}
                 </span>
                 <span className="text-sm">
@@ -489,7 +489,7 @@ const InventoryItemDetail: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-500">
+                <span className="text-sm font-medium text-muted-foreground">
                   {t('common.updated')}
                 </span>
                 <span className="text-sm">
@@ -506,7 +506,7 @@ const InventoryItemDetail: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-muted-foreground">
                   {t('inventory.total_attachments')}
                 </span>
                 <span className="text-sm font-medium">
@@ -515,7 +515,7 @@ const InventoryItemDetail: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-muted-foreground">
                   {t('inventory.images', 'Images')}
                 </span>
                 <span className="text-sm font-medium">
@@ -524,7 +524,7 @@ const InventoryItemDetail: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-muted-foreground">
                   {t('inventory.documents', 'Documents')}
                 </span>
                 <span className="text-sm font-medium">
@@ -536,7 +536,7 @@ const InventoryItemDetail: React.FC = () => {
                 <>
                   <Separator />
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-muted-foreground">
                       {t('inventory.last_updated')}
                     </span>
                     <span className="text-sm font-medium">

@@ -149,28 +149,28 @@ const FileAttachmentDetail: React.FC<FileAttachmentDetailProps> = ({
 
             {(attachment.status === 'completed' || attachment.status === 'partial') && (
               <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800">
+                <div className="p-4 rounded-xl bg-success/10 border border-success/30 text-success">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1 rounded-full bg-emerald-100">
+                    <div className="p-1 rounded-full bg-success/10">
                        <FileText className="w-4 h-4" />
                     </div>
                     <span className="font-semibold">{t('Extraction Success')}</span>
                   </div>
                   <p className="text-2xl font-bold">
-                    {attachment.extracted_holdings_count} <span className="text-sm font-normal text-emerald-600">{t('holdings created')}</span>
+                    {attachment.extracted_holdings_count} <span className="text-sm font-normal text-success">{t('holdings created')}</span>
                   </p>
                 </div>
 
                 {attachment.failed_holdings_count > 0 && (
-                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800">
+                  <div className="p-4 rounded-xl bg-warning/10 border border-warning/30 text-warning">
                      <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1 rounded-full bg-amber-100">
+                        <div className="p-1 rounded-full bg-warning/10">
                            <AlertCircle className="w-4 h-4" />
                         </div>
                         <span className="font-semibold">{t('Validation Issues')}</span>
                      </div>
                     <p className="text-2xl font-bold">
-                      {attachment.failed_holdings_count} <span className="text-sm font-normal text-amber-600">{t('holdings failed')}</span>
+                      {attachment.failed_holdings_count} <span className="text-sm font-normal text-warning">{t('holdings failed')}</span>
                     </p>
                   </div>
                 )}
@@ -178,16 +178,16 @@ const FileAttachmentDetail: React.FC<FileAttachmentDetailProps> = ({
             )}
 
             {attachment.status === 'pending' && attachment.extraction_error && (
-              <div className="p-4 rounded-xl bg-blue-50 border border-blue-200">
-                <p className="text-sm font-medium text-blue-700 mb-2">{t('Information')}:</p>
-                <p className="text-sm text-blue-600 font-mono bg-blue-100/50 p-2 rounded">{attachment.extraction_error}</p>
+              <div className="p-4 rounded-xl bg-primary/10 border border-primary/30">
+                <p className="text-sm font-medium text-primary mb-2">{t('Information')}:</p>
+                <p className="text-sm text-primary font-mono bg-primary/10 p-2 rounded">{attachment.extraction_error}</p>
               </div>
             )}
 
             {attachment.status === 'failed' && attachment.extraction_error && (
-              <div className="p-4 rounded-xl bg-red-50 border border-red-200">
-                <p className="text-sm font-medium text-red-700 mb-2">{t('Error Details')}:</p>
-                <p className="text-sm text-red-600 font-mono bg-red-100/50 p-2 rounded">{attachment.extraction_error}</p>
+              <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/30">
+                <p className="text-sm font-medium text-destructive mb-2">{t('Error Details')}:</p>
+                <p className="text-sm text-destructive font-mono bg-destructive/10 p-2 rounded">{attachment.extraction_error}</p>
               </div>
             )}
 
@@ -260,7 +260,7 @@ const FileAttachmentDetail: React.FC<FileAttachmentDetailProps> = ({
                        <p className="text-muted-foreground">{t('Click "Load Preview" above to view the file')}</p>
                     </div>
                 ) : (
-                    <div className="w-full h-full bg-white rounded-lg border shadow-sm overflow-hidden flex flex-col">
+                    <div className="w-full h-full bg-card rounded-lg border shadow-sm overflow-hidden flex flex-col">
                         {previewType?.includes('pdf') ? (
                           <iframe
                             src={previewUrl || ''}

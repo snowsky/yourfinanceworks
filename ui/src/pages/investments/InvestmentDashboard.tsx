@@ -493,7 +493,7 @@ const InvestmentDashboard: React.FC = () => {
                 size="sm"
                 className={cn(
                   "h-8 px-3 rounded-lg font-medium transition-all duration-200",
-                  viewMode === 'grid' && "bg-white dark:bg-slate-800 shadow-sm text-primary"
+                  viewMode === 'grid' && "bg-card shadow-sm text-primary"
                 )}
                 onClick={() => setViewMode('grid')}
               >
@@ -505,7 +505,7 @@ const InvestmentDashboard: React.FC = () => {
                 size="sm"
                 className={cn(
                   "h-8 px-3 rounded-lg font-medium transition-all duration-200",
-                  viewMode === 'table' && "bg-white dark:bg-slate-800 shadow-sm text-primary"
+                  viewMode === 'table' && "bg-card shadow-sm text-primary"
                 )}
                 onClick={() => setViewMode('table')}
               >
@@ -581,7 +581,7 @@ const InvestmentDashboard: React.FC = () => {
 
                   <CardHeader className="p-6">
                     <div className="flex items-center justify-between mb-4">
-                      <div className="p-2 rounded-xl bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300 shadow-sm border border-primary/10">
+                      <div className="p-2 rounded-xl bg-primary/5 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300 shadow-sm border border-primary/10">
                         <Wallet className="w-5 h-5" />
                       </div>
                       <Badge variant="outline" className={cn("px-2.5 py-0.5 rounded-full border border-border/50 font-medium", getPortfolioTypeColor(portfolio.portfolio_type))}>
@@ -603,7 +603,7 @@ const InvestmentDashboard: React.FC = () => {
                         <p className="text-2xl font-bold tracking-tight">{formatCurrency(portfolio.total_value || 0)}</p>
                       </div>
                       <div className="text-right">
-                        <div className="flex items-center justify-end gap-1 text-emerald-600 dark:text-emerald-400 font-semibold mb-1">
+                        <div className="flex items-center justify-end gap-1 text-success font-semibold mb-1">
                           {portfolio.total_cost && portfolio.total_value ? (
                             <>
                               <TrendingUp className="w-4 h-4" />
@@ -621,7 +621,7 @@ const InvestmentDashboard: React.FC = () => {
                       <ProfessionalButton
                         asChild
                         variant="outline"
-                        className="w-full rounded-xl font-semibold shadow-sm border-secondary/30 text-secondary hover:bg-secondary/5 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-300"
+                        className="w-full rounded-xl font-semibold shadow-sm border-secondary/30 text-secondary hover:bg-secondary/5 group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all duration-300"
                       >
                         <Link to={`/investments/portfolio/${portfolio.id}`}>
                           Manage Portfolio
@@ -649,7 +649,7 @@ const InvestmentDashboard: React.FC = () => {
                     <TableRow key={portfolio.id} className="group hover:bg-primary/5 transition-colors border-border/50">
                       <TableCell className="py-4 pl-6">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                          <div className="p-2 rounded-lg bg-primary/5 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                             <Wallet className="w-4 h-4" />
                           </div>
                           <span className="font-bold text-base">{portfolio.name}</span>
@@ -671,7 +671,7 @@ const InvestmentDashboard: React.FC = () => {
                           {formatCurrency(portfolio.total_value || 0)}
                         </div>
                         {portfolio.total_cost && portfolio.total_value ? (
-                          <div className="text-[10px] text-emerald-600 font-bold">
+                          <div className="text-[10px] text-success font-bold">
                             {formatPercentage(((portfolio.total_value - portfolio.total_cost) / portfolio.total_cost) * 100)} today
                           </div>
                         ) : null}
@@ -754,7 +754,7 @@ const InvestmentDashboard: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <ProfessionalCard variant="elevated" className="group p-6 border-l-4 border-l-primary hover:border-l-primary/100 transition-all shadow-md">
               <Link to="/investments/portfolio/new" className="flex flex-col gap-4">
-                <div className="p-3 rounded-2xl bg-primary/10 text-primary w-fit group-hover:bg-primary group-hover:text-white transition-all shadow-sm">
+                <div className="p-3 rounded-2xl bg-primary/10 text-primary w-fit group-hover:bg-primary group-hover:text-primary-foreground transition-all shadow-sm">
                   <Plus className="w-6 h-6" />
                 </div>
                 <div>

@@ -25,10 +25,10 @@ function fmtDate(d: string | null) {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  paid: 'bg-emerald-100 text-emerald-700',
-  partially_paid: 'bg-amber-100 text-amber-700',
-  overdue: 'bg-red-100 text-red-700',
-  pending: 'bg-blue-100 text-blue-700',
+  paid: 'bg-success/10 text-success',
+  partially_paid: 'bg-warning/10 text-warning',
+  overdue: 'bg-destructive/10 text-destructive',
+  pending: 'bg-primary/10 text-primary',
 };
 
 export default function PortalDashboard() {
@@ -77,8 +77,8 @@ export default function PortalDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -87,7 +87,7 @@ export default function PortalDashboard() {
   const currency = invoices[0]?.currency || 'USD';
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <header className="px-6 py-4 flex items-center justify-between" style={{ backgroundColor: brand, color: onBrand }}>
         <div className="flex items-center gap-3 min-w-0">
           {branding?.company_logo_url && (
@@ -105,56 +105,56 @@ export default function PortalDashboard() {
       </header>
 
       <main className="max-w-3xl mx-auto p-6 space-y-6">
-        {error && <div className="rounded-lg bg-red-50 text-red-700 text-sm px-4 py-3">{error}</div>}
+        {error && <div className="rounded-lg bg-destructive/10 text-destructive text-sm px-4 py-3">{error}</div>}
 
-        <div className="rounded-xl bg-white border p-5">
-          <p className="text-sm text-gray-500">Total outstanding</p>
+        <div className="rounded-xl bg-card border p-5">
+          <p className="text-sm text-muted-foreground">Total outstanding</p>
           <p className="text-3xl font-bold tabular-nums" style={{ color: brand }}>{fmt(totalOutstanding, currency)}</p>
-          <p className="text-sm text-gray-500 mt-1">{invoices.length} invoice{invoices.length === 1 ? '' : 's'}</p>
+          <p className="text-sm text-muted-foreground mt-1">{invoices.length} invoice{invoices.length === 1 ? '' : 's'}</p>
         </div>
 
         {profile && <ProfileCard profile={profile} brand={brand} onSaved={setProfile} />}
 
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-gray-700">Your invoices</h2>
+          <h2 className="text-sm font-semibold text-muted-foreground">Your invoices</h2>
           {invoices.length === 0 ? (
-            <div className="rounded-xl bg-white border p-8 text-center text-gray-500">
+            <div className="rounded-xl bg-card border p-8 text-center text-muted-foreground">
               <FileText className="h-8 w-8 mx-auto mb-2 opacity-40" />
               <p className="text-sm">No invoices yet.</p>
             </div>
           ) : (
             invoices.map((inv) => (
-              <div key={inv.id} className="rounded-xl bg-white border p-4 flex items-center justify-between gap-4">
+              <div key={inv.id} className="rounded-xl bg-card border p-4 flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-semibold">{inv.number}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[inv.status] || 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[inv.status] || 'bg-muted text-muted-foreground'}`}>
                       {inv.status.replace(/_/g, ' ')}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Due {fmtDate(inv.due_date)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Due {fmtDate(inv.due_date)}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="font-semibold tabular-nums">{fmt(inv.amount, inv.currency)}</p>
                   {inv.outstanding > 0 ? (
-                    <p className="text-xs text-gray-500">{fmt(inv.outstanding, inv.currency)} due</p>
+                    <p className="text-xs text-muted-foreground">{fmt(inv.outstanding, inv.currency)} due</p>
                   ) : (
-                    <p className="text-xs text-emerald-600">Paid</p>
+                    <p className="text-xs text-success">Paid</p>
                   )}
                 </div>
                 <button
                   onClick={() => clientPortalApi.downloadPdf(inv.id, inv.number).catch(() => setError('Failed to download PDF.'))}
                   title="Download PDF"
-                  className="shrink-0 rounded-lg border p-2 hover:bg-gray-50"
+                  className="shrink-0 rounded-lg border p-2 hover:bg-muted"
                 >
-                  <Download className="h-4 w-4 text-gray-600" />
+                  <Download className="h-4 w-4 text-muted-foreground" />
                 </button>
               </div>
             ))
           )}
         </div>
 
-        {branding?.footer_text && <p className="text-center text-xs text-gray-400">{branding.footer_text}</p>}
+        {branding?.footer_text && <p className="text-center text-xs text-muted-foreground">{branding.footer_text}</p>}
       </main>
     </div>
   );
@@ -180,11 +180,11 @@ function ProfileCard({ profile, brand, onSaved }: { profile: PortalProfile; bran
   };
 
   return (
-    <div className="rounded-xl bg-white border p-5">
+    <div className="rounded-xl bg-card border p-5">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-700">Your details</h2>
+        <h2 className="text-sm font-semibold text-muted-foreground">Your details</h2>
         {!editing && (
-          <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800">
+          <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <Pencil className="h-3.5 w-3.5" /> Edit
           </button>
         )}
@@ -218,8 +218,8 @@ function ProfileCard({ profile, brand, onSaved }: { profile: PortalProfile; bran
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div>
-      <label className="text-xs text-gray-500">{label}</label>
-      <input value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300" />
+      <label className="text-xs text-muted-foreground">{label}</label>
+      <input value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
     </div>
   );
 }
@@ -227,7 +227,7 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
 function Detail({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
-      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
       <p className="font-medium">{value || '—'}</p>
     </div>
   );

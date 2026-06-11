@@ -88,21 +88,21 @@ const DiffRow: React.FC<DiffRowProps> = ({ label, originalValue, newValue, forma
       content = String(val);
     }
 
-    return <span className={cn(isNew && isDifferent ? "font-medium text-amber-700 dark:text-amber-400" : "")}>{content}</span>;
+    return <span className={cn(isNew && isDifferent ? "font-medium text-warning" : "")}>{content}</span>;
   };
 
   return (
     <div className={cn(
       "group flex flex-col p-4 rounded-lg transition-all duration-200 border",
       isDifferent
-        ? "bg-amber-50/50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/30 shadow-sm"
+        ? "bg-warning/10 border-warning/30 shadow-sm"
         : "bg-card border-transparent hover:bg-muted/30 hover:border-border/50"
     )}>
       <div className="flex items-center gap-2 mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        {icon && <span className={cn("text-muted-foreground/70", isDifferent && "text-amber-500")}>{icon}</span>}
+        {icon && <span className={cn("text-muted-foreground/70", isDifferent && "text-warning")}>{icon}</span>}
         {label}
         {isDifferent && (
-          <Badge variant="outline" className="ml-auto bg-amber-100/50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700/30 text-[10px] h-5 px-1.5 shadow-none">
+          <Badge variant="outline" className="ml-auto bg-warning/10 text-warning border-warning/30 text-[10px] h-5 px-1.5 shadow-none">
             Changed
           </Badge>
         )}
@@ -119,14 +119,14 @@ const DiffRow: React.FC<DiffRowProps> = ({ label, originalValue, newValue, forma
         <div className="flex justify-center">
           <ArrowRight className={cn(
             "h-4 w-4 transition-colors", 
-            isDifferent ? "text-amber-500" : "text-muted-foreground/20"
+            isDifferent ? "text-warning" : "text-muted-foreground/20"
           )} />
         </div>
 
         <div className={cn(
           "p-2.5 rounded-md border min-h-[42px] flex items-center transition-all", 
-          isDifferent 
-            ? "bg-amber-100/40 dark:bg-amber-900/20 border-amber-200/50 dark:border-amber-700/30 shadow-sm" 
+          isDifferent
+            ? "bg-warning/10 border-warning/30 shadow-sm"
             : "bg-muted/10 border-transparent text-muted-foreground"
         )}>
           {formatValue(newValue, true)}
@@ -246,8 +246,8 @@ export const ReviewDiffModal: React.FC<ReviewDiffModalProps> = ({
         {/* Professional Header */}
         <DialogHeader className="p-6 pb-4 border-b bg-muted/10">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center border border-amber-200 dark:border-amber-700/50">
-              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-500" />
+            <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center border border-warning/30">
+              <AlertTriangle className="h-5 w-5 text-warning" />
             </div>
             <div>
               <DialogTitle className="text-xl font-bold tracking-tight">
@@ -285,7 +285,7 @@ export const ReviewDiffModal: React.FC<ReviewDiffModalProps> = ({
                 ))
               ) : type !== 'statement' && (
                 <div className="py-12 flex flex-col items-center justify-center text-center space-y-3 opacity-60">
-                  <Check className="h-12 w-12 text-green-500/50" />
+                  <Check className="h-12 w-12 text-success/50" />
                   <p className="text-sm font-medium">Original analysis is perfectly confirmed by the reviewer.</p>
                 </div>
               )}
@@ -293,20 +293,20 @@ export const ReviewDiffModal: React.FC<ReviewDiffModalProps> = ({
 
             {transactionDiffs.length > 0 && (
               <div className="mt-8 animate-fade-in-up">
-                <div className="flex items-center gap-2 mb-4 pb-2 border-b border-amber-200/50 dark:border-amber-800/50">
-                   <AlertTriangle className="h-4 w-4 text-amber-500" />
-                   <h3 className="font-bold text-sm text-amber-700 dark:text-amber-400">
+                <div className="flex items-center gap-2 mb-4 pb-2 border-b border-warning/30">
+                   <AlertTriangle className="h-4 w-4 text-warning" />
+                   <h3 className="font-bold text-sm text-warning">
                      Transaction Differences ({transactionDiffs.length})
                    </h3>
                 </div>
 
                 <div className="space-y-4">
                   {transactionDiffs.map((diff) => (
-                    <div key={diff.index} className="border rounded-lg p-0 overflow-hidden bg-card shadow-sm border-amber-200/50 dark:border-amber-800/30">
-                      <div className="px-4 py-2 bg-amber-50/50 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-800/20 text-xs font-medium flex justify-between items-center text-muted-foreground">
+                    <div key={diff.index} className="border rounded-lg p-0 overflow-hidden bg-card shadow-sm border-warning/30">
+                      <div className="px-4 py-2 bg-warning/10 border-b border-warning/20 text-xs font-medium flex justify-between items-center text-muted-foreground">
                         <span>Transaction #{diff.index}</span>
-                        {!diff.original && <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">New Transaction</Badge>}
-                        {!diff.reviewed && <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20">Removed Transaction</Badge>}
+                        {!diff.original && <Badge variant="outline" className="bg-success/10 text-success border-success/20">New Transaction</Badge>}
+                        {!diff.reviewed && <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">Removed Transaction</Badge>}
                       </div>
 
                       <div className="p-4 grid gap-3">
@@ -317,7 +317,7 @@ export const ReviewDiffModal: React.FC<ReviewDiffModalProps> = ({
                                 {safeFormatDate(diff.original?.date) || '—'}
                             </div>
                             <ArrowRight className="h-4 w-4 text-muted-foreground/30 self-center justify-self-center" />
-                            <div className={cn("p-2 rounded border bg-card text-sm font-medium", safeFormatDate(diff.original?.date) !== safeFormatDate(diff.reviewed?.date) ? "border-amber-200 text-amber-700 bg-amber-50/30" : "border-transparent bg-transparent")}>
+                            <div className={cn("p-2 rounded border bg-card text-sm font-medium", safeFormatDate(diff.original?.date) !== safeFormatDate(diff.reviewed?.date) ? "border-warning/30 text-warning bg-warning/10" : "border-transparent bg-transparent")}>
                                 {safeFormatDate(diff.reviewed?.date) || '—'}
                             </div>
                          </div>
@@ -329,7 +329,7 @@ export const ReviewDiffModal: React.FC<ReviewDiffModalProps> = ({
                                 {diff.original?.description || '—'}
                             </div>
                             <ArrowRight className="h-4 w-4 text-muted-foreground/30 self-center justify-self-center" />
-                            <div className={cn("p-2 rounded border bg-card text-sm font-medium", diff.original?.description !== diff.reviewed?.description ? "border-amber-200 text-amber-700 bg-amber-50/30" : "border-transparent bg-transparent")}>
+                            <div className={cn("p-2 rounded border bg-card text-sm font-medium", diff.original?.description !== diff.reviewed?.description ? "border-warning/30 text-warning bg-warning/10" : "border-transparent bg-transparent")}>
                                 {diff.reviewed?.description || '—'}
                             </div>
                          </div>
@@ -341,7 +341,7 @@ export const ReviewDiffModal: React.FC<ReviewDiffModalProps> = ({
                                 {diff.original?.amount ?? '—'}
                             </div>
                             <ArrowRight className="h-4 w-4 text-muted-foreground/30 self-center justify-self-center" />
-                            <div className={cn("p-2 rounded border bg-card text-sm font-medium", diff.original?.amount !== diff.reviewed?.amount ? "border-amber-200 text-amber-700 bg-amber-50/30" : "border-transparent bg-transparent")}>
+                            <div className={cn("p-2 rounded border bg-card text-sm font-medium", diff.original?.amount !== diff.reviewed?.amount ? "border-warning/30 text-warning bg-warning/10" : "border-transparent bg-transparent")}>
                                 {diff.reviewed?.amount ?? '—'}
                             </div>
                          </div>

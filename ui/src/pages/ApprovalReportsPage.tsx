@@ -319,26 +319,26 @@ export default function ApprovalReportsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success/10 text-success';
       case 'rejected':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/10 text-destructive';
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-warning/10 text-warning';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/10 text-destructive';
       case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-warning/10 text-warning';
       case 'low':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-primary/10 text-primary';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -474,7 +474,7 @@ export default function ApprovalReportsPage() {
                           {Math.round(metrics.approval_rate)}%
                         </p>
                       </div>
-                      <CheckCircle className="h-8 w-8 text-green-500" />
+                      <CheckCircle className="h-8 w-8 text-success" />
                     </div>
                   </CardContent>
                 </Card>
@@ -490,7 +490,7 @@ export default function ApprovalReportsPage() {
                           {formatHours(metrics.average_approval_time)}
                         </p>
                       </div>
-                      <Clock className="h-8 w-8 text-blue-500" />
+                      <Clock className="h-8 w-8 text-primary" />
                     </div>
                   </CardContent>
                 </Card>
@@ -504,7 +504,7 @@ export default function ApprovalReportsPage() {
                         </p>
                         <p className="text-2xl font-bold">{metrics.pending_approvals}</p>
                       </div>
-                      <Clock className="h-8 w-8 text-yellow-500" />
+                      <Clock className="h-8 w-8 text-warning" />
                     </div>
                   </CardContent>
                 </Card>
@@ -618,7 +618,7 @@ export default function ApprovalReportsPage() {
                             {formatHours(bottleneck.average_time_hours)} {t('approvalReports.performance.bottlenecks.avg')}
                           </Badge>
                           {bottleneck.is_bottleneck && (
-                            <AlertTriangle className="h-4 w-4 text-red-500" />
+                            <AlertTriangle className="h-4 w-4 text-destructive" />
                           )}
                         </div>
                       </div>
@@ -655,9 +655,9 @@ export default function ApprovalReportsPage() {
                           <tr key={perf.approver_id} className="border-b">
                             <td className="p-2 font-medium">{perf.approver_name}</td>
                             <td className="p-2 text-right">{perf.total_assigned}</td>
-                            <td className="p-2 text-right text-green-600">{perf.approved}</td>
-                            <td className="p-2 text-right text-red-600">{perf.rejected}</td>
-                            <td className="p-2 text-right text-yellow-600">{perf.pending}</td>
+                            <td className="p-2 text-right text-success">{perf.approved}</td>
+                            <td className="p-2 text-right text-destructive">{perf.rejected}</td>
+                            <td className="p-2 text-right text-warning">{perf.pending}</td>
                             <td className="p-2 text-right">{Math.round(perf.approval_rate)}%</td>
                             <td className="p-2 text-right">{formatHours(perf.average_time_hours)}</td>
                             <td className="p-2 text-right">
@@ -808,7 +808,7 @@ export default function ApprovalReportsPage() {
                         <p className="text-sm text-muted-foreground mb-2">
                           {rec.description}
                         </p>
-                        <p className="text-sm font-medium text-green-600">
+                        <p className="text-sm font-medium text-success">
                           {t('approvalReports.patterns.recommendations.impact')}: {rec.impact}
                         </p>
                       </div>
@@ -836,7 +836,7 @@ export default function ApprovalReportsPage() {
                           {Math.round(compliance.compliance_rate)}%
                         </p>
                       </div>
-                      <CheckCircle className="h-8 w-8 text-green-500" />
+                      <CheckCircle className="h-8 w-8 text-success" />
                     </div>
                   </CardContent>
                 </Card>
@@ -852,7 +852,7 @@ export default function ApprovalReportsPage() {
                           {compliance.expenses_bypassed_approval}
                         </p>
                       </div>
-                      <AlertTriangle className="h-8 w-8 text-red-500" />
+                      <AlertTriangle className="h-8 w-8 text-destructive" />
                     </div>
                   </CardContent>
                 </Card>
@@ -868,7 +868,7 @@ export default function ApprovalReportsPage() {
                           {compliance.policy_violations.length}
                         </p>
                       </div>
-                      <XCircle className="h-8 w-8 text-red-500" />
+                      <XCircle className="h-8 w-8 text-destructive" />
                     </div>
                   </CardContent>
                 </Card>

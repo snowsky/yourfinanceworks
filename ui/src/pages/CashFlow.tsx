@@ -250,8 +250,8 @@ const SourceBreakdownPanel: React.FC<{
   currency: string;
 }> = ({ title, entries, total, tone, currency }) => {
   const groups = buildSourceBreakdown(entries);
-  const accentClass = tone === 'income' ? 'bg-green-600' : 'bg-red-600';
-  const amountClass = tone === 'income' ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400';
+  const accentClass = tone === 'income' ? 'bg-success' : 'bg-destructive';
+  const amountClass = tone === 'income' ? 'text-success' : 'text-destructive';
 
   return (
     <div className="rounded border bg-muted/20 p-4">
@@ -314,10 +314,10 @@ const AlertsBanner: React.FC<{ alerts: CashFlowAlertResponse | undefined }> = ({
           key={i}
           className={`flex items-center gap-2 p-3 rounded-lg border ${
             alert.includes('CRITICAL')
-              ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-200'
+              ? 'bg-destructive/10 border-destructive/30 text-destructive'
               : alert.includes('WARNING')
-              ? 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-950 dark:border-yellow-800 dark:text-yellow-200'
-              : 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200'
+              ? 'bg-warning/10 border-warning/30 text-warning'
+              : 'bg-primary/10 border-primary/30 text-primary'
           }`}
         >
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
@@ -352,19 +352,19 @@ const RunwayCard: React.FC<{ runway: CashRunwayResponse | undefined; isLoading: 
           </div>
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Monthly Outflow</p>
-            <p className="text-2xl font-bold text-red-600">{formatCurrency(runway.monthly_burn_rate, currency)}</p>
+            <p className="text-2xl font-bold text-destructive">{formatCurrency(runway.monthly_burn_rate, currency)}</p>
           </div>
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Monthly Inflow</p>
-            <p className="text-2xl font-bold text-green-600">{formatCurrency(runway.monthly_income_rate, currency)}</p>
+            <p className="text-2xl font-bold text-success">{formatCurrency(runway.monthly_income_rate, currency)}</p>
           </div>
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Runway</p>
             <div className="text-2xl font-bold">
               {runway.is_sustainable ? (
-                <Badge variant="default" className="bg-green-600 text-lg px-3 py-1" aria-label="Cash flow is sustainable">Sustainable ✓</Badge>
+                <Badge variant="default" className="bg-success text-lg px-3 py-1" aria-label="Cash flow is sustainable">Sustainable ✓</Badge>
               ) : runway.runway_days != null ? (
-                <span className="text-orange-600">{runway.runway_days} days</span>
+                <span className="text-warning">{runway.runway_days} days</span>
               ) : (
                 <Badge variant="secondary">N/A</Badge>
               )}
@@ -401,21 +401,21 @@ const ForecastChart: React.FC<{ forecast: CashFlowForecastResponse | undefined; 
       </ProfessionalCardHeader>
       <ProfessionalCardContent>
         <div className="grid grid-cols-3 gap-4 mb-4">
-          <div className="text-center p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+          <div className="text-center p-3 bg-success/10 rounded-lg">
             <p className="text-xs text-muted-foreground">Projected Inflows</p>
-            <p className="text-lg font-semibold text-green-700 dark:text-green-300">
+            <p className="text-lg font-semibold text-success">
               {formatCurrency(forecast.total_projected_inflows, currency)}
             </p>
           </div>
-          <div className="text-center p-3 bg-red-50 dark:bg-red-950 rounded-lg">
+          <div className="text-center p-3 bg-destructive/10 rounded-lg">
             <p className="text-xs text-muted-foreground">Projected Outflows</p>
-            <p className="text-lg font-semibold text-red-700 dark:text-red-300">
+            <p className="text-lg font-semibold text-destructive">
               {formatCurrency(forecast.total_projected_outflows, currency)}
             </p>
           </div>
-          <div className="text-center p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+          <div className="text-center p-3 bg-primary/10 rounded-lg">
             <p className="text-xs text-muted-foreground">End Balance</p>
-            <p className="text-lg font-semibold text-blue-700 dark:text-blue-300">
+            <p className="text-lg font-semibold text-primary">
               {formatCurrency(forecast.projected_end_balance, currency)}
             </p>
           </div>
@@ -424,7 +424,7 @@ const ForecastChart: React.FC<{ forecast: CashFlowForecastResponse | undefined; 
         {forecast.alerts.length > 0 && (
           <div className="mb-4 space-y-1">
             {forecast.alerts.map((a, i) => (
-              <p key={i} className="text-sm text-orange-600 dark:text-orange-400">{a}</p>
+              <p key={i} className="text-sm text-warning">{a}</p>
             ))}
           </div>
         )}
@@ -556,7 +556,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Inflows */}
           <div>
-            <h4 className="flex items-center gap-2 font-semibold text-green-700 dark:text-green-400 mb-3">
+            <h4 className="flex items-center gap-2 font-semibold text-success mb-3">
               <TrendingUp className="w-4 h-4" />
               Inflows ({inflows.length} items) — {formatCurrency(forecast.total_projected_inflows, currency)}
             </h4>
@@ -565,7 +565,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {inflows.map((entry, i) => (
-                  <div key={i} className="flex items-center justify-between p-2 rounded border bg-green-50/50 dark:bg-green-950/30">
+                  <div key={i} className="flex items-center justify-between p-2 rounded border bg-success/10">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{entry.description || entry.category}</p>
                       <p className="text-xs text-muted-foreground">
@@ -575,7 +575,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
                       <EntryReferences entry={entry} />
                     </div>
                     <div className="text-right ml-2">
-                      <p className="text-sm font-semibold text-green-700 dark:text-green-400">+{formatCurrency(entry.amount, currency)}</p>
+                      <p className="text-sm font-semibold text-success">+{formatCurrency(entry.amount, currency)}</p>
                       <p className="text-xs text-muted-foreground">{Math.round(entry.confidence * 100)}% conf.</p>
                     </div>
                   </div>
@@ -586,7 +586,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
 
           {/* Outflows */}
           <div>
-            <h4 className="flex items-center gap-2 font-semibold text-red-700 dark:text-red-400 mb-3">
+            <h4 className="flex items-center gap-2 font-semibold text-destructive mb-3">
               <TrendingDown className="w-4 h-4" />
               Outflows ({outflows.length} items) — {formatCurrency(forecast.total_projected_outflows, currency)}
             </h4>
@@ -595,7 +595,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {outflows.map((entry, i) => (
-                  <div key={i} className="flex items-center justify-between p-2 rounded border bg-red-50/50 dark:bg-red-950/30">
+                  <div key={i} className="flex items-center justify-between p-2 rounded border bg-destructive/10">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{entry.description || entry.category}</p>
                       <p className="text-xs text-muted-foreground">
@@ -605,7 +605,7 @@ const InflowOutflowBreakdown: React.FC<{ forecast: CashFlowForecastResponse | un
                       <EntryReferences entry={entry} />
                     </div>
                     <div className="text-right ml-2">
-                      <p className="text-sm font-semibold text-red-700 dark:text-red-400">-{formatCurrency(entry.amount, currency)}</p>
+                      <p className="text-sm font-semibold text-destructive">-{formatCurrency(entry.amount, currency)}</p>
                       <p className="text-xs text-muted-foreground">{Math.round(entry.confidence * 100)}% conf.</p>
                     </div>
                   </div>
@@ -781,13 +781,13 @@ const ScenarioBuilder: React.FC = () => {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Impact</p>
-                <p className={`font-medium ${result.balance_impact < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                <p className={`font-medium ${result.balance_impact < 0 ? 'text-destructive' : 'text-success'}`}>
                   {formatCurrency(result.balance_impact, currency)}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Lowest Balance</p>
-                <p className={`font-medium ${result.lowest_balance < 0 ? 'text-red-600' : ''}`}>
+                <p className={`font-medium ${result.lowest_balance < 0 ? 'text-destructive' : ''}`}>
                   {formatCurrency(result.lowest_balance, currency)}
                 </p>
               </div>
@@ -795,7 +795,7 @@ const ScenarioBuilder: React.FC = () => {
             {result.alerts.length > 0 && (
               <div className="space-y-1">
                 {result.alerts.map((a, i) => (
-                  <p key={i} className="text-sm text-orange-600">{a}</p>
+                  <p key={i} className="text-sm text-warning">{a}</p>
                 ))}
               </div>
             )}
