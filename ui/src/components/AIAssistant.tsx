@@ -39,14 +39,14 @@ const InvoiceAnalysisCard = ({ data }: { data: any }) => {
   return (
     <div className="space-y-4">
       <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/10 dark:to-purple-900/10 p-4 rounded-2xl border border-blue-200/50 dark:border-blue-800/30">
-        <h3 className="text-lg font-bold text-blue-900 dark:text-blue-200 mb-3 flex items-center gap-2">
+        <h3 className="text-lg font-bold text-primary mb-3 flex items-center gap-2">
           <BarChart3 className="h-5 w-5" />
           {t('aiAssistant.invoicePatternAnalysis')}
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="bg-white/80 dark:bg-black/30 backdrop-blur-sm p-3 rounded-xl shadow-sm border border-border/50">
-            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">{t('aiAssistant.summary')}</h4>
+            <h4 className="font-semibold text-foreground mb-2">{t('aiAssistant.summary')}</h4>
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('aiAssistant.totalInvoices')}</span>
@@ -54,47 +54,47 @@ const InvoiceAnalysisCard = ({ data }: { data: any }) => {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('aiAssistant.paidInvoices')}</span>
-                <span className="font-medium text-emerald-600 dark:text-emerald-400">{data.paid_invoices}</span>
+                <span className="font-medium text-success">{data.paid_invoices}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('aiAssistant.partiallyPaid')}</span>
-                <span className="font-medium text-amber-600 dark:text-amber-400">{data.partially_paid_invoices || 0}</span>
+                <span className="font-medium text-warning">{data.partially_paid_invoices || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('aiAssistant.unpaidInvoices')}</span>
-                <span className="font-medium text-red-600 dark:text-red-400">{data.unpaid_invoices}</span>
+                <span className="font-medium text-destructive">{data.unpaid_invoices}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('aiAssistant.overdueInvoices')}</span>
-                <span className="font-medium text-rose-600 dark:text-rose-400">{data.overdue_invoices}</span>
+                <span className="font-medium text-destructive">{data.overdue_invoices}</span>
               </div>
             </div>
           </div>
 
           <div className="bg-white/80 dark:bg-black/30 backdrop-blur-sm p-3 rounded-xl shadow-sm border border-border/50">
-            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">{t('aiAssistant.revenue')}</h4>
+            <h4 className="font-semibold text-foreground mb-2">{t('aiAssistant.revenue')}</h4>
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('aiAssistant.totalRevenue')}</span>
-                <span className="font-medium text-emerald-600 dark:text-emerald-400">{formatRevenueByCurrency(data.total_revenue_by_currency)}</span>
+                <span className="font-medium text-success">{formatRevenueByCurrency(data.total_revenue_by_currency)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('aiAssistant.outstanding')}</span>
-                <span className="font-medium text-orange-600 dark:text-orange-400">{formatRevenueByCurrency(data.outstanding_revenue_by_currency)}</span>
+                <span className="font-medium text-warning">{formatRevenueByCurrency(data.outstanding_revenue_by_currency)}</span>
               </div>
             </div>
           </div>
         </div>
 
         <div className="bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/10 dark:to-blue-900/10 p-3 rounded-xl border border-emerald-200/50 dark:border-emerald-800/30">
-          <h4 className="font-semibold text-emerald-800 dark:text-emerald-300 mb-2 flex items-center gap-2">
+          <h4 className="font-semibold text-success mb-2 flex items-center gap-2">
             <Lightbulb className="h-4 w-4" />
             Recommendations
           </h4>
           <ul className="space-y-2 text-sm">
             {data.recommendations.map((rec: string, index: number) => (
-              <li key={index} className="flex items-start text-emerald-900 dark:text-emerald-200">
-                <span className="text-emerald-500 mr-2 mt-0.5">•</span>
+              <li key={index} className="flex items-start text-success">
+                <span className="text-success mr-2 mt-0.5">•</span>
                 <span>{t(`recommendations.${rec}`)}</span>
               </li>
             ))}
@@ -120,13 +120,13 @@ const SuggestedActionsCard = ({ data }: { data: any }) => {
             <div key={index} className="bg-white/80 dark:bg-black/30 backdrop-blur-sm p-3 rounded-xl shadow-sm border-l-4 border-pink-400">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-1">{action.action}</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{action.description}</p>
+                  <h4 className="font-semibold text-foreground mb-1">{action.action}</h4>
+                  <p className="text-sm text-muted-foreground">{action.description}</p>
                 </div>
                 <div className="ml-3">
-                  <Badge variant="outline" className={`${action.priority === 'high' ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800' :
-                    action.priority === 'medium' ? 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800' :
-                      'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800'
+                  <Badge variant="outline" className={`${action.priority === 'high' ? 'bg-destructive/10 text-destructive border-destructive/30' :
+                    action.priority === 'medium' ? 'bg-warning/10 text-warning border-warning/30' :
+                      'bg-success/10 text-success border-success/30'
                     }`}>
                     {action.priority}
                   </Badge>
@@ -137,21 +137,21 @@ const SuggestedActionsCard = ({ data }: { data: any }) => {
         </div>
 
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/10 dark:to-purple-900/10 p-3 rounded-xl border border-blue-200/50 dark:border-blue-800/30">
-          <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
+          <h4 className="font-semibold text-primary mb-2 flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             Quick Summary
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
             <div className="bg-white/60 dark:bg-black/20 p-2 rounded-lg text-center backdrop-blur-sm">
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400">{data.overdue_count}</div>
+              <div className="text-2xl font-bold text-destructive">{data.overdue_count}</div>
               <div className="text-xs text-muted-foreground">{t('aiAssistant.overdueInvoices')}</div>
             </div>
             <div className="bg-white/60 dark:bg-black/20 p-2 rounded-lg text-center backdrop-blur-sm">
-              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{data.clients_with_balance}</div>
+              <div className="text-2xl font-bold text-warning">{data.clients_with_balance}</div>
               <div className="text-xs text-muted-foreground">{t('aiAssistant.clientsWithBalance')}</div>
             </div>
             <div className="bg-white/60 dark:bg-black/20 p-2 rounded-lg text-center backdrop-blur-sm">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{data.recent_invoices_count}</div>
+              <div className="text-2xl font-bold text-primary">{data.recent_invoices_count}</div>
               <div className="text-xs text-muted-foreground">{t('aiAssistant.recentInvoices')}</div>
             </div>
           </div>
@@ -199,7 +199,7 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
           const parts = text.split(/(\*\*.*?\*\*)/g);
           return parts.map((part, i) => {
             if (part.startsWith('**') && part.endsWith('**')) {
-              return <strong key={i} className="font-bold text-indigo-900 dark:text-indigo-100">{part.slice(2, -2)}</strong>;
+              return <strong key={i} className="font-bold text-foreground">{part.slice(2, -2)}</strong>;
             }
             return part;
           });
@@ -209,7 +209,7 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
           const bulletContent = line.replace(/^[\*\-\•]\s*/, '');
           return (
             <div key={idx} className="flex items-start text-foreground/90 ml-2">
-              <span className="mr-2 mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500/50 shrink-0"></span>
+              <span className="mr-2 mt-1.5 h-1.5 w-1.5 rounded-full bg-primary/50 shrink-0"></span>
               <span>{processInlineBold(bulletContent)}</span>
             </div>
           );
@@ -218,7 +218,7 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
         if (isHeader) {
           const headerContent = line.replace(/^###\s+/, '').replace(/^\*\*/, '').replace(/\*\*$/, '');
           return (
-            <div key={idx} className="font-bold text-lg text-indigo-950 dark:text-indigo-50 mt-2 mb-1">
+            <div key={idx} className="font-bold text-lg text-foreground mt-2 mb-1">
               {headerContent}
             </div>
           );
@@ -288,22 +288,22 @@ const PromptImprovementProgress = ({ job }: { job: PromptImprovementJob }) => {
       {/* Header */}
       <div className={cn(
         "flex items-center gap-3 px-4 py-3",
-        isSucceeded ? "bg-emerald-50 dark:bg-emerald-900/20 border-b border-emerald-200 dark:border-emerald-800" :
-        isExhausted ? "bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800" :
-        isFailed ? "bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800" :
-        "bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800"
+        isSucceeded ? "bg-success/10 border-b border-success/30" :
+        isExhausted ? "bg-warning/10 border-b border-warning/30" :
+        isFailed ? "bg-destructive/10 border-b border-destructive/30" :
+        "bg-primary/10 border-b border-primary/30"
       )}>
-        {isRunning && <Loader className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400 shrink-0" />}
-        {isSucceeded && <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />}
-        {isExhausted && <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />}
-        {isFailed && <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />}
+        {isRunning && <Loader className="h-4 w-4 animate-spin text-primary shrink-0" />}
+        {isSucceeded && <CheckCircle className="h-4 w-4 text-success shrink-0" />}
+        {isExhausted && <AlertCircle className="h-4 w-4 text-warning shrink-0" />}
+        {isFailed && <AlertCircle className="h-4 w-4 text-destructive shrink-0" />}
         <div className="flex-1 min-w-0">
           <p className={cn(
             "text-sm font-semibold",
-            isSucceeded ? "text-emerald-800 dark:text-emerald-200" :
-            isExhausted ? "text-amber-800 dark:text-amber-200" :
-            isFailed ? "text-red-800 dark:text-red-200" :
-            "text-blue-800 dark:text-blue-200"
+            isSucceeded ? "text-success" :
+            isExhausted ? "text-warning" :
+            isFailed ? "text-destructive" :
+            "text-primary"
           )}>
             {isRunning && (job.prompt_name
               ? `Improving prompt: ${job.prompt_name}`
@@ -313,7 +313,7 @@ const PromptImprovementProgress = ({ job }: { job: PromptImprovementJob }) => {
             {isFailed && 'Improvement failed'}
           </p>
           {isRunning && (
-            <p className="text-xs text-blue-600/70 dark:text-blue-400/70">
+            <p className="text-xs text-primary/70">
               Iteration {job.current_iteration} / {job.max_iterations}
             </p>
           )}
@@ -329,7 +329,7 @@ const PromptImprovementProgress = ({ job }: { job: PromptImprovementJob }) => {
 
       {/* Error */}
       {job.error_message && (
-        <div className="px-4 py-3 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/10">
+        <div className="px-4 py-3 text-sm text-destructive bg-destructive/10">
           {job.error_message}
         </div>
       )}
@@ -342,7 +342,7 @@ const PromptImprovementProgress = ({ job }: { job: PromptImprovementJob }) => {
             <div key={entry.iteration} className="flex items-start gap-2 text-xs">
               <span className={cn(
                 "mt-0.5 shrink-0 font-bold",
-                entry.evaluation === 'pass' ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"
+                entry.evaluation === 'pass' ? "text-success" : "text-destructive"
               )}>
                 {entry.evaluation === 'pass' ? '✓' : '✗'}
               </span>
@@ -356,10 +356,10 @@ const PromptImprovementProgress = ({ job }: { job: PromptImprovementJob }) => {
 
       {/* Link to prompt management on exhaustion */}
       {isExhausted && (
-        <div className="px-4 py-3 border-t border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
+        <div className="px-4 py-3 border-t border-warning/30 bg-warning/10">
           <a
             href="/settings?tab=prompts"
-            className="text-xs text-amber-700 dark:text-amber-400 underline hover:no-underline"
+            className="text-xs text-warning underline hover:no-underline"
           >
             Open Prompt Management to edit manually →
           </a>
@@ -397,13 +397,13 @@ const EnhancedAIResponse = ({ text }: { text: string }) => {
 
   if (lowerText.includes('error') || lowerText.includes('sorry') || lowerText.includes('failed')) {
     return (
-      <div className="bg-red-50/50 dark:bg-red-900/10 backdrop-blur-sm p-4 rounded-2xl border border-red-200/50 dark:border-red-800/30">
+      <div className="bg-destructive/10 backdrop-blur-sm p-4 rounded-2xl border border-destructive/30">
         <div className="flex items-start gap-3">
           <div className="bg-gradient-to-br from-red-500 to-pink-600 rounded-full p-2 shadow-sm shrink-0">
             <AlertCircle className="h-4 w-4 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-red-800 dark:text-red-200 leading-relaxed font-medium text-[0.95rem]">
+            <div className="text-destructive leading-relaxed font-medium text-[0.95rem]">
               {content}
             </div>
           </div>
@@ -414,13 +414,13 @@ const EnhancedAIResponse = ({ text }: { text: string }) => {
 
   if (lowerText.includes('success') || lowerText.includes('great') || lowerText.includes('excellent')) {
     return (
-      <div className="bg-emerald-50/50 dark:bg-emerald-900/10 backdrop-blur-sm p-4 rounded-2xl border border-emerald-200/50 dark:border-emerald-800/30">
+      <div className="bg-success/10 backdrop-blur-sm p-4 rounded-2xl border border-success/30">
         <div className="flex items-start gap-3">
           <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-full p-2 shadow-sm shrink-0">
             <CheckCircle className="h-4 w-4 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-emerald-800 dark:text-emerald-200 leading-relaxed font-medium text-[0.95rem]">
+            <div className="text-success leading-relaxed font-medium text-[0.95rem]">
               {content}
             </div>
           </div>
@@ -431,13 +431,13 @@ const EnhancedAIResponse = ({ text }: { text: string }) => {
 
   if (lowerText.includes('configuration') || lowerText.includes('settings')) {
     return (
-      <div className="bg-blue-50/50 dark:bg-blue-900/10 backdrop-blur-sm p-4 rounded-2xl border border-blue-200/50 dark:border-blue-800/30">
+      <div className="bg-primary/10 backdrop-blur-sm p-4 rounded-2xl border border-primary/30">
         <div className="flex items-start gap-3">
           <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full p-2 shadow-sm shrink-0">
             <Zap className="h-4 w-4 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-blue-800 dark:text-blue-200 leading-relaxed text-[0.95rem]">
+            <div className="text-primary leading-relaxed text-[0.95rem]">
               {content}
             </div>
           </div>
@@ -1211,8 +1211,8 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
           <MessageCircle className="h-8 w-8 text-white drop-shadow-md" />
           {hasUnreadMessages && (
             <span className="absolute -top-1 -right-1 flex h-3 w-3 pointer-events-none">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
             </span>
           )}
         </Button>
@@ -1227,7 +1227,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
 
             {/* Dialog Panel */}
             <div className={cn(
-              "relative flex flex-col bg-white/95 dark:bg-gray-950/95 w-full shadow-2xl overflow-hidden transform-gpu will-change-transform",
+              "relative flex flex-col bg-background/95 w-full shadow-2xl overflow-hidden transform-gpu will-change-transform",
               "backdrop-blur-xl border border-white/20 dark:border-white/10",
               isFullscreen
                 ? 'h-[100dvh] w-full sm:rounded-none'
@@ -1244,7 +1244,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                     <MessageCircle className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300">
+                    <h2 className="text-xl font-bold text-foreground">
                       {t('aiAssistant.title')}
                     </h2>
                     <div className="flex items-center gap-1.5">
@@ -1357,7 +1357,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
               </ScrollArea>
 
               {/* Input Area */}
-              <div className="p-4 sm:p-6 bg-gradient-to-t from-white via-white/80 to-transparent dark:from-gray-950 dark:via-gray-950/80 pt-10 z-30">
+              <div className="p-4 sm:p-6 bg-gradient-to-t from-background via-background/80 to-transparent pt-10 z-30">
                 <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide mask-fade-right">
                   <Button
                     variant="outline"
@@ -1397,7 +1397,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                   </Button>
                 </div>
 
-                <div className="relative flex items-center gap-2 bg-white/60 dark:bg-gray-900/50 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 p-2 pl-4 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.04)] focus-within:shadow-[0_8px_30px_rgb(0,0,0,0.08)] focus-within:border-gray-300 dark:focus-within:border-gray-600 transition-all duration-300">
+                <div className="relative flex items-center gap-2 bg-card/60 backdrop-blur-xl border border-border/50 p-2 pl-4 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.04)] focus-within:shadow-[0_8px_30px_rgb(0,0,0,0.08)] focus-within:border-border transition-all duration-300">
                   <Input
                     placeholder={t('aiAssistant.inputPlaceholder')}
                     value={input}
@@ -1414,7 +1414,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                       "rounded-full w-10 h-10 shrink-0 shadow-md transition-all duration-200 flex items-center justify-center p-0",
                       input.trim()
                         ? "bg-[#2b5876] hover:bg-[#2b5876]/90 text-white translate-x-0 opacity-100"
-                        : "bg-gray-200 dark:bg-gray-800 text-gray-400 cursor-not-allowed"
+                        : "bg-muted text-muted-foreground cursor-not-allowed"
                     )}
                     onClick={() => handleSendMessage()}
                     disabled={!input.trim()}

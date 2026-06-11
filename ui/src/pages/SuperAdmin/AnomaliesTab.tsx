@@ -96,10 +96,10 @@ export const AnomaliesTab: React.FC<AnomaliesTabProps> = ({ onTotalChange }) => 
       <FeatureGate
         feature="anomaly_detection"
         fallback={
-          <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
+          <ProfessionalCard variant="elevated" className="border-primary/30 bg-primary/10">
             <div className="p-12 text-center">
-              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                <AlertTriangle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                <AlertTriangle className="w-8 h-8 text-primary" />
               </div>
               <h3 className="text-2xl font-bold text-foreground mb-3">{t('superAdmin.business_license_required')}</h3>
               <p className="text-muted-foreground mb-8 max-w-lg mx-auto leading-relaxed">
@@ -112,19 +112,19 @@ export const AnomaliesTab: React.FC<AnomaliesTabProps> = ({ onTotalChange }) => 
                 </h4>
                 <ul className="text-left space-y-3 text-sm text-foreground/80">
                   <li className="flex items-start">
-                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                    <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                     <span>{t('superAdmin.ai_powered_anomaly_detection')}</span>
                   </li>
                   <li className="flex items-start">
-                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                    <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                     <span>{t('superAdmin.senior_forensic_auditor_ai')}</span>
                   </li>
                   <li className="flex items-start">
-                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                    <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                     <span>{t('superAdmin.risk_scoring_intelligent_fraud_detection')}</span>
                   </li>
                   <li className="flex items-start">
-                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                    <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                     <span>{t('superAdmin.cross_tenant_anomaly_monitoring')}</span>
                   </li>
                 </ul>
@@ -148,7 +148,7 @@ export const AnomaliesTab: React.FC<AnomaliesTabProps> = ({ onTotalChange }) => 
               <div className="p-6">
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
                     <h2 className="text-xl font-semibold">{t('superAdmin.flagged_high_risk_items')}</h2>
                   </div>
                   <div className="flex items-center gap-2">
@@ -299,10 +299,10 @@ export const AnomaliesTab: React.FC<AnomaliesTabProps> = ({ onTotalChange }) => 
                     </ul>
                   </div>
                   <div className="pt-4 border-t border-primary/10">
-                    <div className="p-3 bg-white/50 dark:bg-black/20 rounded-lg border border-primary/10">
+                    <div className="p-3 bg-card/50 rounded-lg border border-primary/10">
                       <p className="text-[10px] uppercase tracking-wider font-bold text-primary/60 mb-1">{t('superAdmin.ai_insights_status')}</p>
                       <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                        <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
                         <span className="text-xs font-medium">{t('superAdmin.senior_forensic_auditor_active')}</span>
                       </div>
                     </div>
@@ -319,7 +319,7 @@ export const AnomaliesTab: React.FC<AnomaliesTabProps> = ({ onTotalChange }) => 
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              <AlertTriangle className="h-5 w-5 text-warning" />
               Anomaly Details
             </DialogTitle>
           </DialogHeader>

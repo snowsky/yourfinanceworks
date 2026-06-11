@@ -103,7 +103,7 @@ const ExpenseSummary: React.FC<ExpenseSummaryProps> = ({ className }) => {
       <Card className={className}>
         <CardContent className="flex items-center justify-center p-8">
           <div className="text-center">
-            <p className="text-red-600 mb-4">{error}</p>
+            <p className="text-destructive mb-4">{error}</p>
             <Button onClick={loadSummary} size="sm">
               <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
@@ -244,12 +244,12 @@ const ExpenseSummary: React.FC<ExpenseSummaryProps> = ({ className }) => {
         <CardContent>
           <div className="space-y-4">
             {summaryData.category_breakdown.map((category) => (
-              <div key={category.category} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div key={category.category} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                   <div>
                     <p className="font-medium">{category.category}</p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       {category.percentage.toFixed(1)}% of total
                     </p>
                   </div>

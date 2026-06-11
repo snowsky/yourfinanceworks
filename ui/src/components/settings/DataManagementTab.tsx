@@ -152,7 +152,7 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
                         </div>
                         {status && (
                             <div className="flex items-center gap-2 text-sm font-normal">
-                                <span className={`flex items-center gap-1 ${status.is_in_sync ? 'text-green-600' : 'text-amber-600'}`}>
+                                <span className={`flex items-center gap-1 ${status.is_in_sync ? 'text-success' : 'text-warning'}`}>
                                     {status.is_in_sync ? (
                                         <CheckCircle2 className="h-4 w-4" />
                                     ) : (
@@ -160,7 +160,7 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
                                     )}
                                     {status.is_in_sync ? t('settings.data_management.synced') : t('settings.data_management.out_of_sync')}
                                 </span>
-                                <div className={`w-3 h-3 rounded-full ${status.is_in_sync ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]'} animate-pulse`}></div>
+                                <div className={`w-3 h-3 rounded-full ${status.is_in_sync ? 'bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-warning shadow-[0_0_8px_rgba(245,158,11,0.6)]'} animate-pulse`}></div>
                             </div>
                         )}
                     </ProfessionalCardTitle>
@@ -202,7 +202,7 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
                         </Button>
 
                         {status?.suggest_skip_attachments && (
-                            <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100">
+                            <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 px-3 py-1.5 rounded-full border border-primary/30">
                                 <Cloud className="h-3 w-3" />
                                 {t('settings.data_management.shared_cloud_storage_detected')}
                             </div>
@@ -216,12 +216,12 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
                                     type="checkbox" 
                                     checked={includeAttachments} 
                                     onChange={(e) => setIncludeAttachments(e.target.checked)}
-                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    className="rounded border-input text-primary focus:ring-primary"
                                 />
                                 {t('settings.data_management.sync_attachment_files')}
                             </Label>
                             {status?.suggest_skip_attachments && (
-                                <span className="text-[10px] text-muted-foreground bg-gray-100 px-1.5 py-0.5 rounded">
+                                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                                     {t('settings.data_management.recommended_off')}
                                 </span>
                             )}
@@ -250,15 +250,15 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
                         </div>
 
                         {status && (
-                            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs space-y-1">
+                            <div className="p-3 bg-muted rounded-lg border border-border text-xs space-y-1">
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">{t('settings.data_management.local_fingerprint')}:</span>
-                                    <code className="bg-gray-200 px-1 rounded">{status.local_fingerprint.substring(0, 12)}...</code>
+                                    <code className="bg-muted px-1 rounded">{status.local_fingerprint.substring(0, 12)}...</code>
                                 </div>
                                 {status.remote_fingerprint && (
                                     <div className="flex justify-between">
                                         <span className="text-muted-foreground">{t('settings.data_management.remote_fingerprint')}:</span>
-                                        <code className="bg-gray-200 px-1 rounded">{status.remote_fingerprint.substring(0, 12)}...</code>
+                                        <code className="bg-muted px-1 rounded">{status.remote_fingerprint.substring(0, 12)}...</code>
                                     </div>
                                 )}
                                 <div className="flex justify-between">
@@ -283,12 +283,12 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
                     </p>
                 </ProfessionalCardHeader>
                 <ProfessionalCardContent className="space-y-6">
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
                         <div className="flex items-start gap-3">
-                            <div className="text-amber-600 text-lg">⚠️</div>
+                            <div className="text-warning text-lg">⚠️</div>
                             <div>
-                                <h4 className="font-medium text-amber-900 mb-1">{t('settings.data_management.important_warning')}</h4>
-                                <p className="text-sm text-amber-800">
+                                <h4 className="font-medium text-warning mb-1">{t('settings.data_management.important_warning')}</h4>
+                                <p className="text-sm text-warning">
                                     {t('settings.data_management.importing_data_warning_strong')}
                                     {t('settings.data_management.importing_data_warning_cannot_be_undone')}
                                 </p>
@@ -312,12 +312,12 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
                                     className="cursor-pointer"
                                 />
                                 {selectedFile && (
-                                    <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                    <div className="mt-3 p-3 bg-success/10 border border-success/30 rounded-lg">
                                         <div className="flex items-center gap-2 text-sm">
-                                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                            <div className="w-2 h-2 bg-success rounded-full"></div>
                                             <span className="font-medium">{t('settings.data_management.file_selected')}:</span>
                                         </div>
-                                        <p className="text-sm text-green-700 mt-1">
+                                        <p className="text-sm text-success mt-1">
                                             {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} {t('settings.data_management.mb')})
                                         </p>
                                     </div>
@@ -330,19 +330,19 @@ export const DataManagementTab: React.FC<DataManagementTabProps> = ({ isAdmin })
                                 <h4 className="font-medium mb-3">{t('settings.data_management.import_process')}</h4>
                                 <div className="space-y-2 text-sm text-muted-foreground">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                                        <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
                                         <span>{t('settings.data_management.file_validation_and_structure_check')}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                                        <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
                                         <span>{t('settings.data_management.current_data_backup_and_removal')}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                                        <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
                                         <span>{t('settings.data_management.import_new_data_with_id_mapping')}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                                        <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
                                         <span>{t('settings.data_management.data_integrity_verification')}</span>
                                     </div>
                                 </div>

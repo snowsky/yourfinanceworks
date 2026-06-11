@@ -548,12 +548,12 @@ export default function ExpensesNew() {
 
             {isInventoryPurchase && (
               <div className="space-y-4">
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 text-purple-800 mb-3">
+                <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-primary mb-3">
                     <Package className="h-4 w-4" />
                     <span className="text-sm font-medium">{t('expenses.inventory_purchase_details')}</span>
                   </div>
-                  <p className="text-sm text-purple-700 mb-4">
+                  <p className="text-sm text-primary mb-4">
                     {t('expenses.select_the_inventory_items_you_purchased_with_this_expense')}
                   </p>
 
@@ -565,8 +565,8 @@ export default function ExpensesNew() {
                 </div>
 
                 {inventoryPurchaseItems.length > 0 && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-green-800">
+                  <div className="bg-success/10 border border-success/30 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-success">
                       <Package className="h-4 w-4" />
                       <span className="text-sm font-medium">
                         {t('expenses.ready_to_process', { count: inventoryPurchaseItems.length })}
@@ -579,12 +579,12 @@ export default function ExpensesNew() {
 
             {isInventoryConsumption && (
               <div className="space-y-4">
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 text-orange-800 mb-3">
+                <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-warning mb-3">
                     <Package className="h-4 w-4" />
                     <span className="text-sm font-medium">{t('expenses.inventory_consumption_details')}</span>
                   </div>
-                  <p className="text-sm text-orange-700 mb-4">
+                  <p className="text-sm text-warning mb-4">
                     {t('expenses.select_the_inventory_items_you_consumed')}
                   </p>
 
@@ -596,8 +596,8 @@ export default function ExpensesNew() {
                 </div>
 
                 {consumptionItems.length > 0 && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-green-800">
+                  <div className="bg-success/10 border border-success/30 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-success">
                       <Package className="h-4 w-4" />
                       <span className="text-sm font-medium">
                         {t('expenses.ready_to_process', { count: consumptionItems.length })}
@@ -621,9 +621,9 @@ export default function ExpensesNew() {
               <p className="text-muted-foreground mt-1">Upload receipts and supporting documents</p>
             </div>
             {!hasAIExpenseFeature && (
-              <Alert className="mb-4 border-amber-200 bg-amber-50">
-                <AlertCircle className="h-4 w-4 text-amber-600" />
-                <AlertDescription className="text-amber-800">
+              <Alert className="mb-4 border-warning/30 bg-warning/10">
+                <AlertCircle className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-warning">
                   <strong>{t('expenses.ai_license_reminder.title')}</strong> {t('expenses.ai_license_reminder.message')}
                 </AlertDescription>
               </Alert>
@@ -655,9 +655,9 @@ export default function ExpensesNew() {
               <p className="text-muted-foreground mt-1">Submit this expense for approval after creation</p>
             </div>
             {!isApprovalsEnabled && (
-              <Alert className="border-amber-200 bg-amber-50">
-                <AlertCircle className="h-4 w-4 text-amber-600" />
-                <AlertDescription className="text-amber-800">
+              <Alert className="border-warning/30 bg-warning/10">
+                <AlertCircle className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-warning">
                   <strong>Note:</strong> Approval workflows are not available in your current plan. Please submit expenses directly.
                 </AlertDescription>
               </Alert>
@@ -679,9 +679,9 @@ export default function ExpensesNew() {
             {submitForApproval && (
               <div className="mt-3 space-y-3">
                 {approvalsNotLicensed ? (
-                  <Alert className="border-amber-200 bg-amber-50">
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
-                    <AlertDescription className="text-amber-800">
+                  <Alert className="border-warning/30 bg-warning/10">
+                    <AlertCircle className="h-4 w-4 text-warning" />
+                    <AlertDescription className="text-warning">
                       {t('common.feature_not_licensed', {
                         defaultValue: 'Approval workflows require a commercial license. Please upgrade your license to use this feature.'
                       })}
@@ -689,8 +689,8 @@ export default function ExpensesNew() {
                   </Alert>
                 ) : (
                   <>
-                    <div className="p-3 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/50 rounded-lg">
-                      <p className="text-sm text-blue-700 dark:text-blue-200">
+                    <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg">
+                      <p className="text-sm text-primary">
                         {t('expenses.this_expense_will_be_submitted_for_approval')}
                       </p>
                     </div>

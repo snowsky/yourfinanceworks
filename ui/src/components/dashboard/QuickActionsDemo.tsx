@@ -105,25 +105,25 @@ export function QuickActionsDemo() {
       case 'warning':
         return 'bg-gradient-to-r from-orange-500 to-amber-600 text-white hover:from-orange-600 hover:to-amber-700 border-0';
       default:
-        return 'bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 hover:text-gray-900';
+        return 'bg-card hover:bg-muted border border-border text-muted-foreground hover:text-foreground';
     }
   };
 
   const getBadgeStyles = (variant: string) => {
     switch (variant) {
       case 'warning':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
+        return 'bg-warning/10 text-warning border-warning/30';
       default:
         return 'bg-primary/10 text-primary border-primary/20';
     }
   };
 
   return (
-    <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
+    <div className="space-y-6 p-6 bg-background min-h-screen">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Quick Actions Demo</h1>
-          <p className="text-gray-600">Enhanced user experience with actionable shortcuts and pending items</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard Quick Actions Demo</h1>
+          <p className="text-muted-foreground">Enhanced user experience with actionable shortcuts and pending items</p>
         </div>
 
         {/* Quick Actions Card */}
@@ -152,10 +152,10 @@ export function QuickActionsDemo() {
                   >
                     <div className="flex items-center gap-3 w-full">
                       <div className={`p-2 rounded-lg ${
-                        action.variant === 'primary' ? 'bg-primary-foreground/20' : 'bg-gray-100'
+                        action.variant === 'primary' ? 'bg-primary-foreground/20' : 'bg-muted'
                       }`}>
                         <Icon className={`h-5 w-5 ${
-                          action.variant === 'primary' ? 'text-primary-foreground' : 'text-gray-600'
+                          action.variant === 'primary' ? 'text-primary-foreground' : 'text-muted-foreground'
                         }`} />
                       </div>
                       <div className="flex-1">
@@ -172,7 +172,7 @@ export function QuickActionsDemo() {
               })}
             </div>
 
-            <div className="border-t border-gray-200 my-4"></div>
+            <div className="border-t border-border my-4"></div>
 
             {/* Secondary Actions */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -182,7 +182,7 @@ export function QuickActionsDemo() {
                   <Button
                     key={action.title}
                     variant="ghost"
-                    className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-gray-50 transition-all duration-200 hover:scale-105 relative"
+                    className="h-auto p-3 flex flex-col items-center gap-2 hover:bg-muted transition-all duration-200 hover:scale-105 relative"
                     style={{ animationDelay: `${(index + 4) * 100}ms` }}
                   >
                     {action.badge && (
@@ -191,10 +191,10 @@ export function QuickActionsDemo() {
                       </Badge>
                     )}
                     <div className={`p-2 rounded-lg ${
-                      action.variant === 'warning' ? 'bg-orange-100' : 'bg-gray-100'
+                      action.variant === 'warning' ? 'bg-warning/10' : 'bg-muted'
                     }`}>
                       <Icon className={`h-4 w-4 ${
-                        action.variant === 'warning' ? 'text-orange-600' : 'text-gray-600'
+                        action.variant === 'warning' ? 'text-warning' : 'text-muted-foreground'
                       }`} />
                     </div>
                     <span className="text-xs font-medium text-center leading-tight">
@@ -208,16 +208,16 @@ export function QuickActionsDemo() {
         </Card>
 
         {/* Pending Items Card */}
-        <Card className="border-l-4 border-l-orange-500 bg-orange-50/50">
+        <Card className="border-l-4 border-l-warning bg-warning/10">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-orange-600" />
-                <CardTitle className="text-lg font-semibold text-orange-900">
+                <AlertCircle className="h-5 w-5 text-warning" />
+                <CardTitle className="text-lg font-semibold text-warning">
                   Needs Attention
                 </CardTitle>
               </div>
-              <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700 flex items-center gap-1">
+              <Button variant="ghost" size="sm" className="text-warning hover:text-warning/80 flex items-center gap-1">
                 View All
                 <ArrowRight className="h-3 w-3" />
               </Button>
@@ -228,15 +228,15 @@ export function QuickActionsDemo() {
               {mockPendingItems.map((item, index) => (
                 <div 
                   key={item.id} 
-                  className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200 transition-all duration-200 hover:shadow-md"
+                  className="flex items-center justify-between p-3 bg-card rounded-lg border border-warning/30 transition-all duration-200 hover:shadow-md"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-orange-100 rounded-lg">
-                      <ListChecks className="h-4 w-4 text-orange-600" />
+                    <div className="p-2 bg-warning/10 rounded-lg">
+                      <ListChecks className="h-4 w-4 text-warning" />
                     </div>
                     <div>
-                      <div className="font-medium text-sm text-gray-900">{item.title}</div>
+                      <div className="font-medium text-sm text-foreground">{item.title}</div>
                       <div className="text-xs text-muted-foreground">{item.amount}</div>
                     </div>
                   </div>
@@ -258,15 +258,15 @@ export function QuickActionsDemo() {
         <Card className="mt-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-green-600" />
+              <TrendingUp className="h-5 w-5 text-success" />
               UX Improvements
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                <h3 className="font-semibold text-green-900 mb-2">Reduced Clicks</h3>
-                <p className="text-sm text-green-700">Direct access to common actions from the dashboard reduces navigation time by 60%</p>
+              <div className="p-4 bg-success/10 rounded-lg border border-success/30">
+                <h3 className="font-semibold text-success mb-2">Reduced Clicks</h3>
+                <p className="text-sm text-success">Direct access to common actions from the dashboard reduces navigation time by 60%</p>
               </div>
               <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
                 <h3 className="font-semibold text-foreground mb-2">Visual Hierarchy</h3>

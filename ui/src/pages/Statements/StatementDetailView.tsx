@@ -278,7 +278,7 @@ export function StatementDetailView({
           {(readOnly || (detail as any)?.error_message) && (
             <div className="space-y-4">
               {detail?.status === 'processing' && (
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center gap-3 text-amber-700 dark:text-amber-400 slide-in">
+                <div className="bg-warning/10 border border-warning/20 rounded-xl p-4 flex items-center gap-3 text-warning slide-in">
                   <Loader2 className="h-5 w-5 animate-spin" />
                   <div className="text-sm">
                     <span className="font-bold">{t('common.processing')}:</span> {t('statements.processing_message', { defaultValue: 'Statement is being analyzed by AI. Editing is disabled until completion.' })}
@@ -294,8 +294,8 @@ export function StatementDetailView({
                 </div>
               )}
               {detail?.status !== 'merged' && (
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex items-center gap-3 text-blue-700 dark:text-blue-400 slide-in">
-                  <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center gap-3 text-primary slide-in">
+                  <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                   <div className="text-sm">
                     <strong>{t('common.note', { defaultValue: 'Note:' })}</strong> {t('statements.transaction_edit_note', { defaultValue: 'Transaction information should match the uploaded bank statement file. Only edit if corrections are needed.' })}
                   </div>
@@ -308,7 +308,7 @@ export function StatementDetailView({
           {detail?.is_possible_receipt && detail.status === 'processed' && (() => {
             const allConverted = rows.filter(r => r.transaction_type === 'debit').every(r => !!(r as any).expense_id);
             return (
-              <div className={`border rounded-xl p-4 flex items-start gap-3 slide-in ${allConverted ? 'bg-green-500/10 border-green-500/30 text-green-800 dark:text-green-300' : 'bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300'}`}>
+              <div className={`border rounded-xl p-4 flex items-start gap-3 slide-in ${allConverted ? 'bg-success/10 border-success/30 text-success' : 'bg-warning/10 border-warning/30 text-warning'}`}>
                 <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 text-sm">
                   <span className="font-bold">
@@ -326,7 +326,7 @@ export function StatementDetailView({
                   <ProfessionalButton
                     variant="outline"
                     size="sm"
-                    className="flex-shrink-0 border-amber-500/50 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20"
+                    className="flex-shrink-0 border-warning/50 text-warning hover:bg-warning/20"
                     onClick={async () => {
                       const debitIndices = rows
                         .map((r, i) => ({ r, i }))
@@ -369,7 +369,7 @@ export function StatementDetailView({
               </div>
             </ProfessionalCard>
             <ProfessionalCard variant="elevated" className="p-0 overflow-hidden border-none shadow-sm">
-              <div className="p-5 flex flex-col items-center justify-center bg-background border-b-4 border-blue-500/20">
+              <div className="p-5 flex flex-col items-center justify-center bg-background border-b-4 border-primary/20">
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('statements.net_amount', { defaultValue: 'Net Amount' })}</span>
                 <div className={`text-2xl font-black ${netAmount >= 0 ? 'text-success' : 'text-destructive'}`}><CurrencyDisplay amount={netAmount} currency="USD" /></div>
               </div>
@@ -387,24 +387,24 @@ export function StatementDetailView({
                     {(detail.status === 'processed' || detail.status === 'done') ? (
                       <Badge variant="success" className="h-6">{t('common.done')}</Badge>
                     ) : detail.status === 'processing' ? (
-                      <Badge variant="secondary" className="h-6 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800 capitalize">
+                      <Badge variant="secondary" className="h-6 bg-warning/10 text-warning border-warning/30 capitalize">
                         {t('common.processing')}
                       </Badge>
                     ) : detail.status === 'failed' ? (
                       <Badge variant="destructive" className="h-6">Failed</Badge>
                     ) : detail.status === 'uploaded' ? (
-                      <Badge variant="secondary" className="h-6 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800 capitalize">
+                      <Badge variant="secondary" className="h-6 bg-warning/10 text-warning border-warning/30 capitalize">
                         {t('common.uploaded')}
                       </Badge>
                     ) : null}
                   </div>
                   {detail.analysis_error && detail.status === 'failed' && (
-                    <Alert className="border-red-200 bg-red-50">
-                      <AlertCircle className="h-4 w-4 text-red-600" />
-                      <AlertDescription className="text-red-800">
+                    <Alert className="border-destructive/30 bg-destructive/10">
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                      <AlertDescription className="text-destructive">
                         <details className="cursor-pointer">
                           <summary className="font-medium mb-1">{t('statements.analysis_failed_click_details', { defaultValue: 'Analysis failed (click for details)' })}</summary>
-                          <div className="mt-2 text-xs font-mono bg-red-100 p-2 rounded border border-red-200 overflow-x-auto">
+                          <div className="mt-2 text-xs font-mono bg-destructive/10 p-2 rounded border border-destructive/30 overflow-x-auto">
                             {detail.analysis_error}
                           </div>
                         </details>
@@ -618,7 +618,7 @@ export function StatementDetailView({
                         <TableRow
                           className={cn(
                             'hover:bg-muted/20 transition-colors border-b border-border/30 statement-row-hoverable',
-                            (r as any).backend_id && (r as any).backend_id === highlightedBackendId && 'ring-2 ring-inset ring-blue-400 bg-blue-50/50 dark:bg-blue-950/20',
+                            (r as any).backend_id && (r as any).backend_id === highlightedBackendId && 'ring-2 ring-inset ring-primary/40 bg-primary/5',
                             isSplitView && hoveredRowIdx === idx && 'is-hovered-for-pdf'
                           )}
                           onMouseEnter={isSplitView ? () => setHoveredRowIdx(idx) : undefined}
@@ -757,7 +757,7 @@ export function StatementDetailView({
                               )}
                               {Boolean((r as any).linked_transfer) && (
                                 <Badge
-                                  className="bg-blue-500/10 text-blue-600 border-blue-500/20 border text-[10px] h-5 justify-center gap-1 cursor-pointer hover:bg-blue-500/20 transition-colors"
+                                  className="bg-primary/10 text-primary border-primary/20 border text-[10px] h-5 justify-center gap-1 cursor-pointer hover:bg-primary/20 transition-colors"
                                   title={`Jump to: ${(r as any).linked_transfer?.linked_statement_filename}`}
                                   onClick={() => openStatement(
                                     (r as any).linked_transfer.linked_statement_id,
@@ -807,7 +807,7 @@ export function StatementDetailView({
                                       }}
                                       disabled={readOnly || Boolean((r as any).linked_transfer) || !(r as any).backend_id}
                                     >
-                                      <ArrowLeftRight className="w-4 h-4 mr-2 text-blue-500" />
+                                      <ArrowLeftRight className="w-4 h-4 mr-2 text-primary" />
                                       {Boolean((r as any).linked_transfer) ? 'Transfer linked' : 'Link Transfer'}
                                     </DropdownMenuItem>
                                     {Boolean((r as any).linked_transfer) && (
@@ -957,7 +957,7 @@ export function StatementDetailView({
                           }}
                           disabled={readOnly || Boolean((r as any).linked_transfer) || !(r as any).backend_id}
                         >
-                          <ArrowLeftRight className="w-4 h-4 mr-2 text-blue-500" />
+                          <ArrowLeftRight className="w-4 h-4 mr-2 text-primary" />
                           {Boolean((r as any).linked_transfer) ? 'Transfer linked' : 'Link Transfer'}
                         </ContextMenuItem>
                         {Boolean((r as any).linked_transfer) && (

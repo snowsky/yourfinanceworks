@@ -213,21 +213,21 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
 
   const getStatusIcon = (plugin: Plugin) => {
     if (plugin.initializationError) {
-      return <XCircle className="w-4 h-4 text-red-500" />;
+      return <XCircle className="w-4 h-4 text-destructive" />;
     }
 
     switch (plugin.status) {
       case 'active':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
+        return <CheckCircle className="w-4 h-4 text-success" />;
       case 'initializing':
-        return <Clock className="w-4 h-4 text-blue-500 animate-pulse" />;
+        return <Clock className="w-4 h-4 text-primary animate-pulse" />;
       case 'error':
-        return <XCircle className="w-4 h-4 text-red-500" />;
+        return <XCircle className="w-4 h-4 text-destructive" />;
       case 'disabled':
-        return <XCircle className="w-4 h-4 text-gray-400" />;
+        return <XCircle className="w-4 h-4 text-muted-foreground" />;
       case 'inactive':
       default:
-        return <AlertCircle className="w-4 h-4 text-gray-400" />;
+        return <AlertCircle className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
@@ -253,26 +253,26 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
 
   const getStatusColor = (plugin: Plugin) => {
     if (plugin.initializationError) {
-      return 'text-red-600 bg-red-50 border-red-200';
+      return 'text-destructive bg-destructive/10 border-destructive/30';
     }
 
     switch (plugin.status) {
       case 'active':
-        return 'text-green-600 bg-green-50 border-green-200';
+        return 'text-success bg-success/10 border-success/30';
       case 'initializing':
-        return 'text-blue-600 bg-blue-50 border-blue-200';
+        return 'text-primary bg-primary/10 border-primary/30';
       case 'error':
-        return 'text-red-600 bg-red-50 border-red-200';
+        return 'text-destructive bg-destructive/10 border-destructive/30';
       case 'disabled':
-        return 'text-gray-600 bg-gray-50 border-gray-200';
+        return 'text-muted-foreground bg-muted border-border';
       case 'inactive':
       default:
-        return plugin.enabled ? 'text-green-600 bg-green-50 border-green-200' : 'text-gray-600 bg-gray-50 border-gray-200';
+        return plugin.enabled ? 'text-success bg-success/10 border-success/30' : 'text-muted-foreground bg-muted border-border';
     }
   };
 
   return (
-    <Card className={`transition-all duration-200 ${plugin.enabled ? 'ring-2 ring-blue-500/20 bg-blue-50/30' : ''}`}>
+    <Card className={`transition-all duration-200 ${plugin.enabled ? 'ring-2 ring-primary/20 bg-primary/5' : ''}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -325,7 +325,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <Trash2 className="w-5 h-5 text-red-600" />
+              <Trash2 className="w-5 h-5 text-destructive" />
               Uninstall {plugin.name}?
             </AlertDialogTitle>
             <AlertDialogDescription>
@@ -337,7 +337,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleUninstall}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive hover:bg-destructive/90"
             >
               {isUninstalling ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
               Uninstall
@@ -350,7 +350,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
         <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-blue-600" />
+              <Shield className="w-5 h-5 text-primary" />
               {t('plugins.required_access_title')}
             </AlertDialogTitle>
             <AlertDialogDescription>
@@ -360,23 +360,23 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
 
           <div className="my-4 border rounded-md overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-muted border-b">
                 <tr>
-                  <th className="px-4 py-2 text-left font-medium text-gray-700">{t('plugins.target_plugin')}</th>
-                  <th className="px-4 py-2 text-left font-medium text-gray-700">{t('plugins.access_type')}</th>
-                  <th className="px-4 py-2 text-left font-medium text-gray-700">{t('plugins.reason_for_access')}</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">{t('plugins.target_plugin')}</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">{t('plugins.access_type')}</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">{t('plugins.reason_for_access')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {plugin.required_access?.map((req, idx) => (
-                  <tr key={idx} className="bg-white">
+                  <tr key={idx} className="bg-card">
                     <td className="px-4 py-2 font-medium">{req.target_plugin}</td>
                     <td className="px-4 py-2">
-                      <Badge variant="outline" className={req.access_type === 'write' ? 'text-orange-600 bg-orange-50 border-orange-200' : 'text-blue-600 bg-blue-50 border-blue-200'}>
+                      <Badge variant="outline" className={req.access_type === 'write' ? 'text-warning bg-warning/10 border-warning/30' : 'text-primary bg-primary/10 border-primary/30'}>
                         {req.access_type === 'write' ? t('plugins.write_access') : t('plugins.read_access')}
                       </Badge>
                     </td>
-                    <td className="px-4 py-2 text-gray-600">{req.reason}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{req.reason}</td>
                   </tr>
                 ))}
               </tbody>
@@ -392,7 +392,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
                 setShowPermissionDialog(false);
                 await executeToggle(true);
               }}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-primary hover:bg-primary/90"
             >
               {t('plugins.grant_access_and_enable')}
             </AlertDialogAction>
@@ -405,7 +405,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <RotateCcw className="w-5 h-5 text-blue-600" />
+              <RotateCcw className="w-5 h-5 text-primary" />
               Reinstall {plugin.name}
             </DialogTitle>
             <DialogDescription>
@@ -465,7 +465,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
               <DialogFooter>
                 <Button variant="outline" onClick={handleReinstallClose}>Cancel</Button>
                 <Button
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-primary hover:bg-primary/90"
                   onClick={handleReinstallConfirm}
                   disabled={needsUrl && !reinstallUrl.trim()}
                 >
@@ -479,33 +479,33 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
             <>
               <div className="py-1 space-y-3">
                 <div className="flex items-center gap-2">
-                  {reinstallState === 'running' && <Badge className="bg-blue-100 text-blue-700 border-blue-200"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Reinstalling…</Badge>}
-                  {reinstallState === 'done' && <Badge className="bg-green-100 text-green-700 border-green-200"><CheckCircle className="w-3 h-3 mr-1" /> Done</Badge>}
-                  {reinstallState === 'failed' && <Badge className="bg-red-100 text-red-700 border-red-200"><XCircle className="w-3 h-3 mr-1" /> Failed</Badge>}
+                  {reinstallState === 'running' && <Badge className="bg-primary/10 text-primary border-primary/30"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Reinstalling…</Badge>}
+                  {reinstallState === 'done' && <Badge className="bg-success/10 text-success border-success/30"><CheckCircle className="w-3 h-3 mr-1" /> Done</Badge>}
+                  {reinstallState === 'failed' && <Badge className="bg-destructive/10 text-destructive border-destructive/30"><XCircle className="w-3 h-3 mr-1" /> Failed</Badge>}
                 </div>
-                <div className="rounded-md border bg-gray-50 p-3 space-y-2">
+                <div className="rounded-md border bg-muted p-3 space-y-2">
                   {reinstallJob.steps.map((step, i) => (
                     <div key={i} className="flex items-start gap-2 text-sm">
-                      {step.status === 'done' && <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />}
-                      {step.status === 'failed' && <XCircle className="w-4 h-4 text-red-500 shrink-0" />}
-                      {step.status === 'running' && <Loader2 className="w-4 h-4 text-blue-500 animate-spin shrink-0" />}
-                      {step.status === 'pending' && <Clock className="w-4 h-4 text-gray-300 shrink-0" />}
+                      {step.status === 'done' && <CheckCircle className="w-4 h-4 text-success shrink-0" />}
+                      {step.status === 'failed' && <XCircle className="w-4 h-4 text-destructive shrink-0" />}
+                      {step.status === 'running' && <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />}
+                      {step.status === 'pending' && <Clock className="w-4 h-4 text-muted-foreground shrink-0" />}
                       <div className="flex-1">
-                        <span className={step.status === 'pending' ? 'text-gray-400' : 'text-gray-800'}>{step.label}</span>
+                        <span className={step.status === 'pending' ? 'text-muted-foreground' : 'text-foreground'}>{step.label}</span>
                         {step.detail && <p className="text-xs text-muted-foreground mt-0.5">{step.detail}</p>}
                       </div>
                     </div>
                   ))}
                   {reinstallState === 'running' && reinstallJob.steps.length === 0 && (
-                    <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2 className="w-4 h-4 animate-spin" /> Starting…
                     </div>
                   )}
                 </div>
                 {reinstallState === 'failed' && reinstallJob.error && (
-                  <Alert className="border-red-200 bg-red-50">
-                    <XCircle className="h-4 w-4 text-red-600" />
-                    <AlertDescription className="text-red-800 text-sm">{reinstallJob.error}</AlertDescription>
+                  <Alert className="border-destructive/30 bg-destructive/10">
+                    <XCircle className="h-4 w-4 text-destructive" />
+                    <AlertDescription className="text-destructive text-sm">{reinstallJob.error}</AlertDescription>
                   </Alert>
                 )}
               </div>
@@ -525,20 +525,20 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
       </Dialog>
 
       <CardContent>
-        <CardDescription className="text-sm text-gray-600 mb-3">
+        <CardDescription className="text-sm text-muted-foreground mb-3">
           {plugin.description}
         </CardDescription>
 
         <div className="space-y-2">
           {plugin.author && (
-            <div className="flex items-center gap-2 text-xs text-gray-500">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="font-medium">{t('plugins.author')}:</span>
               <span>{plugin.author}</span>
             </div>
           )}
 
           {plugin.dependencies && plugin.dependencies.length > 0 && (
-            <div className="flex items-start gap-2 text-xs text-gray-500">
+            <div className="flex items-start gap-2 text-xs text-muted-foreground">
               <span className="font-medium">{t('plugins.dependencies')}:</span>
               <div className="flex flex-wrap gap-1">
                 {plugin.dependencies.map((dep, index) => (
@@ -550,7 +550,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
             </div>
           )}
 
-          <div className="flex items-center gap-4 text-xs text-gray-500">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
             {plugin.rating && (
               <div className="flex items-center gap-1">
                 <Star className="w-3 h-3 text-yellow-500 fill-current" />
@@ -617,7 +617,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-xs h-7 text-blue-600 border-blue-200 hover:bg-blue-50"
+                  className="text-xs h-7 text-primary border-primary/30 hover:bg-primary/10"
                   onClick={() => setReinstallState('confirm')}
                 >
                   <RotateCcw className="w-3 h-3 mr-1" />
@@ -628,7 +628,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-xs h-7 text-red-600 border-red-200 hover:bg-red-50"
+                  className="text-xs h-7 text-destructive border-destructive/30 hover:bg-destructive/10"
                   onClick={() => setShowUninstallDialog(true)}
                   disabled={isUninstalling}
                 >
@@ -650,9 +650,9 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, onToggle, onUninstall, 
         </div>
 
         {(!canToggle || !isAdmin) && !isExpired && (
-          <Alert className="mt-3 border-amber-200 bg-amber-50">
-            <Info className="h-4 w-4 text-amber-600" />
-            <AlertDescription className="text-amber-800 text-sm">
+          <Alert className="mt-3 border-warning/30 bg-warning/10">
+            <Info className="h-4 w-4 text-warning" />
+            <AlertDescription className="text-warning text-sm">
               {!isAdmin ? (
                 <span>
                   <strong>{t('plugins.administrator_access_required')}:</strong> {t('plugins.admin_only_message')}
@@ -689,10 +689,10 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ isAdmin }) => {
     <FeatureGate
       feature="plugin_management"
       fallback={
-        <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
+        <ProfessionalCard variant="elevated" className="border-primary/20 bg-primary/5">
           <ProfessionalCardContent className="p-12 text-center">
-            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-              <Puzzle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+              <Puzzle className="w-8 h-8 text-primary" />
             </div>
             <h3 className="text-2xl font-bold text-foreground mb-3">{t('plugins.business_license_required')}</h3>
             <p className="text-muted-foreground mb-8 max-w-lg mx-auto leading-relaxed">
@@ -705,19 +705,19 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ isAdmin }) => {
               </h4>
               <ul className="text-left space-y-3 text-sm text-foreground/80">
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>{t('plugins.benefits.enable_disable')}</span>
                 </li>
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>{t('plugins.benefits.sidebar_integration')}</span>
                 </li>
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>{t('plugins.benefits.customize_experience')}</span>
                 </li>
                 <li className="flex items-start">
-                  <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                  <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                   <span>{t('plugins.benefits.advanced_ecosystem')}</span>
                 </li>
               </ul>
@@ -952,7 +952,7 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
               variant="outline"
               size="sm"
               onClick={() => setIsInstallModalOpen(true)}
-              className="flex items-center gap-2 border-blue-200 hover:bg-blue-50 text-blue-700"
+              className="flex items-center gap-2 border-primary/30 hover:bg-primary/10 text-primary"
             >
               <GitBranch className="w-4 h-4" />
               Install from Git
@@ -993,9 +993,9 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
 
       {/* Discovery Errors Alert */}
       {discoveryErrors.length > 0 && (
-        <Alert className="border-amber-200 bg-amber-50">
-          <Info className="h-4 w-4 text-amber-600" />
-          <AlertDescription className="text-amber-800">
+        <Alert className="border-warning/30 bg-warning/10">
+          <Info className="h-4 w-4 text-warning" />
+          <AlertDescription className="text-warning">
             <strong>{t('plugins.discovery_issues')}</strong>
             <ul className="mt-2 list-disc list-inside text-sm">
               {discoveryErrors.map((error, index) => (
@@ -1008,9 +1008,9 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
 
       {/* Storage Error Alert */}
       {storageError && (
-        <Alert className="border-amber-200 bg-amber-50">
-          <Info className="h-4 w-4 text-amber-600" />
-          <AlertDescription className="text-amber-800">
+        <Alert className="border-warning/30 bg-warning/10">
+          <Info className="h-4 w-4 text-warning" />
+          <AlertDescription className="text-warning">
             <strong>{t('plugins.storage_issue')}</strong> {storageError}
             <br />
             {t('plugins.storage_warning')}
@@ -1019,9 +1019,9 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
       )}
 
       {!isAdmin && (
-        <Alert className="border-red-200 bg-red-50">
-          <Shield className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">
+        <Alert className="border-destructive/30 bg-destructive/10">
+          <Shield className="h-4 w-4 text-destructive" />
+          <AlertDescription className="text-destructive">
             <strong>{t('plugins.administrator_access_required')}:</strong> {t('plugins.plugin_management_restricted')}
           </AlertDescription>
         </Alert>
@@ -1059,16 +1059,16 @@ const PluginsTabContent: React.FC<PluginsTabProps> = ({ isAdmin }) => {
 
       {filteredPlugins.length === 0 && (
         <div className="text-center py-8">
-          <Puzzle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <Puzzle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           {searchQuery ? (
             <>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('plugins.no_search_results')}</h3>
-              <p className="text-gray-600">{t('plugins.try_different_search')}</p>
+              <h3 className="text-lg font-medium text-foreground mb-2">{t('plugins.no_search_results')}</h3>
+              <p className="text-muted-foreground">{t('plugins.try_different_search')}</p>
             </>
           ) : (
             <>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('plugins.no_plugins_available')}</h3>
-              <p className="text-gray-600">{t('plugins.no_plugins_installed')}</p>
+              <h3 className="text-lg font-medium text-foreground mb-2">{t('plugins.no_plugins_available')}</h3>
+              <p className="text-muted-foreground">{t('plugins.no_plugins_installed')}</p>
             </>
           )}
         </div>

@@ -423,12 +423,12 @@ export default function ExpensesEdit() {
                   </Badge>
                 </div>
                 {(form as any)?.analysis_error && (form as any)?.analysis_status === 'failed' && (
-                  <Alert className="border-red-200 bg-red-50">
-                    <AlertCircle className="h-4 w-4 text-red-600" />
-                    <AlertDescription className="text-red-800">
+                  <Alert className="border-destructive/30 bg-destructive/10">
+                    <AlertCircle className="h-4 w-4 text-destructive" />
+                    <AlertDescription className="text-destructive">
                       <details className="cursor-pointer">
                         <summary className="font-medium mb-1">{t('expenses.analysis_failed_click_details')}</summary>
-                        <div className="mt-2 text-xs font-mono bg-red-100 p-2 rounded border border-red-200 overflow-x-auto">
+                        <div className="mt-2 text-xs font-mono bg-destructive/10 p-2 rounded border border-destructive/30 overflow-x-auto">
                           {(form as any).analysis_error}
                         </div>
                       </details>
@@ -638,7 +638,7 @@ export default function ExpensesEdit() {
 
             {/* Inventory Consumption Section */}
             <div className="sm:col-span-2">
-              <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
+              <div className="space-y-3 p-4 border rounded-lg bg-muted">
                 <div className="flex items-center gap-2">
                   <Package className="h-4 w-4" />
                   <span className="text-sm font-medium">{t('expenses.inventory_integration')}</span>
@@ -660,12 +660,12 @@ export default function ExpensesEdit() {
 
                 {isInventoryConsumption && (
                   <div className="space-y-4">
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                      <div className="flex items-center gap-2 text-orange-800 mb-3">
+                    <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-warning mb-3">
                         <Package className="h-4 w-4" />
                         <span className="text-sm font-medium">{t('expenses.inventory_consumption_details')}</span>
                       </div>
-                      <p className="text-sm text-orange-700 mb-4">
+                      <p className="text-sm text-warning mb-4">
                         {t('expenses.select_the_inventory_items_you_consumed')}
                       </p>
 
@@ -677,8 +677,8 @@ export default function ExpensesEdit() {
                     </div>
 
                     {consumptionItems.length > 0 && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                        <div className="flex items-center gap-2 text-green-800">
+                      <div className="bg-success/10 border border-success/30 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-success">
                           <Package className="h-4 w-4" />
                           <span className="text-sm font-medium">
                             {t('expenses.ready_to_process', { count: consumptionItems.length })}
@@ -705,9 +705,9 @@ export default function ExpensesEdit() {
                 <div className="text-xs text-muted-foreground mt-1">{t('expenses.attachments_cannot_delete', { defaultValue: 'Attachments cannot be deleted after analysis is completed.' })}</div>
               )}
               {!hasAIExpenseFeature && (
-                <Alert className="my-3 border-amber-200 bg-amber-50">
-                  <AlertCircle className="h-4 w-4 text-amber-600" />
-                  <AlertDescription className="text-amber-800">
+                <Alert className="my-3 border-warning/30 bg-warning/10">
+                  <AlertCircle className="h-4 w-4 text-warning" />
+                  <AlertDescription className="text-warning">
                     <strong>Note:</strong> AI-powered receipt analysis is not available in your current plan.
                     Files will be uploaded as attachments only, without automatic data extraction.
                   </AlertDescription>
@@ -829,9 +829,9 @@ export default function ExpensesEdit() {
             <CardContent>
               <div className={`space-y-3 ${!isApprovalsEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
                 {!isApprovalsEnabled && (
-                  <Alert className="border-amber-200 bg-amber-50">
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
-                    <AlertDescription className="text-amber-800">
+                  <Alert className="border-warning/30 bg-warning/10">
+                    <AlertCircle className="h-4 w-4 text-warning" />
+                    <AlertDescription className="text-warning">
                       <strong>Note:</strong> Approval workflows are not available in your current plan. Please submit expenses directly.
                     </AlertDescription>
                   </Alert>
@@ -853,9 +853,9 @@ export default function ExpensesEdit() {
                 {submitForApproval && (
                   <div className="mt-3 space-y-3">
                     {approvalsNotLicensed ? (
-                      <Alert className="border-amber-200 bg-amber-50">
-                        <AlertCircle className="h-4 w-4 text-amber-600" />
-                        <AlertDescription className="text-amber-800">
+                      <Alert className="border-warning/30 bg-warning/10">
+                        <AlertCircle className="h-4 w-4 text-warning" />
+                        <AlertDescription className="text-warning">
                           {t('common.feature_not_licensed', {
                             defaultValue: 'Approval workflows require a commercial license. Please upgrade your license to use this feature.'
                           })}
@@ -863,8 +863,8 @@ export default function ExpensesEdit() {
                       </Alert>
                     ) : (
                       <>
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <p className="text-sm text-blue-700">
+                        <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg">
+                          <p className="text-sm text-primary">
                             {t('expenses.this_expense_will_be_submitted_for_approval')}
                           </p>
                         </div>

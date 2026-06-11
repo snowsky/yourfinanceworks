@@ -87,9 +87,9 @@ const methodBadgeClass = (method?: string) => {
 const statusBadgeClass = (status?: string) => {
   switch ((status || "").toLowerCase()) {
     case "completed":
-      return "bg-emerald-500/10 text-emerald-700 border-emerald-500/20";
+      return "bg-success/10 text-success border-success/20";
     case "pending":
-      return "bg-amber-500/10 text-amber-700 border-amber-500/20";
+      return "bg-warning/10 text-warning border-warning/20";
     case "failed":
       return "bg-destructive/10 text-destructive border-destructive/20";
     default:

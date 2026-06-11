@@ -55,10 +55,10 @@ export const EmailIntegrationSettingsTab: React.FC = () => {
         <FeatureGate
             feature="email_integration"
             fallback={
-                <ProfessionalCard variant="elevated" className="border-blue-200/50 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10">
+                <ProfessionalCard variant="elevated" className="border-primary/30 bg-primary/10">
                     <ProfessionalCardContent className="p-12 text-center">
-                        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                            <Mail className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                        <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                            <Mail className="w-8 h-8 text-primary" />
                         </div>
                         <h3 className="text-2xl font-bold text-foreground mb-3">Business License Required</h3>
                         <p className="text-muted-foreground mb-8 max-w-lg mx-auto leading-relaxed">
@@ -72,19 +72,19 @@ export const EmailIntegrationSettingsTab: React.FC = () => {
                             </h4>
                             <ul className="text-left space-y-3 text-sm text-foreground/80">
                                 <li className="flex items-start">
-                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                                    <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                                     <span>Automatic expense ingestion from email</span>
                                 </li>
                                 <li className="flex items-start">
-                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                                    <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                                     <span>Support for Gmail, Outlook, and custom IMAP</span>
                                 </li>
                                 <li className="flex items-start">
-                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                                    <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                                     <span>AI-powered expense classification</span>
                                 </li>
                                 <li className="flex items-start">
-                                    <div className="mr-3 p-0.5 bg-green-100 rounded-full mt-0.5"><div className="w-2 h-2 bg-green-600 rounded-full" /></div>
+                                    <div className="mr-3 p-0.5 bg-success/10 rounded-full mt-0.5"><div className="w-2 h-2 bg-success rounded-full" /></div>
                                     <span>Secure and encrypted connection</span>
                                 </li>
                             </ul>
@@ -250,8 +250,8 @@ const EmailIntegrationSettingsContent: React.FC = () => {
 
                 {testResult && (
                     <div className={`p-4 rounded-xl border flex items-start gap-3 ${testResult.success
-                        ? 'bg-green-50/50 border-green-200/50 text-green-800'
-                        : 'bg-red-50/50 border-red-200/50 text-red-800'
+                        ? 'bg-success/10 border-success/30 text-success'
+                        : 'bg-destructive/10 border-destructive/30 text-destructive'
                         }`}>
                         {testResult.success ? (
                             <CheckCircle2 className="h-5 w-5 mt-0.5 shrink-0" />
@@ -316,14 +316,14 @@ const EmailIntegrationSettingsContent: React.FC = () => {
                 </div>
 
                 {config.imap_host === 'imap.gmail.com' && (
-                    <div className="p-4 bg-blue-50/50 border border-blue-200/50 rounded-xl text-blue-800 flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 mt-0.5 shrink-0 text-blue-600" />
+                    <div className="p-4 bg-primary/10 border border-primary/30 rounded-xl text-primary flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 mt-0.5 shrink-0 text-primary" />
                         <div>
                             <h4 className="font-semibold text-sm mb-1">{t('emailIntegration.gmailAlert.title')}</h4>
                             <div className="text-sm opacity-90 space-y-1">
                                 <p>{t('emailIntegration.gmailAlert.description')}</p>
                                 <p>{t('emailIntegration.gmailAlert.step1')}</p>
-                                <p><a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-blue-900">{t('emailIntegration.gmailAlert.step2')}</a></p>
+                                <p><a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-primary">{t('emailIntegration.gmailAlert.step2')}</a></p>
                                 <p>{t('emailIntegration.gmailAlert.step3')}</p>
                             </div>
                         </div>

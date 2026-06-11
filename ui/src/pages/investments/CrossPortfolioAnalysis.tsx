@@ -24,10 +24,10 @@ const GainPill: React.FC<{ value: number; label?: string }> = ({ value, label })
     className={cn(
       'inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full',
       value > 0
-        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+        ? 'bg-success/10 text-success'
         : value < 0
-        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+        ? 'bg-destructive/10 text-destructive'
+        : 'bg-muted text-muted-foreground'
     )}
   >
     {value > 0 ? <TrendingUp className="w-3 h-3" /> : value < 0 ? <TrendingDown className="w-3 h-3" /> : null}
@@ -130,7 +130,7 @@ const OverlapSection: React.FC<{ data: any }> = ({ data }) => {
             <div
               className={cn(
                 'h-full rounded-full transition-all duration-1000',
-                data.overlap_percentage > 50 ? 'bg-amber-500' : 'bg-primary'
+                data.overlap_percentage > 50 ? 'bg-warning' : 'bg-primary'
               )}
               style={{ width: `${Math.min(data.overlap_percentage, 100)}%` }}
             />
@@ -177,13 +177,13 @@ const ExposureSection: React.FC<{ data: any }> = ({ data }) => {
   return (
     <ProfessionalCard title="Concentration Risk" className="border-border/40" variant="elevated">
       {data.concentration_warnings?.length > 0 && (
-        <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 flex gap-3">
-          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+        <div className="mb-4 p-3 rounded-xl bg-warning/10 border border-warning/30 flex gap-3">
+          <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
           <div>
-            <p className="text-xs font-bold text-amber-800 dark:text-amber-200">
+            <p className="text-xs font-bold text-warning">
               {data.concentration_warnings.length} concentration {data.concentration_warnings.length === 1 ? 'warning' : 'warnings'}
             </p>
-            <p className="text-[10px] text-amber-700/80 dark:text-amber-300/80 mt-0.5">
+            <p className="text-[10px] text-warning/80 mt-0.5">
               Securities above 20% of total portfolio value may increase risk.
             </p>
           </div>
@@ -201,7 +201,7 @@ const ExposureSection: React.FC<{ data: any }> = ({ data }) => {
               <div
                 className={cn(
                   'h-full rounded-full transition-all duration-700',
-                  e.pct_of_total > 20 ? 'bg-amber-500' : 'bg-primary/70'
+                  e.pct_of_total > 20 ? 'bg-warning' : 'bg-primary/70'
                 )}
                 style={{ width: `${Math.min(e.pct_of_total, 100)}%` }}
               />
@@ -244,9 +244,9 @@ const MonthlySection: React.FC<{ data: any }> = ({ data }) => {
             {p.months.map((m: any) => (
               <div key={m.month} className="text-center p-2 rounded-lg bg-muted/20 border border-border/20">
                 <p className="text-[10px] text-muted-foreground font-medium mb-1">{m.month}</p>
-                {m.buys > 0 && <p className="text-[9px] text-red-500">↓{fmt(m.buys)}</p>}
-                {m.sells > 0 && <p className="text-[9px] text-green-500">↑{fmt(m.sells)}</p>}
-                {m.dividends > 0 && <p className="text-[9px] text-blue-500">💰{fmt(m.dividends)}</p>}
+                {m.buys > 0 && <p className="text-[9px] text-destructive">↓{fmt(m.buys)}</p>}
+                {m.sells > 0 && <p className="text-[9px] text-success">↑{fmt(m.sells)}</p>}
+                {m.dividends > 0 && <p className="text-[9px] text-primary">💰{fmt(m.dividends)}</p>}
                 {m.buys === 0 && m.sells === 0 && m.dividends === 0 && (
                   <p className="text-[9px] text-muted-foreground/50">—</p>
                 )}
@@ -263,7 +263,7 @@ const MonthlySection: React.FC<{ data: any }> = ({ data }) => {
           {data.aggregate_months?.map((m: any) => (
             <div key={m.month} className="text-center p-2 rounded-lg bg-primary/5 border border-primary/10">
               <p className="text-[10px] font-medium mb-1">{m.month}</p>
-              <p className={cn('text-[10px] font-bold', m.net_flow >= 0 ? 'text-green-600' : 'text-red-600')}>
+              <p className={cn('text-[10px] font-bold', m.net_flow >= 0 ? 'text-success' : 'text-destructive')}>
                 {fmt(m.net_flow)}
               </p>
             </div>

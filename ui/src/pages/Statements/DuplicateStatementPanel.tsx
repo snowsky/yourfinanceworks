@@ -177,42 +177,42 @@ export function DuplicateStatementPanel({ groups, onViewStatement }: DuplicateSt
 
   return (
     <>
-      <div className="rounded-xl border border-orange-300 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800 mb-3 overflow-hidden shadow-sm">
+      <div className="rounded-xl border border-warning/30 bg-warning/10 mb-3 overflow-hidden shadow-sm">
         {/* Header */}
         <button
-          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-warning/20 transition-colors"
           onClick={() => setExpanded(v => !v)}
           aria-expanded={expanded}
         >
-          <Copy className="h-4 w-4 text-orange-600 dark:text-orange-400 flex-shrink-0" />
-          <span className="flex-1 text-sm font-medium text-orange-800 dark:text-orange-300">
+          <Copy className="h-4 w-4 text-warning flex-shrink-0" />
+          <span className="flex-1 text-sm font-medium text-warning">
             <span className="font-bold">{count}</span>{' '}
             duplicate statement {count !== 1 ? 'files' : 'file'} detected (identical checksums).{' '}
             <span className="font-normal opacity-80">Click to {expanded ? 'hide' : 'review'}.</span>
           </span>
           {expanded
-            ? <ChevronUp className="h-4 w-4 text-orange-600 dark:text-orange-400 flex-shrink-0" />
-            : <ChevronDown className="h-4 w-4 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+            ? <ChevronUp className="h-4 w-4 text-warning flex-shrink-0" />
+            : <ChevronDown className="h-4 w-4 text-warning flex-shrink-0" />
           }
         </button>
 
         {/* Expandable body */}
         {expanded && (
-          <div className="border-t border-orange-200 dark:border-orange-800 divide-y divide-orange-200 dark:divide-orange-800">
+          <div className="border-t border-warning/30 divide-y divide-warning/30">
             {groups.map((group, gi) => (
-              <div key={gi} className="bg-white dark:bg-background">
+              <div key={gi} className="bg-card">
                 {/* Group header */}
                 <div className="flex items-center gap-2 px-4 py-2.5">
                   <button
-                    className="flex items-center gap-2 flex-1 text-left hover:bg-orange-50 dark:hover:bg-orange-950/10 transition-colors rounded"
+                    className="flex items-center gap-2 flex-1 text-left hover:bg-warning/10 transition-colors rounded"
                     onClick={() => toggleGroup(gi)}
                   >
-                    <span className="text-xs font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400 min-w-[60px]">
+                    <span className="text-xs font-bold uppercase tracking-wider text-warning min-w-[60px]">
                       Group {gi + 1}
                     </span>
                     <span className="flex-1 text-xs text-muted-foreground truncate">
                       <span className="font-medium text-foreground mr-2">{group[0].original_filename}</span>
-                      <span className="text-orange-600 dark:text-orange-500">
+                      <span className="text-warning">
                         · {group.length} identical copies
                       </span>
                     </span>
@@ -224,7 +224,7 @@ export function DuplicateStatementPanel({ groups, onViewStatement }: DuplicateSt
 
                   <button
                     onClick={e => { e.stopPropagation(); setDeleteGroupIndex(gi); }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800/40 transition-colors flex-shrink-0 whitespace-nowrap"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors flex-shrink-0 whitespace-nowrap"
                   >
                     <Trash2 className="h-3 w-3" />
                     Delete Duplicate
@@ -237,9 +237,9 @@ export function DuplicateStatementPanel({ groups, onViewStatement }: DuplicateSt
                     {group.map((s, si) => (
                       <div
                         key={si}
-                        className="flex items-center gap-3 rounded-lg border border-orange-100 dark:border-orange-900/40 bg-orange-50/50 dark:bg-orange-950/10 px-3 py-2 text-xs"
+                        className="flex items-center gap-3 rounded-lg border border-warning/20 bg-warning/5 px-3 py-2 text-xs"
                       >
-                        <FileText className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+                        <FileText className="h-3.5 w-3.5 text-warning flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <span className="font-medium text-foreground truncate block">{s.original_filename}</span>
                           <span className="text-muted-foreground">
@@ -251,7 +251,7 @@ export function DuplicateStatementPanel({ groups, onViewStatement }: DuplicateSt
                         </div>
                         <button
                           onClick={() => onViewStatement(s.id)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-orange-200 dark:bg-orange-800/40 text-orange-800 dark:text-orange-300 hover:bg-orange-300 dark:hover:bg-orange-700/50 transition-colors flex-shrink-0 whitespace-nowrap"
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-warning/20 text-warning hover:bg-warning/30 transition-colors flex-shrink-0 whitespace-nowrap"
                         >
                           View
                         </button>

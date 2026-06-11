@@ -116,11 +116,11 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
 
   const getFileIcon = (attachment: Attachment) => {
     if (attachment.attachment_type === 'image') {
-      return <ImageIcon className="w-6 h-6 text-blue-500" />;
+      return <ImageIcon className="w-6 h-6 text-primary" />;
     } else if (attachment.content_type === 'application/pdf') {
       return <FileText className="w-6 h-6 text-red-500" />;
     } else {
-      return <FileText className="w-6 h-6 text-gray-500" />;
+      return <FileText className="w-6 h-6 text-muted-foreground" />;
     }
   };
 
@@ -348,7 +348,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
       <Card className="group hover:shadow-md transition-shadow">
         <CardContent className="p-4">
           {/* Image Preview or Icon */}
-          <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+          <div className="aspect-square bg-muted rounded-lg mb-3 flex items-center justify-center overflow-hidden">
             {attachment.attachment_type === 'image' && !imageError ? (
               <img
                 src={getThumbnailUrl(attachment)}
@@ -359,7 +359,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
             ) : (
               <div className="text-center">
                 {getFileIcon(attachment)}
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {attachment.content_type.split('/')[1]?.toUpperCase() || 'FILE'}
                 </p>
               </div>
@@ -370,10 +370,10 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
           <div className="space-y-2">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-medium text-gray-900 truncate" title={attachment.filename}>
+                <h3 className="text-sm font-medium text-foreground truncate" title={attachment.filename}>
                   {attachment.filename}
                 </h3>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   {formatFileSize(attachment.file_size)}
                 </p>
               </div>
@@ -389,7 +389,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
 
             {/* Description */}
             {attachment.description && (
-              <p className="text-xs text-gray-600 line-clamp-2" title={attachment.description}>
+              <p className="text-xs text-muted-foreground line-clamp-2" title={attachment.description}>
                 {attachment.description}
               </p>
             )}
@@ -467,7 +467,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => handleDelete(attachment)}
-                    className="text-red-600"
+                    className="text-destructive"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
                     Delete
@@ -483,7 +483,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
 
   const AttachmentListItem: React.FC<{ attachment: Attachment }> = ({ attachment }) => {
     return (
-      <div className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-gray-50">
+      <div className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-muted">
         {/* Icon */}
         <div className="flex-shrink-0">
           {getFileIcon(attachment)}
@@ -492,7 +492,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
         {/* File Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-2">
-            <h3 className="text-sm font-medium text-gray-900 truncate">
+            <h3 className="text-sm font-medium text-foreground truncate">
               {attachment.filename}
             </h3>
             {attachment.is_primary && (
@@ -503,7 +503,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
             )}
           </div>
 
-          <div className="flex items-center space-x-4 text-xs text-gray-500 mt-1">
+          <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-1">
             <span>{formatFileSize(attachment.file_size)}</span>
             <span>{attachment.attachment_type}</span>
             {attachment.document_type && <span>{attachment.document_type}</span>}
@@ -511,7 +511,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
           </div>
 
           {attachment.description && (
-            <p className="text-sm text-gray-600 mt-1 truncate">
+            <p className="text-sm text-muted-foreground mt-1 truncate">
               {attachment.description}
             </p>
           )}
@@ -581,7 +581,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => handleDelete(attachment)}
-                className="text-red-600"
+                className="text-destructive"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete
@@ -597,9 +597,9 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
     return (
       <Card className={className}>
         <CardContent className="p-8 text-center">
-          <ImageIcon className="mx-auto w-12 h-12 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No attachments yet</h3>
-          <p className="text-gray-500">
+          <ImageIcon className="mx-auto w-12 h-12 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">No attachments yet</h3>
+          <p className="text-muted-foreground">
             Upload images and documents to organize your inventory items.
           </p>
         </CardContent>
@@ -612,8 +612,8 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-medium text-gray-900">Attachments</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-medium text-foreground">Attachments</h2>
+          <p className="text-sm text-muted-foreground">
             {imageAttachments.length} images, {documentAttachments.length} documents
           </p>
         </div>
@@ -638,8 +638,8 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
 
       {/* Loading Overlay */}
       {loading && (
-        <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <div className="absolute inset-0 bg-background/75 flex items-center justify-center z-10">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       )}
 
@@ -684,17 +684,17 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
                   />
                 </div>
               ) : previewContent ? (
-                <div className="bg-gray-50 rounded-lg p-4">
+                <div className="bg-muted rounded-lg p-4">
                   <pre className="text-sm whitespace-pre-wrap overflow-auto max-h-96 font-mono">
                     {previewContent}
                   </pre>
                 </div>
               ) : (
-                <div className="flex items-center justify-center p-8 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-center p-8 bg-muted rounded-lg">
                   {getFileIcon(selectedAttachment)}
                   <div className="ml-4">
                     <p className="font-medium">{selectedAttachment.filename}</p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       {formatFileSize(selectedAttachment.file_size)} • {selectedAttachment.content_type}
                     </p>
                   </div>
@@ -707,7 +707,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
                   <Label className="font-medium">Type</Label>
                   <p className="capitalize">{selectedAttachment.attachment_type}</p>
                   {previewContent && previewContentType && (
-                    <p className="text-xs text-gray-500 mt-1">{previewContentType}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{previewContentType}</p>
                   )}
                 </div>
 
@@ -715,7 +715,7 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
                   <Label className="font-medium">Size</Label>
                   <p>{formatFileSize(selectedAttachment.file_size)}</p>
                   {isContentTruncated && (
-                    <p className="text-xs text-orange-600 mt-1">Showing first 100 lines only</p>
+                    <p className="text-xs text-warning mt-1">Showing first 100 lines only</p>
                   )}
                 </div>
 

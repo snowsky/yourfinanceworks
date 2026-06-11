@@ -59,15 +59,15 @@ export function ActivityPage() {
         case 'paid':
         case 'approved':
         case 'completed':
-          return <Badge className="bg-green-100 text-green-800 border-green-200">{t('dashboard.activity.badges.completed')}</Badge>;
+          return <Badge className="bg-success/10 text-success border-success/30">{t('dashboard.activity.badges.completed')}</Badge>;
         case 'pending':
         case 'draft':
-          return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">{t('dashboard.activity.badges.pending')}</Badge>;
+          return <Badge className="bg-warning/10 text-warning border-warning/30">{t('dashboard.activity.badges.pending')}</Badge>;
         case 'overdue':
         case 'rejected':
-          return <Badge className="bg-red-100 text-red-800 border-red-200">{t('dashboard.activity.badges.attention')}</Badge>;
+          return <Badge className="bg-destructive/10 text-destructive border-destructive/30">{t('dashboard.activity.badges.attention')}</Badge>;
         default:
-          return <Badge className="bg-gray-100 text-gray-800 border-gray-200">{status}</Badge>;
+          return <Badge className="bg-muted text-muted-foreground border-border">{status}</Badge>;
       }
     }
 

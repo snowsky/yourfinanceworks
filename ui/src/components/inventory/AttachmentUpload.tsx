@@ -258,18 +258,18 @@ export const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
     } else if (file.type === 'application/pdf') {
       return <FileText className="w-8 h-8 text-red-500" />;
     } else {
-      return <File className="w-8 h-8 text-gray-500" />;
+      return <File className="w-8 h-8 text-muted-foreground" />;
     }
   };
 
   const getStatusIcon = (status: FileUploadItem['status']) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
+        return <CheckCircle className="w-4 h-4 text-success" />;
       case 'error':
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
+        return <AlertCircle className="w-4 h-4 text-destructive" />;
       case 'uploading':
-        return <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />;
+        return <Loader2 className="w-4 h-4 text-primary animate-spin" />;
       default:
         return null;
     }
@@ -285,28 +285,28 @@ export const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
             className={cn(
               "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors",
               dropzoneDragActive || isDragActive
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-300 hover:border-gray-400",
+                ? "border-primary bg-primary/10"
+                : "border-border hover:border-border",
               (uploadItems.length >= maxFiles || isUploading) && "opacity-50 cursor-not-allowed"
             )}
           >
             <input {...getInputProps()} ref={fileInputRef} />
-            <Upload className="mx-auto w-12 h-12 text-gray-400 mb-4" />
-            <p className="text-lg font-medium text-gray-900 mb-2">
+            <Upload className="mx-auto w-12 h-12 text-muted-foreground mb-4" />
+            <p className="text-lg font-medium text-foreground mb-2">
               {dropzoneDragActive ? 'Drop files here' : 'Drag & drop files here'}
             </p>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               or{' '}
               <button
                 type="button"
-                className="text-blue-600 hover:text-blue-500 font-medium"
+                className="text-primary hover:text-primary/80 font-medium"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadItems.length >= maxFiles || isUploading}
               >
                 browse files
               </button>
             </p>
-            <div className="text-xs text-gray-400 space-y-1">
+            <div className="text-xs text-muted-foreground space-y-1">
               <p>Maximum {maxFiles} files, up to {maxFileSize}MB each</p>
               <p>Supported: Images (JPEG, PNG, WebP, GIF) and Documents (PDF, Word, Excel, TXT)</p>
             </div>
@@ -320,7 +320,7 @@ export const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
           <CardContent className="p-4">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-gray-900">
+                <h3 className="text-sm font-medium text-foreground">
                   Files to upload ({uploadItems.length})
                 </h3>
                 <div className="flex space-x-2">
@@ -356,7 +356,7 @@ export const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
                 {uploadItems.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg"
+                    className="flex items-center space-x-3 p-3 bg-muted rounded-lg"
                   >
                     {/* File Preview/Icon */}
                     <div className="flex-shrink-0">
@@ -373,10 +373,10 @@ export const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
 
                     {/* File Info */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p className="text-sm font-medium text-foreground truncate">
                         {item.file.name}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         {(item.file.size / 1024 / 1024).toFixed(2)} MB
                       </p>
 
@@ -387,7 +387,7 @@ export const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
 
                       {/* Error Message */}
                       {item.status === 'error' && item.error && (
-                        <p className="text-xs text-red-600 mt-1">{item.error}</p>
+                        <p className="text-xs text-destructive mt-1">{item.error}</p>
                       )}
                     </div>
 
@@ -403,7 +403,7 @@ export const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
                         size="sm"
                         onClick={() => removeFile(item.id)}
                         disabled={isUploading}
-                        className="text-gray-400 hover:text-gray-600"
+                        className="text-muted-foreground hover:text-foreground"
                       >
                         <X className="w-4 h-4" />
                       </Button>
@@ -417,7 +417,7 @@ export const AttachmentUpload: React.FC<AttachmentUploadProps> = ({
       )}
 
       {/* Usage Info */}
-      <div className="text-xs text-gray-500 text-center">
+      <div className="text-xs text-muted-foreground text-center">
         <p>Files are securely stored and organized by inventory item.</p>
         <p>Images are automatically optimized for web display.</p>
       </div>

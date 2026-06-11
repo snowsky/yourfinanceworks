@@ -68,14 +68,14 @@ export function SearchStatus() {
 
   if (isError || !status) {
     return (
-      <ProfessionalCard variant="elevated" className="border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30">
+      <ProfessionalCard variant="elevated" className="border-destructive/30 bg-destructive/10">
         <ProfessionalCardContent className="flex flex-col items-center justify-center p-12 text-center">
-          <div className="p-3 bg-red-100 rounded-full mb-3">
-            <AlertCircle className="h-8 w-8 text-red-600" />
+          <div className="p-3 bg-destructive/10 rounded-full mb-3">
+            <AlertCircle className="h-8 w-8 text-destructive" />
           </div>
-          <h3 className="text-lg font-semibold text-red-900 dark:text-red-400 mb-2">{t('settings.search_settings.service_unavailable')}</h3>
-          <p className="text-red-700 dark:text-red-300 mb-6">{t('settings.search_settings.failed_to_load_search_status')}</p>
-          <ProfessionalButton onClick={handleRefresh} variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
+          <h3 className="text-lg font-semibold text-destructive mb-2">{t('settings.search_settings.service_unavailable')}</h3>
+          <p className="text-destructive mb-6">{t('settings.search_settings.failed_to_load_search_status')}</p>
+          <ProfessionalButton onClick={handleRefresh} variant="outline" className="border-destructive/30 text-destructive hover:bg-destructive/10">
             <RefreshCw className="h-4 w-4 mr-2" />
             {t('settings.search_settings.retry_connection')}
           </ProfessionalButton>
@@ -87,14 +87,14 @@ export function SearchStatus() {
   const getStatusBadge = () => {
     if (status.opensearch_enabled && status.opensearch_connected) {
       return (
-        <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-200 border-green-200 py-1 px-3">
+        <Badge variant="default" className="bg-success/10 text-success hover:bg-success/20 border-success/30 py-1 px-3">
           <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
           {t('settings.search_settings.opensearch_active')}
         </Badge>
       );
     } else if (status.fallback_available) {
       return (
-        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200 py-1 px-3">
+        <Badge variant="secondary" className="bg-warning/10 text-warning hover:bg-warning/20 border-warning/30 py-1 px-3">
           <Database className="h-3.5 w-3.5 mr-1.5" />
           {t('settings.search_settings.database_fallback')}
         </Badge>
@@ -115,8 +115,8 @@ export function SearchStatus() {
         <ProfessionalCardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl shadow-sm">
-                <Search className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <div className="p-3 bg-primary/10 rounded-xl shadow-sm">
+                <Search className="h-6 w-6 text-primary" />
               </div>
               <div>
                 <ProfessionalCardTitle className="text-xl">
@@ -145,8 +145,8 @@ export function SearchStatus() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">{t('settings.search_settings.connection')}</span>
-                  <span className={cn("flex items-center gap-1.5 font-medium", status.opensearch_connected ? "text-green-600" : "text-red-600")}>
-                    <div className={cn("w-2 h-2 rounded-full", status.opensearch_connected ? "bg-green-600" : "bg-red-600")} />
+                  <span className={cn("flex items-center gap-1.5 font-medium", status.opensearch_connected ? "text-success" : "text-destructive")}>
+                    <div className={cn("w-2 h-2 rounded-full", status.opensearch_connected ? "bg-success" : "bg-destructive")} />
                     {status.opensearch_connected ? t('settings.search_settings.connected') : t('settings.search_settings.disconnected')}
                   </span>
                 </div>
@@ -185,7 +185,7 @@ export function SearchStatus() {
                 )}
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">{t('settings.search_settings.database_fallback_status')}</span>
-                  <span className={cn("flex items-center gap-1.5 font-medium", status.fallback_available ? "text-blue-600" : "text-muted-foreground")}>
+                  <span className={cn("flex items-center gap-1.5 font-medium", status.fallback_available ? "text-primary" : "text-muted-foreground")}>
                     {status.fallback_available && <ShieldCheck className="h-3.5 w-3.5" />}
                     {status.fallback_available ? t('settings.search_settings.available') : t('settings.search_settings.unavailable')}
                   </span>

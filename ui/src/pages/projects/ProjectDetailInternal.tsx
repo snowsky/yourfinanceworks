@@ -247,7 +247,7 @@ export default function ProjectDetailInternal() {
             onClick={() => setTab(t)}
             className={cn(
               "h-8 px-4 rounded-lg font-medium transition-all duration-200",
-              tab === t && "bg-white dark:bg-slate-800 shadow-sm text-primary"
+              tab === t && "bg-card shadow-sm text-primary"
             )}
           >
             {t}
@@ -335,7 +335,7 @@ export default function ProjectDetailInternal() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-                    Task <span className="text-red-400">*</span>
+                    Task <span className="text-destructive">*</span>
                   </label>
                   <select
                     className="flex h-10 w-full rounded-xl border border-border/50 bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all cursor-pointer"
@@ -355,7 +355,7 @@ export default function ProjectDetailInternal() {
                     const rate = sel?.hourly_rate ?? project.hourly_rate ?? null;
                     return (
                       <p className="text-xs text-muted-foreground mt-1.5">
-                        Hourly rate: <span className={cn("font-semibold", rate != null ? 'text-foreground' : 'text-amber-500')}>
+                        Hourly rate: <span className={cn("font-semibold", rate != null ? 'text-foreground' : 'text-warning')}>
                           {rate != null ? `$${rate}/hr` : 'not set — time tracked but $0 charged'}
                         </span>
                       </p>
@@ -463,9 +463,9 @@ function OverviewTab({ summary, project }: { summary?: ProjectSummary; project: 
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-700",
-                (summary.hours_used_pct || 0) >= 90 ? 'bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.4)]' : 
-                (summary.hours_used_pct || 0) >= 75 ? 'bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]' : 
-                'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]'
+                (summary.hours_used_pct || 0) >= 90 ? 'bg-destructive shadow-[0_0_12px_rgba(239,68,68,0.4)]' :
+                (summary.hours_used_pct || 0) >= 75 ? 'bg-warning shadow-[0_0_12px_rgba(245,158,11,0.4)]' :
+                'bg-success shadow-[0_0_12px_rgba(16,185,129,0.4)]'
               )}
               style={{ width: `${Math.min(100, summary.hours_used_pct || 0)}%` }}
             />
@@ -1181,7 +1181,7 @@ function TimeEntriesTab({ entries, tasks, project, onDelete }: { entries: TimeEn
                   <span className="opacity-30">•</span>
                   <span className="text-foreground/80">${(entry.amount || 0).toFixed(2)}</span>
                   <span className="opacity-30">•</span>
-                  <Badge variant="outline" className={cn("text-[9px] px-1.5 rounded-md", entry.invoiced ? 'border-primary/20 text-primary bg-primary/5' : 'border-amber-200 text-amber-600 bg-amber-50')}>
+                  <Badge variant="outline" className={cn("text-[9px] px-1.5 rounded-md", entry.invoiced ? 'border-primary/20 text-primary bg-primary/5' : 'border-warning/30 text-warning bg-warning/10')}>
                     {entry.invoiced ? 'Billed' : 'Unbilled'}
                   </Badge>
                 </div>

@@ -320,7 +320,7 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                       </TableCell>
 
                       <TableCell className="text-right">
-                        <div className={cn("flex flex-col items-end", isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')}>
+                        <div className={cn("flex flex-col items-end", isPositive ? 'text-success' : 'text-destructive')}>
                           <div className="flex items-center gap-1 font-black text-sm">
                             {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                             {formatCurrency(Math.abs(holding.unrealized_gain_loss), holding.currency)}
@@ -407,7 +407,7 @@ const HoldingsList: React.FC<HoldingsListProps> = ({ portfolioId }) => {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                       <span className={cn("font-bold text-sm", holding.unrealized_gain_loss >= 0 ? "text-emerald-600/70" : "text-rose-600/70")}>
+                       <span className={cn("font-bold text-sm", holding.unrealized_gain_loss >= 0 ? "text-success/70" : "text-destructive/70")}>
                         {formatCurrency(holding.unrealized_gain_loss, holding.currency)}
                       </span>
                     </TableCell>

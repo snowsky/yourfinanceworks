@@ -45,8 +45,8 @@ export function InvoiceDiscountSection({
     <ProfessionalCard variant="elevated" className="overflow-hidden border-0">
       <div className="pb-6 border-b border-border/50 mb-8">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-rose-100 dark:bg-rose-900/30 rounded-xl">
-            <Tag className="h-6 w-6 text-rose-600 dark:text-rose-400" />
+          <div className="p-3 bg-destructive/10 rounded-xl">
+            <Tag className="h-6 w-6 text-destructive" />
           </div>
           <div>
             <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.discount_and_summary')}</h2>
@@ -196,19 +196,19 @@ export function InvoiceDiscountSection({
         {/* Discount Rule Indicator */}
         {form.watch("discountType") === "rule" && appliedDiscountRule && (
           <div className={`p-6 rounded-3xl border-2 transition-all duration-300 ${calculateSubtotal() >= appliedDiscountRule.min_amount
-            ? "bg-emerald-50/50 border-emerald-100 dark:bg-emerald-900/10 dark:border-emerald-900/30"
-            : "bg-amber-50/50 border-amber-100 dark:bg-amber-900/10 dark:border-amber-900/30"
+            ? "bg-success/10 border-success/30"
+            : "bg-warning/10 border-warning/30"
             }`}>
             <div className="flex items-start gap-4">
               <div className={`p-2 rounded-xl ${calculateSubtotal() >= appliedDiscountRule.min_amount
-                ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-800 dark:text-emerald-400"
-                : "bg-amber-100 text-amber-600 dark:bg-amber-800 dark:text-amber-400"
+                ? "bg-success/10 text-success"
+                : "bg-warning/10 text-warning"
                 }`}>
                 <Info className="h-5 w-5" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className={`font-bold ${calculateSubtotal() >= appliedDiscountRule.min_amount ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}`}>
+                  <h4 className={`font-bold ${calculateSubtotal() >= appliedDiscountRule.min_amount ? "text-success" : "text-warning"}`}>
                     {calculateSubtotal() >= appliedDiscountRule.min_amount ? t('invoices.applied_discount_rule') : t('invoices.discount_rule_not_applied')}
                   </h4>
                   <Badge variant={calculateSubtotal() >= appliedDiscountRule.min_amount ? "success" : "warning"} className="rounded-lg px-2 py-0.5">
@@ -227,13 +227,13 @@ export function InvoiceDiscountSection({
                   </div>
                   <div className="space-y-1">
                     <p className="text-[10px] font-bold text-muted-foreground uppercase leading-none tracking-widest">{t('invoices.discount')}</p>
-                    <p className="text-sm font-bold text-rose-600">
+                    <p className="text-sm font-bold text-destructive">
                       {appliedDiscountRule.discount_value}{appliedDiscountRule.discount_type === 'percentage' ? '%' : '$'}
                     </p>
                   </div>
                   <div className="space-y-1 text-right">
                     <p className="text-[10px] font-bold text-muted-foreground uppercase leading-none tracking-widest">{t('invoices.amount')}</p>
-                    <p className="text-sm font-bold text-rose-600">-${calculateDiscount().toFixed(2)}</p>
+                    <p className="text-sm font-bold text-destructive">-${calculateDiscount().toFixed(2)}</p>
                   </div>
                 </div>
 
@@ -256,11 +256,11 @@ export function InvoiceDiscountSection({
             </div>
 
             {(form.watch("discountValue") > 0 || appliedDiscountRule) && (
-              <div className="flex justify-between items-center text-rose-600">
+              <div className="flex justify-between items-center text-destructive">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{t('invoices.discount')}</span>
                   {form.watch("discountType") !== "rule" && (
-                    <Badge variant="outline" className="text-[10px] border-rose-200 text-rose-600 bg-rose-50/50">
+                    <Badge variant="outline" className="text-[10px] border-destructive/30 text-destructive bg-destructive/10">
                       {form.watch("discountValue")}{form.watch("discountType") === "percentage" ? "%" : "$"} Off
                     </Badge>
                   )}

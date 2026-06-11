@@ -275,7 +275,7 @@ const PortfolioDetail: React.FC = () => {
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border/30">
                 <span className="text-muted-foreground text-sm">{t('portfolio.status')}</span>
-                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 rounded-lg">{t('portfolio.status_active')}</Badge>
+                <Badge variant="secondary" className="bg-success/10 text-success border-success/30 rounded-lg">{t('portfolio.status_active')}</Badge>
               </div>
               <div className="flex justify-between items-center py-2">
                 <span className="text-muted-foreground text-sm">{t('portfolio.portfolio_id')}</span>

@@ -338,9 +338,9 @@ export const LicenseManagementTab: React.FC = () => {
         return <Badge variant="destructive" className="ml-2 shadow-sm">{t('settings.license.badges.expired')}</Badge>;
       }
       if (daysRemaining <= 30) {
-        return <Badge variant="outline" className="ml-2 border-amber-500 text-amber-700 bg-amber-50 shadow-sm">{t('settings.license.badges.expiringSoon')}</Badge>;
+        return <Badge variant="outline" className="ml-2 border-warning/30 text-warning bg-warning/10 shadow-sm">{t('settings.license.badges.expiringSoon')}</Badge>;
       }
-      return <Badge variant="default" className="ml-2 bg-green-600 hover:bg-green-700 shadow-sm">{t('settings.license.badges.active')}</Badge>;
+      return <Badge variant="default" className="ml-2 bg-success hover:bg-success/90 shadow-sm">{t('settings.license.badges.active')}</Badge>;
     }
 
     if (licenseInfo.trial_info.trial_active) {
@@ -349,13 +349,13 @@ export const LicenseManagementTab: React.FC = () => {
         return <Badge variant="destructive" className="ml-2 shadow-sm">{t('settings.license.badges.trialExpired')}</Badge>;
       }
       if (daysRemaining <= 7) {
-        return <Badge variant="outline" className="ml-2 border-amber-500 text-amber-700 bg-amber-50 shadow-sm">{t('settings.license.badges.trialEndingSoon')}</Badge>;
+        return <Badge variant="outline" className="ml-2 border-warning/30 text-warning bg-warning/10 shadow-sm">{t('settings.license.badges.trialEndingSoon')}</Badge>;
       }
-      return <Badge variant="secondary" className="ml-2 bg-indigo-100 text-indigo-800 hover:bg-indigo-200 shadow-sm">{t('settings.license.badges.trialActive')}</Badge>;
+      return <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary hover:bg-primary/20 shadow-sm">{t('settings.license.badges.trialActive')}</Badge>;
     }
 
     if (licenseInfo.is_personal) {
-      return <Badge variant="default" className="ml-2 bg-blue-600 hover:bg-blue-700 shadow-sm">{t('settings.license.badges.personalUse')}</Badge>;
+      return <Badge variant="default" className="ml-2 bg-primary hover:bg-primary/90 shadow-sm">{t('settings.license.badges.personalUse')}</Badge>;
     }
 
     return <Badge variant="outline" className="ml-2 bg-muted/50">{t('settings.license.badges.noLicense')}</Badge>;
@@ -420,10 +420,10 @@ export const LicenseManagementTab: React.FC = () => {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Warning Banner */}
       {showWarning && (
-        <Alert variant={licenseInfo.trial_info.in_grace_period || (licenseInfo.trial_info.trial_active && licenseInfo.trial_info.days_remaining <= 0) || (licenseInfo.is_licensed && licenseDaysRemaining <= 0) ? 'destructive' : 'default'} className="border-amber-200 bg-amber-50 shadow-md">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <AlertTitle className="text-amber-900 font-semibold">{t('settings.license.warnings.actionRequired')}</AlertTitle>
-          <AlertDescription className="text-amber-800">
+        <Alert variant={licenseInfo.trial_info.in_grace_period || (licenseInfo.trial_info.trial_active && licenseInfo.trial_info.days_remaining <= 0) || (licenseInfo.is_licensed && licenseDaysRemaining <= 0) ? 'destructive' : 'default'} className="border-warning/30 bg-warning/10 shadow-md">
+          <AlertTriangle className="h-4 w-4 text-warning" />
+          <AlertTitle className="text-warning font-semibold">{t('settings.license.warnings.actionRequired')}</AlertTitle>
+          <AlertDescription className="text-warning">
             {licenseInfo.trial_info.in_grace_period && (
               <p>{t('settings.license.warnings.gracePeriod')}</p>
             )}
@@ -639,7 +639,7 @@ export const LicenseManagementTab: React.FC = () => {
                     <ProfessionalButton
                       variant="outline"
                       size="sm"
-                      className="h-8 shadow-sm border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      className="h-8 shadow-sm border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
                       onClick={handleEditInstallationId}
                       title="Generate a random UUID for Installation ID"
                     >
@@ -889,7 +889,7 @@ export const LicenseManagementTab: React.FC = () => {
                       )}
                     >
                       {feature.enabled ? (
-                        <div className="mt-0.5 p-1 bg-green-100 text-green-700 rounded-full">
+                        <div className="mt-0.5 p-1 bg-success/10 text-success rounded-full">
                           <CheckCircle2 className="h-4 w-4" />
                         </div>
                       ) : (
@@ -922,7 +922,7 @@ export const LicenseManagementTab: React.FC = () => {
         <ProfessionalCardContent className="p-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-start gap-4">
-              <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+              <div className="p-3 bg-primary/10 text-primary rounded-xl">
                 <Info className="h-6 w-6" />
               </div>
               <div>

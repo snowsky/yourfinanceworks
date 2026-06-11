@@ -180,17 +180,17 @@ export function ReportSharing({ report, open, onOpenChange }: ReportSharingProps
   };
 
   const getExpirationStatus = (link: ShareLink) => {
-    if (!link.expiresAt) return { status: 'never', color: 'bg-gray-100 text-gray-800' };
-    
+    if (!link.expiresAt) return { status: 'never', color: 'bg-muted text-muted-foreground' };
+
     const now = new Date();
     const timeLeft = link.expiresAt.getTime() - now.getTime();
     const daysLeft = Math.ceil(timeLeft / (1000 * 60 * 60 * 24));
-    
-    if (timeLeft <= 0) return { status: 'expired', color: 'bg-red-100 text-red-800' };
-    if (daysLeft <= 1) return { status: `${Math.ceil(timeLeft / (1000 * 60 * 60))}h left`, color: 'bg-orange-100 text-orange-800' };
-    if (daysLeft <= 7) return { status: `${daysLeft}d left`, color: 'bg-yellow-100 text-yellow-800' };
-    
-    return { status: `${daysLeft}d left`, color: 'bg-green-100 text-green-800' };
+
+    if (timeLeft <= 0) return { status: 'expired', color: 'bg-destructive/10 text-destructive' };
+    if (daysLeft <= 1) return { status: `${Math.ceil(timeLeft / (1000 * 60 * 60))}h left`, color: 'bg-warning/10 text-warning' };
+    if (daysLeft <= 7) return { status: `${daysLeft}d left`, color: 'bg-warning/10 text-warning' };
+
+    return { status: `${daysLeft}d left`, color: 'bg-success/10 text-success' };
   };
 
   const getAccessStatus = (link: ShareLink) => {
@@ -218,7 +218,7 @@ export function ReportSharing({ report, open, onOpenChange }: ReportSharingProps
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-medium">{report.report_type.charAt(0).toUpperCase() + report.report_type.slice(1)} Report</h3>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-muted-foreground">
                     Generated on {format(new Date(report.generated_at), 'MMM dd, yyyy HH:mm')}
                   </p>
                 </div>
@@ -276,7 +276,7 @@ export function ReportSharing({ report, open, onOpenChange }: ReportSharingProps
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Allow Download</Label>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       Allow users to download the report file
                     </p>
                   </div>
@@ -292,7 +292,7 @@ export function ReportSharing({ report, open, onOpenChange }: ReportSharingProps
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Require Authentication</Label>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       Users must be logged in to access the report
                     </p>
                   </div>
@@ -342,14 +342,14 @@ export function ReportSharing({ report, open, onOpenChange }: ReportSharingProps
                         <TableRow key={link.id}>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <LinkIcon className="h-4 w-4 text-gray-400" />
-                              <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                              <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                              <code className="text-xs bg-muted px-2 py-1 rounded">
                                 ...{link.id}
                               </code>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge className={link.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                            <Badge className={link.isActive ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}>
                               {link.isActive ? 'Active' : 'Disabled'}
                             </Badge>
                           </TableCell>
@@ -360,7 +360,7 @@ export function ReportSharing({ report, open, onOpenChange }: ReportSharingProps
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
-                              <Users className="h-4 w-4 text-gray-400" />
+                              <Users className="h-4 w-4 text-muted-foreground" />
                               {getAccessStatus(link)}
                             </div>
                           </TableCell>
@@ -399,7 +399,7 @@ export function ReportSharing({ report, open, onOpenChange }: ReportSharingProps
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => handleDeleteLink(link.id)}
-                                className="text-red-600 hover:text-red-700"
+                                className="text-destructive hover:text-destructive"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
