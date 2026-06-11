@@ -307,12 +307,12 @@ const EditInvoice = () => {
   // Helper function to get status color
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'paid': return 'bg-green-100 text-green-800 border-green-200';
-      case 'pending_approval': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'sent': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'overdue': return 'bg-red-100 text-red-800 border-red-200';
-      case 'draft': return 'bg-gray-100 text-gray-800 border-gray-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'paid': return 'bg-success/10 text-success border-success/30';
+      case 'pending_approval': return 'bg-warning/10 text-warning border-warning/30';
+      case 'sent': return 'bg-primary/10 text-primary border-primary/30';
+      case 'overdue': return 'bg-destructive/10 text-destructive border-destructive/30';
+      case 'draft': return 'bg-muted text-muted-foreground border-border';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -354,10 +354,10 @@ const EditInvoice = () => {
                     }
                     className={cn(
                       "px-3 py-1 font-medium capitalize",
-                      invoice.status === 'paid' && "bg-green-100 text-green-800 hover:bg-green-100 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
-                      invoice.status === 'overdue' && "bg-red-100 text-red-800 hover:bg-red-100 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
-                      (invoice.status === 'pending' || invoice.status === 'pending_approval') && "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
-                      invoice.status === 'sent' && "bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
+                      invoice.status === 'paid' && "bg-success/10 text-success hover:bg-success/10 border-success/30",
+                      invoice.status === 'overdue' && "bg-destructive/10 text-destructive hover:bg-destructive/10 border-destructive/30",
+                      (invoice.status === 'pending' || invoice.status === 'pending_approval') && "bg-warning/10 text-warning hover:bg-warning/10 border-warning/30",
+                      invoice.status === 'sent' && "bg-primary/10 text-primary hover:bg-primary/10 border-primary/30"
                     )}
                   >
                     {t(`invoices.status.${invoice.status}`, invoice.status.replace('_', ' '))}
@@ -487,8 +487,8 @@ const EditInvoice = () => {
             <div className="pb-6 border-b border-border/50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-xl">
-                    <Package className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                  <div className="p-3 bg-primary/10 rounded-xl">
+                    <Package className="h-6 w-6 text-primary" />
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-foreground tracking-tight">{t('invoices.linked_expenses_header')}</h2>
@@ -497,7 +497,7 @@ const EditInvoice = () => {
                     </p>
                   </div>
                 </div>
-                <Badge variant="secondary" className="px-4 py-1.5 font-bold rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-0">
+                <Badge variant="secondary" className="px-4 py-1.5 font-bold rounded-full bg-primary/10 text-primary border-0">
                   {linkedExpenses.length}
                 </Badge>
               </div>
@@ -592,8 +592,8 @@ const EditInvoice = () => {
                   {linkedExpenses.map((e, idx) => (
                     <div key={e.id} className="flex items-center justify-between p-5 border border-border/50 rounded-2xl hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 bg-background group">
                       <div className="flex items-center gap-4 flex-1">
-                        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 transition-colors">
-                          <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <div className="p-3 bg-primary/10 rounded-xl group-hover:bg-primary/20 transition-colors">
+                          <DollarSign className="h-5 w-5 text-primary" />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
@@ -685,8 +685,8 @@ const EditInvoice = () => {
           <DialogContent className="max-w-4xl max-h-[80vh]">
             <DialogHeader className="border-b pb-4">
               <DialogTitle className="flex items-center gap-2 text-2xl">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                  <History className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <History className="h-5 w-5 text-primary" />
                 </div>
                 Invoice Update History
               </DialogTitle>
@@ -695,8 +695,8 @@ const EditInvoice = () => {
               {invoiceHistory.length === 0 ? (
                 <div className="flex items-center justify-center h-64 text-muted-foreground">
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
-                      <History className="h-8 w-8 text-slate-400 dark:text-slate-600" />
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
+                      <History className="h-8 w-8 text-muted-foreground" />
                     </div>
                     <p className="font-medium">No history available for this invoice</p>
                   </div>
@@ -706,19 +706,19 @@ const EditInvoice = () => {
                   {invoiceHistory.map((entry, idx) => (
                     <div
                       key={entry.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:shadow-soft hover:border-slate-300 dark:hover:border-slate-600 cursor-pointer transition-all duration-200 bg-white dark:bg-slate-950/50 stagger-{idx % 5 + 1}"
+                      className="flex items-center justify-between p-4 border rounded-lg hover:shadow-soft hover:border-ring/50 cursor-pointer transition-all duration-200 bg-card stagger-{idx % 5 + 1}"
                       onClick={() => {
                         handleHistoryEntryClick(entry);
                         setShowAllHistoryModal(false);
                       }}
                     >
                       <div className="flex items-center gap-3 flex-1">
-                        <div className="p-2 bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/20 rounded-lg">
-                          <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                          <FileText className="h-4 w-4 text-primary" />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="font-semibold text-slate-900 dark:text-slate-100 capitalize">
+                            <span className="font-semibold text-foreground capitalize">
                               {entry.action.replace('_', ' ')}
                             </span>
                             <Badge variant="outline" className="text-xs font-medium">
