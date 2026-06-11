@@ -13,11 +13,11 @@ export function UserProfile({ companyName, companyAddress, companyLogo }: {
   
   return (
     <div className="space-y-2 text-sm">
-      <div className="flex items-center space-x-2 text-white">
+      <div className="flex items-center space-x-2 text-sidebar-accent-foreground">
         <User className="h-4 w-4" />
         <span className="truncate font-medium">{user?.first_name || user?.name || 'User'}</span>
       </div>
-      <div className="flex items-center space-x-2 text-gray-300">
+      <div className="flex items-center space-x-2 text-sidebar-foreground">
         {logoUrl ? (
           <img 
             src={logoUrl} 
@@ -34,7 +34,7 @@ export function UserProfile({ companyName, companyAddress, companyLogo }: {
         <span className="truncate">{companyName}</span>
       </div>
       {companyAddress && companyAddress.trim() !== '' && (
-        <div className="flex items-center space-x-2 text-gray-400 text-xs">
+        <div className="flex items-center space-x-2 text-sidebar-foreground text-xs">
           <MapPin className="h-4 w-4" />
           <span className="truncate">{companyAddress}</span>
         </div>
