@@ -75,8 +75,8 @@ export function FinancialHealthScore({
     const recent = trend[trend.length - 1]?.score || 0;
     const previous = trend[trend.length - 2]?.score || 0;
 
-    if (recent > previous) return <TrendingUp className="h-4 w-4 text-green-600" />;
-    if (recent < previous) return <TrendingDown className="h-4 w-4 text-red-600" />;
+    if (recent > previous) return <TrendingUp className="h-4 w-4 text-success" />;
+    if (recent < previous) return <TrendingDown className="h-4 w-4 text-destructive" />;
     return <Minus className="h-4 w-4 text-muted-foreground" />;
   };
 
@@ -124,7 +124,7 @@ export function FinancialHealthScore({
                 stroke="currentColor"
                 strokeWidth="8"
                 fill="transparent"
-                className="text-gray-200"
+                className="text-muted"
               />
               <circle
                 cx="60"
@@ -144,7 +144,7 @@ export function FinancialHealthScore({
                 <div className={`text-3xl font-bold ${getScoreColor(score)}`}>
                   {Math.round(score)}
                 </div>
-                <div className="text-xs text-gray-600">{t('settings.gamification.wellness_score.out_of_100')}</div>
+                <div className="text-xs text-muted-foreground">{t('settings.gamification.wellness_score.out_of_100')}</div>
               </div>
             </div>
           </div>
@@ -160,7 +160,7 @@ export function FinancialHealthScore({
         {/* Trend Chart */}
         {showTrend && trend.length > 1 && (
           <div className="space-y-2">
-            <h4 className="text-sm font-medium text-gray-700">{t('settings.gamification.wellness_score.score_trend')}</h4>
+            <h4 className="text-sm font-medium text-foreground">{t('settings.gamification.wellness_score.score_trend')}</h4>
             <div className="h-32">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
@@ -178,7 +178,7 @@ export function FinancialHealthScore({
                   <Line
                     type="monotone"
                     dataKey="score"
-                    stroke="#3b82f6"
+                    stroke="hsl(var(--primary))"
                     strokeWidth={2}
                     dot={{ r: 3 }}
                   />
@@ -192,19 +192,19 @@ export function FinancialHealthScore({
         {detailed && healthData && (
           <div className="space-y-4">
             {/* Disclaimer */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
               <div className="flex items-start space-x-2">
-                <Info className="h-4 w-4 text-blue-500 mt-0.5" />
+                <Info className="h-4 w-4 text-primary mt-0.5" />
                 <div className="text-sm">
-                  <p className="font-medium text-blue-800">{t('settings.gamification.wellness_score.disclaimer.title')}</p>
-                  <p className="text-blue-600">
+                  <p className="font-medium text-foreground">{t('settings.gamification.wellness_score.disclaimer.title')}</p>
+                  <p className="text-muted-foreground">
                     {t('settings.gamification.wellness_score.disclaimer.description')}
                   </p>
                 </div>
               </div>
             </div>
 
-            <h4 className="text-sm font-medium text-gray-700">{t('settings.gamification.wellness_score.score_components')}</h4>
+            <h4 className="text-sm font-medium text-foreground">{t('settings.gamification.wellness_score.score_components')}</h4>
             <div className="space-y-3">
               {Object.entries(healthData.components || {}).map(([key, value]) => {
                 const componentScore = typeof value === 'number' ? value : 0;
@@ -213,7 +213,7 @@ export function FinancialHealthScore({
                 return (
                   <div key={key} className="space-y-1">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{label}</span>
+                      <span className="text-muted-foreground">{label}</span>
                       <span className={`font-medium ${getScoreColor(componentScore)}`}>
                         {Math.round(componentScore)}
                       </span>
@@ -229,12 +229,12 @@ export function FinancialHealthScore({
         {/* Recommendations */}
         {detailed && healthData?.recommendations && (
           <div className="space-y-2">
-            <h4 className="text-sm font-medium text-gray-700">Recommendations</h4>
+            <h4 className="text-sm font-medium text-foreground">Recommendations</h4>
             <div className="space-y-2">
               {healthData.recommendations.slice(0, 3).map((rec: string, index: number) => (
                 <div key={index} className="flex items-start space-x-2 text-sm">
-                  <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-gray-600">{rec}</span>
+                  <Info className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span className="text-muted-foreground">{rec}</span>
                 </div>
               ))}
             </div>
@@ -243,9 +243,9 @@ export function FinancialHealthScore({
 
         {/* Quick Tips */}
         {!detailed && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <h4 className="text-sm font-medium text-blue-800 mb-2">{t('settings.gamification.wellness_score.improve_score')}</h4>
-            <ul className="text-xs text-blue-700 space-y-1">
+          <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
+            <h4 className="text-sm font-medium text-foreground mb-2">{t('settings.gamification.wellness_score.improve_score')}</h4>
+            <ul className="text-xs text-muted-foreground space-y-1">
               <li>• {t('settings.gamification.wellness_score.tips.daily_expenses')}</li>
               <li>• {t('settings.gamification.wellness_score.tips.weekly_budget')}</li>
               <li>• {t('settings.gamification.wellness_score.tips.invoice_followup')}</li>
