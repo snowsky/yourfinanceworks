@@ -2076,7 +2076,23 @@
       "show_utc_clock": "Show UTC clock",
       "show_utc_clock_description": "Display a second clock in Coordinated Universal Time (UTC).",
       "show_date": "Show date",
-      "show_date_description": "Display the current date alongside the clock."
+      "show_date_description": "Display the current date alongside the clock.",
+      "themes": {
+        "light": "Light",
+        "light_description": "Warm paper, ink text, and a deep green accent.",
+        "dark": "Dark",
+        "dark_description": "Warm ink surfaces with a bright green accent.",
+        "premium-dark": "Premium Dark",
+        "premium-dark_description": "Indigo glass surfaces with a soft neon glow.",
+        "terminal": "Terminal",
+        "terminal_description": "Green CRT phosphor on near-black — for night owls.",
+        "amber-terminal": "Amber Terminal",
+        "amber-terminal_description": "Vintage amber phosphor console with a green accent.",
+        "sepia": "Sepia",
+        "sepia_description": "Warm paper tones and ink — calm, low-glare reading.",
+        "system": "System",
+        "system_description": "Follow your operating-system appearance automatically."
+      }
     },
     "notification_settings_updated_successfully": "Notification settings updated successfully",
     "notification_email_required": "Please provide an email address to send a test email.",
