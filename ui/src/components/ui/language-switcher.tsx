@@ -49,14 +49,14 @@ export function LanguageSwitcher() {
           </SelectValue>
         </SelectTrigger>
         <SelectContent
-          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg"
+          className="bg-popover border border-border shadow-lg"
           style={{ zIndex: 9999 }}
         >
           {languages.map((language) => (
             <SelectItem
               key={language.code}
               value={language.code}
-              className="text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer px-3 py-2"
+              className="text-popover-foreground hover:bg-accent hover:text-accent-foreground cursor-pointer px-3 py-2"
             >
               <div className="flex items-center gap-2">
                 <span>{language.flag}</span>
