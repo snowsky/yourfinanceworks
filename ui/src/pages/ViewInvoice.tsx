@@ -247,7 +247,7 @@ export default function ViewInvoice() {
                   onClick={handleUnsubmit}
                   variant="outline"
                   disabled={unsubmitLoading}
-                  className="border-amber-200 text-amber-700 hover:bg-amber-50"
+                  className="border-warning/40 text-warning hover:bg-warning/10"
                 >
                   <AlertCircle className="mr-2 h-4 w-4" />
                   {t('invoices.unsubmit', { defaultValue: 'Unsubmit' })}
@@ -278,39 +278,39 @@ export default function ViewInvoice() {
 
         {/* Show approval request message if exists */}
         {approval && approval.notes && (
-          <ProfessionalCard className="slide-in border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50">
+          <ProfessionalCard className="slide-in border-primary/30 bg-primary/10">
             <CardHeader>
-              <CardTitle className="text-blue-900 dark:text-blue-100">{t('invoices.approval_request_message', { defaultValue: 'Approval Request Message' })}</CardTitle>
+              <CardTitle className="text-primary">{t('invoices.approval_request_message', { defaultValue: 'Approval Request Message' })}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-blue-800 dark:text-blue-200">{approval.notes}</p>
+              <p className="text-sm text-foreground">{approval.notes}</p>
             </CardContent>
           </ProfessionalCard>
         )}
 
         {/* Show approval/rejection information if invoice has been processed */}
         {approval && approval.status === 'approved' && (
-          <ProfessionalCard className="slide-in border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/50">
+          <ProfessionalCard className="slide-in border-success/30 bg-success/10">
             <CardHeader>
-              <CardTitle className="text-green-900 dark:text-green-100">{t('invoices.approval_information', { defaultValue: 'Approval Information' })}</CardTitle>
+              <CardTitle className="text-success">{t('invoices.approval_information', { defaultValue: 'Approval Information' })}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div>
-                <span className="text-sm font-medium text-green-800 dark:text-green-200">{t('invoices.approved_by', { defaultValue: 'Approved by' })}: </span>
-                <span className="text-sm text-green-700 dark:text-green-300">
+                <span className="text-sm font-medium text-foreground">{t('invoices.approved_by', { defaultValue: 'Approved by' })}: </span>
+                <span className="text-sm text-muted-foreground">
                   {approval.approved_by_username || approval.approver?.name || approval.approver?.email || 'Unknown'}
                 </span>
               </div>
               {approval.decided_at && (
                 <div>
-                  <span className="text-sm font-medium text-green-800 dark:text-green-200">{t('invoices.approved_at', { defaultValue: 'Approved at' })}: </span>
-                  <span className="text-sm text-green-700 dark:text-green-300">{new Date(approval.decided_at).toLocaleString()}</span>
+                  <span className="text-sm font-medium text-foreground">{t('invoices.approved_at', { defaultValue: 'Approved at' })}: </span>
+                  <span className="text-sm text-muted-foreground">{new Date(approval.decided_at).toLocaleString()}</span>
                 </div>
               )}
               {approval.notes && (
                 <div>
-                  <span className="text-sm font-medium text-green-800 dark:text-green-200">{t('invoices.approval_notes', { defaultValue: 'Notes' })}: </span>
-                  <span className="text-sm text-green-700 dark:text-green-300">{approval.notes}</span>
+                  <span className="text-sm font-medium text-foreground">{t('invoices.approval_notes', { defaultValue: 'Notes' })}: </span>
+                  <span className="text-sm text-muted-foreground">{approval.notes}</span>
                 </div>
               )}
             </CardContent>
@@ -318,33 +318,33 @@ export default function ViewInvoice() {
         )}
 
         {approval && approval.status === 'rejected' && (
-          <ProfessionalCard className="slide-in border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/50">
+          <ProfessionalCard className="slide-in border-destructive/30 bg-destructive/10">
             <CardHeader>
-              <CardTitle className="text-red-900 dark:text-red-100">{t('invoices.rejection_information', { defaultValue: 'Rejection Information' })}</CardTitle>
+              <CardTitle className="text-destructive">{t('invoices.rejection_information', { defaultValue: 'Rejection Information' })}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div>
-                <span className="text-sm font-medium text-red-800 dark:text-red-200">{t('invoices.rejected_by', { defaultValue: 'Rejected by' })}: </span>
-                <span className="text-sm text-red-700 dark:text-red-300">
+                <span className="text-sm font-medium text-foreground">{t('invoices.rejected_by', { defaultValue: 'Rejected by' })}: </span>
+                <span className="text-sm text-muted-foreground">
                   {approval.rejected_by_username || approval.approver?.name || approval.approver?.email || 'Unknown'}
                 </span>
               </div>
               {approval.decided_at && (
                 <div>
-                  <span className="text-sm font-medium text-red-800 dark:text-red-200">{t('invoices.rejected_at', { defaultValue: 'Rejected at' })}: </span>
-                  <span className="text-sm text-red-700 dark:text-red-300">{new Date(approval.decided_at).toLocaleString()}</span>
+                  <span className="text-sm font-medium text-foreground">{t('invoices.rejected_at', { defaultValue: 'Rejected at' })}: </span>
+                  <span className="text-sm text-muted-foreground">{new Date(approval.decided_at).toLocaleString()}</span>
                 </div>
               )}
               {approval.rejection_reason && (
                 <div>
-                  <span className="text-sm font-medium text-red-800 dark:text-red-200">{t('invoices.rejection_reason', { defaultValue: 'Reason' })}: </span>
-                  <span className="text-sm text-red-700 dark:text-red-300">{approval.rejection_reason}</span>
+                  <span className="text-sm font-medium text-foreground">{t('invoices.rejection_reason', { defaultValue: 'Reason' })}: </span>
+                  <span className="text-sm text-muted-foreground">{approval.rejection_reason}</span>
                 </div>
               )}
               {approval.notes && (
                 <div>
-                  <span className="text-sm font-medium text-red-800 dark:text-red-200">{t('invoices.rejection_notes', { defaultValue: 'Notes' })}: </span>
-                  <span className="text-sm text-red-700 dark:text-red-300">{approval.notes}</span>
+                  <span className="text-sm font-medium text-foreground">{t('invoices.rejection_notes', { defaultValue: 'Notes' })}: </span>
+                  <span className="text-sm text-muted-foreground">{approval.notes}</span>
                 </div>
               )}
             </CardContent>
