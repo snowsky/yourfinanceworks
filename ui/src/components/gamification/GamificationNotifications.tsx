@@ -76,7 +76,7 @@ export function GamificationNotifications() {
           title: 'Streak at Risk!',
           message: `Your ${habitLabel.toLowerCase()} streak (${streak.current_length} days) is at risk. Take action today to keep it alive!`,
           icon: <Flame className="h-5 w-5 text-orange-500" />,
-          color: 'border-orange-200 bg-orange-50',
+          color: 'border-destructive/30 bg-destructive/10',
           action: {
             label: 'Take Action',
             onClick: () => {
@@ -108,8 +108,8 @@ export function GamificationNotifications() {
           type: 'welcome_back',
           title: 'Welcome Back!',
           message: `It's been ${daysSinceLastActivity} days since your last activity. Ready to get back on track with your financial goals?`,
-          icon: <Heart className="h-5 w-5 text-pink-500" />,
-          color: 'border-pink-200 bg-pink-50',
+          icon: <Heart className="h-5 w-5 text-primary" />,
+          color: 'border-primary/30 bg-primary/10',
           action: {
             label: 'Get Started',
             onClick: () => {
@@ -141,8 +141,8 @@ export function GamificationNotifications() {
       type: 'daily_tip',
       title: 'Daily Financial Tip',
       message: dailyTips[tipIndex],
-      icon: <Target className="h-5 w-5 text-blue-500" />,
-      color: 'border-blue-200 bg-blue-50',
+      icon: <Target className="h-5 w-5 text-primary" />,
+      color: 'border-primary/30 bg-primary/10',
       dismissible: true
     });
 

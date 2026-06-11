@@ -64,14 +64,14 @@ export function GamificationWidget() {
           </div>
           <div>
             <div className="flex items-center justify-center space-x-1">
-              <Zap className="h-3 w-3 text-blue-500" />
+              <Zap className="h-3 w-3 text-primary" />
               <span className="text-sm font-bold">{profile.total_experience_points.toLocaleString()}</span>
             </div>
             <p className="text-xs text-muted-foreground">{t('settings.gamification.dashboard.total_xp')}</p>
           </div>
           <div>
             <div className="flex items-center justify-center space-x-1">
-              <TrendingUp className="h-3 w-3 text-green-500" />
+              <TrendingUp className="h-3 w-3 text-success" />
               <span className="text-sm font-bold">{Math.round(profile.financial_health_score)}</span>
             </div>
             <p className="text-xs text-muted-foreground">{t('settings.gamification.dashboard.wellness_score')}</p>
@@ -128,7 +128,7 @@ export function GamificationWidget() {
               {activeChallenges.slice(0, 2).map((challenge) => (
                 <div key={challenge.id} className="flex items-center justify-between text-xs">
                   <div className="flex items-center space-x-1">
-                    <Target className="h-3 w-3 text-blue-500" />
+                    <Target className="h-3 w-3 text-primary" />
                     <span className="text-muted-foreground truncate">
                       {challenge.challenge.name}
                     </span>
@@ -167,7 +167,7 @@ export function GamificationWidget() {
               variant="ghost"
               size="sm"
               onClick={() => window.location.href = '/gamification'}
-              className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+              className="text-xs text-primary hover:text-primary/80"
             >
               {t('settings.gamification.dashboard.view_dashboard')}
             </ProfessionalButton>

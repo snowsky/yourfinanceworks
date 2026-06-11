@@ -48,13 +48,13 @@ export function GamificationDashboard() {
 
   if (error) {
     return (
-      <ProfessionalCard variant="elevated" className="border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30">
+      <ProfessionalCard variant="elevated" className="bg-destructive/10 border-destructive/30">
         <ProfessionalCardContent className="p-6">
-          <div className="flex items-center space-x-2 text-red-600 dark:text-red-400">
+          <div className="flex items-center space-x-2 text-destructive">
             <AlertTriangle className="h-5 w-5" />
             <span className="font-medium">{t('settings.gamification.error')}</span>
           </div>
-          <p className="text-red-600 dark:text-red-400 text-sm mt-2">{error}</p>
+          <p className="text-destructive text-sm mt-2">{error}</p>
         </ProfessionalCardContent>
       </ProfessionalCard>
     );

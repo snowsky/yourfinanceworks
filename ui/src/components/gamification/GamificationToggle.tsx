@@ -96,7 +96,7 @@ export function GamificationToggle() {
             <Trophy className="h-4 w-4" />
           </div>
           <span className="text-sm font-medium hidden sm:inline-block">{t('settings.gamification.title')}</span>
-          <Badge variant={isEnabled ? "default" : "secondary"} className={cn("text-xs font-normal", isEnabled ? "bg-green-100 text-green-700 hover:bg-green-200 border-green-200" : "")}>
+          <Badge variant={isEnabled ? "default" : "secondary"} className={cn("text-xs font-normal", isEnabled ? "bg-success/10 text-success hover:bg-success/20 border-success/30" : "")}>
             {isEnabled ? t('settings.gamification.enabled') : t('settings.gamification.disabled')}
           </Badge>
         </div>
@@ -104,7 +104,7 @@ export function GamificationToggle() {
           checked={isEnabled}
           onCheckedChange={handleToggle}
           disabled={loading}
-          className="data-[state=checked]:bg-green-600"
+          className="data-[state=checked]:bg-success"
         />
       </div>
 
@@ -121,8 +121,8 @@ export function GamificationToggle() {
                 </>
               ) : (
                 <>
-                  <div className="bg-gray-100 p-2 rounded-full">
-                    <Settings className="h-5 w-5 text-gray-500" />
+                  <div className="bg-muted p-2 rounded-full">
+                    <Settings className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <span>{t('settings.gamification.disable_title')}</span>
                 </>
@@ -150,7 +150,7 @@ export function GamificationToggle() {
                   <SelectItem value={DataRetentionPolicy.PRESERVE} className="py-3">
                     <div className="space-y-1">
                       <div className="font-semibold flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <CheckCircle2 className="w-4 h-4 text-success" />
                         {t('settings.gamification.preserve_data.label')}
                       </div>
                       <div className="text-xs text-muted-foreground pl-6">
@@ -161,7 +161,7 @@ export function GamificationToggle() {
                   <SelectItem value={DataRetentionPolicy.ARCHIVE} className="py-3">
                     <div className="space-y-1">
                       <div className="font-semibold flex items-center gap-2">
-                        <Moon className="w-4 h-4 text-blue-600" />
+                        <Moon className="w-4 h-4 text-primary" />
                         {t('settings.gamification.archive_data.label')}
                       </div>
                       <div className="text-xs text-muted-foreground pl-6">
@@ -171,7 +171,7 @@ export function GamificationToggle() {
                   </SelectItem>
                   <SelectItem value={DataRetentionPolicy.DELETE} className="py-3">
                     <div className="space-y-1">
-                      <div className="font-semibold flex items-center gap-2 text-red-600">
+                      <div className="font-semibold flex items-center gap-2 text-destructive">
                         <AlertTriangle className="w-4 h-4" />
                         {t('settings.gamification.delete_data.label')}
                       </div>
@@ -197,10 +197,10 @@ export function GamificationToggle() {
 
             {/* Info about enabling */}
             {isEnabling && (
-              <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800">
-                <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <AlertTitle className="text-blue-800 dark:text-blue-300">{t('settings.gamification.what_you_get')}</AlertTitle>
-                <AlertDescription className="text-blue-700 dark:text-blue-400 mt-2">
+              <Alert className="bg-primary/10 border-primary/30">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <AlertTitle className="text-foreground">{t('settings.gamification.what_you_get')}</AlertTitle>
+                <AlertDescription className="text-muted-foreground mt-2">
                   <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                     <li className="flex items-center gap-2">
                       <Trophy className="w-3 h-3" /> {t('settings.gamification.benefits.points')}

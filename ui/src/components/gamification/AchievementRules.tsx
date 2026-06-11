@@ -29,7 +29,7 @@ const categoryColors = {
 
 const difficultyColors = {
   bronze: 'bg-amber-100 text-amber-800 border-amber-200',
-  silver: 'bg-gray-100 text-gray-800 border-gray-200',
+  silver: 'bg-muted text-muted-foreground border-border',
   gold: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   platinum: 'bg-purple-100 text-purple-800 border-purple-200'
 };
@@ -58,8 +58,8 @@ interface AchievementRuleCardProps {
 
 function AchievementRuleCard({ rule, onToggle, isToggling = false }: AchievementRuleCardProps) {
   const IconComponent = categoryIcons[rule.category as keyof typeof categoryIcons] || Award;
-  const iconColor = categoryColors[rule.category as keyof typeof categoryColors] || 'text-gray-500';
-  const difficultyColor = difficultyColors[rule.difficulty as keyof typeof difficultyColors] || 'bg-gray-100 text-gray-800';
+  const iconColor = categoryColors[rule.category as keyof typeof categoryColors] || 'text-muted-foreground';
+  const difficultyColor = difficultyColors[rule.difficulty as keyof typeof difficultyColors] || 'bg-muted text-muted-foreground';
   
   const [isOpen, setIsOpen] = useState(false);
 
@@ -97,15 +97,15 @@ function AchievementRuleCard({ rule, onToggle, isToggling = false }: Achievement
     <Card className={`transition-all duration-200 ${!rule.is_active ? 'opacity-60' : ''}`}>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
-          <CardContent className="p-4 cursor-pointer hover:bg-gray-50">
+          <CardContent className="p-4 cursor-pointer hover:bg-muted/50">
             <div className="flex items-start space-x-3">
-              <div className={`flex-shrink-0 p-2 rounded-lg ${rule.is_active ? 'bg-blue-100' : 'bg-gray-100'}`}>
+              <div className={`flex-shrink-0 p-2 rounded-lg ${rule.is_active ? 'bg-primary/10' : 'bg-muted'}`}>
                 <IconComponent className={`h-6 w-6 ${iconColor}`} />
               </div>
               
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className={`font-medium text-sm ${rule.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
+                  <h3 className={`font-medium text-sm ${rule.is_active ? 'text-foreground' : 'text-muted-foreground'}`}>
                     {rule.name}
                   </h3>
                   <div className="flex items-center space-x-2">
@@ -122,12 +122,12 @@ function AchievementRuleCard({ rule, onToggle, isToggling = false }: Achievement
                   </div>
                 </div>
                 
-                <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
                   {rule.description}
                 </p>
                 
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3 text-xs text-gray-500">
+                  <div className="flex items-center space-x-3 text-xs text-muted-foreground">
                     <div className="flex items-center space-x-1">
                       <Star className="h-3 w-3" />
                       <span>{rule.reward_xp} XP</span>
@@ -153,15 +153,15 @@ function AchievementRuleCard({ rule, onToggle, isToggling = false }: Achievement
         <CollapsibleContent>
           <CardContent className="px-4 pb-4 pt-0">
             <div className="ml-9 space-y-2">
-              <div className="text-sm font-medium text-gray-700 mb-2">Requirements:</div>
+              <div className="text-sm font-medium text-foreground mb-2">Requirements:</div>
               {rule.requirements.map((req, index) => (
-                <div key={index} className="flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 rounded p-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                <div key={index} className="flex items-center space-x-2 text-sm text-muted-foreground bg-muted rounded p-2">
+                  <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></div>
                   <span>{formatRequirement(req)}</span>
                 </div>
               ))}
               {rule.reward_badge_url && (
-                <div className="text-xs text-gray-500 mt-2">
+                <div className="text-xs text-muted-foreground mt-2">
                   <Badge variant="outline" className="text-xs">
                     Badge: {rule.reward_badge_url.split('/').pop()}
                   </Badge>
@@ -259,13 +259,13 @@ export function AchievementRules() {
 
   if (error) {
     return (
-      <Card className="border-red-200 bg-red-50">
+      <Card className="border-destructive/30 bg-destructive/10">
         <CardContent className="p-6">
-          <div className="flex items-center space-x-2 text-red-600">
+          <div className="flex items-center space-x-2 text-destructive">
             <Trophy className="h-5 w-5" />
             <span className="font-medium">Error loading achievement rules</span>
           </div>
-          <p className="text-red-600 text-sm mt-2">{error}</p>
+          <p className="text-destructive text-sm mt-2">{error}</p>
         </CardContent>
       </Card>
     );
@@ -319,12 +319,12 @@ export function AchievementRules() {
         <CardContent>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">{t('settings.gamification.rules.active_rules')}</span>
+              <span className="text-muted-foreground">{t('settings.gamification.rules.active_rules')}</span>
               <span className="font-medium">{totalCount > 0 ? Math.round((activeRulesCount / totalCount) * 100) : 0}%</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-green-600 h-2 rounded-full transition-all duration-300" 
+            <div className="w-full bg-muted rounded-full h-2">
+              <div
+                className="bg-primary h-2 rounded-full transition-all duration-300"
                 style={{ width: `${totalCount > 0 ? (activeRulesCount / totalCount) * 100 : 0}%` }}
               ></div>
             </div>
@@ -362,9 +362,9 @@ export function AchievementRules() {
             ) : (
               <Card>
                 <CardContent className="p-8 text-center">
-                  <Lock className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <Lock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Rules Found</h3>
-                  <p className="text-gray-600">
+                  <p className="text-muted-foreground">
                     No achievement rules found in this category.
                   </p>
                 </CardContent>

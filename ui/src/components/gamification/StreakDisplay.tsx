@@ -43,7 +43,7 @@ export function StreakDisplay({ streak, compact = false }: StreakDisplayProps) {
 
   const habitLabel = habitTypeLabels[streak.habit_type as keyof typeof habitTypeLabels] || streak.habit_type;
   const IconComponent = habitTypeIcons[streak.habit_type as keyof typeof habitTypeIcons] || Target;
-  const iconColor = habitTypeColors[streak.habit_type as keyof typeof habitTypeColors] || 'text-gray-500';
+  const iconColor = habitTypeColors[streak.habit_type as keyof typeof habitTypeColors] || 'text-muted-foreground';
 
   const isActive = streak.is_active;
   const daysSinceActivity = streak.last_activity_date
@@ -185,11 +185,11 @@ export function StreakDisplay({ streak, compact = false }: StreakDisplayProps) {
 
         {/* Risk Warning */}
         {riskLevel === 'high_risk' && (
-          <div className="flex items-center space-x-2 p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-lg">
-            <AlertTriangle className="h-4 w-4 text-red-500" />
+          <div className="flex items-center space-x-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
             <div className="text-sm">
-              <p className="font-medium text-red-800 dark:text-red-300">{t('settings.gamification.streaks.risk_warning')}</p>
-              <p className="text-red-600 dark:text-red-400">
+              <p className="font-medium text-foreground">{t('settings.gamification.streaks.risk_warning')}</p>
+              <p className="text-muted-foreground">
                 {streak.habit_type === 'daily_expense_tracking'
                   ? t('settings.gamification.streaks.expense_tracking_warning')
                   : t('settings.gamification.streaks.habit_completion_warning')

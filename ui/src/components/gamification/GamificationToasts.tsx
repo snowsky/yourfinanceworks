@@ -7,7 +7,7 @@ import type { GamificationResult } from '@/types/gamification';
 export const showPointsToast = (points: number, action: string) => {
   toast.success(
     <div className="flex items-center space-x-2">
-      <Zap className="h-4 w-4 text-blue-500" />
+      <Zap className="h-4 w-4 text-primary" />
       <span>+{points} XP for {action}</span>
     </div>,
     {
@@ -22,7 +22,7 @@ export const showAchievementToast = (achievementName: string, xp: number) => {
       <Trophy className="h-4 w-4 text-yellow-500" />
       <div>
         <div className="font-medium">Achievement Unlocked!</div>
-        <div className="text-sm text-gray-600">{achievementName} (+{xp} XP)</div>
+        <div className="text-sm text-muted-foreground">{achievementName} (+{xp} XP)</div>
       </div>
     </div>,
     {
@@ -37,7 +37,7 @@ export const showLevelUpToast = (newLevel: number) => {
       <Star className="h-4 w-4 text-purple-500" />
       <div>
         <div className="font-medium">Level Up!</div>
-        <div className="text-sm text-gray-600">You reached Level {newLevel}</div>
+        <div className="text-sm text-muted-foreground">You reached Level {newLevel}</div>
       </div>
     </div>,
     {
@@ -61,7 +61,7 @@ export const showStreakToast = (streakLength: number, habitType: string) => {
       <Flame className="h-4 w-4 text-orange-500" />
       <div>
         <div className="font-medium">{streakLength} Day Streak!</div>
-        <div className="text-sm text-gray-600">Keep up your {habitLabel} habit</div>
+        <div className="text-sm text-muted-foreground">Keep up your {habitLabel} habit</div>
       </div>
     </div>,
     {
@@ -85,7 +85,7 @@ export const showStreakRiskToast = (habitType: string, streakLength: number) => 
       <Flame className="h-4 w-4 text-orange-500" />
       <div>
         <div className="font-medium">Streak at Risk!</div>
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-muted-foreground">
           Your {streakLength}-day {habitLabel} streak needs attention
         </div>
       </div>
@@ -99,10 +99,10 @@ export const showStreakRiskToast = (habitType: string, streakLength: number) => 
 export const showWelcomeBackToast = (daysSinceLastActivity: number) => {
   toast.info(
     <div className="flex items-center space-x-2">
-      <Target className="h-4 w-4 text-blue-500" />
+      <Target className="h-4 w-4 text-primary" />
       <div>
         <div className="font-medium">Welcome Back!</div>
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-muted-foreground">
           Ready to continue your financial journey?
         </div>
       </div>
@@ -118,10 +118,10 @@ export const showHealthScoreToast = (newScore: number, change: number) => {
   
   toast.success(
     <div className="flex items-center space-x-2">
-      <TrendingUp className={`h-4 w-4 ${isImprovement ? 'text-green-500' : 'text-orange-500'}`} />
+      <TrendingUp className={`h-4 w-4 ${isImprovement ? 'text-success' : 'text-destructive'}`} />
       <div>
         <div className="font-medium">Health Score Updated</div>
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-muted-foreground">
           {Math.round(newScore)}/100 ({isImprovement ? '+' : ''}{Math.round(change)})
         </div>
       </div>
@@ -188,7 +188,7 @@ export const showGamificationSuccessToast = (message: string) => {
 export const showGamificationInfoToast = (message: string) => {
   toast.info(
     <div className="flex items-center space-x-2">
-      <Target className="h-4 w-4 text-blue-500" />
+      <Target className="h-4 w-4 text-primary" />
       <span>{message}</span>
     </div>,
     {
