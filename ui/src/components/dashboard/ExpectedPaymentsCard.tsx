@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { invoiceApi, type PaymentForecastItem } from '@/lib/api';
 
 const CONFIDENCE_BADGE: Record<string, string> = {
-  high: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+  high: 'bg-success/15 text-success border-success/30',
   medium: 'bg-primary/10 text-primary border-primary/25',
   low: 'bg-muted text-muted-foreground border-border',
   none: 'bg-muted text-muted-foreground border-border',

@@ -49,7 +49,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ portfolioId }) => {
       case 'FEE':
         return <TrendingDown className="w-4 h-4 text-orange-600" />;
       default:
-        return <FileText className="w-4 h-4 text-gray-600" />;
+        return <FileText className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
@@ -161,7 +161,7 @@ const TransactionsList: React.FC<TransactionsListProps> = ({ portfolioId }) => {
               <TableCell
                 className={cn(
                   'text-right font-mono font-semibold',
-                  transaction.total_amount >= 0 ? 'text-green-600' : 'text-red-600'
+                  transaction.total_amount >= 0 ? 'text-success' : 'text-destructive'
                 )}
               >
                 {formatter.formatCurrency(Math.abs(transaction.total_amount))}

@@ -505,7 +505,7 @@ export function ReminderForm({
                       <button
                         type="button"
                         onClick={() => removeTag(tag)}
-                        className="ml-1 hover:text-red-600"
+                        className="ml-1 hover:text-destructive"
                         disabled={isLoading}
                       >
                         <X className="h-3 w-3" />

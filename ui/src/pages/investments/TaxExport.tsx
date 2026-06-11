@@ -44,7 +44,7 @@ const TaxExport: React.FC = () => {
         title="Tax Data Export"
         description="Consolidate your investment transactions and calculate capital gains for tax preparation."
         alert={
-          <div className="flex items-start gap-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 text-amber-800 dark:text-amber-200 text-sm">
+          <div className="flex items-start gap-4 p-4 rounded-xl bg-warning/10 border border-warning/30 text-warning text-sm">
             <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
             <div className="space-y-1">
               <p className="font-semibold">Disclaimer</p>
@@ -99,15 +99,15 @@ const TaxExport: React.FC = () => {
 
               <div className="pt-4 space-y-3">
                 <p className="text-xs text-muted-foreground font-medium flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <CheckCircle2 className="w-4 h-4 text-success" />
                   Includes Realized Gains/Losses
                 </p>
                 <p className="text-xs text-muted-foreground font-medium flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <CheckCircle2 className="w-4 h-4 text-success" />
                   Includes Dividend Income
                 </p>
                 <p className="text-xs text-muted-foreground font-medium flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <CheckCircle2 className="w-4 h-4 text-success" />
                   FIFO Cost Basis calculation
                 </p>
               </div>
@@ -120,14 +120,14 @@ const TaxExport: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ProfessionalCard variant="elevated" className="border-primary/20 bg-primary/5 group hover:border-primary/40 transition-all cursor-pointer" onClick={() => handleExport('csv')}>
                 <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-2xl bg-primary text-white shadow-lg group-hover:scale-110 transition-transform">
+                  <div className="p-3 rounded-2xl bg-primary text-primary-foreground shadow-lg group-hover:scale-110 transition-transform">
                     <FileSpreadsheet className="w-6 h-6" />
                   </div>
                   <div className="space-y-1">
                     <h3 className="font-bold text-lg">Spreadsheet (CSV)</h3>
                     <p className="text-sm text-muted-foreground">Detailed transaction-level report compatible with Excel and Google Sheets.</p>
                     <div className="pt-3">
-                      <ProfessionalButton variant="minimal" size="sm" className="bg-white dark:bg-slate-800 shadow-sm border border-border/50 rounded-lg">
+                      <ProfessionalButton variant="minimal" size="sm" className="bg-card shadow-sm border border-border/50 rounded-lg">
                         <Download className="w-3.5 h-3.5 mr-2" />
                         Download CSV
                       </ProfessionalButton>
@@ -159,7 +159,7 @@ const TaxExport: React.FC = () => {
           <ProfessionalCard title="Regulatory Notice" className="border-border/40 overflow-hidden relative" variant="elevated">
             <div className="relative z-10 space-y-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-100/50 text-emerald-700 border border-emerald-200/50">
+                <div className="p-2 rounded-lg bg-success/10 text-success border border-success/30">
                   <FileText className="w-5 h-5" />
                 </div>
                 <h3 className="font-bold text-lg">Official Tax Documents?</h3>

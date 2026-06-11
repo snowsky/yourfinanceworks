@@ -15,8 +15,8 @@ export const CookieSettingsLink: React.FC<CookieSettingsLinkProps> = ({
 }) => {
   const { t } = useTranslation();
   const baseClasses = variant === 'button' 
-    ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer'
-    : 'inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors cursor-pointer';
+    ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border border-border bg-card text-muted-foreground hover:bg-muted transition-colors cursor-pointer'
+    : 'inline-flex items-center gap-1 text-sm text-primary hover:text-primary hover:underline transition-colors cursor-pointer';
 
   const handleClick = () => {
     // Dispatch custom event to open the preferences modal

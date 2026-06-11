@@ -152,7 +152,7 @@ export function DelegationForm({ delegation, onSubmit, onCancel, loading }: Dele
             }}
             disabled={loadingUsers}
           >
-            <SelectTrigger className={cn(errors.approver_id && "border-red-500")}>
+            <SelectTrigger className={cn(errors.approver_id && "border-destructive")}>
               <SelectValue placeholder="Select approver" />
             </SelectTrigger>
             <SelectContent>
@@ -164,7 +164,7 @@ export function DelegationForm({ delegation, onSubmit, onCancel, loading }: Dele
             </SelectContent>
           </Select>
           {errors.approver_id && (
-            <p className="text-sm text-red-500">{errors.approver_id}</p>
+            <p className="text-sm text-destructive">{errors.approver_id}</p>
           )}
         </div>
 
@@ -181,7 +181,7 @@ export function DelegationForm({ delegation, onSubmit, onCancel, loading }: Dele
             }}
             disabled={loadingUsers}
           >
-            <SelectTrigger className={cn(errors.delegate_id && "border-red-500")}>
+            <SelectTrigger className={cn(errors.delegate_id && "border-destructive")}>
               <SelectValue placeholder="Select delegate" />
             </SelectTrigger>
             <SelectContent>
@@ -195,7 +195,7 @@ export function DelegationForm({ delegation, onSubmit, onCancel, loading }: Dele
             </SelectContent>
           </Select>
           {errors.delegate_id && (
-            <p className="text-sm text-red-500">{errors.delegate_id}</p>
+            <p className="text-sm text-destructive">{errors.delegate_id}</p>
           )}
         </div>
       </div>
@@ -211,7 +211,7 @@ export function DelegationForm({ delegation, onSubmit, onCancel, loading }: Dele
                 className={cn(
                   "w-full justify-start text-left font-normal",
                   !formData.start_date && "text-muted-foreground",
-                  errors.start_date && "border-red-500"
+                  errors.start_date && "border-destructive"
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -229,7 +229,7 @@ export function DelegationForm({ delegation, onSubmit, onCancel, loading }: Dele
             </PopoverContent>
           </Popover>
           {errors.start_date && (
-            <p className="text-sm text-red-500">{errors.start_date}</p>
+            <p className="text-sm text-destructive">{errors.start_date}</p>
           )}
         </div>
 
@@ -243,7 +243,7 @@ export function DelegationForm({ delegation, onSubmit, onCancel, loading }: Dele
                 className={cn(
                   "w-full justify-start text-left font-normal",
                   !formData.end_date && "text-muted-foreground",
-                  errors.end_date && "border-red-500"
+                  errors.end_date && "border-destructive"
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -261,7 +261,7 @@ export function DelegationForm({ delegation, onSubmit, onCancel, loading }: Dele
             </PopoverContent>
           </Popover>
           {errors.end_date && (
-            <p className="text-sm text-red-500">{errors.end_date}</p>
+            <p className="text-sm text-destructive">{errors.end_date}</p>
           )}
         </div>
       </div>

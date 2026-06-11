@@ -157,7 +157,7 @@ export function ExpenseEditDialog({
 
           {/* Inventory Consumption Section */}
           <div className="sm:col-span-2">
-            <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
+            <div className="space-y-3 p-4 border rounded-lg bg-muted">
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4" />
                 <span className="text-sm font-medium">{t('expenses.inventory_integration')}</span>
@@ -179,12 +179,12 @@ export function ExpenseEditDialog({
 
               {isEditInventoryConsumption && (
                 <div className="space-y-4">
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 text-orange-800 mb-3">
+                  <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-warning mb-3">
                       <Package className="h-4 w-4" />
                       <span className="text-sm font-medium">{t('expenses.inventory_consumption_details')}</span>
                     </div>
-                    <p className="text-sm text-orange-700 mb-4">
+                    <p className="text-sm text-warning mb-4">
                       {t('expenses.select_the_inventory_items_you_consumed')}
                     </p>
 
@@ -195,8 +195,8 @@ export function ExpenseEditDialog({
                   </div>
 
                   {editConsumptionItems.length > 0 && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <div className="flex items-center gap-2 text-green-800">
+                    <div className="bg-success/10 border border-success/30 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-success">
                         <Package className="h-4 w-4" />
                         <span className="text-sm font-medium">
                           {t('expenses.ready_to_process', { count: editConsumptionItems.length })}
@@ -220,9 +220,9 @@ export function ExpenseEditDialog({
           <div className="sm:col-span-2">
             <label className="text-sm">{t('expenses.labels.receipt')}</label>
             {!hasAIExpenseFeature && (
-              <Alert className="mb-3 border-amber-200 bg-amber-50">
-                <AlertCircle className="h-4 w-4 text-amber-600" />
-                <AlertDescription className="text-amber-800 text-sm">
+              <Alert className="mb-3 border-warning/30 bg-warning/10">
+                <AlertCircle className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-warning text-sm">
                   <strong>{t('common.note', { defaultValue: 'Note:' })}</strong> {t('expenses.ai_receipt_unavailable', { defaultValue: 'AI-powered receipt analysis is not available.' })}
                   Files will be uploaded as attachments only, without automatic data extraction.
                 </AlertDescription>

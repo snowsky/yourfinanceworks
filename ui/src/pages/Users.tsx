@@ -550,7 +550,7 @@ export default function UsersPage() {
                                 onClick={() => openActivationDialog(invite)}
                                 size="sm"
                                 variant="outline"
-                                className="h-8 border-green-500/20 text-green-600 hover:bg-green-500/10 hover:text-green-700 hover:border-green-500/30"
+                                className="h-8 border-success/20 text-success hover:bg-success/10 hover:text-success hover:border-success/30"
                               >
                                 {t('users.activate')}
                               </ProfessionalButton>
@@ -741,12 +741,12 @@ export default function UsersPage() {
                 />
                 {activationForm.password && (
                   <div className="text-xs text-muted-foreground flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-green-600" />
+                    <CheckCircle2 className="w-3 h-3 text-success" />
                     {t('users.passwordWillBeSet') || 'User will be able to login immediately with this password'}
                   </div>
                 )}
                 {!activationForm.password && (
-                  <div className="text-xs text-amber-600 flex items-center gap-1">
+                  <div className="text-xs text-warning flex items-center gap-1">
                     <Mail className="w-3 h-3" />
                     {t('users.inviteWillBeSent') || 'Leave blank to send invite email'}
                   </div>

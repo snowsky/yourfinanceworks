@@ -228,7 +228,7 @@ const ExpensesWithTaxIntegration = () => {
 
         {/* Bulk Actions */}
         {selectedIds.length > 0 && (
-          <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="flex items-center justify-between p-4 bg-primary/10 border border-primary/30 rounded-md">
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium">
                 {selectedIds.length} {t('common.selected')}

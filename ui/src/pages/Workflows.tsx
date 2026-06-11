@@ -560,7 +560,7 @@ const WorkflowRecentRuns: React.FC<{
           <span className="text-muted-foreground uppercase tracking-wide font-semibold">
             Last {logs.length} runs
           </span>
-          <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 rounded-full px-2 py-0">
+          <Badge className="bg-success/10 text-success border-success/20 rounded-full px-2 py-0">
             <CheckCircle className="h-3 w-3 mr-1" /> {successCount}
           </Badge>
           {failedCount > 0 ? (
@@ -694,7 +694,7 @@ const WorkflowCard: React.FC<{
             </div>
           </div>
 
-          <div className="rounded-xl border border-amber-200/50 bg-amber-50/50 p-4 text-sm text-amber-900 dark:border-amber-700/40 dark:bg-amber-950/20 dark:text-amber-200">
+          <div className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
             Internal tasks are currently implemented with the existing reminders system so assignees get due dates, notifications, and a clear follow-up queue without a separate task module yet.
           </div>
 
@@ -822,7 +822,7 @@ const ExecutionLogItem: React.FC<{ log: WorkflowExecutionLog }> = ({ log }) => {
       >
         <div className="flex items-center gap-3">
           {isSuccess ? (
-            <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/10 border-emerald-500/20 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+            <Badge className="bg-success/10 text-success hover:bg-success/10 border-success/20 px-2.5 py-0.5 rounded-full flex items-center gap-1">
               <CheckCircle className="h-3.5 w-3.5" />
               Success
             </Badge>

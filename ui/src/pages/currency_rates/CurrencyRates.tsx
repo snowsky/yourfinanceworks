@@ -125,21 +125,21 @@ const CurrencyRates: React.FC = () => {
         </div>
 
         {/* ── How it works ── */}
-        <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40">
+        <Card className="border-primary/30 bg-primary/10">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-blue-800 dark:text-blue-300">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-primary">
               <Info className="h-4 w-4" />
               How this plugin works
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-blue-700 dark:text-blue-400 space-y-2">
+          <CardContent className="text-sm text-primary space-y-2">
             <p>
               This is a <strong>sample plugin</strong> that demonstrates how YourFinanceWORKS plugins
               can integrate with third-party services.
             </p>
             <ol className="list-decimal list-inside space-y-1 ml-1">
               <li>
-                Your browser calls <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded text-xs">/api/v1/currency-rates</code> on <em>this server</em> — not the external API directly.
+                Your browser calls <code className="bg-primary/10 px-1 rounded text-xs">/api/v1/currency-rates</code> on <em>this server</em> — not the external API directly.
               </li>
               <li>
                 The plugin's backend checks a <strong>1-hour server-side cache</strong>. If stale, it
@@ -168,13 +168,13 @@ const CurrencyRates: React.FC = () => {
         {data && (
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             {data.source === 'live' ? (
-              <Badge variant="outline" className="text-green-600 border-green-300 gap-1">
+              <Badge variant="outline" className="text-success border-success/30 gap-1">
                 <Wifi className="h-3 w-3" /> Live rates
               </Badge>
             ) : (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Badge variant="outline" className="text-yellow-600 border-yellow-300 gap-1 cursor-help">
+                  <Badge variant="outline" className="text-warning border-warning/30 gap-1 cursor-help">
                     <WifiOff className="h-3 w-3" /> Fallback rates
                   </Badge>
                 </TooltipTrigger>

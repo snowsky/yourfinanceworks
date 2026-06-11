@@ -166,9 +166,9 @@ export const BulkSendToTaxServiceDialog: React.FC<BulkSendToTaxServiceDialogProp
 
   const getResultIcon = (result: BulkResult) => {
     return result.success ? (
-      <CheckCircle className="h-4 w-4 text-green-500" />
+      <CheckCircle className="h-4 w-4 text-success" />
     ) : (
-      <XCircle className="h-4 w-4 text-red-500" />
+      <XCircle className="h-4 w-4 text-destructive" />
     );
   };
 
@@ -185,16 +185,16 @@ export const BulkSendToTaxServiceDialog: React.FC<BulkSendToTaxServiceDialogProp
 
         <div className="space-y-4">
           {/* Development Notice */}
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+          <div className="p-3 bg-warning/10 border border-warning/30 rounded-md">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <p className="text-sm text-amber-800">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <p className="text-sm text-warning">
                 {t('taxIntegration.developmentNotice')}
               </p>
             </div>
           </div>
           {/* Selection Summary */}
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+          <div className="flex items-center justify-between p-3 bg-muted rounded-md">
             <div className="flex items-center space-x-2">
               <Checkbox
                 checked={selectedIds.length === items.length}
@@ -214,7 +214,7 @@ export const BulkSendToTaxServiceDialog: React.FC<BulkSendToTaxServiceDialogProp
             {items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center space-x-3 p-3 border rounded-md hover:bg-gray-50"
+                className="flex items-center space-x-3 p-3 border rounded-md hover:bg-muted"
               >
                 <Checkbox
                   checked={selectedIds.includes(item.id)}
@@ -241,8 +241,8 @@ export const BulkSendToTaxServiceDialog: React.FC<BulkSendToTaxServiceDialogProp
 
           {/* Results Summary */}
           {results.length > 0 && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <h4 className="text-sm font-medium text-blue-900 mb-2">
+            <div className="p-3 bg-primary/10 border border-primary/30 rounded-md">
+              <h4 className="text-sm font-medium text-primary mb-2">
                 {t('taxIntegration.results')}
               </h4>
               <div className="space-y-1">
@@ -252,11 +252,11 @@ export const BulkSendToTaxServiceDialog: React.FC<BulkSendToTaxServiceDialogProp
                     <span>
                       {t('common.item')} {result.item_id}:
                       {result.success ? (
-                        <span className="text-green-600 ml-1">
+                        <span className="text-success ml-1">
                           {t('common.success')} (ID: {result.transaction_id})
                         </span>
                       ) : (
-                        <span className="text-red-600 ml-1">
+                        <span className="text-destructive ml-1">
                           {t('common.failed')}: {result.error_message}
                         </span>
                       )}

@@ -69,7 +69,7 @@ export const SubscriptionsWidget: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 pt-1">
               {priceChanges > 0 ? (
-                <Badge className="bg-red-100 text-red-700">
+                <Badge className="bg-destructive/10 text-destructive">
                   <TrendingUp className="mr-1 h-3 w-3" />
                   {priceChanges} price change{priceChanges === 1 ? '' : 's'}
                 </Badge>

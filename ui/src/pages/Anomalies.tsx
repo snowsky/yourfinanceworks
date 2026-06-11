@@ -63,7 +63,7 @@ function AnomaliesList() {
     <ProfessionalCard variant="elevated">
       <ProfessionalCardHeader>
         <ProfessionalCardTitle className="flex items-center gap-2 text-base font-semibold">
-          <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <ShieldAlert className="h-4 w-4 text-warning" />
           {t('anomalies.title')}
           {total > 0 && (
             <Badge variant="outline" className="ml-1">
@@ -87,7 +87,7 @@ function AnomaliesList() {
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
-            <ShieldCheck className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
+            <ShieldCheck className="h-10 w-10 text-success" />
             <p className="font-medium">{t('anomalies.empty_title')}</p>
             <p className="text-sm text-muted-foreground">
               {t(

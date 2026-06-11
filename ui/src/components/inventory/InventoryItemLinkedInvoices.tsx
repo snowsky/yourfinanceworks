@@ -51,28 +51,28 @@ export const InventoryItemLinkedInvoices: React.FC<InventoryItemLinkedInvoicesPr
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'paid':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success/10 text-success';
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-warning/10 text-warning';
       case 'overdue':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/10 text-destructive';
       case 'draft':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-muted-foreground';
       default:
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-primary/10 text-primary';
     }
   };
 
   const getMovementTypeIcon = (type: string) => {
     switch (type.toLowerCase()) {
       case 'sale':
-        return <TrendingDown className="h-4 w-4 text-red-500" />;
+        return <TrendingDown className="h-4 w-4 text-destructive" />;
       case 'purchase':
-        return <TrendingUp className="h-4 w-4 text-green-500" />;
+        return <TrendingUp className="h-4 w-4 text-success" />;
       case 'adjustment':
-        return <Package className="h-4 w-4 text-blue-500" />;
+        return <Package className="h-4 w-4 text-primary" />;
       default:
-        return <Package className="h-4 w-4 text-gray-500" />;
+        return <Package className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -202,7 +202,7 @@ export const InventoryItemLinkedInvoices: React.FC<InventoryItemLinkedInvoicesPr
                               <span className="capitalize">{movement.movement_type}</span>
                             </div>
                             <div className="flex items-center gap-4">
-                              <span className={movement.quantity < 0 ? 'text-red-600' : 'text-green-600'}>
+                              <span className={movement.quantity < 0 ? 'text-destructive' : 'text-success'}>
                                 {movement.quantity > 0 ? '+' : ''}{movement.quantity}
                               </span>
                               <span className="text-muted-foreground">

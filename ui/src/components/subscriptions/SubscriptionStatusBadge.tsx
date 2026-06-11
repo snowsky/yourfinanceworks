@@ -6,15 +6,15 @@ const STATUS_CONFIG: Record<
   SubscriptionStatus,
   { label: string; className: string }
 > = {
-  active: { label: 'Active', className: 'bg-green-100 text-green-800' },
-  dismissed: { label: 'Dismissed', className: 'bg-gray-100 text-gray-700' },
+  active: { label: 'Active', className: 'bg-success/10 text-success border-success/30' },
+  dismissed: { label: 'Dismissed', className: 'bg-muted text-muted-foreground' },
   canceled_by_user: {
     label: 'Canceled',
-    className: 'bg-amber-100 text-amber-800',
+    className: 'bg-warning/10 text-warning border-warning/30',
   },
   not_a_subscription: {
     label: 'Not a subscription',
-    className: 'bg-slate-100 text-slate-600',
+    className: 'bg-muted text-muted-foreground',
   },
 };
 

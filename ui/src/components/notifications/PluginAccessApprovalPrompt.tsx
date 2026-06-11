@@ -159,7 +159,7 @@ export const PluginAccessApprovalPrompt: React.FC = () => {
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-amber-500" />
+            <ShieldAlert className="w-5 h-5 text-warning" />
             Plugin Data Access Request
           </DialogTitle>
           <DialogDescription>

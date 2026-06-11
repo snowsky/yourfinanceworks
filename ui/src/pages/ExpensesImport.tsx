@@ -161,10 +161,10 @@ export default function ExpensesImport() {
                           </div>
                           <div className="flex items-center gap-2 text-xs ml-4">
                             {it.status === 'pending' && <span className="px-3 py-1 rounded-full bg-muted text-muted-foreground font-medium">{t('expenses.page.status.pending')}</span>}
-                            {it.status === 'creating' && <span className="px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium">{t('expenses.page.status.creating')}</span>}
-                            {it.status === 'uploading' && <span className="px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">{t('expenses.page.status.uploading')}</span>}
-                            {it.status === 'done' && <span className="px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-medium">{t('expenses.page.status.uploaded')}</span>}
-                            {it.status === 'error' && <span className="px-3 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 font-medium">{t('expenses.page.status.error')}: {it.error}</span>}
+                            {it.status === 'creating' && <span className="px-3 py-1 rounded-full bg-warning/10 text-warning font-medium">{t('expenses.page.status.creating')}</span>}
+                            {it.status === 'uploading' && <span className="px-3 py-1 rounded-full bg-primary/10 text-primary font-medium">{t('expenses.page.status.uploading')}</span>}
+                            {it.status === 'done' && <span className="px-3 py-1 rounded-full bg-success/10 text-success font-medium">{t('expenses.page.status.uploaded')}</span>}
+                            {it.status === 'error' && <span className="px-3 py-1 rounded-full bg-destructive/10 text-destructive font-medium">{t('expenses.page.status.error')}: {it.error}</span>}
                           </div>
                         </li>
                       ))}

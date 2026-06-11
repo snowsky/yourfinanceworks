@@ -116,12 +116,12 @@ export const TemplateSharing: React.FC<TemplateSharingProps> = ({
                   <div className="flex items-center gap-2">
                     {isShared ? (
                       <>
-                        <Users className="h-4 w-4 text-green-600" />
+                        <Users className="h-4 w-4 text-success" />
                         <span className="font-medium">Shared</span>
                       </>
                     ) : (
                       <>
-                        <Lock className="h-4 w-4 text-gray-600" />
+                        <Lock className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">Private</span>
                       </>
                     )}
@@ -165,7 +165,7 @@ export const TemplateSharing: React.FC<TemplateSharingProps> = ({
                 {/* Sharing Information */}
                 <div className="space-y-3">
                   <div className="flex items-start gap-2">
-                    <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <Info className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                     <div className="text-sm space-y-1">
                       <p className="font-medium">What happens when you share:</p>
                       <ul className="text-muted-foreground space-y-1 ml-2">
@@ -178,7 +178,7 @@ export const TemplateSharing: React.FC<TemplateSharingProps> = ({
                   </div>
 
                   <div className="flex items-start gap-2">
-                    <Shield className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <Shield className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
                     <div className="text-sm">
                       <p className="font-medium">Privacy & Security:</p>
                       <p className="text-muted-foreground">

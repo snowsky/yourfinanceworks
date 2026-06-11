@@ -372,7 +372,7 @@ export const PluginAccessModal: React.FC<PluginAccessModalProps> = ({
               {pendingAccessRequests.length > 0 && (
                 <Badge
                   variant="outline"
-                  className="text-[10px] h-5 px-1.5 bg-amber-50"
+                  className="text-[10px] h-5 px-1.5 bg-warning/10"
                 >
                   {pendingAccessRequests.length}
                 </Badge>
@@ -425,7 +425,7 @@ export const PluginAccessModal: React.FC<PluginAccessModalProps> = ({
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() =>
                           handleResolveAccessRequest(request.id, "deny")
                         }
@@ -467,7 +467,7 @@ export const PluginAccessModal: React.FC<PluginAccessModalProps> = ({
                     key={grant.id}
                     className="flex items-center gap-2 p-2 border rounded-md bg-muted/50 text-xs text-foreground/80"
                   >
-                    <Shield className="w-3 h-3 text-green-600" />
+                    <Shield className="w-3 h-3 text-success" />
                     <span className="truncate flex-1">
                       <span className="font-medium">
                         {getPluginDisplayName(grant.source_plugin)}
@@ -492,7 +492,7 @@ export const PluginAccessModal: React.FC<PluginAccessModalProps> = ({
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-6 w-6 ml-auto text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                        className="h-6 w-6 ml-auto text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                         onClick={() => handleRevokeAccessGrant(grant.id)}
                         title={t("plugins.revoke_access_title")}
                         disabled={isUpdatingAccess}

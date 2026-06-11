@@ -61,7 +61,7 @@ export function AttachmentUploadTest() {
       </div>
       
       {file && (
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-muted-foreground">
           Selected: {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
         </div>
       )}

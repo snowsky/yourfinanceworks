@@ -64,7 +64,7 @@ const PortfolioArchiveDialog: React.FC<PortfolioArchiveDialogProps> = ({
           <AlertDialogAction
             onClick={() => archivePortfolioMutation.mutate()}
             disabled={archivePortfolioMutation.isPending}
-            className="bg-orange-600 hover:bg-orange-700"
+            className="bg-warning hover:bg-warning/90"
           >
             {archivePortfolioMutation.isPending ? 'Archiving...' : 'Archive'}
           </AlertDialogAction>

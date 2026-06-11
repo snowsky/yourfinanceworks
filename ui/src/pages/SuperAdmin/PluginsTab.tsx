@@ -154,8 +154,8 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ tenants }) => {
                             variant="outline"
                             className={`text-[10px] px-1 py-0 ${
                               plugin.license_tier === 'commercial'
-                                ? 'text-amber-600 border-amber-300'
-                                : 'text-blue-600 border-blue-300'
+                                ? 'text-warning border-warning/30'
+                                : 'text-primary border-primary/30'
                             }`}
                           >
                             {plugin.license_tier}
@@ -176,7 +176,7 @@ export const PluginsTab: React.FC<PluginsTabProps> = ({ tenants }) => {
                           ) : (
                             <>
                               {isGranted ? (
-                                <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
+                                <ShieldCheck className="h-3.5 w-3.5 text-success" />
                               ) : (
                                 <ShieldOff className="h-3.5 w-3.5 text-muted-foreground/40" />
                               )}

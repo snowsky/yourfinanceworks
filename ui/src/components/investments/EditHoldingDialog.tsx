@@ -262,7 +262,7 @@ const EditHoldingDialog: React.FC<EditHoldingDialogProps> = ({
               </div>
 
               {/* Info */}
-              <div className="bg-blue-50 p-3 rounded text-sm text-blue-900">
+              <div className="bg-primary/10 p-3 rounded text-sm text-primary">
                 <p>Average cost per share: {formatCurrency(holding.average_cost_per_share)}</p>
               </div>
 
@@ -303,13 +303,13 @@ const EditHoldingDialog: React.FC<EditHoldingDialogProps> = ({
               </div>
 
               {/* Info */}
-              <div className="space-y-2 bg-gray-50 p-3 rounded text-sm">
+              <div className="space-y-2 bg-muted p-3 rounded text-sm">
                 <p>
                   <span className="font-medium">Current Value:</span> {formatCurrency(holding.current_value)}
                 </p>
                 <p>
                   <span className="font-medium">Unrealized Gain/Loss:</span>{' '}
-                  <span className={holding.unrealized_gain_loss >= 0 ? 'text-green-600' : 'text-red-600'}>
+                  <span className={holding.unrealized_gain_loss >= 0 ? 'text-success' : 'text-destructive'}>
                     {formatCurrency(holding.unrealized_gain_loss)}
                   </span>
                 </p>

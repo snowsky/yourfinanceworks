@@ -267,8 +267,8 @@ const SubscriptionsPage: React.FC = () => {
                               <Badge
                                 className={
                                   change > 0
-                                    ? 'bg-red-100 text-red-700'
-                                    : 'bg-emerald-100 text-emerald-700'
+                                    ? 'bg-destructive/10 text-destructive'
+                                    : 'bg-success/10 text-success'
                                 }
                               >
                                 {change > 0 ? (

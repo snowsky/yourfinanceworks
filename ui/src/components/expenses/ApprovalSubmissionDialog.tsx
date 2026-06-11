@@ -48,7 +48,7 @@ export function ApprovalSubmissionDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <CheckCircle2 className="h-5 w-5 text-success" />
             Submit for Approval
           </DialogTitle>
         </DialogHeader>

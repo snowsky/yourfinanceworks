@@ -66,15 +66,15 @@ export function ActiveDelegationsList({ onEdit, onDelete, loading }: ActiveDeleg
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'active':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-success" />;
       case 'expired':
-        return <XCircle className="h-4 w-4 text-red-500" />;
+        return <XCircle className="h-4 w-4 text-destructive" />;
       case 'expiring':
-        return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+        return <AlertTriangle className="h-4 w-4 text-warning" />;
       case 'scheduled':
-        return <Clock className="h-4 w-4 text-blue-500" />;
+        return <Clock className="h-4 w-4 text-primary" />;
       case 'inactive':
-        return <XCircle className="h-4 w-4 text-gray-500" />;
+        return <XCircle className="h-4 w-4 text-muted-foreground" />;
       default:
         return null;
     }
@@ -188,7 +188,7 @@ export function ActiveDelegationsList({ onEdit, onDelete, loading }: ActiveDeleg
               return (
                 <TableRow key={delegation.id} className={cn(
                   status === 'expired' && 'opacity-60',
-                  status === 'expiring' && 'bg-orange-50 dark:bg-orange-950/20'
+                  status === 'expiring' && 'bg-warning/10'
                 )}>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -252,7 +252,7 @@ export function ActiveDelegationsList({ onEdit, onDelete, loading }: ActiveDeleg
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
                               onClick={() => onDelete(delegation.id)}
-                              className="bg-red-600 hover:bg-red-700"
+                              className="bg-destructive hover:bg-destructive/90"
                             >
                               Delete
                             </AlertDialogAction>

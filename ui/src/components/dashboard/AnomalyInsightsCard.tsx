@@ -50,7 +50,7 @@ export function AnomalyInsightsCard() {
     <ProfessionalCard
       variant="elevated"
       className={`p-5 md:p-6 border ${
-        hasIssues ? 'border-amber-500/30' : 'border-emerald-500/25'
+        hasIssues ? 'border-warning/30' : 'border-success/25'
       }`}
       data-tour="dashboard-anomalies"
     >
@@ -58,13 +58,13 @@ export function AnomalyInsightsCard() {
         <div className="flex items-start gap-3">
           <div
             className={`p-3 rounded-xl ${
-              hasIssues ? 'bg-amber-500/10' : 'bg-emerald-500/10'
+              hasIssues ? 'bg-warning/10' : 'bg-success/10'
             }`}
           >
             {hasIssues ? (
-              <ShieldAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              <ShieldAlert className="h-6 w-6 text-warning" />
             ) : (
-              <ShieldCheck className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+              <ShieldCheck className="h-6 w-6 text-success" />
             )}
           </div>
           <div className="space-y-1">
@@ -81,7 +81,7 @@ export function AnomalyInsightsCard() {
                 {highRisk > 0 && (
                   <>
                     {' · '}
-                    <span className="font-medium text-red-600 dark:text-red-400">
+                    <span className="font-medium text-destructive">
                       {t('dashboard.anomalies.high_risk', {
                         count: highRisk,
                       })}

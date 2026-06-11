@@ -169,11 +169,11 @@ export function RollupExpenseModal({
 
             {/* Conflict banner */}
             {blockedByConflict && (
-              <div className="rounded-lg border border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm">
-                <div className="font-semibold text-amber-800 dark:text-amber-200">
+              <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
+                <div className="font-semibold text-warning">
                   {conflict!.message}
                 </div>
-                <div className="mt-1 text-amber-700 dark:text-amber-300">
+                <div className="mt-1 text-warning">
                   Existing rollup: Expense #{conflict!.existing_expense_id}
                 </div>
                 <div className="mt-2 flex gap-2">

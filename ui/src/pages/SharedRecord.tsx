@@ -176,7 +176,7 @@ function BankStatementView({ data }: { data: any }) {
                     <td className="py-1.5 pr-3 whitespace-nowrap">{formatDate(tx.date)}</td>
                     <td className="py-1.5 pr-3">{tx.description}</td>
                     {hasCategory && <td className="py-1.5 pr-3 text-muted-foreground capitalize">{tx.category || '—'}</td>}
-                    <td className={`py-1.5 pr-3 text-right font-mono whitespace-nowrap ${tx.transaction_type === 'credit' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    <td className={`py-1.5 pr-3 text-right font-mono whitespace-nowrap ${tx.transaction_type === 'credit' ? 'text-success' : 'text-destructive'}`}>
                       {tx.transaction_type === 'credit' ? '+' : '-'}{Math.abs(tx.amount).toFixed(2)}
                     </td>
                     {hasBalance && <td className="py-1.5 text-right font-mono text-muted-foreground whitespace-nowrap">{tx.balance != null ? tx.balance.toFixed(2) : '—'}</td>}

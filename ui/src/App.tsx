@@ -382,7 +382,7 @@ const AppContent = () => {
                     title={t('notifications.show_ai_notifications', { defaultValue: 'Show AI notifications' })}
                     aria-label={t('notifications.show_ai_notifications', { defaultValue: 'Show AI notifications' })}
                   >
-                    <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse"></div>
+                    <div className="w-3 h-3 bg-primary rounded-full animate-pulse"></div>
                   </button>
                 )}
                 <TourOverlay />

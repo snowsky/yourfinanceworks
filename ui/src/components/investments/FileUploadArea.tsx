@@ -85,7 +85,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
     <ProfessionalCard variant="elevated" className="border-border/40 shadow-xl overflow-hidden">
       <div className="bg-primary/5 p-6 border-b border-primary/10">
         <div className="flex items-center gap-4">
-          <div className="p-3 rounded-2xl bg-primary text-white shadow-lg">
+          <div className="p-3 rounded-2xl bg-primary text-primary-foreground shadow-lg">
             <Upload className="w-6 h-6" />
           </div>
           <div>
@@ -100,9 +100,9 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
       </div>
 
       <div className="p-8 space-y-6">
-        <Alert className="border-amber-200 bg-amber-50">
-          <AlertCircle className="h-4 w-4 text-amber-600" />
-          <AlertDescription className="text-amber-800">
+        <Alert className="border-warning/30 bg-warning/10">
+          <AlertCircle className="h-4 w-4 text-warning" />
+          <AlertDescription className="text-warning">
             {t('file_upload.processing_note')}
           </AlertDescription>
         </Alert>

@@ -138,19 +138,19 @@ export function ApprovalDashboard() {
           </div>
         </div>
 
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+        <div className="bg-warning/10 border border-warning/30 rounded-lg p-6">
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0">
-              <Lock className="h-8 w-8 text-amber-600" />
+              <Lock className="h-8 w-8 text-warning" />
             </div>
             <div className="flex-1">
-              <h2 className="text-xl font-semibold text-amber-900 mb-2">
+              <h2 className="text-xl font-semibold text-warning mb-2">
                 Approval Workflows Require a Business License
               </h2>
-              <p className="text-amber-800 mb-4">
+              <p className="text-warning mb-4">
                 The approval workflows feature is part of our Business Edition. Upgrade your license to access:
               </p>
-              <ul className="list-disc list-inside text-amber-800 mb-4 space-y-1">
+              <ul className="list-disc list-inside text-warning mb-4 space-y-1">
                 <li>Multi-level approval workflows for expenses and invoices</li>
                 <li>Customizable approval rules based on amount thresholds</li>
                 <li>Approval delegation and escalation</li>
@@ -242,7 +242,7 @@ export function ApprovalDashboard() {
                 {t('approvalDashboard.pending_approvals')}
               </div>
               <HelpTooltip id="filter-options" context="dashboard">
-                <div className="text-sm text-gray-500 cursor-help">
+                <div className="text-sm text-muted-foreground cursor-help">
                   {t('approvalDashboard.filter_sort_options')}
                 </div>
               </HelpTooltip>
@@ -322,7 +322,7 @@ export function ApprovalDashboard() {
                                   <TableCell>
                                     <Link
                                       to={`/invoices/view/${approval.invoice_id}`}
-                                      className="text-blue-600 hover:underline font-medium"
+                                      className="text-primary hover:underline font-medium"
                                     >
                                       {approval.invoice_number}
                                     </Link>
@@ -342,7 +342,7 @@ export function ApprovalDashboard() {
                                         variant="outline"
                                         onClick={() => handleApproveInvoice(approval.id)}
                                         disabled={approving === approval.id || rejecting === approval.id}
-                                        className="text-green-600 hover:text-green-700"
+                                        className="text-success hover:text-success"
                                       >
                                         {approving === approval.id ? (
                                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -356,7 +356,7 @@ export function ApprovalDashboard() {
                                         variant="outline"
                                         onClick={() => handleRejectInvoice(approval.id)}
                                         disabled={approving === approval.id || rejecting === approval.id}
-                                        className="text-red-600 hover:text-red-700"
+                                        className="text-destructive hover:text-destructive"
                                       >
                                         {rejecting === approval.id ? (
                                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -389,7 +389,7 @@ export function ApprovalDashboard() {
                 {t('approvalDashboard.processed_items')}
               </div>
               <HelpTooltip id="processed-items" context="dashboard">
-                <div className="text-sm text-gray-500 cursor-help">
+                <div className="text-sm text-muted-foreground cursor-help">
                   {t('approvalDashboard.items_approved_rejected')}
                 </div>
               </HelpTooltip>

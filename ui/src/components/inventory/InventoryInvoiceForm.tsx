@@ -747,7 +747,7 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
               </div>
 
               {discountAmount > 0 && (
-                <div className="flex justify-between items-center text-green-600">
+                <div className="flex justify-between items-center text-success">
                   <span>{t('invoices.discount')} ({watchedDiscountType === "percentage" ? `${watchedDiscountValue}%` : t('invoices.discount_fixed')}):</span>
                   <span>-<CurrencyDisplay amount={discountAmount} currency={watchedCurrency} /></span>
                 </div>

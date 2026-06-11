@@ -810,8 +810,8 @@ export default function Statements() {
       <div className="h-full space-y-8 fade-in dashboard-highlight-mode dashboard-shell overflow-visible">
         {/* API unavailable banner (shown while API is restarting) */}
         {!apiAvailable && (
-          <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-            <span className="inline-block h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-amber-500" />
+          <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+            <span className="inline-block h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-warning" />
             {t('common.api_connecting', { defaultValue: 'Connecting to server, please wait…' })}
           </div>
         )}
@@ -836,7 +836,7 @@ export default function Statements() {
                   <span className="inline-flex items-center rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
                     {t('common.total', { defaultValue: 'Total' })}: {totalStatements}
                   </span>
-                  <span className="inline-flex items-center rounded-md border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700">
+                  <span className="inline-flex items-center rounded-md border border-warning/20 bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning">
                     {t('common.processing', { defaultValue: 'Processing' })}: {processingCount}
                   </span>
                 </div>

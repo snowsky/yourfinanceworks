@@ -24,13 +24,13 @@ export function AuditLogDetailsModal({ isOpen, onClose, auditLog }: AuditLogDeta
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'success':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success/10 text-success';
       case 'error':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/10 text-destructive';
       case 'warning':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-warning/10 text-warning';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -166,8 +166,8 @@ export function AuditLogDetailsModal({ isOpen, onClose, auditLog }: AuditLogDeta
                 <label className="text-sm font-medium text-muted-foreground">
                   {t('auditLog.details.error_message') || 'Error Message'}
                 </label>
-                <div className="mt-1 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                  <p className="text-sm text-red-800 dark:text-red-200">{auditLog.error_message}</p>
+                <div className="mt-1 p-3 bg-destructive/10 border border-destructive/30 rounded-md">
+                  <p className="text-sm text-destructive">{auditLog.error_message}</p>
                 </div>
               </div>
             )}
@@ -178,8 +178,8 @@ export function AuditLogDetailsModal({ isOpen, onClose, auditLog }: AuditLogDeta
                 <label className="text-sm font-medium text-muted-foreground">
                   {t('auditLog.details.details') || 'Details'}
                 </label>
-                <div className="mt-1 p-3 bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-md">
-                  <pre className="text-xs overflow-auto dark:text-gray-200">
+                <div className="mt-1 p-3 bg-muted border border-border rounded-md">
+                  <pre className="text-xs overflow-auto text-foreground">
                     {JSON.stringify(auditLog.details, null, 2)}
                   </pre>
                   <Button

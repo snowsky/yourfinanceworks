@@ -109,9 +109,9 @@ export const NetWorthWidget: React.FC = () => {
                   <Badge
                     className={
                       delta.direction === 'up'
-                        ? 'bg-emerald-100 text-emerald-700'
+                        ? 'bg-success/10 text-success'
                         : delta.direction === 'down'
-                          ? 'bg-red-100 text-red-700'
+                          ? 'bg-destructive/10 text-destructive'
                           : 'bg-muted text-muted-foreground'
                     }
                   >
@@ -163,7 +163,7 @@ export const NetWorthWidget: React.FC = () => {
                 </div>
                 <div>
                   <div className="text-muted-foreground">Liabilities</div>
-                  <div className="font-medium text-red-600">
+                  <div className="font-medium text-destructive">
                     -{formatCurrency(summary.liability_total)}
                   </div>
                 </div>

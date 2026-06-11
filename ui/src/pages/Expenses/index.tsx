@@ -669,7 +669,7 @@ const Expenses = () => {
                 <span className="inline-flex items-center rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
                   {t('common.total', { defaultValue: 'Total' })}: {totalExpenses}
                 </span>
-                <span className="inline-flex items-center rounded-md border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700">
+                <span className="inline-flex items-center rounded-md border border-warning/30 bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning">
                   {t('expenses.review.title', { defaultValue: 'Review' })}: {pendingReviewCount}
                 </span>
               </div>

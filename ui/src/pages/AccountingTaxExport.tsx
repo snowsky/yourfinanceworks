@@ -239,12 +239,12 @@ const AccountingTaxExport: React.FC = () => {
                       {t('reports.accounting_tax_export.expense_count')}: {qualityQuery.data.expenseCount}
                     </p>
                     <div className="pt-2 border-t border-border/60 space-y-2">
-                      <p className="text-amber-700 dark:text-amber-300">
+                      <p className="text-warning">
                         <AlertTriangle className="inline-block h-4 w-4 mr-1 align-text-bottom" />
                         {t('reports.accounting_tax_export.invoices_missing_tax')}:{' '}
                         {qualityQuery.data.invoicesMissingTax}
                       </p>
-                      <p className="text-amber-700 dark:text-amber-300">
+                      <p className="text-warning">
                         <AlertTriangle className="inline-block h-4 w-4 mr-1 align-text-bottom" />
                         {t('reports.accounting_tax_export.expenses_tax_mismatch')}:{' '}
                         {qualityQuery.data.expensesTaxMismatch}

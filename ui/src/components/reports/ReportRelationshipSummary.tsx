@@ -133,7 +133,7 @@ export const ReportRelationshipSummary: FC<ReportRelationshipSummaryProps> = ({
             </div>
 
             {summary.orphanExpenses > 0 ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
                 <div className="mb-1 flex items-center gap-2 font-medium">
                   <AlertTriangle className="h-4 w-4" />
                   {summary.orphanExpenses} orphan expenses detected
@@ -141,7 +141,7 @@ export const ReportRelationshipSummary: FC<ReportRelationshipSummaryProps> = ({
                 <p>These expenses are visible in the report scope but are not linked to an invoice or statement transaction.</p>
               </div>
             ) : (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+              <div className="rounded-xl border border-success/30 bg-success/10 p-3 text-sm text-success">
                 All visible expenses are attached to an invoice or statement chain.
               </div>
             )}

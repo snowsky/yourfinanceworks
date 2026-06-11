@@ -235,7 +235,7 @@ export const TenantsTab: React.FC<TenantsTabProps> = ({
                             DB {formatBytes(tenant.database_size_bytes)} / files {formatBytes(getFileSizeBytes(tenant))}
                           </div>
                           {tenant.size_calculation_error && (
-                            <div className="text-xs text-amber-600" title={tenant.size_calculation_error}>Partial</div>
+                            <div className="text-xs text-warning" title={tenant.size_calculation_error}>Partial</div>
                           )}
                         </div>
                       </TableCell>

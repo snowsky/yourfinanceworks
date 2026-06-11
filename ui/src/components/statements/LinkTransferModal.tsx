@@ -168,7 +168,7 @@ export function LinkTransferModal({
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ArrowLeftRight className="w-5 h-5 text-blue-500" />
+            <ArrowLeftRight className="w-5 h-5 text-primary" />
             {t('statements.link_transfer.title')}
           </DialogTitle>
           <DialogDescription className="sr-only">
@@ -191,7 +191,7 @@ export function LinkTransferModal({
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 {t('statements.link_transfer.source')}<span className="font-medium text-foreground">{sourceTransaction.description}</span>{' '}
-                <span className={sourceTransaction.transaction_type === 'debit' ? 'text-red-500' : 'text-green-500'}>
+                <span className={sourceTransaction.transaction_type === 'debit' ? 'text-destructive' : 'text-success'}>
                   {formatAmount(sourceTransaction.amount, sourceTransaction.transaction_type)}
                 </span>{' '}
                 {t('common.on')} {safeDate(sourceTransaction.date)}
@@ -289,7 +289,7 @@ export function LinkTransferModal({
                         >
                           <td className="py-1.5 pr-2 whitespace-nowrap">{safeDate(txn.date)}</td>
                           <td className="py-1.5 pr-2 max-w-[200px] truncate">{txn.description}</td>
-                          <td className={`py-1.5 pr-2 text-right tabular-nums ${txn.transaction_type === 'debit' ? 'text-red-500' : 'text-green-500'}`}>
+                          <td className={`py-1.5 pr-2 text-right tabular-nums ${txn.transaction_type === 'debit' ? 'text-destructive' : 'text-success'}`}>
                             {formatAmount(txn.amount, txn.transaction_type)}
                           </td>
                           <td className="py-1.5">
@@ -323,15 +323,15 @@ export function LinkTransferModal({
                 <div className="rounded-lg border p-3 space-y-1">
                   <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{t('statements.link_transfer.source_label')}</p>
                   <p className="text-sm font-medium">{sourceTransaction.description}</p>
-                  <p className={`text-sm font-semibold ${sourceTransaction.transaction_type === 'debit' ? 'text-red-500' : 'text-green-500'}`}>
+                  <p className={`text-sm font-semibold ${sourceTransaction.transaction_type === 'debit' ? 'text-destructive' : 'text-success'}`}>
                     {formatAmount(sourceTransaction.amount, sourceTransaction.transaction_type)}
                   </p>
                   <p className="text-xs text-muted-foreground">{safeDate(sourceTransaction.date)}</p>
                 </div>
-                <div className="rounded-lg border p-3 space-y-1 border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
+                <div className="rounded-lg border p-3 space-y-1 border-primary/30 bg-primary/10">
                   <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{t('statements.link_transfer.target_label')}</p>
                   <p className="text-sm font-medium">{selectedTransaction.description}</p>
-                  <p className={`text-sm font-semibold ${selectedTransaction.transaction_type === 'debit' ? 'text-red-500' : 'text-green-500'}`}>
+                  <p className={`text-sm font-semibold ${selectedTransaction.transaction_type === 'debit' ? 'text-destructive' : 'text-success'}`}>
                     {formatAmount(selectedTransaction.amount, selectedTransaction.transaction_type)}
                   </p>
                   <p className="text-xs text-muted-foreground">{safeDate(selectedTransaction.date)}</p>

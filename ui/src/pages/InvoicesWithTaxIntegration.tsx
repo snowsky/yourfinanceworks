@@ -109,14 +109,14 @@ const InvoicesWithTaxIntegration: React.FC = () => {
         <TaxIntegrationStatus />
 
         {/* Development Notice */}
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
+        <div className="p-4 bg-warning/10 border border-warning/30 rounded-md">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <AlertTriangle className="h-5 w-5 text-warning" />
             <div>
-              <h3 className="text-sm font-medium text-amber-800">
+              <h3 className="text-sm font-medium text-warning">
                 {t('taxIntegration.developmentNotice')}
               </h3>
-              <p className="text-xs text-amber-700 mt-1">
+              <p className="text-xs text-warning mt-1">
                 Some features may not work as expected while this integration is being developed.
               </p>
             </div>
@@ -152,7 +152,7 @@ const InvoicesWithTaxIntegration: React.FC = () => {
 
         {/* Bulk Actions */}
         {selectedIds.length > 0 && taxIntegrationEnabled && (
-          <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="flex items-center justify-between p-4 bg-primary/10 border border-primary/30 rounded-md">
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium">
                 {selectedIds.length} {t('common.selected')}
@@ -219,7 +219,7 @@ const InvoicesWithTaxIntegration: React.FC = () => {
                     <TableCell>
                       <Link
                         to={`/invoices/${invoice.id}`}
-                        className="font-medium text-blue-600 hover:text-blue-800"
+                        className="font-medium text-primary hover:text-primary/80"
                       >
                         {invoice.number}
                       </Link>

@@ -202,9 +202,9 @@ export function QuickActions() {
     const getBadgeStyles = (variant: string) => {
         switch (variant) {
             case 'warning':
-                return 'bg-orange-100 text-orange-800 border-orange-200';
+                return 'bg-warning/10 text-warning border-warning/30';
             case 'success':
-                return 'bg-green-100 text-green-800 border-green-200';
+                return 'bg-success/10 text-success border-success/30';
             default:
                 return 'bg-primary/10 text-primary border-primary/20';
         }

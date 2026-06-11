@@ -696,7 +696,7 @@ export function AppSidebar() {
               aria-label={t('auth.logout')}
               title={t('auth.logout')}
               onClick={handleLogout}
-              className="h-7 w-7 shrink-0 text-sidebar-foreground hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 rounded-lg"
+              className="h-7 w-7 shrink-0 text-sidebar-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200 rounded-lg"
             >
               <LogOut className="w-3.5 h-3.5" />
             </Button>

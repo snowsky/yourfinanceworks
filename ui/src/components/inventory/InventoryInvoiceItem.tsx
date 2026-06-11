@@ -158,8 +158,8 @@ export const InventoryInvoiceItem: React.FC<InventoryInvoiceItemProps> = ({
                 {stockCheckResult && (
                   <div className={`flex items-center gap-2 text-sm p-2 rounded ${
                     stockCheckResult.is_available
-                      ? 'bg-green-50 text-green-700 border border-green-200'
-                      : 'bg-orange-50 text-orange-700 border border-orange-200'
+                      ? 'bg-success/10 text-success border border-success/30'
+                      : 'bg-warning/10 text-warning border border-warning/30'
                   }`}>
                     {stockCheckResult.is_available ? (
                       <Package className="h-4 w-4" />
@@ -257,12 +257,12 @@ export const InventoryInvoiceItem: React.FC<InventoryInvoiceItemProps> = ({
 
           {/* Stock Warning */}
           {stockCheckResult && !stockCheckResult.is_available && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-              <div className="flex items-center gap-2 text-orange-800">
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3">
+              <div className="flex items-center gap-2 text-warning">
                 <AlertTriangle className="h-4 w-4" />
                 <span className="text-sm font-medium">{t('inventory.stock_warning')}</span>
               </div>
-              <p className="text-sm text-orange-700 mt-1">
+              <p className="text-sm text-warning mt-1">
                 {stockCheckResult.message}. {t('inventory.stock_warning_message')}
               </p>
             </div>

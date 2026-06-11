@@ -51,11 +51,11 @@ export function NotificationBell({ notifications, onMarkAsRead, onClearAll, onHi
   const getIcon = (type: Notification['type']) => {
     switch (type) {
       case 'success':
-        return <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
+        return <CheckCircle className="w-4 h-4 text-success" />;
       case 'error':
-        return <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />;
+        return <AlertCircle className="w-4 h-4 text-destructive" />;
       case 'processing':
-        return <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
+        return <Clock className="w-4 h-4 text-primary" />;
       case 'join_request':
         return <UserPlus className="w-4 h-4 text-purple-600 dark:text-purple-400" />;
     }
@@ -142,8 +142,8 @@ export function NotificationBell({ notifications, onMarkAsRead, onClearAll, onHi
                 {displayNotifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`p-4 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors ${
-                      !notification.read ? 'bg-blue-50' : ''
+                    className={`p-4 border-b last:border-b-0 cursor-pointer hover:bg-muted transition-colors ${
+                      !notification.read ? 'bg-primary/10' : ''
                     }`}
                     onClick={() => handleNotificationClick(notification)}
                   >
@@ -162,7 +162,7 @@ export function NotificationBell({ notifications, onMarkAsRead, onClearAll, onHi
                           {notification.message}
                         </p>
                         {!notification.read && (
-                          <div className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full mt-2"></div>
+                          <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
                         )}
                       </div>
                     </div>

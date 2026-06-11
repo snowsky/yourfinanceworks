@@ -324,11 +324,11 @@ export function MergeExpensesModal({
             </div>
 
             {/* Warning banner + disposition picker */}
-            <div className="rounded-lg border border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm">
+            <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 mt-0.5 text-amber-600" />
+                <AlertTriangle className="w-4 h-4 mt-0.5 text-warning" />
                 <div className="flex-1">
-                  <div className="font-semibold text-amber-800 dark:text-amber-200">
+                  <div className="font-semibold text-warning">
                     What should happen to the {preview.count} source expenses?
                   </div>
                   <RadioGroup
@@ -343,9 +343,9 @@ export function MergeExpensesModal({
                         id="merge-disposition-consolidate"
                         className="mt-1"
                       />
-                      <div className="text-amber-800 dark:text-amber-200">
+                      <div className="text-warning">
                         <div className="font-medium">Move sources to recycle bin</div>
-                        <div className="text-xs text-amber-700 dark:text-amber-300">
+                        <div className="text-xs text-warning/80">
                           Attachments are re-linked to the merged expense.
                           Sources are restorable from the recycle bin.
                         </div>
@@ -357,11 +357,11 @@ export function MergeExpensesModal({
                         id="merge-disposition-keep"
                         className="mt-1"
                       />
-                      <div className="text-amber-800 dark:text-amber-200">
+                      <div className="text-warning">
                         <div className="font-medium">
                           Keep sources visible alongside the merged expense
                         </div>
-                        <div className="text-xs text-amber-700 dark:text-amber-300">
+                        <div className="text-xs text-warning/80">
                           Source expenses stay active. Attachments are duplicated
                           (same files, separate records) so they appear on both.
                         </div>
