@@ -216,13 +216,13 @@ export function InvoiceFormWithApproval({
               ) : invoice?.status === 'approved' && approvalHistory ? (
                 // Show approval information for approved invoices
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800/50 rounded-lg">
-                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <div className="flex items-center gap-2 p-3 bg-success/10 border border-success/30 rounded-lg">
+                    <CheckCircle className="h-5 w-5 text-success" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                      <p className="text-sm font-medium text-success">
                         {t('invoices.invoice_approved')}
                       </p>
-                      <p className="text-sm text-green-700 dark:text-green-300">
+                      <p className="text-sm text-success">
                         {t('invoices.approved_by')}: {' '}
                         {approvalHistory.approved_by_username ||
                           approvalHistory.approver?.name ||
@@ -230,31 +230,31 @@ export function InvoiceFormWithApproval({
                           'Unknown'}
                       </p>
                       {approvalHistory.decided_at && (
-                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                        <p className="text-xs text-success mt-1">
                           {new Date(approvalHistory.decided_at).toLocaleString()}
                         </p>
                       )}
                     </div>
                   </div>
                   {approvalHistory.notes && (
-                    <div className="p-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800/50 rounded-lg">
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
+                    <div className="p-3 bg-muted/50 border border-border rounded-lg">
+                      <p className="text-sm font-medium text-foreground mb-1">
                         {t('invoices.approval_notes')}:
                       </p>
-                      <p className="text-sm text-gray-700 dark:text-gray-300">{approvalHistory.notes}</p>
+                      <p className="text-sm text-muted-foreground">{approvalHistory.notes}</p>
                     </div>
                   )}
                 </div>
               ) : invoice?.status === 'rejected' && approvalHistory ? (
                 // Show rejection information for rejected invoices
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800/50 rounded-lg">
-                    <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                  <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+                    <XCircle className="h-5 w-5 text-destructive" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                      <p className="text-sm font-medium text-destructive">
                         {t('invoices.invoice_rejected')}
                       </p>
-                      <p className="text-sm text-red-700 dark:text-red-300">
+                      <p className="text-sm text-destructive">
                         {t('invoices.rejected_by')}: {' '}
                         {approvalHistory.rejected_by_username ||
                           approvalHistory.approver?.name ||
@@ -262,55 +262,55 @@ export function InvoiceFormWithApproval({
                           'Unknown'}
                       </p>
                       {approvalHistory.decided_at && (
-                        <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                        <p className="text-xs text-destructive mt-1">
                           {new Date(approvalHistory.decided_at).toLocaleString()}
                         </p>
                       )}
                     </div>
                   </div>
                   {approvalHistory.rejection_reason && (
-                    <div className="p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800/50 rounded-lg">
-                      <p className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
+                    <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+                      <p className="text-sm font-medium text-destructive mb-1">
                         {t('invoices.rejection_reason')}:
                       </p>
-                      <p className="text-sm text-red-700 dark:text-red-300">{approvalHistory.rejection_reason}</p>
+                      <p className="text-sm text-destructive">{approvalHistory.rejection_reason}</p>
                     </div>
                   )}
                   {approvalHistory.notes && (
-                    <div className="p-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800/50 rounded-lg">
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
+                    <div className="p-3 bg-muted/50 border border-border rounded-lg">
+                      <p className="text-sm font-medium text-foreground mb-1">
                         {t('invoices.rejection_notes')}:
                       </p>
-                      <p className="text-sm text-gray-700 dark:text-gray-300">{approvalHistory.notes}</p>
+                      <p className="text-sm text-muted-foreground">{approvalHistory.notes}</p>
                     </div>
                   )}
                 </div>
               ) : invoice?.status === 'pending_approval' && approvalHistory ? (
                 // Show pending approval information
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-950/50 border border-yellow-200 dark:border-yellow-800/50 rounded-lg">
-                    <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                  <div className="flex items-center gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg">
+                    <AlertCircle className="h-5 w-5 text-warning" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                      <p className="text-sm font-medium text-warning">
                         {t('invoices.invoice_pending_approval')}
                       </p>
-                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                      <p className="text-sm text-warning">
                         {t('invoices.waiting_for_approval_from')}: {' '}
                         {approvalHistory.approver?.name || approvalHistory.approver?.email || 'Unknown'}
                       </p>
                       {approvalHistory.submitted_at && (
-                        <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                        <p className="text-xs text-warning mt-1">
                           {t('invoices.submitted_at')}: {new Date(approvalHistory.submitted_at).toLocaleString()}
                         </p>
                       )}
                     </div>
                   </div>
                   {approvalHistory.notes && (
-                    <div className="p-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800/50 rounded-lg">
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
+                    <div className="p-3 bg-muted/50 border border-border rounded-lg">
+                      <p className="text-sm font-medium text-foreground mb-1">
                         {t('invoices.submission_notes')}:
                       </p>
-                      <p className="text-sm text-gray-700 dark:text-gray-300">{approvalHistory.notes}</p>
+                      <p className="text-sm text-muted-foreground">{approvalHistory.notes}</p>
                     </div>
                   )}
                 </div>
@@ -318,9 +318,9 @@ export function InvoiceFormWithApproval({
                 // Show approval submission form for new/draft invoices
                 <>
                   {!isApprovalsEnabled && (
-                    <Alert className="mb-4 border-amber-200 bg-amber-50">
-                      <AlertCircle className="h-4 w-4 text-amber-600" />
-                      <AlertDescription className="text-amber-800">
+                    <Alert className="mb-4 border-warning/30 bg-warning/10">
+                      <AlertCircle className="h-4 w-4 text-warning" />
+                      <AlertDescription className="text-warning">
                         <strong>Note:</strong> Approval workflows are not available in your current plan. Please submit invoices directly.
                       </AlertDescription>
                     </Alert>
@@ -344,9 +344,9 @@ export function InvoiceFormWithApproval({
                   {submitForApproval && (
                     <div className="mt-3 space-y-3">
                       {approvalsNotLicensed ? (
-                        <Alert className="border-amber-200 bg-amber-50">
-                          <AlertCircle className="h-4 w-4 text-amber-600" />
-                          <AlertDescription className="text-amber-800">
+                        <Alert className="border-warning/30 bg-warning/10">
+                          <AlertCircle className="h-4 w-4 text-warning" />
+                          <AlertDescription className="text-warning">
                             {t('common.feature_not_licensed', {
                               defaultValue: 'Approval workflows require a commercial license. Please upgrade your license to use this feature.'
                             })}
@@ -354,8 +354,8 @@ export function InvoiceFormWithApproval({
                         </Alert>
                       ) : (
                         <>
-                          <div className="p-3 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/50 rounded-lg">
-                            <p className="text-sm text-blue-700 dark:text-blue-200">
+                          <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg">
+                            <p className="text-sm text-primary">
                               {t('invoices.this_invoice_will_be_submitted_for_approval')}
                             </p>
                           </div>
