@@ -17,8 +17,9 @@ class InvoiceSettings(BaseModel):
     notes: Optional[str] = None
     send_copy: bool = True
     auto_reminders: bool = True
-    # Client-facing AR automation (PRs #353/#354): thank-you defaults ON,
-    # dunning reminders default OFF. Cadence is day-offsets vs due date.
+    # Client-facing AR automation: thank_you_email is opt-out (default ON),
+    # payment_reminders_enabled is opt-in (default OFF). Cadence values are
+    # day-offsets relative to the due date (negative = before due).
     thank_you_email: bool = True
     payment_reminders_enabled: bool = False
     reminder_cadence: List[int] = [-7, -1, 3, 7, 14]

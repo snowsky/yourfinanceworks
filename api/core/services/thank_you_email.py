@@ -36,6 +36,10 @@ def _thank_you_enabled(db: Session) -> bool:
 
     Tenants without email_config still send nothing — the service build is
     the real gate for them.
+
+    Stored-value invariant: the value is expected to be a JSON boolean; any
+    other stored value falls through Python ``bool()`` rules (e.g. ``null``/
+    ``0`` disable, non-empty strings enable).
     """
     record = db.query(Settings).filter(Settings.key == "invoice_settings").first()
     value = record.value if record else None

@@ -43,10 +43,11 @@ def fake_service(monkeypatch):
     return svc
 
 
-def test_no_send_when_toggle_off(db_session):
+def test_no_send_when_toggle_off(db_session, fake_service):
     _set(db_session, "invoice_settings", {"thank_you_email": False})
     client = _client(db_session)
     assert send_invoice_paid_thank_you(db_session, _invoice_for(client)) is False
+    fake_service.send_email.assert_not_called()
 
 
 def test_sends_by_default_when_setting_absent(db_session, fake_service):
