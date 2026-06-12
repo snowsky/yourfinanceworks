@@ -77,6 +77,9 @@ def _build_portal_pay_url(tenant_db: Session) -> Optional[str]:
 
     Mirrors the send-invoice email's link policy; a background pass must
     never mint public share links. Best-effort: any failure means no link.
+
+    ``tenant_db`` is the *tenant* session used only for the feature-gate
+    check; the master DB is opened internally to resolve the tenant record.
     """
     try:
         frontend = os.getenv("FRONTEND_URL", "").rstrip("/")
@@ -101,7 +104,7 @@ def _build_portal_pay_url(tenant_db: Session) -> Optional[str]:
         finally:
             master_db.close()
     except Exception as e:  # never let link plumbing break the dunning pass
-        logger.debug(f"No portal link for dunning email: {e}")
+        logger.warning(f"No portal link for dunning email: {e}")
         return None
 
 
@@ -132,6 +135,7 @@ class InvoiceDunningService:
             return {"status": "skipped", "reason": "email_not_configured"}
 
         company_name = email_service.config.from_name or ""
+        # Portal URL is tenant-scoped; compute once for the entire pass.
         pay_url = _build_portal_pay_url(self.db)
         today = now.date()
 

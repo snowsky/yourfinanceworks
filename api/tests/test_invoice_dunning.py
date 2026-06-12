@@ -216,7 +216,9 @@ def test_no_pay_link_when_unavailable(db_session, fake_email, monkeypatch):
     monkeypatch.setattr(mod, "_build_portal_pay_url", lambda db: None)
     _invoice(db_session, _client(db_session), days_overdue=10)
     assert InvoiceDunningService(db_session).process()["sent"] == 1
-    assert "href" not in _sent_message(fake_email).html_body
+    msg = _sent_message(fake_email)
+    assert "<a href=" not in msg.html_body
+    assert "View and pay online:" not in msg.text_body
 
 
 def test_portal_pay_url_none_when_feature_disabled(db_session, monkeypatch):
