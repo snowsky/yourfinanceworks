@@ -14,6 +14,7 @@ so enabling email config alone never surprises clients.
 """
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -26,6 +27,7 @@ from core.services.notification_templates import (
     DUNNING_HTML_TEMPLATE,
     DUNNING_TEXT_TEMPLATE,
 )
+from core.utils.feature_gate import feature_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +72,39 @@ def _tone(days_since_due: int) -> Dict[str, str]:
     }
 
 
+def _build_portal_pay_url(tenant_db: Session) -> Optional[str]:
+    """Login-protected client-portal URL for the current tenant, or None.
+
+    Mirrors the send-invoice email's link policy; a background pass must
+    never mint public share links. Best-effort: any failure means no link.
+    """
+    try:
+        frontend = os.getenv("FRONTEND_URL", "").rstrip("/")
+        if not frontend or not feature_enabled("client_portal", tenant_db):
+            return None
+
+        from core.models.database import get_tenant_context
+        from core.models.models import Tenant
+        from core.services.client_portal_auth import get_or_create_portal_public_id
+        from core.services.tenant_database_manager import tenant_db_manager
+
+        tenant_id = get_tenant_context()
+        master_factory = tenant_db_manager.master_session
+        if not tenant_id or master_factory is None:
+            return None
+        master_db = master_factory()
+        try:
+            tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
+            if not tenant:
+                return None
+            return f"{frontend}/portal/{get_or_create_portal_public_id(tenant, master_db)}"
+        finally:
+            master_db.close()
+    except Exception as e:  # never let link plumbing break the dunning pass
+        logger.debug(f"No portal link for dunning email: {e}")
+        return None
+
+
 class InvoiceDunningService:
     def __init__(self, db: Session):
         self.db = db
@@ -97,6 +132,7 @@ class InvoiceDunningService:
             return {"status": "skipped", "reason": "email_not_configured"}
 
         company_name = email_service.config.from_name or ""
+        pay_url = _build_portal_pay_url(self.db)
         today = now.date()
 
         invoices: List[Invoice] = (
@@ -112,7 +148,7 @@ class InvoiceDunningService:
         sent = 0
         for inv in invoices:
             try:
-                if self._maybe_send(inv, cadence, today, email_service, company_name):
+                if self._maybe_send(inv, cadence, today, email_service, company_name, pay_url):
                     sent += 1
             except Exception as e:  # one bad invoice must not abort the batch
                 logger.warning(f"Dunning failed for invoice {inv.id}: {e}")
@@ -141,6 +177,7 @@ class InvoiceDunningService:
         today,
         email_service,
         company_name: str,
+        pay_url: Optional[str],
     ) -> bool:
         days_since_due = (today - inv.due_date.date()).days
 
@@ -174,6 +211,7 @@ class InvoiceDunningService:
             "urgency_color": tone["urgency_color"],
             "subject_prefix": tone["subject_prefix"],
             "title": subject,
+            "pay_url": pay_url or "",
         }
         message = EmailMessage(
             to_email=to_email,

@@ -197,3 +197,34 @@ def test_tone_tier_boundaries():
         assert set(_tone(days)) == {
             "subject_prefix", "badge_label", "intro_line", "badge_bg", "urgency_color",
         }
+
+
+def test_pay_link_included_when_available(db_session, fake_email, monkeypatch):
+    _enable(db_session)
+    monkeypatch.setattr(
+        mod, "_build_portal_pay_url", lambda db: "https://app.example/portal/abc123"
+    )
+    _invoice(db_session, _client(db_session), days_overdue=10)
+    assert InvoiceDunningService(db_session).process()["sent"] == 1
+    msg = _sent_message(fake_email)
+    assert "https://app.example/portal/abc123" in msg.html_body
+    assert "https://app.example/portal/abc123" in msg.text_body
+
+
+def test_no_pay_link_when_unavailable(db_session, fake_email, monkeypatch):
+    _enable(db_session)
+    monkeypatch.setattr(mod, "_build_portal_pay_url", lambda db: None)
+    _invoice(db_session, _client(db_session), days_overdue=10)
+    assert InvoiceDunningService(db_session).process()["sent"] == 1
+    assert "href" not in _sent_message(fake_email).html_body
+
+
+def test_portal_pay_url_none_when_feature_disabled(db_session, monkeypatch):
+    monkeypatch.setenv("FRONTEND_URL", "https://app.example")
+    monkeypatch.setattr(mod, "feature_enabled", lambda fid, db: False)
+    assert mod._build_portal_pay_url(db_session) is None
+
+
+def test_portal_pay_url_none_without_frontend_url(db_session, monkeypatch):
+    monkeypatch.delenv("FRONTEND_URL", raising=False)
+    assert mod._build_portal_pay_url(db_session) is None

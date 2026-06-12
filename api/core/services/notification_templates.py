@@ -882,6 +882,11 @@ DUNNING_HTML_TEMPLATE = Template("""
                    <strong>{{ invoice_number }}</strong>, which is {{ status_line }}.</p>
                 <div class="amount">{{ currency }} {{ amount }}</div>
                 <div class="meta">Invoice {{ invoice_number }} &middot; Due {{ due_date }}</div>
+                {% if pay_url %}
+                <div style="text-align:center; margin: 24px 0 4px;">
+                    <a href="{{ pay_url }}" style="display:inline-block; background: #1e3a8a; color: #ffffff; font-weight: 600; padding: 12px 28px; border-radius: 8px; text-decoration: none;">View &amp; pay invoice</a>
+                </div>
+                {% endif %}
                 <p style="margin-top:24px;">If you've already sent payment, please disregard this message — thank you.</p>
                 <p>— {{ company_name }}</p>
                 <div class="footer">This is an automated reminder from {{ company_name }}.</div>
@@ -897,6 +902,7 @@ DUNNING_TEXT_TEMPLATE = Template("""
 
         Amount: {{ currency }} {{ amount }}
         Due date: {{ due_date }}
+        {% if pay_url %}View and pay online: {{ pay_url }}{% endif %}
 
         If you've already sent payment, please disregard this message — thank you.
 
