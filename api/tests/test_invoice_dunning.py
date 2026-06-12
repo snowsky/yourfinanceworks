@@ -232,6 +232,14 @@ def test_portal_pay_url_none_without_frontend_url(db_session, monkeypatch):
     assert mod._build_portal_pay_url(db_session) is None
 
 
+def test_portal_pay_url_none_for_non_http_scheme(db_session, monkeypatch):
+    # The URL lands in an email href; a non-http(s) FRONTEND_URL (e.g. a
+    # javascript: value) must never produce a link.
+    monkeypatch.setenv("FRONTEND_URL", "javascript:alert(1)")
+    monkeypatch.setattr(mod, "feature_enabled", lambda fid, db: True)
+    assert mod._build_portal_pay_url(db_session) is None
+
+
 def test_branding_color_and_footer_applied(db_session, fake_email, monkeypatch):
     _enable(db_session)
     monkeypatch.setattr(

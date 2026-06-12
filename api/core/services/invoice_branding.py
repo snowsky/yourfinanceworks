@@ -27,13 +27,26 @@ DEFAULT_INVOICE_BRANDING: Dict[str, Any] = {
 
 
 def get_invoice_branding(db: Session) -> Dict[str, Any]:
-    """Return the tenant's invoice branding merged over the defaults."""
+    """Return the tenant's invoice branding merged over the defaults.
+
+    Colours are re-validated at read time: they are interpolated into CSS
+    contexts (``style="..."``/``<style>``) that HTML autoescaping does not
+    protect, so a non-hex value reaching the DB through any path (a future
+    writer, a migration, a manual edit) falls back to the default rather than
+    being rendered. Defence-in-depth on top of :func:`validate_invoice_branding`.
+    """
     from core.models.models_per_tenant import Settings
 
     record = db.query(Settings).filter(Settings.key == INVOICE_BRANDING_KEY).first()
+    merged = dict(DEFAULT_INVOICE_BRANDING)
     if record and record.value:
-        return {**DEFAULT_INVOICE_BRANDING, **record.value}
-    return dict(DEFAULT_INVOICE_BRANDING)
+        merged.update(record.value)
+
+    for key in ("brand_color", "accent_color"):
+        if not HEX_COLOR_RE.match(str(merged.get(key, ""))):
+            merged[key] = DEFAULT_INVOICE_BRANDING[key]
+
+    return merged
 
 
 def validate_invoice_branding(value: Dict[str, Any]) -> Dict[str, Any]:

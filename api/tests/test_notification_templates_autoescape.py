@@ -140,3 +140,63 @@ def test_approval_reminder_html_escapes_malicious_expense_category():
     )
     assert XSS not in html
     assert ESCAPED in html
+
+
+def test_approval_escalation_html_escapes_malicious_expense_category():
+    html = APPROVAL_ESCALATION_HTML_TEMPLATE.render(
+        company_name="Acme",
+        recipient_name="Dana",
+        overdue_count=1,
+        timestamp="2026-06-12 10:00",
+        details={
+            "approver_name": "Dana",
+            "total_overdue": 1,
+            "total_amount": "$10.00",
+            "oldest_submission": "2026-06-01 09:00",
+            "overdue_list": f"#1 ({XSS})",
+        },
+    )
+    assert XSS not in html
+    assert ESCAPED in html
+
+
+def test_approval_digest_html_escapes_malicious_expense_category():
+    html = APPROVAL_DIGEST_HTML_TEMPLATE.render(
+        company_name="Acme",
+        digest_date="2026-06-12",
+        recipient_name="Dana",
+        digest_data={
+            "total_events": 1,
+            "pending_count": 1,
+            "approved_count": 0,
+            "rejected_count": 0,
+            "pending_approvals": [
+                {"expense_id": 1, "category": XSS, "amount": "10.00",
+                 "submitted_at": "2026-06-01"},
+            ],
+        },
+    )
+    assert XSS not in html
+    assert ESCAPED in html
+
+
+def test_dunning_html_escapes_client_name():
+    html = DUNNING_HTML_TEMPLATE.render(
+        client_name=XSS,
+        invoice_number="INV-1",
+        amount="10.00",
+        currency="USD",
+        due_date="2026-06-01",
+        status_line="5 days overdue",
+        company_name="Acme",
+        title="Overdue notice — invoice INV-1",
+        badge_label="Overdue",
+        badge_bg="#fef2f2",
+        urgency_color="#b91c1c",
+        intro_line="This is a notice regarding",
+        brand_color="#1e3a8a",
+        footer_text="",
+        pay_url="",
+    )
+    assert XSS not in html
+    assert ESCAPED in html
