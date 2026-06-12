@@ -32,9 +32,16 @@ def _build_email_service(db: Session):
 
 
 def _thank_you_enabled(db: Session) -> bool:
+    """Default ON: only an explicit ``thank_you_email: false`` disables it.
+
+    Tenants without email_config still send nothing — the service build is
+    the real gate for them.
+    """
     record = db.query(Settings).filter(Settings.key == "invoice_settings").first()
     value = record.value if record else None
-    return bool(value and value.get("thank_you_email"))
+    if not value or "thank_you_email" not in value:
+        return True
+    return bool(value["thank_you_email"])
 
 
 def send_invoice_paid_thank_you(db: Session, invoice) -> bool:

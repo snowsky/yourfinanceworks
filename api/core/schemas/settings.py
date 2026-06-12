@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 
 class CompanyInfo(BaseModel):
@@ -17,6 +17,11 @@ class InvoiceSettings(BaseModel):
     notes: Optional[str] = None
     send_copy: bool = True
     auto_reminders: bool = True
+    # Client-facing AR automation (PRs #353/#354): thank-you defaults ON,
+    # dunning reminders default OFF. Cadence is day-offsets vs due date.
+    thank_you_email: bool = True
+    payment_reminders_enabled: bool = False
+    reminder_cadence: List[int] = [-7, -1, 3, 7, 14]
 
 class SettingsBase(BaseModel):
     tenant_id: int
