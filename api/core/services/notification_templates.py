@@ -889,7 +889,7 @@ DUNNING_HTML_TEMPLATE = Template("""
                 {% endif %}
                 <p style="margin-top:24px;">If you've already sent payment, please disregard this message — thank you.</p>
                 <p style="color: {{ brand_color }}; font-weight: 600;">— {{ company_name }}</p>
-                <div class="footer">{% if footer_text %}{{ footer_text }}<br>{% endif %}This is an automated reminder from {{ company_name }}.</div>
+                <div class="footer">{% if footer_text %}{{ footer_text | e }}<br>{% endif %}This is an automated reminder from {{ company_name }}.</div>
             </div>
         </body>
         </html>

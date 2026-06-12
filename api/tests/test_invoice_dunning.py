@@ -256,3 +256,19 @@ def test_branding_defaults_when_unset(db_session, fake_email):
     assert InvoiceDunningService(db_session).process()["sent"] == 1
     # Default brand color renders (sign-off) even with no branding row and no pay link.
     assert "#1e3a8a" in _sent_message(fake_email).html_body
+
+
+def test_footer_text_html_escaped(db_session, fake_email):
+    _enable(db_session)
+    db_session.add(Settings(key="invoice_branding", value={
+        "footer_text": "<script>alert(1)</script> & Co",
+    }))
+    db_session.commit()
+    _invoice(db_session, _client(db_session), days_overdue=10)
+
+    assert InvoiceDunningService(db_session).process()["sent"] == 1
+    msg = _sent_message(fake_email)
+    assert "<script>" not in msg.html_body  # escaped, not raw
+    assert "&lt;script&gt;" in msg.html_body
+    # Plain-text part is not HTML and must stay readable.
+    assert "<script>alert(1)</script> & Co" in msg.text_body
