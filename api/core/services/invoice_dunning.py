@@ -42,6 +42,34 @@ def _status_line(days_since_due: int) -> str:
     return f"{days_since_due} day{'s' if days_since_due != 1 else ''} overdue"
 
 
+def _tone(days_since_due: int) -> Dict[str, str]:
+    """Escalating presentation by lateness. Colors are status colors
+    (blue/amber/red), deliberately independent of tenant branding."""
+    if days_since_due < 0:
+        return {
+            "subject_prefix": "Upcoming payment",
+            "badge_label": "Payment due soon",
+            "intro_line": "This is a friendly heads-up about",
+            "badge_bg": "#eff6ff",
+            "urgency_color": "#1d4ed8",
+        }
+    if days_since_due < 7:
+        return {
+            "subject_prefix": "Payment reminder",
+            "badge_label": "Payment reminder",
+            "intro_line": "This is a friendly reminder about",
+            "badge_bg": "#fffbeb",
+            "urgency_color": "#b45309",
+        }
+    return {
+        "subject_prefix": "Overdue notice",
+        "badge_label": "Overdue",
+        "intro_line": "This is a notice regarding",
+        "badge_bg": "#fef2f2",
+        "urgency_color": "#b91c1c",
+    }
+
+
 class InvoiceDunningService:
     def __init__(self, db: Session):
         self.db = db
@@ -130,6 +158,7 @@ class InvoiceDunningService:
         if not to_email:
             return False
 
+        tone = _tone(days_since_due)
         context = {
             "client_name": client.name or "there",
             "invoice_number": inv.number,
@@ -138,11 +167,15 @@ class InvoiceDunningService:
             "due_date": inv.due_date.date().isoformat(),
             "status_line": _status_line(days_since_due),
             "company_name": company_name,
+            "badge_label": tone["badge_label"],
+            "intro_line": tone["intro_line"],
+            "badge_bg": tone["badge_bg"],
+            "urgency_color": tone["urgency_color"],
         }
         message = EmailMessage(
             to_email=to_email,
             to_name=client.name or "",
-            subject=f"Payment reminder — invoice {inv.number}",
+            subject=f"{tone['subject_prefix']} — invoice {inv.number}",
             html_body=DUNNING_HTML_TEMPLATE.render(**context),
             text_body=DUNNING_TEXT_TEMPLATE.render(**context),
             from_email=email_service.config.from_email,

@@ -852,7 +852,9 @@ THANK_YOU_TEXT_TEMPLATE = Template("""
 
 # Client-facing payment reminder (dunning), sent on a configurable cadence for
 # unpaid invoices. {{ status_line }} is a human phrase like "due in 7 days",
-# "due today" or "5 days overdue".
+# "due today" or "5 days overdue". Tone variables (badge_label, intro_line,
+# badge_bg, urgency_color) come from _tone() in invoice_dunning.py and escalate
+# with lateness: blue (upcoming) → amber (reminder) → red (overdue).
 DUNNING_HTML_TEMPLATE = Template("""
         <!DOCTYPE html>
         <html>
@@ -864,8 +866,8 @@ DUNNING_HTML_TEMPLATE = Template("""
                 body { font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; color: #1f2937; }
                 .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 32px; border-radius: 12px; }
                 .header { text-align: center; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb; }
-                .badge { display: inline-block; background: #fffbeb; color: #b45309; font-weight: 600; padding: 6px 14px; border-radius: 999px; font-size: 13px; }
-                .amount { font-size: 28px; font-weight: 700; color: #b45309; margin: 20px 0 4px; text-align: center; }
+                .badge { display: inline-block; background: {{ badge_bg }}; color: {{ urgency_color }}; font-weight: 600; padding: 6px 14px; border-radius: 999px; font-size: 13px; }
+                .amount { font-size: 28px; font-weight: 700; color: {{ urgency_color }}; margin: 20px 0 4px; text-align: center; }
                 .meta { text-align: center; color: #6b7280; font-size: 14px; }
                 .footer { margin-top: 28px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px; text-align: center; }
             </style>
@@ -873,10 +875,10 @@ DUNNING_HTML_TEMPLATE = Template("""
         <body>
             <div class="container">
                 <div class="header">
-                    <span class="badge">Payment reminder</span>
+                    <span class="badge">{{ badge_label }}</span>
                 </div>
                 <p>Hello {{ client_name }},</p>
-                <p>This is a friendly reminder about invoice
+                <p>{{ intro_line }} invoice
                    <strong>{{ invoice_number }}</strong>, which is {{ status_line }}.</p>
                 <div class="amount">{{ currency }} {{ amount }}</div>
                 <div class="meta">Invoice {{ invoice_number }} &middot; Due {{ due_date }}</div>
@@ -891,7 +893,7 @@ DUNNING_HTML_TEMPLATE = Template("""
 DUNNING_TEXT_TEMPLATE = Template("""
         Hello {{ client_name }},
 
-        This is a friendly reminder about invoice {{ invoice_number }}, which is {{ status_line }}.
+        {{ intro_line }} invoice {{ invoice_number }}, which is {{ status_line }}.
 
         Amount: {{ currency }} {{ amount }}
         Due date: {{ due_date }}

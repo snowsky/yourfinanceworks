@@ -154,3 +154,32 @@ def test_status_line_phrasing():
     assert _status_line(0) == "due today"
     assert _status_line(1) == "1 day overdue"
     assert _status_line(5) == "5 days overdue"
+
+
+def _sent_message(fake_email):
+    return fake_email.send_email.call_args.args[0]
+
+
+def test_subject_escalates_upcoming(db_session, fake_email):
+    _enable(db_session)
+    _invoice(db_session, _client(db_session), days_overdue=-2)  # before due
+    assert InvoiceDunningService(db_session).process()["sent"] == 1
+    msg = _sent_message(fake_email)
+    assert msg.subject.startswith("Upcoming payment")
+    assert "INV-1" in msg.subject
+
+
+def test_subject_escalates_reminder(db_session, fake_email):
+    _enable(db_session)
+    _invoice(db_session, _client(db_session), days_overdue=4)  # 0 <= days < 7
+    assert InvoiceDunningService(db_session).process()["sent"] == 1
+    assert _sent_message(fake_email).subject.startswith("Payment reminder")
+
+
+def test_subject_escalates_overdue(db_session, fake_email):
+    _enable(db_session)
+    _invoice(db_session, _client(db_session), days_overdue=30)  # >= 7 days late
+    assert InvoiceDunningService(db_session).process()["sent"] == 1
+    msg = _sent_message(fake_email)
+    assert msg.subject.startswith("Overdue notice")
+    assert "Overdue" in msg.html_body  # escalated badge label
