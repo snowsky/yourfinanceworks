@@ -14,6 +14,7 @@ so enabling email config alone never surprises clients.
 """
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -22,10 +23,12 @@ from sqlalchemy.orm import Session
 from core.models.models_per_tenant import Client, Invoice, Settings
 from core.services.client_email import build_tenant_email_service
 from core.services.email_service import EmailMessage
+from core.services.invoice_branding import get_invoice_branding
 from core.services.notification_templates import (
     DUNNING_HTML_TEMPLATE,
     DUNNING_TEXT_TEMPLATE,
 )
+from core.utils.feature_gate import feature_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +43,70 @@ def _status_line(days_since_due: int) -> str:
     if days_since_due == 0:
         return "due today"
     return f"{days_since_due} day{'s' if days_since_due != 1 else ''} overdue"
+
+
+def _tone(days_since_due: int) -> Dict[str, str]:
+    """Escalating presentation by lateness. Colors are status colors
+    (blue/amber/red), deliberately independent of tenant branding."""
+    if days_since_due < 0:
+        return {
+            "subject_prefix": "Upcoming payment",
+            "badge_label": "Payment due soon",
+            "intro_line": "This is a friendly heads-up about",
+            "badge_bg": "#eff6ff",
+            "urgency_color": "#1d4ed8",
+        }
+    if days_since_due < 7:
+        return {
+            "subject_prefix": "Payment reminder",
+            "badge_label": "Payment reminder",
+            "intro_line": "This is a friendly reminder about",
+            "badge_bg": "#fffbeb",
+            "urgency_color": "#b45309",
+        }
+    return {
+        "subject_prefix": "Overdue notice",
+        "badge_label": "Overdue",
+        "intro_line": "This is a notice regarding",
+        "badge_bg": "#fef2f2",
+        "urgency_color": "#b91c1c",
+    }
+
+
+def _build_portal_pay_url(tenant_db: Session) -> Optional[str]:
+    """Login-protected client-portal URL for the current tenant, or None.
+
+    Mirrors the send-invoice email's link policy; a background pass must
+    never mint public share links. Best-effort: any failure means no link.
+
+    ``tenant_db`` is the *tenant* session used only for the feature-gate
+    check; the master DB is opened internally to resolve the tenant record.
+    """
+    try:
+        frontend = os.getenv("FRONTEND_URL", "").rstrip("/")
+        if not frontend or not feature_enabled("client_portal", tenant_db):
+            return None
+
+        from core.models.database import get_tenant_context
+        from core.models.models import Tenant
+        from core.services.client_portal_auth import get_or_create_portal_public_id
+        from core.services.tenant_database_manager import tenant_db_manager
+
+        tenant_id = get_tenant_context()
+        master_factory = tenant_db_manager.master_session
+        if not tenant_id or master_factory is None:
+            return None
+        master_db = master_factory()
+        try:
+            tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
+            if not tenant:
+                return None
+            return f"{frontend}/portal/{get_or_create_portal_public_id(tenant, master_db)}"
+        finally:
+            master_db.close()
+    except Exception as e:  # never let link plumbing break the dunning pass
+        logger.warning(f"No portal link for dunning email: {e}")
+        return None
 
 
 class InvoiceDunningService:
@@ -69,6 +136,9 @@ class InvoiceDunningService:
             return {"status": "skipped", "reason": "email_not_configured"}
 
         company_name = email_service.config.from_name or ""
+        # Portal URL is tenant-scoped; compute once for the entire pass.
+        pay_url = _build_portal_pay_url(self.db)
+        branding = get_invoice_branding(self.db)
         today = now.date()
 
         invoices: List[Invoice] = (
@@ -84,7 +154,7 @@ class InvoiceDunningService:
         sent = 0
         for inv in invoices:
             try:
-                if self._maybe_send(inv, cadence, today, email_service, company_name):
+                if self._maybe_send(inv, cadence, today, email_service, company_name, pay_url, branding):
                     sent += 1
             except Exception as e:  # one bad invoice must not abort the batch
                 logger.warning(f"Dunning failed for invoice {inv.id}: {e}")
@@ -113,6 +183,8 @@ class InvoiceDunningService:
         today,
         email_service,
         company_name: str,
+        pay_url: Optional[str],
+        branding: Dict[str, Any],
     ) -> bool:
         days_since_due = (today - inv.due_date.date()).days
 
@@ -130,6 +202,8 @@ class InvoiceDunningService:
         if not to_email:
             return False
 
+        tone = _tone(days_since_due)
+        subject = f"{tone['subject_prefix']} — invoice {inv.number}"
         context = {
             "client_name": client.name or "there",
             "invoice_number": inv.number,
@@ -138,11 +212,20 @@ class InvoiceDunningService:
             "due_date": inv.due_date.date().isoformat(),
             "status_line": _status_line(days_since_due),
             "company_name": company_name,
+            "badge_label": tone["badge_label"],
+            "intro_line": tone["intro_line"],
+            "badge_bg": tone["badge_bg"],
+            "urgency_color": tone["urgency_color"],
+            "subject_prefix": tone["subject_prefix"],
+            "title": subject,
+            "pay_url": pay_url or "",
+            "brand_color": branding["brand_color"],
+            "footer_text": branding["footer_text"].strip(),
         }
         message = EmailMessage(
             to_email=to_email,
             to_name=client.name or "",
-            subject=f"Payment reminder — invoice {inv.number}",
+            subject=subject,
             html_body=DUNNING_HTML_TEMPLATE.render(**context),
             text_body=DUNNING_TEXT_TEMPLATE.render(**context),
             from_email=email_service.config.from_email,

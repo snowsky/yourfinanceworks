@@ -77,7 +77,7 @@ async def get_settings(
             "notes": "",
             "send_copy": True,
             "auto_reminders": True,
-            "thank_you_email": False,
+            "thank_you_email": True,
             "payment_reminders_enabled": False,
             "reminder_cadence": [-7, -1, 3, 7, 14]
         }

@@ -39,7 +39,7 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
         notes: BACKEND_DEFAULT_NOTES,
         send_copy: true,
         auto_reminders: true,
-        thank_you_email: false,
+        thank_you_email: true,
         payment_reminders_enabled: false,
         reminder_cadence: [-7, -1, 3, 7, 14],
     });

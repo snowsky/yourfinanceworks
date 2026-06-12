@@ -43,17 +43,26 @@ def fake_service(monkeypatch):
     return svc
 
 
-def test_no_send_when_toggle_off(db_session):
+def test_no_send_when_toggle_off(db_session, fake_service):
     _set(db_session, "invoice_settings", {"thank_you_email": False})
     client = _client(db_session)
     assert send_invoice_paid_thank_you(db_session, _invoice_for(client)) is False
-
-
-def test_no_send_when_setting_absent(db_session, fake_service):
-    # No invoice_settings row at all.
-    client = _client(db_session)
-    assert send_invoice_paid_thank_you(db_session, _invoice_for(client)) is False
     fake_service.send_email.assert_not_called()
+
+
+def test_sends_by_default_when_setting_absent(db_session, fake_service):
+    # No invoice_settings row at all -> thank-you is ON by default.
+    client = _client(db_session)
+    assert send_invoice_paid_thank_you(db_session, _invoice_for(client)) is True
+    fake_service.send_email.assert_called_once()
+
+
+def test_sends_by_default_when_key_missing(db_session, fake_service):
+    # invoice_settings exists but predates the thank_you_email key -> default ON.
+    _set(db_session, "invoice_settings", {"prefix": "INV-"})
+    client = _client(db_session)
+    assert send_invoice_paid_thank_you(db_session, _invoice_for(client)) is True
+    fake_service.send_email.assert_called_once()
 
 
 def test_no_send_when_client_has_no_email(db_session, fake_service):
