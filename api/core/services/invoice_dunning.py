@@ -219,8 +219,8 @@ class InvoiceDunningService:
             "subject_prefix": tone["subject_prefix"],
             "title": subject,
             "pay_url": pay_url or "",
-            "brand_color": branding.get("brand_color", "#1e3a8a"),
-            "footer_text": (branding.get("footer_text") or "").strip(),
+            "brand_color": branding["brand_color"],
+            "footer_text": branding["footer_text"].strip(),
         }
         message = EmailMessage(
             to_email=to_email,

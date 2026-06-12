@@ -248,6 +248,7 @@ def test_branding_color_and_footer_applied(db_session, fake_email, monkeypatch):
     html = _sent_message(fake_email).html_body
     assert "#112233" in html  # brand color drives the pay button + sign-off
     assert "Acme Pty Ltd" in html  # branding footer text
+    assert "Acme Pty Ltd" in _sent_message(fake_email).text_body
 
 
 def test_branding_defaults_when_unset(db_session, fake_email):
