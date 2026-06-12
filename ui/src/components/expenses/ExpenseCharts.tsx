@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrendingUp, BarChart3, LineChart, RefreshCw, LineChartIcon } from 'lucide-react';
+import { TrendingUp, BarChart3, RefreshCw, LineChartIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { expenseApi } from '@/lib/api';
 import { Loader2 } from 'lucide-react';
@@ -15,10 +15,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   BarChart as RechartsBarChart,
-  Bar,
-  PieChart as RechartsPieChart,
-  Pie,
-  Cell
+  Bar
 } from 'recharts';
 
 interface ExpenseChartsProps {
@@ -111,16 +108,6 @@ const ExpenseCharts: React.FC<ExpenseChartsProps> = ({ className }) => {
     return value;
   };
 
-  const COLORS = [
-    'hsl(var(--chart-1))',
-    'hsl(var(--chart-2))',
-    'hsl(var(--chart-3))',
-    'hsl(var(--chart-4))',
-    'hsl(var(--chart-5))',
-    '#06B6D4',
-    '#84CC16',
-  ];
-
   if (loading) {
     return (
       <Card className={className}>
@@ -211,50 +198,50 @@ const ExpenseCharts: React.FC<ExpenseChartsProps> = ({ className }) => {
 
       {/* Trend Analysis Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200/50 dark:border-blue-700/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">{t('expenses.trend_direction')}</p>
-                <p className="text-lg font-bold text-foreground capitalize">
+                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">{t('expenses.trend_direction')}</p>
+                <p className="text-lg font-bold text-blue-900 dark:text-blue-100 capitalize">
                   {trendsData.analysis.trend_direction.replace('_', ' ')}
                 </p>
               </div>
-              <TrendingUp className="h-8 w-8 text-muted-foreground" />
+              <TrendingUp className="h-8 w-8 text-blue-500 dark:text-blue-300" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200/50 dark:border-green-700/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">{t('expenses.total_amount')}</p>
-                <p className="text-lg font-bold text-foreground">
+                <p className="text-sm font-medium text-green-600 dark:text-green-400">{t('expenses.total_amount')}</p>
+                <p className="text-lg font-bold text-green-900 dark:text-green-100">
                   {formatCurrency(trendsData.analysis.total_amount)}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-green-700 dark:text-green-300 mt-1">
                   {trendsData.analysis.total_periods} periods
                 </p>
               </div>
-              <BarChart3 className="h-8 w-8 text-muted-foreground" />
+              <BarChart3 className="h-8 w-8 text-green-500 dark:text-green-300" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200/50 dark:border-purple-700/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">{t('expenses.volatility', { defaultValue: 'Volatility' })}</p>
-                <p className="text-lg font-bold text-foreground">
+                <p className="text-sm font-medium text-purple-600 dark:text-purple-400">{t('expenses.volatility', { defaultValue: 'Volatility' })}</p>
+                <p className="text-lg font-bold text-purple-900 dark:text-purple-100">
                   {trendsData.analysis.volatility_percent.toFixed(1)}%
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">
                   Average: {formatCurrency(trendsData.analysis.average_period_amount)}
                 </p>
               </div>
-              <LineChartIcon className="h-8 w-8 text-muted-foreground" />
+              <LineChartIcon className="h-8 w-8 text-purple-500 dark:text-purple-300" />
             </div>
           </CardContent>
         </Card>

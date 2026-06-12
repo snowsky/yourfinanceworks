@@ -10,7 +10,11 @@ Each item below has the concrete details, options, and a recommendation.
 
 ---
 
-## 1. KPI-card consistency (charts) — DECISION
+## 1. KPI-card consistency (charts) — ✅ RESOLVED (option A)
+
+Implemented: ExpenseCharts' 3 KPI cards got their blue/green/purple gradients
+back with `dark:` variants mirroring PaymentCharts. Original text kept below
+for context.
 
 The two chart files render their metric summary cards differently because their
 originals differed:
@@ -37,7 +41,12 @@ Effort: ~1 small PR either way. Files: `ui/src/components/PaymentCharts.tsx`
 
 ---
 
-## 2. Dark destructive-button contrast — DECISION
+## 2. Dark destructive-button contrast — ✅ RESOLVED (option A: accepted)
+
+Decision: keep `--destructive: 0 72% 60%`. The button's 3.82:1 meets WCAG
+1.4.11's 3:1 threshold for UI components; darkening would break error-text
+contrast instead. A comment now marks the token in `ui/src/index.css`.
+Original analysis kept below for context.
 
 A genuine single-token tension. Dark theme uses `--destructive: 0 72% 60%` with a
 white foreground (`ui/src/index.css` line ~180).
