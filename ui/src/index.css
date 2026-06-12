@@ -177,6 +177,11 @@
     --accent: 165 55% 45%;
     --accent-foreground: 155 50% 8%;
 
+    /* Accepted trade-off (docs/todos/theme-open-decisions.md §2): at L60 the
+       destructive button is 3.82:1 vs white text — passes WCAG 1.4.11 (3:1 UI
+       components) but not 4.5:1 text AA. Darkening it would push destructive
+       *text* on the dark background below 4.5:1, so one token can't satisfy
+       both. Do not "fix" by darkening without splitting the token. */
     --destructive: 0 72% 60%;
     --destructive-foreground: 0 0% 100%;
 
