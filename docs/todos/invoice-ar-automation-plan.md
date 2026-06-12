@@ -4,7 +4,23 @@ Competitor quick win #6 (`YourFinanceWORKS_competitor_features.xlsx`, Top
 Opportunities #6): "customizable reminder cadences + auto late fees +
 thank-yous" — cheap, high-ROI AR automation that speeds cash collection.
 
-## Current state (researched 2026-06-08)
+## Status (updated 2026-06-11)
+
+**Slices 1 + 2 SHIPPED** the same day this doc was researched: thank-you email
+(PR #353, `core/services/thank_you_email.py`) and dunning reminders (PR #354,
+`core/services/invoice_dunning.py`, `reminder_last_offset`/`reminder_last_sent_at`
+columns, `ReminderCadenceEditor` UI). Decision gaps closed 2026-06-11
+(`docs/superpowers/plans/2026-06-11-invoice-ar-automation-gaps.md`): thank-you
+defaults ON, dunning email branded + portal pay link + escalating tone, tenant
+`footer_text` HTML-escaped in the email body.
+**Slice 3 (late fees) remains deferred** until the money→Decimal migration lands.
+
+Follow-up worth a separate pass: `notification_templates.py` renders all
+templates via bare `jinja2.Template` (no autoescape); tenant-controlled values
+other than `footer_text` (company/client names etc.) are interpolated raw
+module-wide. Pre-existing; consider an autoescape sweep.
+
+## Original research (2026-06-08, pre-implementation — kept for context)
 
 - **Client dunning: does NOT exist.** `core/services/reminder_*` is an *internal
   task* reminder system. `workflow_service` detects overdue invoices and creates
@@ -61,7 +77,7 @@ thank-yous" — cheap, high-ROI AR automation that speeds cash collection.
 - **Risk:** changes financial amounts → needs careful tests and coordination with
   the in-flight money→Decimal migration. Deliberately last.
 
-## Open design decisions (confirm before building)
+## Design decisions — RESOLVED 2026-06-11
 
 1. **Default on/off** for thank-you + dunning per tenant (opt-in vs opt-out).
 2. **Cadence representation** — single global cadence in `invoice_settings`
@@ -70,6 +86,10 @@ thank-yous" — cheap, high-ROI AR automation that speeds cash collection.
    deferring Slice 3 until that lands.
 4. **Dunning email content/branding** — reuse the generic operation template vs a
    dedicated dunning template with pay link.
+
+Resolutions: (1) split — thank-you ON, reminders OFF; (2) single global cadence
+(shipped); (3) deferred until Decimal migration lands; (4) dedicated branded
+template + client-portal pay link (no public share links from background jobs).
 
 ## References
 - Email flow: `core/routers/email.py` (`/email/send-invoice`), `core/services/email_service.py`
