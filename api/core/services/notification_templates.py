@@ -884,12 +884,12 @@ DUNNING_HTML_TEMPLATE = Template("""
                 <div class="meta">Invoice {{ invoice_number }} &middot; Due {{ due_date }}</div>
                 {% if pay_url %}
                 <div style="text-align:center; margin: 24px 0 4px;">
-                    <a href="{{ pay_url }}" style="display:inline-block; background: #1e3a8a; color: #ffffff; font-weight: 600; padding: 12px 28px; border-radius: 8px; text-decoration: none;">View &amp; pay invoice</a>
+                    <a href="{{ pay_url }}" style="display:inline-block; background: {{ brand_color }}; color: #ffffff; font-weight: 600; padding: 12px 28px; border-radius: 8px; text-decoration: none;">View &amp; pay invoice</a>
                 </div>
                 {% endif %}
                 <p style="margin-top:24px;">If you've already sent payment, please disregard this message — thank you.</p>
-                <p>— {{ company_name }}</p>
-                <div class="footer">This is an automated reminder from {{ company_name }}.</div>
+                <p style="color: {{ brand_color }}; font-weight: 600;">— {{ company_name }}</p>
+                <div class="footer">{% if footer_text %}{{ footer_text }}<br>{% endif %}This is an automated reminder from {{ company_name }}.</div>
             </div>
         </body>
         </html>
@@ -908,5 +908,6 @@ DUNNING_TEXT_TEMPLATE = Template("""
 
         — {{ company_name }}
 
-        This is an automated reminder from {{ company_name }}.
+        {% if footer_text %}{{ footer_text }}
+        {% endif %}This is an automated reminder from {{ company_name }}.
         """)

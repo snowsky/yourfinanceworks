@@ -230,3 +230,29 @@ def test_portal_pay_url_none_when_feature_disabled(db_session, monkeypatch):
 def test_portal_pay_url_none_without_frontend_url(db_session, monkeypatch):
     monkeypatch.delenv("FRONTEND_URL", raising=False)
     assert mod._build_portal_pay_url(db_session) is None
+
+
+def test_branding_color_and_footer_applied(db_session, fake_email, monkeypatch):
+    _enable(db_session)
+    monkeypatch.setattr(
+        mod, "_build_portal_pay_url", lambda db: "https://app.example/portal/abc"
+    )
+    db_session.add(Settings(key="invoice_branding", value={
+        "brand_color": "#112233",
+        "footer_text": "Acme Pty Ltd — ABN 00 000 000 000",
+    }))
+    db_session.commit()
+    _invoice(db_session, _client(db_session), days_overdue=10)
+
+    assert InvoiceDunningService(db_session).process()["sent"] == 1
+    html = _sent_message(fake_email).html_body
+    assert "#112233" in html  # brand color drives the pay button + sign-off
+    assert "Acme Pty Ltd" in html  # branding footer text
+
+
+def test_branding_defaults_when_unset(db_session, fake_email):
+    _enable(db_session)
+    _invoice(db_session, _client(db_session), days_overdue=10)
+    assert InvoiceDunningService(db_session).process()["sent"] == 1
+    # Default brand color renders (sign-off) even with no branding row and no pay link.
+    assert "#1e3a8a" in _sent_message(fake_email).html_body

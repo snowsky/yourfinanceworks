@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from core.models.models_per_tenant import Client, Invoice, Settings
 from core.services.client_email import build_tenant_email_service
 from core.services.email_service import EmailMessage
+from core.services.invoice_branding import get_invoice_branding
 from core.services.notification_templates import (
     DUNNING_HTML_TEMPLATE,
     DUNNING_TEXT_TEMPLATE,
@@ -137,6 +138,7 @@ class InvoiceDunningService:
         company_name = email_service.config.from_name or ""
         # Portal URL is tenant-scoped; compute once for the entire pass.
         pay_url = _build_portal_pay_url(self.db)
+        branding = get_invoice_branding(self.db)
         today = now.date()
 
         invoices: List[Invoice] = (
@@ -152,7 +154,7 @@ class InvoiceDunningService:
         sent = 0
         for inv in invoices:
             try:
-                if self._maybe_send(inv, cadence, today, email_service, company_name, pay_url):
+                if self._maybe_send(inv, cadence, today, email_service, company_name, pay_url, branding):
                     sent += 1
             except Exception as e:  # one bad invoice must not abort the batch
                 logger.warning(f"Dunning failed for invoice {inv.id}: {e}")
@@ -182,6 +184,7 @@ class InvoiceDunningService:
         email_service,
         company_name: str,
         pay_url: Optional[str],
+        branding: Dict[str, Any],
     ) -> bool:
         days_since_due = (today - inv.due_date.date()).days
 
@@ -216,6 +219,8 @@ class InvoiceDunningService:
             "subject_prefix": tone["subject_prefix"],
             "title": subject,
             "pay_url": pay_url or "",
+            "brand_color": branding.get("brand_color", "#1e3a8a"),
+            "footer_text": (branding.get("footer_text") or "").strip(),
         }
         message = EmailMessage(
             to_email=to_email,
