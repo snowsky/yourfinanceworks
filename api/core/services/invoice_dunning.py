@@ -159,6 +159,7 @@ class InvoiceDunningService:
             return False
 
         tone = _tone(days_since_due)
+        subject = f"{tone['subject_prefix']} — invoice {inv.number}"
         context = {
             "client_name": client.name or "there",
             "invoice_number": inv.number,
@@ -171,11 +172,13 @@ class InvoiceDunningService:
             "intro_line": tone["intro_line"],
             "badge_bg": tone["badge_bg"],
             "urgency_color": tone["urgency_color"],
+            "subject_prefix": tone["subject_prefix"],
+            "title": subject,
         }
         message = EmailMessage(
             to_email=to_email,
             to_name=client.name or "",
-            subject=f"{tone['subject_prefix']} — invoice {inv.number}",
+            subject=subject,
             html_body=DUNNING_HTML_TEMPLATE.render(**context),
             text_body=DUNNING_TEXT_TEMPLATE.render(**context),
             from_email=email_service.config.from_email,

@@ -183,3 +183,17 @@ def test_subject_escalates_overdue(db_session, fake_email):
     msg = _sent_message(fake_email)
     assert msg.subject.startswith("Overdue notice")
     assert "Overdue" in msg.html_body  # escalated badge label
+
+
+def test_tone_tier_boundaries():
+    from core.services.invoice_dunning import _tone
+
+    assert _tone(-1)["subject_prefix"] == "Upcoming payment"
+    assert _tone(0)["subject_prefix"] == "Payment reminder"
+    assert _tone(6)["subject_prefix"] == "Payment reminder"
+    assert _tone(7)["subject_prefix"] == "Overdue notice"
+    # All tiers expose the full key set the template/context relies on.
+    for days in (-1, 0, 7):
+        assert set(_tone(days)) == {
+            "subject_prefix", "badge_label", "intro_line", "badge_bg", "urgency_color",
+        }

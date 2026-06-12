@@ -861,7 +861,7 @@ DUNNING_HTML_TEMPLATE = Template("""
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Payment reminder</title>
+            <title>{{ title }}</title>
             <style>
                 body { font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; color: #1f2937; }
                 .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 32px; border-radius: 12px; }
