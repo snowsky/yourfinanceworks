@@ -46,6 +46,7 @@ def _invoice(db, client, *, days_overdue, status="overdue", number="INV-1"):
     inv = Invoice(
         number=number,
         amount=300.0,
+        subtotal=300.0,
         currency="USD",
         due_date=datetime.now(timezone.utc) - timedelta(days=days_overdue),
         status=status,
