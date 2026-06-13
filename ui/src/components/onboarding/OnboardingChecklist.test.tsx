@@ -85,4 +85,12 @@ describe('OnboardingChecklist', () => {
     await waitFor(() => expect(api.dismissChecklist).toHaveBeenCalled());
     await waitFor(() => expect(screen.queryByText('Add your first client')).toBeNull());
   });
+
+  it('renders nothing when the fetch fails', async () => {
+    api.getChecklist.mockRejectedValue(new Error('boom'));
+    const { container } = renderCard();
+    await waitFor(() => expect(api.getChecklist).toHaveBeenCalled());
+    expect(container.querySelector('a')).toBeNull();
+    expect(screen.queryByText('Add your first client')).toBeNull();
+  });
 });
