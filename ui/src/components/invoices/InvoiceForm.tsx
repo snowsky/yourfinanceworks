@@ -27,8 +27,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CurrencySelector } from "@/components/ui/currency-selector";
-import { invoiceApi, Invoice, approvalApi, apiRequest, settingsApi } from "@/lib/api";
-import { isSendBlockedByApproval } from "@/lib/invoiceSendPolicy";
+import { invoiceApi, Invoice, approvalApi } from "@/lib/api";
 import { canEditInvoice } from "@/utils/auth";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -74,7 +73,6 @@ export function InvoiceForm({
   const { t } = useTranslation();
 
   // Form state
-  const [sendingEmail, setSendingEmail] = useState(false);
   // Monotonic counter for stable React keys on new (non-persisted) line items
   const [itemKeyCounter, setItemKeyCounter] = useState(0);
   const [selectedTemplate, setSelectedTemplate] = useState<string>(() => {
@@ -341,45 +339,6 @@ export function InvoiceForm({
       toast.error(`Failed to ${isEdit ? 'update' : 'save'} invoice`);
       invoiceForm.setSubmitting(false);
       onSubmitStateChange?.(false);
-    }
-  };
-
-  // Email sending
-  const sendInvoiceEmail = async () => {
-    const invoiceId = invoice?.id;
-    if (!invoiceId) {
-      toast.error("Please save the invoice first before sending");
-      return;
-    }
-
-    try {
-      const settings = await settingsApi.getSettings();
-      if (invoice && isSendBlockedByApproval(
-        { status: invoice.status, amount: Number(invoice.amount) },
-        settings?.invoice_settings,
-      )) {
-        toast.error("This invoice requires approval before it can be sent.");
-        return;
-      }
-    } catch {
-      // settings fetch is best-effort; the backend guard is authoritative
-    }
-
-    setSendingEmail(true);
-    try {
-      await apiRequest<any>('/email/send-invoice', {
-        method: 'POST',
-        body: JSON.stringify({
-          invoice_id: invoiceId,
-          include_pdf: true,
-        }),
-      });
-      toast.success("Invoice sent successfully!");
-    } catch (error: any) {
-      console.error("Error sending invoice email:", error);
-      toast.error(error?.message || "Failed to send invoice email");
-    } finally {
-      setSendingEmail(false);
     }
   };
 
