@@ -12,8 +12,24 @@ export interface SampleDataCounts {
   payments: number;
 }
 
+export interface ChecklistStep {
+  key: string;
+  done: boolean;
+}
+
+export interface ChecklistStatus {
+  steps: ChecklistStep[];
+  completed: number;
+  total: number;
+  all_complete: boolean;
+  dismissed: boolean;
+}
+
 export const onboardingApi = {
   getSampleDataStatus: () => apiRequest<SampleDataStatus>('/onboarding/sample-data'),
   seedSampleData: () => apiRequest<SampleDataCounts>('/onboarding/sample-data', { method: 'POST' }),
   clearSampleData: () => apiRequest<SampleDataCounts>('/onboarding/sample-data', { method: 'DELETE' }),
+  getChecklist: () => apiRequest<ChecklistStatus>('/onboarding/checklist'),
+  dismissChecklist: () =>
+    apiRequest<ChecklistStatus>('/onboarding/checklist/dismiss', { method: 'POST' }),
 };

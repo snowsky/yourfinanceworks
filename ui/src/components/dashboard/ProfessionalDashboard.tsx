@@ -27,6 +27,7 @@ import { SubscriptionsWidget } from './SubscriptionsWidget';
 import { NetWorthWidget } from './NetWorthWidget';
 import { HelpCenter } from '@/components/onboarding/HelpCenter';
 import { SampleDataBanner } from '@/components/onboarding/SampleDataBanner';
+import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist';
 import { dashboardApi } from '@/lib/api';
 import { getCurrentUser } from '@/utils/auth';
 import { toast } from 'sonner';
@@ -272,6 +273,9 @@ export function ProfessionalDashboard() {
 
       {/* New-tenant onboarding: load/remove sample data (renders only on an empty workspace) */}
       <SampleDataBanner onChanged={() => window.location.reload()} />
+
+      {/* Activation checklist: derived setup-progress; hides when dismissed or complete */}
+      <OnboardingChecklist />
 
       {/* Fraud & anomaly checks (renders only when the commercial feature is licensed) */}
       <AnomalyInsightsCard />
