@@ -82,7 +82,7 @@ export function OnboardingChecklist() {
     }
   };
 
-  const pct = Math.round((status.completed / status.total) * 100);
+  const pct = status.total > 0 ? Math.round((status.completed / status.total) * 100) : 0;
 
   return (
     <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
@@ -99,7 +99,18 @@ export function OnboardingChecklist() {
         </Button>
       </div>
 
-      <div className="h-1.5 w-full rounded-full bg-muted">
+      <div
+        role="progressbar"
+        aria-valuenow={status.completed}
+        aria-valuemin={0}
+        aria-valuemax={status.total}
+        aria-label={t('onboarding.checklist_title', {
+          completed: status.completed,
+          total: status.total,
+          defaultValue: 'Get started — {{completed}} of {{total}} done',
+        })}
+        className="h-1.5 w-full rounded-full bg-muted"
+      >
         <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
       </div>
 
@@ -109,9 +120,9 @@ export function OnboardingChecklist() {
           if (!meta) return null;
           const label = t(meta.i18nKey, { defaultValue: meta.defaultLabel });
           const icon = step.done ? (
-            <Check className="h-4 w-4 text-primary shrink-0" />
+            <Check aria-hidden="true" className="h-4 w-4 text-primary shrink-0" />
           ) : (
-            <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
+            <Circle aria-hidden="true" className="h-4 w-4 text-muted-foreground shrink-0" />
           );
           return (
             <li key={step.key} className="flex items-center gap-2 text-sm">
