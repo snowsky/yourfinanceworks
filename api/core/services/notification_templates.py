@@ -5,10 +5,20 @@ dominated by ~700 lines of inline HTML and text. The Template objects are
 constructed once at import time and reused across requests.
 """
 
-from jinja2 import Template
+from jinja2 import Environment
+
+# HTML emails autoescape every interpolated value to prevent stored-XSS: these
+# templates render user/tenant/client-controlled strings (client names, expense
+# categories, settings values, branding footer text). The paired plain-text
+# templates must NOT escape — plain text is not HTML, and escaping would corrupt
+# it (``&`` -> ``&amp;``). Build each template from the matching environment so
+# the policy is intrinsic to the template and a new template can't silently opt
+# out of it. No template injects pre-built HTML, so no ``| safe`` is needed.
+_HTML_ENV = Environment(autoescape=True)
+_TEXT_ENV = Environment(autoescape=False)
 
 # Generic operation notification (user, client, invoice, payment, settings events).
-OPERATION_HTML_TEMPLATE = Template("""
+OPERATION_HTML_TEMPLATE = _HTML_ENV.from_string("""
         <!DOCTYPE html>
         <html>
         <head>
@@ -123,7 +133,7 @@ OPERATION_HTML_TEMPLATE = Template("""
         </html>
         """)
 
-OPERATION_TEXT_TEMPLATE = Template("""
+OPERATION_TEXT_TEMPLATE = _TEXT_ENV.from_string("""
         {{ company_name }} - {{ event_title }}
         
         Hello {{ recipient_name }},
@@ -143,7 +153,7 @@ OPERATION_TEXT_TEMPLATE = Template("""
         """)
 
 # Approval reminder for pending expense approvals.
-APPROVAL_REMINDER_HTML_TEMPLATE = Template("""
+APPROVAL_REMINDER_HTML_TEMPLATE = _HTML_ENV.from_string("""
         <!DOCTYPE html>
         <html>
         <head>
@@ -306,7 +316,7 @@ APPROVAL_REMINDER_HTML_TEMPLATE = Template("""
         </html>
         """)
 
-APPROVAL_REMINDER_TEXT_TEMPLATE = Template("""
+APPROVAL_REMINDER_TEXT_TEMPLATE = _TEXT_ENV.from_string("""
         {{ company_name }} - Pending Approvals Reminder
         
         Hello {{ recipient_name }},
@@ -333,7 +343,7 @@ APPROVAL_REMINDER_TEXT_TEMPLATE = Template("""
         """)
 
 # Approval escalation for overdue expense approvals.
-APPROVAL_ESCALATION_HTML_TEMPLATE = Template("""
+APPROVAL_ESCALATION_HTML_TEMPLATE = _HTML_ENV.from_string("""
         <!DOCTYPE html>
         <html>
         <head>
@@ -507,7 +517,7 @@ APPROVAL_ESCALATION_HTML_TEMPLATE = Template("""
         </html>
         """)
 
-APPROVAL_ESCALATION_TEXT_TEMPLATE = Template("""
+APPROVAL_ESCALATION_TEXT_TEMPLATE = _TEXT_ENV.from_string("""
         {{ company_name }} - URGENT: Overdue Approvals Escalation
         
         Hello {{ recipient_name }},
@@ -536,7 +546,7 @@ APPROVAL_ESCALATION_TEXT_TEMPLATE = Template("""
         """)
 
 # Daily approval digest summarizing recent activity.
-APPROVAL_DIGEST_HTML_TEMPLATE = Template("""
+APPROVAL_DIGEST_HTML_TEMPLATE = _HTML_ENV.from_string("""
         <!DOCTYPE html>
         <html>
         <head>
@@ -754,7 +764,7 @@ APPROVAL_DIGEST_HTML_TEMPLATE = Template("""
         </html>
         """)
 
-APPROVAL_DIGEST_TEXT_TEMPLATE = Template("""
+APPROVAL_DIGEST_TEXT_TEMPLATE = _TEXT_ENV.from_string("""
         {{ company_name }} - Daily Approval Digest
         {{ digest_date }}
         
@@ -800,7 +810,7 @@ APPROVAL_DIGEST_TEXT_TEMPLATE = Template("""
 
 # Client-facing "thank you for your payment" email, sent when an invoice is
 # fully paid. Plain and warm; no action required by the recipient.
-THANK_YOU_HTML_TEMPLATE = Template("""
+THANK_YOU_HTML_TEMPLATE = _HTML_ENV.from_string("""
         <!DOCTYPE html>
         <html>
         <head>
@@ -835,7 +845,7 @@ THANK_YOU_HTML_TEMPLATE = Template("""
         </html>
         """)
 
-THANK_YOU_TEXT_TEMPLATE = Template("""
+THANK_YOU_TEXT_TEMPLATE = _TEXT_ENV.from_string("""
         Hello {{ client_name }},
 
         Thank you for your payment. Invoice {{ invoice_number }} has been paid in full.
@@ -855,7 +865,7 @@ THANK_YOU_TEXT_TEMPLATE = Template("""
 # "due today" or "5 days overdue". Tone variables (badge_label, intro_line,
 # badge_bg, urgency_color) come from _tone() in invoice_dunning.py and escalate
 # with lateness: blue (upcoming) → amber (reminder) → red (overdue).
-DUNNING_HTML_TEMPLATE = Template("""
+DUNNING_HTML_TEMPLATE = _HTML_ENV.from_string("""
         <!DOCTYPE html>
         <html>
         <head>
@@ -889,13 +899,13 @@ DUNNING_HTML_TEMPLATE = Template("""
                 {% endif %}
                 <p style="margin-top:24px;">If you've already sent payment, please disregard this message — thank you.</p>
                 <p style="color: {{ brand_color }}; font-weight: 600;">— {{ company_name }}</p>
-                <div class="footer">{% if footer_text %}{{ footer_text | e }}<br>{% endif %}This is an automated reminder from {{ company_name }}.</div>
+                <div class="footer">{% if footer_text %}{{ footer_text }}<br>{% endif %}This is an automated reminder from {{ company_name }}.</div>
             </div>
         </body>
         </html>
         """)
 
-DUNNING_TEXT_TEMPLATE = Template("""
+DUNNING_TEXT_TEMPLATE = _TEXT_ENV.from_string("""
         Hello {{ client_name }},
 
         {{ intro_line }} invoice {{ invoice_number }}, which is {{ status_line }}.

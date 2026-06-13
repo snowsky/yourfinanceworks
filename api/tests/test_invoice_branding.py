@@ -74,6 +74,23 @@ def test_get_handles_empty_value(db_session):
     assert get_invoice_branding(db_session) == DEFAULT_INVOICE_BRANDING
 
 
+def test_get_falls_back_for_non_hex_color(db_session):
+    # Defence-in-depth: colours land in CSS contexts that HTML autoescape does
+    # not protect. A non-hex value reaching the DB through any path must fall
+    # back to the default rather than being rendered.
+    db_session.add(Settings(key=INVOICE_BRANDING_KEY, value={
+        "brand_color": "red; } body { display: none }",
+        "accent_color": "#abcdef",
+        "footer_text": "Acme",
+    }))
+    db_session.commit()
+
+    result = get_invoice_branding(db_session)
+    assert result["brand_color"] == DEFAULT_INVOICE_BRANDING["brand_color"]  # sanitized
+    assert result["accent_color"] == "#abcdef"  # valid value preserved
+    assert result["footer_text"] == "Acme"  # non-colour fields untouched
+
+
 # --- PDF generator branding override -------------------------------------------
 
 def test_pdf_generator_applies_brand_color():

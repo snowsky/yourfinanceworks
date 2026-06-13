@@ -84,7 +84,12 @@ def _build_portal_pay_url(tenant_db: Session) -> Optional[str]:
     """
     try:
         frontend = os.getenv("FRONTEND_URL", "").rstrip("/")
-        if not frontend or not feature_enabled("client_portal", tenant_db):
+        # The URL lands in an email href; only emit a real http(s) origin so a
+        # misconfigured FRONTEND_URL (e.g. a javascript: value) can't produce a
+        # dangerous link. HTML autoescape does not catch javascript: schemes.
+        if not frontend.startswith(("http://", "https://")):
+            return None
+        if not feature_enabled("client_portal", tenant_db):
             return None
 
         from core.models.database import get_tenant_context
