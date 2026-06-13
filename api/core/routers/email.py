@@ -92,7 +92,7 @@ async def send_invoice_email(
 
         if send_blocked_by_approval(db, invoice):
             raise HTTPException(
-                status_code=422,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="This invoice requires approval before it can be sent.",
             )
 
