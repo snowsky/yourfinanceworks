@@ -25,3 +25,4 @@ export * from './cashflow';
 export * from './subscriptions';
 export * from './networth';
 export * from './anomalies';
+export * from './onboarding';

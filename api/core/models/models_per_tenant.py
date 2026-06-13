@@ -68,6 +68,7 @@ class Client(Base):
     owner_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     stage = Column(String, nullable=False, default="active_client")
     relationship_status = Column(String, nullable=False, default="healthy")
+    is_sample = Column(Boolean, default=False, nullable=False, index=True)
     source = Column(String, nullable=True)
     last_contact_at = Column(DateTime(timezone=True), nullable=True)
     next_follow_up_at = Column(DateTime(timezone=True), nullable=True)
@@ -175,6 +176,7 @@ class Invoice(Base):
     is_deleted = Column(Boolean, default=False, nullable=False, index=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # Track who deleted it
+    is_sample = Column(Boolean, default=False, nullable=False, index=True)
 
     # User attribution
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
@@ -320,6 +322,7 @@ class Expense(Base):
     is_deleted = Column(Boolean, default=False, nullable=False, index=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # Track who deleted it
+    is_sample = Column(Boolean, default=False, nullable=False, index=True)
 
     # Review Worker fields
     review_status = Column(String, default="not_started", nullable=False)  # not_started|pending|reviewed|diff_found

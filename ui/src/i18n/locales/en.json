@@ -4435,5 +4435,16 @@
     "send_failed": "Failed to send invoice.",
     "send_copy": "Send me a copy",
     "send_confirm": "Send invoice"
+  },
+  "onboarding": {
+    "sample_title": "New here?",
+    "sample_body": "Load example data to see how everything works. You can remove it anytime.",
+    "sample_load": "Load example data",
+    "sample_loaded": "Example data loaded.",
+    "sample_load_failed": "Could not load example data.",
+    "sample_viewing": "You're viewing sample data.",
+    "sample_remove": "Remove sample data",
+    "sample_removed": "Sample data removed.",
+    "sample_remove_failed": "Could not remove sample data."
   }
 }
