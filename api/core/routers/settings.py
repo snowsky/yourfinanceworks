@@ -79,7 +79,9 @@ async def get_settings(
             "auto_reminders": True,
             "thank_you_email": True,
             "payment_reminders_enabled": False,
-            "reminder_cadence": [-7, -1, 3, 7, 14]
+            "reminder_cadence": [-7, -1, 3, 7, 14],
+            "require_approval_before_send": False,
+            "approval_threshold_amount": 0,
         }
         if invoice_settings_record and invoice_settings_record.value:
             invoice_settings = {**default_invoice_settings, **invoice_settings_record.value}
@@ -268,6 +270,12 @@ async def update_settings(
     invoice_settings = settings.get("invoice_settings", {})
 
     if invoice_settings:
+        from core.services.invoice_approval_policy import validate_approval_threshold
+        try:
+            validate_approval_threshold(invoice_settings)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
         # Get or create invoice settings record
         invoice_settings_record = db.query(Settings).filter(Settings.key == "invoice_settings").first()
 

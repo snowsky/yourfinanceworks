@@ -95,3 +95,14 @@ def test_corrupted_threshold_falls_back_to_all_invoices(db_session, approvals_on
     }))
     db_session.commit()
     assert invoice_requires_approval(db_session, _invoice(amount=1.0)) is True
+
+
+def test_defaults_present_in_router_defaults():
+    # The GET /settings default dict must carry the two new keys so the UI and
+    # the policy helper see a defined shape for never-configured tenants.
+    import inspect
+    from core.routers import settings as settings_router
+
+    src = inspect.getsource(settings_router)
+    assert '"require_approval_before_send": False' in src
+    assert '"approval_threshold_amount": 0' in src
