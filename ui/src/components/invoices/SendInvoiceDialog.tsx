@@ -32,10 +32,16 @@ export function SendInvoiceDialog({ invoice, settings, onSent }: SendInvoiceDial
   const handleSend = async () => {
     setSending(true);
     try {
-      await apiRequest('/email/send-invoice', {
+      // The endpoint returns 200 with { success: false } when the provider
+      // declines delivery (vs. raising), so an HTTP-only check would report a
+      // false success. Treat that body as a failure.
+      const res = await apiRequest<{ success?: boolean; message?: string }>('/email/send-invoice', {
         method: 'POST',
         body: JSON.stringify({ invoice_id: invoice.id, include_pdf: true, send_copy: sendCopy }),
       });
+      if (res && res.success === false) {
+        throw new Error(res.message || t('viewInvoice.send_failed', { defaultValue: 'Failed to send invoice.' }));
+      }
       toast.success(t('viewInvoice.send_success', { defaultValue: 'Invoice sent.' }));
       setOpen(false);
       onSent?.();
