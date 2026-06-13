@@ -21,6 +21,7 @@ from core.constants.error_codes import FAILED_TO_IMPORT_DATA
 from core.services.tenant_database_manager import tenant_db_manager
 from core.services.expense_mobile_service import get_expense_mobile_config, save_expense_mobile_config
 from core.services.invoice_branding import DEFAULT_INVOICE_BRANDING, validate_invoice_branding
+from core.services.invoice_approval_policy import validate_approval_threshold
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +271,6 @@ async def update_settings(
     invoice_settings = settings.get("invoice_settings", {})
 
     if invoice_settings:
-        from core.services.invoice_approval_policy import validate_approval_threshold
         try:
             validate_approval_threshold(invoice_settings)
         except ValueError as exc:
