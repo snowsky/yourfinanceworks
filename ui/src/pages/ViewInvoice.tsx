@@ -26,6 +26,7 @@ import { InvoicePDF } from '@/components/invoices/InvoicePDF';
 import { pdf } from '@react-pdf/renderer';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { ShareButton } from '@/components/sharing/ShareButton';
+import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 
 export default function ViewInvoice() {
   const { t } = useTranslation();
@@ -172,6 +173,16 @@ export default function ViewInvoice() {
   };
 
 
+  const reloadInvoice = async () => {
+    if (!id) return;
+    try {
+      const inv = await invoiceApi.getInvoice(Number(id));
+      setInvoice(inv);
+    } catch (e) {
+      console.error('Error reloading invoice:', e);
+    }
+  };
+
   const [unsubmitLoading, setUnsubmitLoading] = useState(false);
   const handleUnsubmit = async () => {
     try {
@@ -227,6 +238,7 @@ export default function ViewInvoice() {
           actions={
             <div className="flex gap-2">
               <ShareButton recordType="invoice" recordId={invoice.id} />
+              <SendInvoiceDialog invoice={invoice} settings={settings} onSent={reloadInvoice} />
               <ProfessionalButton
                 variant="outline"
                 onClick={handleLivePreview}
