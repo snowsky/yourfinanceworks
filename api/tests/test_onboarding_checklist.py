@@ -139,3 +139,29 @@ def test_all_complete(db_session):
     s = _status(db_session)
     assert s["completed"] == 5
     assert s["all_complete"] is True
+
+
+def test_dismiss_sets_flag(db_session):
+    assert _status(db_session)["dismissed"] is False
+    result = _service(db_session).dismiss()
+    assert result["dismissed"] is True
+    assert _status(db_session)["dismissed"] is True
+    row = (
+        db_session.query(Settings)
+        .filter(Settings.key == CHECKLIST_DISMISS_KEY)
+        .first()
+    )
+    assert row is not None
+    assert row.value == {"dismissed": True}
+
+
+def test_dismiss_is_idempotent(db_session):
+    _service(db_session).dismiss()
+    _service(db_session).dismiss()  # must not raise / duplicate
+    rows = (
+        db_session.query(Settings)
+        .filter(Settings.key == CHECKLIST_DISMISS_KEY)
+        .all()
+    )
+    assert len(rows) == 1
+    assert _status(db_session)["dismissed"] is True
