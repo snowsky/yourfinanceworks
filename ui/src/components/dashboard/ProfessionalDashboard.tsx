@@ -26,6 +26,7 @@ import { RecentActivity } from './RecentActivity';
 import { SubscriptionsWidget } from './SubscriptionsWidget';
 import { NetWorthWidget } from './NetWorthWidget';
 import { HelpCenter } from '@/components/onboarding/HelpCenter';
+import { SampleDataBanner } from '@/components/onboarding/SampleDataBanner';
 import { dashboardApi } from '@/lib/api';
 import { getCurrentUser } from '@/utils/auth';
 import { toast } from 'sonner';
@@ -268,6 +269,9 @@ export function ProfessionalDashboard() {
           </div>
         </div>
       </div>
+
+      {/* New-tenant onboarding: load/remove sample data (renders only on an empty workspace) */}
+      <SampleDataBanner onChanged={() => window.location.reload()} />
 
       {/* Fraud & anomaly checks (renders only when the commercial feature is licensed) */}
       <AnomalyInsightsCard />
