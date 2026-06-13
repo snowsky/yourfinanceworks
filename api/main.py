@@ -70,6 +70,7 @@ from core.routers import (
     cashflow,  # Add the cash flow forecasting router
     user_permissions,  # Per-user, per-component permission grants
     anomalies,  # Tenant-facing anomaly / fraud detection panel
+    onboarding,  # Onboarding: sample-data seeding
 )
 
 # Configure logging early so we can use it in imports
@@ -616,6 +617,7 @@ app.include_router(workflows.router, prefix="/api/v1")      # Add the workflows 
 app.include_router(cashflow.router, prefix="/api/v1")       # Add the cash flow forecasting router
 app.include_router(user_permissions.router, prefix="/api/v1")  # Per-component permission grants
 app.include_router(anomalies.router, prefix="/api/v1/anomalies", tags=["anomalies"])  # Tenant anomaly panel
+app.include_router(onboarding.router, prefix="/api/v1")  # Onboarding: sample-data seeding
 
 
 # ------------------------------------------------------------------------------
