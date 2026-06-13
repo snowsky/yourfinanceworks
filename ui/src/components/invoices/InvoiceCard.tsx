@@ -20,7 +20,7 @@ interface InvoiceCardProps {
   key?: React.Key;
 }
 
-const getStatusConfig = (status: string) => {
+export const getStatusConfig = (status: string) => {
   switch (status) {
     case 'paid':
       return {
@@ -45,6 +45,24 @@ const getStatusConfig = (status: string) => {
         variant: 'outline' as const,
         className: 'status-partially-paid',
         icon: '◐'
+      };
+    case 'pending_approval':
+      return {
+        variant: 'secondary' as const,
+        className: 'status-pending-approval',
+        icon: '🕓'
+      };
+    case 'approved':
+      return {
+        variant: 'default' as const,
+        className: 'status-approved',
+        icon: '☑'
+      };
+    case 'rejected':
+      return {
+        variant: 'destructive' as const,
+        className: 'status-rejected',
+        icon: '✕'
       };
     default:
       return {
