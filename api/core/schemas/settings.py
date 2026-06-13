@@ -23,6 +23,10 @@ class InvoiceSettings(BaseModel):
     thank_you_email: bool = True
     payment_reminders_enabled: bool = False
     reminder_cadence: List[int] = [-7, -1, 3, 7, 14]
+    # Approval policy: opt-in gate requiring invoices be approved before send.
+    # threshold 0 = all invoices; >0 = only invoices with amount >= threshold.
+    require_approval_before_send: bool = False
+    approval_threshold_amount: float = 0
 
 class SettingsBase(BaseModel):
     tenant_id: int

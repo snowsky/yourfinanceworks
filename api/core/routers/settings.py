@@ -21,6 +21,7 @@ from core.constants.error_codes import FAILED_TO_IMPORT_DATA
 from core.services.tenant_database_manager import tenant_db_manager
 from core.services.expense_mobile_service import get_expense_mobile_config, save_expense_mobile_config
 from core.services.invoice_branding import DEFAULT_INVOICE_BRANDING, validate_invoice_branding
+from core.services.invoice_approval_policy import validate_approval_threshold
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,9 @@ async def get_settings(
             "auto_reminders": True,
             "thank_you_email": True,
             "payment_reminders_enabled": False,
-            "reminder_cadence": [-7, -1, 3, 7, 14]
+            "reminder_cadence": [-7, -1, 3, 7, 14],
+            "require_approval_before_send": False,
+            "approval_threshold_amount": 0,
         }
         if invoice_settings_record and invoice_settings_record.value:
             invoice_settings = {**default_invoice_settings, **invoice_settings_record.value}
@@ -268,6 +271,11 @@ async def update_settings(
     invoice_settings = settings.get("invoice_settings", {})
 
     if invoice_settings:
+        try:
+            validate_approval_threshold(invoice_settings)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
         # Get or create invoice settings record
         invoice_settings_record = db.query(Settings).filter(Settings.key == "invoice_settings").first()
 

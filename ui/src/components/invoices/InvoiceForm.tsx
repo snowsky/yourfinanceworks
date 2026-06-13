@@ -27,7 +27,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CurrencySelector } from "@/components/ui/currency-selector";
-import { invoiceApi, Invoice, approvalApi, apiRequest } from "@/lib/api";
+import { invoiceApi, Invoice, approvalApi, apiRequest, settingsApi } from "@/lib/api";
+import { isSendBlockedByApproval } from "@/lib/invoiceSendPolicy";
 import { canEditInvoice } from "@/utils/auth";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -351,6 +352,19 @@ export function InvoiceForm({
       return;
     }
 
+    try {
+      const settings = await settingsApi.getSettings();
+      if (invoice && isSendBlockedByApproval(
+        { status: invoice.status, amount: Number(invoice.amount) },
+        settings?.invoice_settings,
+      )) {
+        toast.error("This invoice requires approval before it can be sent.");
+        return;
+      }
+    } catch {
+      // settings fetch is best-effort; the backend guard is authoritative
+    }
+
     setSendingEmail(true);
     try {
       await apiRequest<any>('/email/send-invoice', {
@@ -361,9 +375,9 @@ export function InvoiceForm({
         }),
       });
       toast.success("Invoice sent successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending invoice email:", error);
-      toast.error("Failed to send invoice email");
+      toast.error(error?.message || "Failed to send invoice email");
     } finally {
       setSendingEmail(false);
     }

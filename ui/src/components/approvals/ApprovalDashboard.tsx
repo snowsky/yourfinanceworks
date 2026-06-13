@@ -7,7 +7,7 @@ import { PendingApprovalsList } from './PendingApprovalsList';
 import { ProcessedExpensesList } from './ProcessedExpensesList';
 import { ProcessedInvoicesList } from './ProcessedInvoicesList';
 import { approvalApi } from '@/lib/api';
-import { ApprovalDashboardStats } from '@/types';
+import { ApprovalDashboardStats, PendingInvoiceApproval } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Clock,
@@ -29,18 +29,6 @@ import { Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatDate } from '@/lib/utils';
 
-interface PendingInvoiceApproval {
-  id: number;
-  invoice_id: number;
-  invoice_number: string;
-  client_name: string;
-  amount: number;
-  currency: string;
-  status: string;
-  submitted_at: string;
-  approver_id: number;
-  approval_level: number;
-}
 
 export function ApprovalDashboard() {
   const { t } = useTranslation();

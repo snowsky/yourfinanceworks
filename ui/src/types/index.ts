@@ -111,6 +111,19 @@ export interface ExpenseApproval {
   };
 }
 
+export interface PendingInvoiceApproval {
+  id: number;
+  invoice_id: number;
+  invoice_number: string;
+  client_name: string;
+  amount: number;
+  currency: string;
+  status: string;
+  submitted_at: string;
+  approver_id: number;
+  approval_level: number;
+}
+
 export interface User {
   id: number;
   name: string;

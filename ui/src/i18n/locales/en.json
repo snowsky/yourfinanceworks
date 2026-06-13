@@ -2064,6 +2064,10 @@
     "payment_reminders": "Payment reminders",
     "payment_reminders_description": "Automatically email clients about unpaid invoices on the schedule below. Requires email to be configured.",
     "reminder_schedule": "Reminder schedule",
+    "require_approval_before_send": "Require approval before sending",
+    "require_approval_before_send_description": "Invoices must be approved by a reviewer before they can be emailed to a client. Requires the Approvals feature.",
+    "approval_threshold_amount": "Approval threshold",
+    "approval_threshold_amount_description": "Only require approval for invoices at or above this amount. Use 0 to require approval for all invoices.",
     "appearance": {
       "theme": "Theme",
       "tables": "Tables",
