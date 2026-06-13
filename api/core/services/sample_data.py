@@ -29,9 +29,15 @@ class SampleDataService:
     def _has_real_data(self) -> bool:
         if self.db.query(Client).filter(Client.is_sample == False).count():  # noqa: E712
             return True
-        return bool(
+        if (
             self.db.query(Invoice)
             .filter(Invoice.is_sample == False, Invoice.is_deleted == False)  # noqa: E712
+            .count()
+        ):
+            return True
+        return bool(
+            self.db.query(Expense)
+            .filter(Expense.is_sample == False, Expense.is_deleted == False)  # noqa: E712
             .count()
         )
 
@@ -50,6 +56,7 @@ class SampleDataService:
         has_any = bool(
             self.db.query(Client).count()
             or self.db.query(Invoice).filter(Invoice.is_deleted == False).count()  # noqa: E712
+            or self.db.query(Expense).filter(Expense.is_deleted == False).count()  # noqa: E712
         )
         return {"has_sample_data": self._has_sample_data(), "has_any_data": has_any}
 

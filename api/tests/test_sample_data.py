@@ -59,6 +59,22 @@ def test_seed_refused_when_sample_already_exists(db_session):
         _service(db_session).seed(user_id=None)
 
 
+def test_seed_refused_when_only_real_expenses_exist(db_session):
+    db_session.add(Expense(category="Software", currency="USD", amount=9.0,
+                           expense_date=datetime.now(timezone.utc), status="recorded", is_sample=False))
+    db_session.commit()
+    with pytest.raises(SampleDataError):
+        _service(db_session).seed(user_id=None)
+
+
+def test_status_has_any_data_with_only_real_expenses(db_session):
+    db_session.add(Expense(category="Software", currency="USD", amount=9.0,
+                           expense_date=datetime.now(timezone.utc), status="recorded", is_sample=False))
+    db_session.commit()
+    s = _service(db_session).sample_data_status()
+    assert s == {"has_sample_data": False, "has_any_data": True}
+
+
 def test_clear_removes_only_sample(db_session):
     real = _real_client(db_session)
     real_inv = Invoice(
