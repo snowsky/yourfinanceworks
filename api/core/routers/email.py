@@ -17,6 +17,7 @@ from core.services.email_service import EmailService, EmailProviderConfig, Email
 import os
 from core.utils.pdf_generator import generate_invoice_pdf
 from core.services.invoice_branding import get_invoice_branding
+from core.services.invoice_approval_policy import send_blocked_by_approval
 from core.utils.feature_gate import feature_enabled
 from core.constants.error_codes import FAILED_TO_SEND_EMAIL
 
@@ -87,6 +88,12 @@ async def send_invoice_email(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Invoice not found"
+            )
+
+        if send_blocked_by_approval(db, invoice):
+            raise HTTPException(
+                status_code=422,
+                detail="This invoice requires approval before it can be sent.",
             )
 
         # Get client
