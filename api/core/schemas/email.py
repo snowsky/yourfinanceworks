@@ -78,6 +78,10 @@ class SendInvoiceEmailRequest(BaseModel):
     cc_emails: Optional[List[EmailStr]] = Field(None, description="CC recipients")
     bcc_emails: Optional[List[EmailStr]] = Field(None, description="BCC recipients")
     custom_message: Optional[str] = Field(None, description="Custom message to include in email")
+    send_copy: Optional[bool] = Field(
+        None,
+        description="BCC the sender a copy. None = use the tenant's send_copy invoice setting.",
+    )
 
 class EmailTestRequest(BaseModel):
     """Request to test email configuration"""

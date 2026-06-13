@@ -26,6 +26,14 @@ describe('getStatusConfig approval statuses', () => {
     });
   });
 
+  it('maps sent', () => {
+    expect(getStatusConfig('sent')).toEqual({
+      variant: 'secondary',
+      className: 'status-sent',
+      icon: '✉',
+    });
+  });
+
   it('keeps the generic default for unknown statuses', () => {
     expect(getStatusConfig('whatever').icon).toBe('📄');
   });

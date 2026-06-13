@@ -341,13 +341,14 @@ class EmailService:
         company_data: Dict[str, Any],
         pdf_content: bytes,
         template_type: str = "invoice",
-        portal_url: Optional[str] = None
+        portal_url: Optional[str] = None,
+        bcc: Optional[List[str]] = None
     ) -> bool:
         """Send an invoice email with PDF attachment"""
         try:
             # Create email message
             message = self._create_invoice_message(
-                invoice_data, client_data, company_data, pdf_content, template_type, portal_url
+                invoice_data, client_data, company_data, pdf_content, template_type, portal_url, bcc
             )
             
             # Send email
@@ -664,7 +665,8 @@ class EmailService:
         company_data: Dict[str, Any],
         pdf_content: bytes,
         template_type: str,
-        portal_url: Optional[str] = None
+        portal_url: Optional[str] = None,
+        bcc: Optional[List[str]] = None
     ) -> EmailMessage:
         """Create an email message for invoice delivery"""
 
@@ -718,7 +720,8 @@ class EmailService:
             text_body=text_body,
             from_email=company_data.get('email', 'noreply@company.com'),
             from_name=company_data.get('name', 'Your Company'),
-            attachments=[attachment]
+            attachments=[attachment],
+            bcc=bcc or []
         )
     
     def _get_email_template(self, template_type: str, format_type: str) -> str:

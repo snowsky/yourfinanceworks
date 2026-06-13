@@ -18,6 +18,7 @@ import os
 from core.utils.pdf_generator import generate_invoice_pdf
 from core.services.invoice_branding import get_invoice_branding
 from core.services.invoice_approval_policy import send_blocked_by_approval
+from core.services.invoice_send import resolve_send_bcc, status_after_send
 from core.utils.feature_gate import feature_enabled
 from core.constants.error_codes import FAILED_TO_SEND_EMAIL
 
@@ -187,16 +188,27 @@ async def send_invoice_email(
         except Exception:
             logger.warning("Could not build client portal link for invoice email", exc_info=True)
 
+        # Resolve send_copy: request value wins; fall back to tenant invoice setting (default True).
+        settings_row = db.query(Settings).filter(Settings.key == "invoice_settings").first()
+        default_send_copy = bool((settings_row.value or {}).get("send_copy", True)) if settings_row else True
+        effective_send_copy = request.send_copy if request.send_copy is not None else default_send_copy
+        bcc = resolve_send_bcc(effective_send_copy, company_data.get("email"))
+
         # Send email
         success = email_service.send_invoice_email(
             invoice_data=invoice_data,
             client_data=client_data,
             company_data=company_data,
             pdf_content=pdf_content,
-            portal_url=portal_url
+            portal_url=portal_url,
+            bcc=bcc,
         )
-        
+
         if success:
+            new_status = status_after_send(invoice.status)
+            if new_status != invoice.status:
+                invoice.status = new_status
+                db.commit()
             logger.info(f"Invoice {invoice.number} sent successfully to {client_data['email']}")
             return EmailResponse(
                 success=True,

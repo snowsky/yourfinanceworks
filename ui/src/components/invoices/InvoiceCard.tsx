@@ -64,6 +64,12 @@ export const getStatusConfig = (status: string) => {
         className: 'status-rejected',
         icon: '✕'
       };
+    case 'sent':
+      return {
+        variant: 'secondary' as const,
+        className: 'status-sent',
+        icon: '✉'
+      };
     default:
       return {
         variant: 'outline' as const,

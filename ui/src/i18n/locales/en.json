@@ -875,7 +875,8 @@
     "delete_attachment_confirm_desc": "This will permanently remove the attachment. This action cannot be undone.",
     "preview_not_supported_desc": "This file type cannot be previewed. Please download it to view.",
     "clone": "Clone",
-    "move_to_recycle_bin": "Move to Recycle Bin"
+    "move_to_recycle_bin": "Move to Recycle Bin",
+    "send_blocked_pending_approval": "This invoice must be approved before it can be sent."
   },
   "clients": {
     "title": "Clients",
@@ -4425,5 +4426,14 @@
     "col_action": "Action",
     "dismiss": "Dismiss",
     "page_of": "Page {{page}} of {{pages}}"
+  },
+  "viewInvoice": {
+    "send": "Send",
+    "send_title": "Send invoice",
+    "send_body": "Email invoice {{number}} to {{recipient}}?",
+    "send_success": "Invoice sent.",
+    "send_failed": "Failed to send invoice.",
+    "send_copy": "Send me a copy",
+    "send_confirm": "Send invoice"
   }
 }
