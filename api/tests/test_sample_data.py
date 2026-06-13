@@ -85,10 +85,15 @@ def test_clear_removes_only_sample(db_session):
                            payment_date=datetime.now(timezone.utc), payment_method="card"))
     db_session.commit()
 
+    db_session.add(Expense(category="Software", currency="USD", amount=9.0,
+                           expense_date=datetime.now(timezone.utc), status="recorded", is_sample=True))
+    db_session.commit()
+
     removed = _service(db_session).clear()
     assert removed["invoices"] == 1
     assert removed["clients"] == 1
     assert removed["payments"] == 1
+    assert removed["expenses"] == 1
 
     assert db_session.query(Client).filter(Client.id == real.id).count() == 1
     assert db_session.query(Invoice).filter(Invoice.id == real_inv.id).count() == 1

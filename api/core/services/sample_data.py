@@ -27,15 +27,13 @@ class SampleDataService:
     # --- queries -----------------------------------------------------------
 
     def _has_real_data(self) -> bool:
-        real_clients = (
-            self.db.query(Client).filter(Client.is_sample == False).count()  # noqa: E712
-        )
-        real_invoices = (
+        if self.db.query(Client).filter(Client.is_sample == False).count():  # noqa: E712
+            return True
+        return bool(
             self.db.query(Invoice)
             .filter(Invoice.is_sample == False, Invoice.is_deleted == False)  # noqa: E712
             .count()
         )
-        return bool(real_clients or real_invoices)
 
     def _has_sample_data(self) -> bool:
         return bool(
@@ -71,9 +69,7 @@ class SampleDataService:
             Client(name="Riverside Cafe", email="owner@riverside.example", is_sample=True),
         ]
         self.db.add_all(clients)
-        self.db.commit()
-        for c in clients:
-            self.db.refresh(c)
+        self.db.flush()
 
         # (status, due_offset_days, amount, paid_amount)
         specs = [
@@ -99,9 +95,7 @@ class SampleDataService:
             )
             invoices.append(inv)
         self.db.add_all(invoices)
-        self.db.commit()
-        for inv in invoices:
-            self.db.refresh(inv)
+        self.db.flush()
 
         payments = []
         for inv, (status, _d, amount, paid) in zip(invoices, specs):
