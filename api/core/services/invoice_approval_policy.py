@@ -10,7 +10,6 @@ threshold is compared directly against ``invoice.amount`` in the invoice's own
 currency (no FX normalisation — see the spec's multi-currency caveat).
 """
 
-import logging
 from typing import Any, Dict
 
 from sqlalchemy.orm import Session
@@ -18,15 +17,13 @@ from sqlalchemy.orm import Session
 from core.models.models_per_tenant import Settings
 from core.utils.feature_gate import feature_enabled
 
-logger = logging.getLogger(__name__)
-
 # Statuses meaning the invoice has not yet cleared approval.
 _UNAPPROVED_STATUSES = frozenset({"draft", "pending_approval", "rejected"})
 
 
 def _invoice_settings(db: Session) -> Dict[str, Any]:
     record = db.query(Settings).filter(Settings.key == "invoice_settings").first()
-    return (record.value if record and record.value else {}) or {}
+    return record.value if record and record.value else {}
 
 
 def invoice_requires_approval(db: Session, invoice) -> bool:

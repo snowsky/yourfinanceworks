@@ -82,7 +82,16 @@ def test_validate_approval_threshold_accepts_valid():
     validate_approval_threshold({"approval_threshold_amount": 12.5})
 
 
-@pytest.mark.parametrize("bad", [-1, -0.01, "abc", None])
+@pytest.mark.parametrize("bad", [-1, -0.01, "abc", None, True, False])
 def test_validate_approval_threshold_rejects(bad):
     with pytest.raises(ValueError):
         validate_approval_threshold({"approval_threshold_amount": bad})
+
+
+def test_corrupted_threshold_falls_back_to_all_invoices(db_session, approvals_on):
+    db_session.add(Settings(key="invoice_settings", value={
+        "require_approval_before_send": True,
+        "approval_threshold_amount": "not-a-number",
+    }))
+    db_session.commit()
+    assert invoice_requires_approval(db_session, _invoice(amount=1.0)) is True
