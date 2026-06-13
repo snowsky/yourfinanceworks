@@ -26,7 +26,12 @@ function openDialog() {
 }
 
 describe('SendInvoiceDialog', () => {
-  beforeEach(() => { apiRequest.mockReset(); apiRequest.mockResolvedValue({}); });
+  beforeEach(() => {
+    apiRequest.mockReset();
+    apiRequest.mockResolvedValue({});
+    (toast.success as any).mockClear();
+    (toast.error as any).mockClear();
+  });
 
   it('shows the recipient and sends with send_copy', async () => {
     const onSent = vi.fn();
