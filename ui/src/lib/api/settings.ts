@@ -20,6 +20,8 @@ export interface InvoiceSettings {
   thank_you_email?: boolean;
   payment_reminders_enabled?: boolean;
   reminder_cadence?: number[];
+  require_approval_before_send?: boolean;
+  approval_threshold_amount?: number;
 }
 
 export interface InvoiceBranding {

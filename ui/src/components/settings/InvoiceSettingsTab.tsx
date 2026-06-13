@@ -10,6 +10,7 @@ import {
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import { ProfessionalInput } from "@/components/ui/professional-input";
 import { ProfessionalTextarea } from "@/components/ui/professional-textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ReminderCadenceEditor } from "@/components/settings/ReminderCadenceEditor";
@@ -42,6 +43,8 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
         thank_you_email: true,
         payment_reminders_enabled: false,
         reminder_cadence: [-7, -1, 3, 7, 14],
+        require_approval_before_send: false,
+        approval_threshold_amount: 0,
     });
 
     const [branding, setBranding] = useState<InvoiceBranding>(DEFAULT_BRANDING);
@@ -251,6 +254,47 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                             </div>
                         )}
                     </div>
+
+                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl mt-3">
+                        <div className="space-y-0.5 pr-4">
+                            <Label htmlFor="require_approval_before_send" className="text-base font-semibold">
+                                {t('settings.require_approval_before_send')}
+                            </Label>
+                            <p className="text-sm text-muted-foreground">
+                                {t('settings.require_approval_before_send_description')}
+                            </p>
+                        </div>
+                        <Switch
+                            id="require_approval_before_send"
+                            checked={!!invoiceSettings.require_approval_before_send}
+                            onCheckedChange={(checked) =>
+                                setInvoiceSettings((prev) => ({ ...prev, require_approval_before_send: checked }))
+                            }
+                        />
+                    </div>
+                    {invoiceSettings.require_approval_before_send && (
+                        <div className="pt-2 border-t">
+                            <Label htmlFor="approval_threshold_amount" className="text-sm font-medium">
+                                {t('settings.approval_threshold_amount')}
+                            </Label>
+                            <p className="text-sm text-muted-foreground mb-2">
+                                {t('settings.approval_threshold_amount_description')}
+                            </p>
+                            <Input
+                                id="approval_threshold_amount"
+                                type="number"
+                                min={0}
+                                className="w-40"
+                                value={invoiceSettings.approval_threshold_amount ?? 0}
+                                onChange={(e) =>
+                                    setInvoiceSettings((prev) => ({
+                                        ...prev,
+                                        approval_threshold_amount: Math.max(0, Number(e.target.value) || 0),
+                                    }))
+                                }
+                            />
+                        </div>
+                    )}
                 </ProfessionalCardContent>
             </ProfessionalCard>
 
