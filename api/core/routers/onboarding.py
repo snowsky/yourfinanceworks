@@ -10,6 +10,7 @@ from core.routers.auth import get_current_user
 from core.models.models import MasterUser
 from core.utils.rbac import require_non_viewer
 from core.services.sample_data import SampleDataError, SampleDataService
+from core.services.onboarding_checklist import OnboardingChecklistService
 
 logger = logging.getLogger(__name__)
 
@@ -43,3 +44,20 @@ async def clear_sample_data(
 ):
     require_non_viewer(current_user, "remove sample data")
     return SampleDataService(db).clear()
+
+
+@router.get("/checklist")
+async def get_onboarding_checklist(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    return OnboardingChecklistService(db).checklist_status()
+
+
+@router.post("/checklist/dismiss")
+async def dismiss_onboarding_checklist(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_non_viewer(current_user, "dismiss the onboarding checklist")
+    return OnboardingChecklistService(db).dismiss()
