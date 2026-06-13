@@ -6,7 +6,7 @@ import { apiRequest } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger,
 } from '@/components/ui/dialog';
 import { isSendBlockedByApproval } from '@/lib/invoiceSendPolicy';
 import type { InvoiceSettings } from '@/lib/api/settings';
@@ -57,15 +57,15 @@ export function SendInvoiceDialog({ invoice, settings, onSent }: SendInvoiceDial
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('viewInvoice.send_title', { defaultValue: 'Send invoice' })}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 text-sm">
-          <p>
+          <DialogDescription>
             {t('viewInvoice.send_body', {
               defaultValue: 'Email invoice {{number}} to {{recipient}}?',
               number: invoice.number,
               recipient,
             })}
-          </p>
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
           {blocked && (
             <p className="text-warning">
               {t('invoices.send_blocked_pending_approval', {
