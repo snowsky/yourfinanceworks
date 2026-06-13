@@ -1,5 +1,5 @@
 import { apiRequest } from './_base';
-import type { ExpenseApproval, ApprovalHistoryEntry, ApprovalDashboardStats, ApprovalDelegate, ApprovalDelegateCreate, ApprovalDelegateUpdate } from '@/types';
+import type { ExpenseApproval, ApprovalHistoryEntry, ApprovalDashboardStats, ApprovalDelegate, ApprovalDelegateCreate, ApprovalDelegateUpdate, PendingInvoiceApproval } from '@/types';
 import type { Expense } from './expenses';
 
 // Approval API methods
@@ -116,7 +116,7 @@ export const approvalApi = {
     if (filters?.offset !== undefined) params.append('offset', filters.offset.toString());
 
     const queryString = params.toString();
-    return apiRequest<{ approvals: any[]; total: number; }>(`/approvals/invoices/pending${queryString ? `?${queryString}` : ''}`);
+    return apiRequest<{ approvals: PendingInvoiceApproval[]; total: number; }>(`/approvals/invoices/pending${queryString ? `?${queryString}` : ''}`);
   },
 
   approveInvoice: (approvalId: number, notes?: string) =>
