@@ -4445,6 +4445,14 @@
     "sample_viewing": "You're viewing sample data.",
     "sample_remove": "Remove sample data",
     "sample_removed": "Sample data removed.",
-    "sample_remove_failed": "Could not remove sample data."
+    "sample_remove_failed": "Could not remove sample data.",
+    "checklist_title": "Get started — {{completed}} of {{total}} done",
+    "checklist_step_add_client": "Add your first client",
+    "checklist_step_create_invoice": "Create your first invoice",
+    "checklist_step_record_expense": "Record your first expense",
+    "checklist_step_customize_branding": "Customize your invoice branding",
+    "checklist_step_send_invoice": "Send an invoice to a client",
+    "checklist_dismiss": "Dismiss",
+    "checklist_dismiss_failed": "Could not dismiss the checklist."
   }
 }
