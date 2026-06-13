@@ -13,7 +13,6 @@ import { DisplayMD, BodyLG } from "@/components/ui/typography";
 import { HelpTooltip } from "@/components/onboarding/HelpTooltip";
 import { ProgressiveDisclosure } from "@/components/onboarding/ProgressiveDisclosure";
 import { OnboardingWelcome, useOnboarding } from "@/components/onboarding";
-import { SampleDataBanner } from '@/components/onboarding/SampleDataBanner';
 import { CookieConsentBanner } from "@/components/cookie-consent/CookieConsentBanner";
 import { useTracking, useBusinessTracking } from "@/hooks/useTracking";
 
@@ -250,8 +249,6 @@ const Dashboard = () => {
             />
           </div>
         </div>
-
-        <SampleDataBanner onChanged={() => window.location.reload()} />
 
         <div
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 slide-in"
