@@ -237,6 +237,17 @@ def ensure_tenant_required_columns(tenant_db_url: str, tenant_id: int) -> bool:
                         )
                         conn.commit()
 
+            # Sample-data flag for onboarding (mirrors models_per_tenant).
+            for table in ("clients", "invoices", "expenses"):
+                if table in inspector.get_table_names():
+                    cols = {c["name"] for c in inspector.get_columns(table)}
+                    if "is_sample" not in cols:
+                        logger.info(f"[tenant {tenant_id}] Adding {table}.is_sample")
+                        conn.execute(
+                            text(f"ALTER TABLE {table} ADD COLUMN is_sample BOOLEAN NOT NULL DEFAULT FALSE")
+                        )
+                        conn.commit()
+
             # clients: searchable email_hash for client-portal login lookup.
             # Existing rows are backfilled separately (needs tenant context to
             # decrypt the email); the column is added here so writes don't fail.
