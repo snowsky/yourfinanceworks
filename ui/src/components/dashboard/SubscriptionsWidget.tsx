@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Repeat, TrendingUp } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Repeat, TrendingUp } from 'lucide-react';
 
 import { subscriptionsApi } from '@/lib/api/subscriptions';
 import { useFeatures } from '@/contexts/FeatureContext';
@@ -31,6 +31,7 @@ export const SubscriptionsWidget: React.FC = () => {
 
   const priceChanges =
     data?.items.filter(hasUnacknowledgedPriceChange).length ?? 0;
+  const needsReview = data?.needs_review_count ?? 0;
   const next = data?.next_charge_date;
 
   return (
@@ -72,6 +73,12 @@ export const SubscriptionsWidget: React.FC = () => {
                 <Badge className="bg-destructive/10 text-destructive">
                   <TrendingUp className="mr-1 h-3 w-3" />
                   {priceChanges} price change{priceChanges === 1 ? '' : 's'}
+                </Badge>
+              ) : null}
+              {needsReview > 0 ? (
+                <Badge className="bg-amber-500/10 text-amber-600">
+                  <AlertTriangle className="mr-1 h-3 w-3" />
+                  {needsReview} to review
                 </Badge>
               ) : null}
               {next ? (
