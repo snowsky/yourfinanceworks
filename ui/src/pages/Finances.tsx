@@ -47,7 +47,7 @@ const Finances: React.FC = () => {
     <div className="space-y-6 p-6">
       <PageHeader
         title={t('navigation.finances', { defaultValue: 'Finances' })}
-        subtitle={t('finances.subtitle', {
+        description={t('finances.subtitle', {
           defaultValue: 'Cash flow forecasting and your net worth in one place',
         })}
       />
