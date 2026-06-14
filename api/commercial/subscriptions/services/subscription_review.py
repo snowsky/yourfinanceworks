@@ -9,7 +9,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Optional
+from typing import List, Optional
+
+from commercial.subscriptions.schemas import (
+    SubscriptionResponse,
+    SubscriptionSummary,
+)
 
 # "active" status string. Kept as a literal to keep this module import-light
 # and DB-free; it mirrors ``SubscriptionStatus.ACTIVE.value``.
@@ -62,3 +67,53 @@ def evaluate_review(sub, *, today: date) -> ReviewInfo:
             )
 
     return ReviewInfo()
+
+
+def to_response(sub, *, today: Optional[date] = None) -> SubscriptionResponse:
+    """Build a SubscriptionResponse and attach derived review fields."""
+    if today is None:
+        today = date.today()
+    resp = SubscriptionResponse.model_validate(sub)
+    info = evaluate_review(sub, today=today)
+    resp.review_reason = info.reason
+    resp.days_overdue = info.days_overdue
+    resp.months_running = info.months_running
+    return resp
+
+
+def build_summary(
+    rows: List,
+    *,
+    needs_review: bool = False,
+    today: Optional[date] = None,
+) -> SubscriptionSummary:
+    """Assemble the list summary. ``needs_review_count`` is computed over the
+    full row set; when ``needs_review`` is set the returned ``items`` are
+    filtered to flagged rows only (totals stay over the full set)."""
+    if today is None:
+        today = date.today()
+
+    items = [to_response(r, today=today) for r in rows]
+    active = [r for r in rows if r.status == ACTIVE_STATUS]
+    monthly = sum(
+        r.amount * (30.0 / r.cadence_days) for r in active if r.cadence_days
+    )
+    annual = sum(
+        r.amount * (365.0 / r.cadence_days) for r in active if r.cadence_days
+    )
+    upcoming = [r.next_expected_date for r in active if r.next_expected_date]
+    next_charge = min(upcoming) if upcoming else None
+    needs_review_count = sum(1 for i in items if i.review_reason is not None)
+
+    if needs_review:
+        items = [i for i in items if i.review_reason is not None]
+
+    return SubscriptionSummary(
+        total_count=len(rows),
+        active_count=len(active),
+        monthly_cost=round(monthly, 2),
+        annual_cost=round(annual, 2),
+        next_charge_date=next_charge,
+        needs_review_count=needs_review_count,
+        items=items,
+    )
