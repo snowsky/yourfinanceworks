@@ -12,7 +12,9 @@ from types import SimpleNamespace
 from commercial.subscriptions.services.subscription_review import (
     LONG_RUNNING_MIN_DAYS,
     ReviewInfo,
+    build_summary,
     evaluate_review,
+    to_response,
 )
 
 TODAY = date(2026, 6, 14)
@@ -94,11 +96,6 @@ def test_zero_cadence_falls_back_to_min_grace_without_crashing():
     # grace falls back to 7 -> 8 > 7 -> lapsed
     assert evaluate_review(sub, today=TODAY).reason == "lapsed"
 
-
-from commercial.subscriptions.services.subscription_review import (
-    build_summary,
-    to_response,
-)
 
 # Full attribute set required by SubscriptionResponse.model_validate.
 def _row(**over):
