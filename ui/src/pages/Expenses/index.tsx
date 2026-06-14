@@ -30,6 +30,7 @@ import { BulkExpenseModal } from '@/components/BulkExpenseModal';
 import { ReviewDiffModal } from '@/components/ReviewDiffModal';
 import ExpenseSummary from '@/components/expenses/ExpenseSummary';
 import ExpenseCharts from '@/components/expenses/ExpenseCharts';
+import { ScanBillDialog } from '@/components/expenses/ScanBillDialog';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { ShareButton } from '@/components/sharing/ShareButton';
 
@@ -707,6 +708,7 @@ const Expenses = () => {
                   {showAnalytics ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </ProfessionalButton>
                 <div className="flex gap-1">
+                  <ScanBillDialog onCreated={fetchExpenses} />
                   <Link to="/expenses/new">
                     <ProfessionalButton variant="default" size="default" className="shadow-lg">
                       <Plus className="w-4 h-4 mr-2" /> {t('expenses.new')}
