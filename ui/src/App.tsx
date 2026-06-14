@@ -95,7 +95,7 @@ const NewInventoryInvoice = React.lazy(() => import("./pages/NewInventoryInvoice
 const ApprovalReportsPage = React.lazy(() => import("./pages/ApprovalReportsPage"));
 const Reminders = React.lazy(() => import("./pages/Reminders"));
 const Workflows = React.lazy(() => import("./pages/Workflows"));
-const CashFlow = React.lazy(() => import("./pages/CashFlow"));
+const Finances = React.lazy(() => import("./pages/Finances"));
 const Subscriptions = React.lazy(() => import("./pages/Subscriptions"));
 const SubscriptionDetail = React.lazy(() => import("./pages/SubscriptionDetail"));
 const OrganizationJoinRequests = React.lazy(() => import("./pages/OrganizationJoinRequests"));
@@ -306,7 +306,8 @@ const AppContent = () => {
                     <Route path="/payments" element={<Payments />} />
                     <Route path="/reminders" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Reminders /></RoleProtectedRoute>} />
                     <Route path="/workflows" element={<RoleProtectedRoute allowedRoles={['admin']}><Workflows /></RoleProtectedRoute>} />
-                    <Route path="/cashflow" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><CashFlow /></RoleProtectedRoute>} />
+                    <Route path="/finances" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Finances /></RoleProtectedRoute>} />
+                    <Route path="/cashflow" element={<Navigate to="/finances" replace />} />
                     <Route path="/subscriptions" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><Subscriptions /></RoleProtectedRoute>} />
                     <Route path="/subscriptions/:id" element={<RoleProtectedRoute allowedRoles={['admin', 'user']}><SubscriptionDetail /></RoleProtectedRoute>} />
                     <Route path="/approvals" element={<ApprovalDashboard />} />

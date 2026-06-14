@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
   TrendingUp,
@@ -29,9 +28,7 @@ import {
   type CashFlowThresholdSettings,
 } from '@/lib/api/cashflow';
 import { getErrorMessage } from '@/lib/api';
-import { FeatureGate } from '@/components/FeatureGate';
 import { useFeatures } from '@/contexts/FeatureContext';
-import { PageHeader } from '@/components/ui/professional-layout';
 import {
   ProfessionalCard,
   ProfessionalCardContent,
@@ -952,26 +949,3 @@ export const CashFlowTabContent: React.FC = () => {
   );
 };
 
-const CashFlow: React.FC = () => {
-  const { t } = useTranslation();
-  return (
-    <FeatureGate
-      feature="cash_flow"
-      showUpgradePrompt={true}
-      upgradeMessage="Cash Flow forecasting requires a commercial license."
-      showExpiredContent={false}
-    >
-      <div className="space-y-6">
-        <PageHeader
-          title={t('cashflow.title', { defaultValue: 'Cash Flow' })}
-          subtitle={t('cashflow.subtitle', {
-            defaultValue: 'Forecast, runway analysis, and scenario planning',
-          })}
-        />
-        <CashFlowTabContent />
-      </div>
-    </FeatureGate>
-  );
-};
-
-export default CashFlow;

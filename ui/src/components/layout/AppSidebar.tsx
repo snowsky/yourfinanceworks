@@ -387,11 +387,11 @@ export function AppSidebar() {
       icon: <BarChart className="w-5 h-5" />,
       tourId: 'nav-reports'
     },
-    ...(isFeatureEnabled('cash_flow') ? [{
-      path: '/cashflow',
-      label: t('navigation.cashflow', { defaultValue: 'Cash Flow' }),
+    ...((isFeatureEnabled('cash_flow') || isFeatureEnabled('net_worth')) ? [{
+      path: '/finances',
+      label: t('navigation.finances', { defaultValue: 'Finances' }),
       icon: <TrendingUp className="w-5 h-5" />,
-      tourId: 'nav-cashflow'
+      tourId: 'nav-finances'
     }] : []),
     ...(isFeatureEnabled('anomaly_detection') ? [{
       path: '/anomalies',

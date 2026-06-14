@@ -76,7 +76,7 @@ export function CashFlowForecastCard() {
             </p>
           </div>
         </div>
-        <ProfessionalButton variant="ghost" size="sm" onClick={() => navigate('/cashflow')}>
+        <ProfessionalButton variant="ghost" size="sm" onClick={() => navigate('/finances')}>
           {t('dashboard.cashflow.view')}
           <ArrowRight className="h-3 w-3" />
         </ProfessionalButton>
