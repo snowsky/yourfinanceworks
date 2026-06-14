@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
   TrendingUp,
@@ -29,9 +28,7 @@ import {
   type CashFlowThresholdSettings,
 } from '@/lib/api/cashflow';
 import { getErrorMessage } from '@/lib/api';
-import { FeatureGate } from '@/components/FeatureGate';
 import { useFeatures } from '@/contexts/FeatureContext';
-import { PageHeader } from '@/components/ui/professional-layout';
 import {
   ProfessionalCard,
   ProfessionalCardContent,
@@ -885,8 +882,7 @@ const StatementPatternSidebar: React.FC<{ period: ForecastPeriod }> = ({ period 
 };
 
 // ---- Main Page ----
-const CashFlow: React.FC = () => {
-  const { t } = useTranslation();
+export const CashFlowTabContent: React.FC = () => {
   const { isFeatureEnabled } = useFeatures();
   const cashflowEnabled = isFeatureEnabled('cash_flow');
   const [period, setPeriod] = useState<ForecastPeriod>('30d');
@@ -910,18 +906,7 @@ const CashFlow: React.FC = () => {
   });
 
   return (
-    <FeatureGate
-      feature="cash_flow"
-      showUpgradePrompt={true}
-      upgradeMessage="Cash Flow forecasting requires a commercial license."
-      showExpiredContent={false}
-    >
-      <div className="space-y-6">
-      <PageHeader
-        title={t('cashflow.title', { defaultValue: 'Cash Flow' })}
-        subtitle={t('cashflow.subtitle', { defaultValue: 'Forecast, runway analysis, and scenario planning' })}
-      />
-
+    <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-6">
           {/* Period selector */}
@@ -960,9 +945,7 @@ const CashFlow: React.FC = () => {
           <StatementPatternSidebar period={period} />
         </aside>
       </div>
-      </div>
-    </FeatureGate>
+    </div>
   );
 };
 
-export default CashFlow;

@@ -9,6 +9,7 @@ import {
   YAxis,
 } from 'recharts';
 import { ArrowDownRight, ArrowUpRight, Camera, Scale, Settings2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 import { networthApi } from '@/lib/api/networth';
 import { useFeatures } from '@/contexts/FeatureContext';
@@ -66,6 +67,12 @@ export const NetWorthWidget: React.FC = () => {
           <ProfessionalCardTitle className="text-lg flex items-center gap-2">
             <Scale className="h-4 w-4" />
             Net Worth
+            <Link
+              to="/finances?tab=networth"
+              className="text-xs font-normal text-muted-foreground hover:text-foreground"
+            >
+              View all
+            </Link>
           </ProfessionalCardTitle>
           <div className="flex items-center gap-2">
             <Button
