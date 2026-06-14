@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
+  AlertTriangle,
   Calendar,
   DollarSign,
   RefreshCw,
@@ -59,6 +60,8 @@ import {
   formatCurrency,
   hasUnacknowledgedPriceChange,
   priceChangePercent,
+  reviewReasonDetail,
+  reviewReasonLabel,
 } from '@/components/subscriptions/subscription-helpers';
 
 type SortKey = 'next' | 'amount' | 'annual' | 'label';
@@ -67,9 +70,9 @@ const SubscriptionsPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
-  const [statusFilter, setStatusFilter] = useState<SubscriptionStatus | 'all'>(
-    'active',
-  );
+  const [statusFilter, setStatusFilter] = useState<
+    SubscriptionStatus | 'all' | 'needs_review'
+  >('active');
   const [sort, setSort] = useState<SortKey>('next');
   const [reminderTarget, setReminderTarget] =
     useState<SubscriptionResponse | null>(null);
@@ -77,9 +80,11 @@ const SubscriptionsPage: React.FC = () => {
   const summaryQuery = useQuery({
     queryKey: ['subscriptions', statusFilter],
     queryFn: () =>
-      subscriptionsApi.list({
-        status: statusFilter === 'all' ? undefined : statusFilter,
-      }),
+      subscriptionsApi.list(
+        statusFilter === 'needs_review'
+          ? { needsReview: true }
+          : { status: statusFilter === 'all' ? undefined : statusFilter },
+      ),
   });
 
   const invalidate = () =>
@@ -157,7 +162,7 @@ const SubscriptionsPage: React.FC = () => {
           }
         />
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
           <MetricCard
             title="Active"
             value={String(summaryQuery.data?.active_count ?? 0)}
@@ -178,6 +183,11 @@ const SubscriptionsPage: React.FC = () => {
             value={summaryQuery.data?.next_charge_date ?? '—'}
             icon={TrendingUp}
           />
+          <MetricCard
+            title="Needs review"
+            value={String(summaryQuery.data?.needs_review_count ?? 0)}
+            icon={AlertTriangle}
+          />
         </div>
 
         <ProfessionalCard>
@@ -187,7 +197,7 @@ const SubscriptionsPage: React.FC = () => {
               <Select
                 value={statusFilter}
                 onValueChange={(v) =>
-                  setStatusFilter(v as SubscriptionStatus | 'all')
+                  setStatusFilter(v as SubscriptionStatus | 'all' | 'needs_review')
                 }
               >
                 <SelectTrigger className="w-44">
@@ -195,6 +205,7 @@ const SubscriptionsPage: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="needs_review">Needs review</SelectItem>
                   <SelectItem value="dismissed">Dismissed</SelectItem>
                   <SelectItem value="canceled_by_user">Canceled</SelectItem>
                   <SelectItem value="all">All (incl. archive)</SelectItem>
@@ -244,6 +255,7 @@ const SubscriptionsPage: React.FC = () => {
                   {sortedItems.map((sub) => {
                     const change = priceChangePercent(sub);
                     const flagPriceChange = hasUnacknowledgedPriceChange(sub);
+                    const reviewLabel = reviewReasonLabel(sub);
                     return (
                       <TableRow
                         key={sub.id}
@@ -256,6 +268,15 @@ const SubscriptionsPage: React.FC = () => {
                             <div className="text-xs text-muted-foreground">
                               {sub.category}
                             </div>
+                          ) : null}
+                          {reviewLabel ? (
+                            <Badge
+                              className="mt-1 bg-amber-500/10 text-amber-600"
+                              title={reviewReasonDetail(sub) ?? undefined}
+                            >
+                              <AlertTriangle className="mr-1 h-3 w-3" />
+                              {reviewLabel}
+                            </Badge>
                           ) : null}
                         </TableCell>
                         <TableCell>

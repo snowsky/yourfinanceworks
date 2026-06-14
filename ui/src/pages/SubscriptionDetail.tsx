@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { ArrowLeft, Bell, TrendingDown, TrendingUp } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bell, TrendingDown, TrendingUp } from 'lucide-react';
 import {
   CartesianGrid,
   Line,
@@ -40,6 +40,8 @@ import {
   hasUnacknowledgedPriceChange,
   monthlyCost,
   priceChangePercent,
+  reviewReasonDetail,
+  reviewReasonLabel,
 } from '@/components/subscriptions/subscription-helpers';
 
 const SubscriptionDetailPage: React.FC = () => {
@@ -148,6 +150,26 @@ const SubscriptionDetailPage: React.FC = () => {
               >
                 Acknowledge
               </ProfessionalButton>
+            </ProfessionalCardContent>
+          </ProfessionalCard>
+        ) : null}
+
+        {sub && reviewReasonLabel(sub) ? (
+          <ProfessionalCard className="border-amber-500/30 bg-amber-500/10">
+            <ProfessionalCardContent className="flex items-center gap-3 py-3">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <div>
+                <div className="text-sm font-medium">
+                  {reviewReasonLabel(sub)}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {sub.review_reason === 'lapsed'
+                    ? `We haven't seen a charge as expected — ${reviewReasonDetail(
+                        sub,
+                      )}. If you canceled it, mark it below.`
+                    : `${reviewReasonDetail(sub)}. Still need it?`}
+                </div>
+              </div>
             </ProfessionalCardContent>
           </ProfessionalCard>
         ) : null}

@@ -22,10 +22,12 @@ from commercial.subscriptions.schemas import (
 )
 from commercial.subscriptions.services import (
     acknowledge_price_change,
+    build_summary,
     get_subscription,
     list_subscriptions,
     scan_tenant,
     set_cancel_reminder,
+    to_response,
     update_status,
 )
 from core.models.models import MasterUser
@@ -69,6 +71,7 @@ def _require(sub: Optional[DetectedSubscription]) -> DetectedSubscription:
 async def list_endpoint(
     status_filter: Optional[str] = Query(None, alias="status"),
     include_low_confidence: bool = Query(False),
+    needs_review: bool = Query(False),
     tenant_db: Session = Depends(get_tenant_db),
     current_user: MasterUser = Depends(get_current_user),
 ) -> SubscriptionSummary:
@@ -77,7 +80,7 @@ async def list_endpoint(
         status=status_filter,
         include_low_confidence=include_low_confidence,
     )
-    return _build_summary(rows)
+    return build_summary(rows, needs_review=needs_review)
 
 
 @router.get("/{subscription_id}", response_model=SubscriptionResponse)
@@ -88,7 +91,7 @@ async def get_endpoint(
     current_user: MasterUser = Depends(get_current_user),
 ) -> SubscriptionResponse:
     sub = _require(get_subscription(tenant_db, subscription_id))
-    return SubscriptionResponse.model_validate(sub)
+    return to_response(sub)
 
 
 @router.get(
@@ -150,7 +153,7 @@ async def update_status_endpoint(
     updated = update_status(
         tenant_db, sub, status=new_status, user_id=current_user.id
     )
-    return SubscriptionResponse.model_validate(updated)
+    return to_response(updated)
 
 
 @router.post(
@@ -166,7 +169,7 @@ async def cancel_reminder_endpoint(
 ) -> SubscriptionResponse:
     sub = _require(get_subscription(tenant_db, subscription_id))
     updated = set_cancel_reminder(tenant_db, sub, remind_on=payload.remind_on)
-    return SubscriptionResponse.model_validate(updated)
+    return to_response(updated)
 
 
 @router.post(
@@ -181,33 +184,12 @@ async def acknowledge_endpoint(
 ) -> SubscriptionResponse:
     sub = _require(get_subscription(tenant_db, subscription_id))
     updated = acknowledge_price_change(tenant_db, sub)
-    return SubscriptionResponse.model_validate(updated)
+    return to_response(updated)
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def _build_summary(rows: List[DetectedSubscription]) -> SubscriptionSummary:
-    items = [SubscriptionResponse.model_validate(r) for r in rows]
-    active = [r for r in rows if r.status == SubscriptionStatus.ACTIVE.value]
-    monthly = sum(
-        r.amount * (30.0 / r.cadence_days) for r in active if r.cadence_days
-    )
-    annual = sum(
-        r.amount * (365.0 / r.cadence_days) for r in active if r.cadence_days
-    )
-    upcoming = [r.next_expected_date for r in active if r.next_expected_date]
-    next_charge = min(upcoming) if upcoming else None
-    return SubscriptionSummary(
-        total_count=len(rows),
-        active_count=len(active),
-        monthly_cost=round(monthly, 2),
-        annual_cost=round(annual, 2),
-        next_charge_date=next_charge,
-        items=items,
-    )
 
 
 def _charge_history(

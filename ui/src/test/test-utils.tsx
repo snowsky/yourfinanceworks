@@ -9,6 +9,8 @@ const mockFeatureContext = {
   features: {},
   hasFeature: () => true,
   isFeatureEnabled: () => true,
+  isFeatureExpired: () => false,
+  loading: false,
   isLoading: false,
   refreshFeatures: vi.fn(),
   refetch: vi.fn(),

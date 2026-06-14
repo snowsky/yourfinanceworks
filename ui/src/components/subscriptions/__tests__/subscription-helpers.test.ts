@@ -7,6 +7,8 @@ import {
   hasUnacknowledgedPriceChange,
   monthlyCost,
   priceChangePercent,
+  reviewReasonLabel,
+  reviewReasonDetail,
 } from '../subscription-helpers';
 import type { SubscriptionResponse } from '@/lib/api/subscriptions';
 
@@ -78,5 +80,51 @@ describe('subscription-helpers', () => {
       price_change_acknowledged: true,
     };
     expect(hasUnacknowledgedPriceChange(bumped)).toBe(false);
+  });
+});
+
+describe('reviewReasonLabel', () => {
+  it('labels lapsed and long_running, null otherwise', () => {
+    expect(reviewReasonLabel({ ...baseSub, review_reason: 'lapsed' })).toBe(
+      'Possibly canceled',
+    );
+    expect(
+      reviewReasonLabel({ ...baseSub, review_reason: 'long_running' }),
+    ).toBe('Long-running');
+    expect(reviewReasonLabel(baseSub)).toBeNull();
+  });
+});
+
+describe('reviewReasonDetail', () => {
+  it('describes lapsed with days overdue', () => {
+    expect(
+      reviewReasonDetail({
+        ...baseSub,
+        review_reason: 'lapsed',
+        days_overdue: 1,
+      }),
+    ).toBe('1 day overdue');
+    expect(
+      reviewReasonDetail({
+        ...baseSub,
+        review_reason: 'lapsed',
+        days_overdue: 16,
+      }),
+    ).toBe('16 days overdue');
+  });
+
+  it('describes long_running with months and approx spend', () => {
+    const detail = reviewReasonDetail({
+      ...baseSub,
+      review_reason: 'long_running',
+      months_running: 6,
+    });
+    // monthlyCost = 15.99 * (30/30) = 15.99; spend ~= 95.94
+    expect(detail).toContain('Running 6 mo');
+    expect(detail).toContain('paid');
+  });
+
+  it('returns null when not flagged', () => {
+    expect(reviewReasonDetail(baseSub)).toBeNull();
   });
 });

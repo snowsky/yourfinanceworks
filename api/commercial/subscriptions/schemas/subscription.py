@@ -36,6 +36,11 @@ class SubscriptionResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    # Derived needs-review fields (attached by to_response; default None).
+    review_reason: Optional[Literal["lapsed", "long_running"]] = None
+    days_overdue: Optional[int] = None
+    months_running: Optional[int] = None
+
     @property
     def annual_cost(self) -> float:
         if self.cadence_days <= 0:
@@ -53,6 +58,7 @@ class SubscriptionSummary(BaseModel):
         ..., description="Sum of amount * (365 / cadence_days) across active rows"
     )
     next_charge_date: Optional[date] = None
+    needs_review_count: int = 0
     items: List[SubscriptionResponse]
 
 

@@ -28,6 +28,9 @@ export interface SubscriptionResponse {
   dismissed_at?: string | null;
   created_at: string;
   updated_at: string;
+  review_reason?: 'lapsed' | 'long_running' | null;
+  days_overdue?: number | null;
+  months_running?: number | null;
 }
 
 export interface SubscriptionSummary {
@@ -36,6 +39,7 @@ export interface SubscriptionSummary {
   monthly_cost: number;
   annual_cost: number;
   next_charge_date?: string | null;
+  needs_review_count: number;
   items: SubscriptionResponse[];
 }
 
@@ -68,10 +72,17 @@ export interface ScanResponse {
 }
 
 export const subscriptionsApi = {
-  list: (params: { status?: SubscriptionStatus; includeLowConfidence?: boolean } = {}) => {
+  list: (
+    params: {
+      status?: SubscriptionStatus;
+      includeLowConfidence?: boolean;
+      needsReview?: boolean;
+    } = {},
+  ) => {
     const qs = new URLSearchParams();
     if (params.status) qs.set('status', params.status);
     if (params.includeLowConfidence) qs.set('include_low_confidence', 'true');
+    if (params.needsReview) qs.set('needs_review', 'true');
     const tail = qs.toString();
     return apiRequest<SubscriptionSummary>(`/subscriptions${tail ? `?${tail}` : ''}`);
   },
