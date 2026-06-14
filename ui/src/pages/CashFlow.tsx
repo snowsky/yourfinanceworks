@@ -885,8 +885,7 @@ const StatementPatternSidebar: React.FC<{ period: ForecastPeriod }> = ({ period 
 };
 
 // ---- Main Page ----
-const CashFlow: React.FC = () => {
-  const { t } = useTranslation();
+export const CashFlowTabContent: React.FC = () => {
   const { isFeatureEnabled } = useFeatures();
   const cashflowEnabled = isFeatureEnabled('cash_flow');
   const [period, setPeriod] = useState<ForecastPeriod>('30d');
@@ -910,18 +909,7 @@ const CashFlow: React.FC = () => {
   });
 
   return (
-    <FeatureGate
-      feature="cash_flow"
-      showUpgradePrompt={true}
-      upgradeMessage="Cash Flow forecasting requires a commercial license."
-      showExpiredContent={false}
-    >
-      <div className="space-y-6">
-      <PageHeader
-        title={t('cashflow.title', { defaultValue: 'Cash Flow' })}
-        subtitle={t('cashflow.subtitle', { defaultValue: 'Forecast, runway analysis, and scenario planning' })}
-      />
-
+    <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-6">
           {/* Period selector */}
@@ -960,6 +948,27 @@ const CashFlow: React.FC = () => {
           <StatementPatternSidebar period={period} />
         </aside>
       </div>
+    </div>
+  );
+};
+
+const CashFlow: React.FC = () => {
+  const { t } = useTranslation();
+  return (
+    <FeatureGate
+      feature="cash_flow"
+      showUpgradePrompt={true}
+      upgradeMessage="Cash Flow forecasting requires a commercial license."
+      showExpiredContent={false}
+    >
+      <div className="space-y-6">
+        <PageHeader
+          title={t('cashflow.title', { defaultValue: 'Cash Flow' })}
+          subtitle={t('cashflow.subtitle', {
+            defaultValue: 'Forecast, runway analysis, and scenario planning',
+          })}
+        />
+        <CashFlowTabContent />
       </div>
     </FeatureGate>
   );
