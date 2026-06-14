@@ -54,3 +54,67 @@ def test_map_extraction_unparseable_amount_omitted():
     assert fields["vendor"] == "X"
     assert "amount" not in fields
     assert "total_amount" not in fields
+
+
+from core.services import expense_scan
+from core.services.expense_scan import ScanError, scan_receipt_bytes
+
+_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64  # minimal PNG-signature bytes
+
+
+@pytest.mark.asyncio
+async def test_scan_rejects_bad_extension():
+    with pytest.raises(ScanError):
+        await scan_receipt_bytes(None, "note.txt", "text/plain", b"hello")
+
+
+@pytest.mark.asyncio
+async def test_scan_rejects_oversize(monkeypatch):
+    monkeypatch.setattr(expense_scan, "_MAX_BYTES", 10)
+    with pytest.raises(ScanError):
+        await scan_receipt_bytes(None, "r.png", "image/png", b"x" * 11)
+
+
+@pytest.mark.asyncio
+async def test_scan_unavailable_when_extractor_returns_none(monkeypatch):
+    monkeypatch.setattr(expense_scan, "validate_file_magic_bytes", lambda *a, **k: None)
+
+    async def fake_extract(path, db):
+        return None  # simulates commercial AI absent / extraction failed
+
+    monkeypatch.setattr(expense_scan, "_extract_structured", fake_extract)
+    result = await scan_receipt_bytes(None, "r.png", "image/png", _PNG)
+    assert result["available"] is False
+    assert "reason" in result
+
+
+@pytest.mark.asyncio
+async def test_scan_success_maps_fields(monkeypatch):
+    monkeypatch.setattr(expense_scan, "validate_file_magic_bytes", lambda *a, **k: None)
+    captured = {}
+
+    async def fake_extract(path, db):
+        captured["path_existed"] = __import__("os").path.exists(path)
+        return {"vendor": "Acme", "total_amount": "9.99", "currency": "USD"}
+
+    monkeypatch.setattr(expense_scan, "_extract_structured", fake_extract)
+    result = await scan_receipt_bytes(None, "r.png", "image/png", _PNG)
+    assert result["available"] is True
+    assert result["fields"]["vendor"] == "Acme"
+    assert result["fields"]["amount"] == 9.99
+    assert captured["path_existed"] is True
+
+
+@pytest.mark.asyncio
+async def test_scan_cleans_temp_on_extractor_error(monkeypatch):
+    monkeypatch.setattr(expense_scan, "validate_file_magic_bytes", lambda *a, **k: None)
+    seen = {}
+
+    async def boom(path, db):
+        seen["path"] = path
+        raise RuntimeError("extractor blew up")
+
+    monkeypatch.setattr(expense_scan, "_extract_structured", boom)
+    result = await scan_receipt_bytes(None, "r.png", "image/png", _PNG)
+    assert result["available"] is False
+    assert not __import__("os").path.exists(seen["path"])
