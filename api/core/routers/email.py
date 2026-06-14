@@ -26,6 +26,25 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/email", tags=["email"])
 
+
+def _serialize_invoice_items(invoice) -> List[Dict[str, Any]]:
+    """Serialize an invoice's ORM ``InvoiceItem`` rows to plain dicts.
+
+    ``invoice.items`` are SQLAlchemy ORM objects, not Pydantic models, so they
+    have no ``model_dump()``. Mirror the field set used elsewhere (see
+    ``client_portal.py``) and the keys the PDF/email layers read via ``.get()``.
+    """
+    return [
+        {
+            "description": it.description,
+            "quantity": it.quantity,
+            "price": it.price,
+            "amount": it.amount,
+            "unit_of_measure": it.unit_of_measure,
+        }
+        for it in (getattr(invoice, "items", None) or [])
+    ]
+
 def get_email_service(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
@@ -125,7 +144,7 @@ async def send_invoice_email(
             'paid_amount': 0,  # Calculate from payments if needed
             'status': invoice.status,
             'notes': invoice.notes or '',
-            'items': [item.model_dump() for item in invoice.items] if hasattr(invoice, 'items') and invoice.items else [] # Ensure items are included
+            'items': _serialize_invoice_items(invoice)
         }
         
         # Prepare client data
