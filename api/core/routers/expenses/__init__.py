@@ -10,7 +10,7 @@ Split from the original monolithic expenses.py (2,795 lines) into focused module
 """
 
 from fastapi import APIRouter
-from . import analytics, attachments, crud, export, merge, recycle_bin, reviews, voice
+from . import analytics, attachments, crud, export, merge, recycle_bin, reviews, scan, voice
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -18,6 +18,7 @@ router = APIRouter(prefix="/expenses", tags=["expenses"])
 # are registered before dynamic /{expense_id} paths via sub-router ordering below.
 router.include_router(analytics.router)
 router.include_router(voice.router)
+router.include_router(scan.router)
 router.include_router(merge.router)
 router.include_router(export.router)
 router.include_router(crud.router)
