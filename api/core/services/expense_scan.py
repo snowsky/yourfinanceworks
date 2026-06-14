@@ -14,7 +14,6 @@ from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
 from core.utils.file_validation import validate_file_magic_bytes
-from commercial.ai.services.ocr_service.expense_extraction import map_extraction_to_fields
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +106,10 @@ async def scan_receipt_bytes(
 
         if not extracted:
             return {"available": False, "reason": "Could not read the receipt automatically"}
+        # Imported here (not at module top) so this module stays importable when the
+        # commercial OCR package is absent — the success path only runs when extraction
+        # succeeded, which means the commercial package is present.
+        from commercial.ai.services.ocr_service.expense_extraction import map_extraction_to_fields
         return {"available": True, "fields": map_extraction_to_fields(extracted)}
     finally:
         if temp_path and os.path.exists(temp_path):
