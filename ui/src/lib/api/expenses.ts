@@ -1,6 +1,25 @@
 import { API_BASE_URL, apiRequest, getTenantId } from './_base';
 import { EXPENSE_CATEGORY_OPTIONS } from '@/constants/expenses';
 
+export interface ExpenseScanFields {
+  vendor?: string;
+  amount?: number;
+  currency?: string;
+  expense_date?: string;
+  category?: string;
+  tax_amount?: number;
+  total_amount?: number;
+  payment_method?: string;
+  reference_number?: string;
+  notes?: string;
+}
+
+export interface ScanResult {
+  available: boolean;
+  fields?: ExpenseScanFields;
+  reason?: string;
+}
+
 export interface Expense {
   id: number;
   amount: number;
@@ -235,6 +254,22 @@ export const expenseApi = {
       const errorText = await response.text();
       try { throw new Error(JSON.parse(errorText).detail || 'Failed to upload receipt'); }
       catch { throw new Error(errorText || 'Failed to upload receipt'); }
+    }
+    return response.json();
+  },
+  scanReceipt: async (file: File): Promise<ScanResult> => {
+    const tenantId = getTenantId();
+    const formData = new FormData();
+    formData.append('file', file);
+    const headers: Record<string, string> = {};
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+    const response = await fetch(`${API_BASE_URL}/expenses/scan-receipt`, {
+      method: 'POST', headers, body: formData, credentials: 'include',
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      try { throw new Error(JSON.parse(errorText).detail || 'Failed to scan receipt'); }
+      catch { throw new Error(errorText || 'Failed to scan receipt'); }
     }
     return response.json();
   },
