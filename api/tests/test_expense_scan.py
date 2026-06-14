@@ -44,6 +44,12 @@ def test_map_extraction_amount_falls_back_to_amount_key():
     assert fields["total_amount"] == 7.0
 
 
+def test_map_extraction_grand_total_alias():
+    fields = map_extraction_to_fields({"vendor": "X", "grand_total": "42.00"})
+    assert fields["amount"] == 42.0
+    assert fields["total_amount"] == 42.0
+
+
 def test_map_extraction_non_dict_returns_empty():
     assert map_extraction_to_fields(None) == {}
     assert map_extraction_to_fields("garbage") == {}

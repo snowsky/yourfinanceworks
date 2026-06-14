@@ -44,8 +44,8 @@ def map_extraction_to_fields(extracted: Any) -> Dict[str, Any]:
     if isinstance(vendor, str) and vendor.strip():
         fields["vendor"] = vendor.strip()
 
-    total = parse_number(first_key(extracted, ["total_amount", "total", "amount"]))
-    amount = parse_number(first_key(extracted, ["amount", "total_amount", "total"]))
+    total = parse_number(first_key(extracted, ["total_amount", "total", "amount", "grand_total", "subtotal"]))
+    amount = parse_number(first_key(extracted, ["amount", "total_amount", "total", "grand_total", "subtotal"]))
     primary = total if total is not None else amount
     if primary is not None:
         fields["amount"] = primary

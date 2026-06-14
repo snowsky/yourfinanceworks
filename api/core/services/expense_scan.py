@@ -47,8 +47,20 @@ async def _extract_structured(temp_path: str, db: Optional[Session]) -> Optional
         )
         from commercial.ai.services.ocr_service._shared import _get_ai_config_from_env
 
+        # Resolve the tenant's AI config the same way the async OCR path does:
+        # prefer the DB-configured (in-app AI settings) provider, fall back to env.
+        ai_config = None
+        if db is not None:
+            try:
+                from commercial.ai.services.ai_config_service import AIConfigService
+                ai_config = AIConfigService.get_ai_config(db, component="ocr")
+            except Exception as e:
+                logger.warning("DB AI-config lookup failed for receipt scan, using env: %s", e)
+        if not ai_config:
+            ai_config = _get_ai_config_from_env()
+
         ocr_config = OCRConfig(
-            ai_config=_get_ai_config_from_env(),
+            ai_config=ai_config,
             enable_ai_vision=True,
             enable_fallback_parsing=True,
             timeout_seconds=300,
