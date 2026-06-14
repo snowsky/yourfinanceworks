@@ -2892,7 +2892,16 @@
       "Supplies": "Supplies"
     },
     "delete_single_title": "Delete 1 Expense",
-    "delete_single_description": "Are you sure you want to delete 1 expense? This will move it to the recycle bin."
+    "delete_single_description": "Are you sure you want to delete 1 expense? This will move it to the recycle bin.",
+    "scan_bill": "Scan a bill",
+    "scan_pick": "Choose a receipt to read automatically.",
+    "scan_reading": "Reading your bill…",
+    "scan_unavailable": "Couldn't read it automatically — enter the details.",
+    "scan_choose_other": "Choose a different file",
+    "scan_save": "Save expense",
+    "scan_saved": "Expense created from the scanned bill.",
+    "scan_save_failed": "Could not create the expense.",
+    "scan_failed": "Could not scan the receipt."
   },
   "email": {
     "subject": "Subject",
