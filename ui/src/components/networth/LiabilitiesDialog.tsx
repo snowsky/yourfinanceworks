@@ -88,6 +88,7 @@ export const LiabilitiesDialog: React.FC<Props> = ({ open, onClose, liability })
         onClose();
       } else {
         setName('');
+        setKind('credit_card');
         setBalance('');
         setInterestRate('');
         setNotes('');
