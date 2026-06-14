@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/ui/professional-layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CashFlowTabContent } from '@/pages/CashFlow';
 import { NetWorthTabContent } from '@/components/networth/NetWorthTabContent';
+import { FinancesTabIntro } from '@/components/finances/FinancesTabIntro';
 
 type TabKey = 'cashflow' | 'networth';
 
@@ -58,11 +59,33 @@ const Finances: React.FC = () => {
         </TabsList>
         {cashflowEnabled ? (
           <TabsContent value="cashflow" className="mt-6">
+            <FinancesTabIntro
+              storageKey="finances_intro_cashflow_dismissed"
+              title="What's in Cash Flow"
+              description="Projects money in and out so you can see your runway and plan ahead."
+              sources={[
+                'Unpaid invoices (money in)',
+                'Recorded & recurring expenses (money out)',
+                'Recurring bank-statement patterns',
+              ]}
+              output="Forecast, runway & scenario planning"
+            />
             <CashFlowTabContent />
           </TabsContent>
         ) : null}
         {networthEnabled ? (
           <TabsContent value="networth" className="mt-6">
+            <FinancesTabIntro
+              storageKey="finances_intro_networth_dismissed"
+              title="What's in Net Worth"
+              description="Combines everything you own and owe into one number, tracked over time."
+              sources={[
+                'Bank balances (from statements)',
+                'Investment portfolios (current value)',
+                'Liabilities you add (cards, loans, mortgages)',
+              ]}
+              output="Net worth, per-account breakdown & trend"
+            />
             <NetWorthTabContent />
           </TabsContent>
         ) : null}
