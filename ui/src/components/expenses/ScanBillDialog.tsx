@@ -118,7 +118,7 @@ export function ScanBillDialog({ onCreated }: ScanBillDialogProps) {
         <ScanLine className="w-4 h-4 mr-2" /> {t('expenses.scan_bill', { defaultValue: 'Scan a bill' })}
       </ProfessionalButton>
 
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : close())}>
+      <Dialog open={open} onOpenChange={(o) => { if (!o) close(); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('expenses.scan_bill', { defaultValue: 'Scan a bill' })}</DialogTitle>
@@ -168,6 +168,14 @@ export function ScanBillDialog({ onCreated }: ScanBillDialogProps) {
                   </div>
                 ))}
               </div>
+              <button
+                type="button"
+                onClick={reset}
+                disabled={busy}
+                className="text-xs text-muted-foreground underline hover:text-foreground"
+              >
+                {t('expenses.scan_choose_other', { defaultValue: 'Choose a different file' })}
+              </button>
             </div>
           )}
 
@@ -176,7 +184,7 @@ export function ScanBillDialog({ onCreated }: ScanBillDialogProps) {
               {t('common.cancel', { defaultValue: 'Cancel' })}
             </ProfessionalButton>
             {phase === 'review' && (
-              <ProfessionalButton variant="default" size="default" onClick={save} disabled={busy}>
+              <ProfessionalButton variant="default" size="default" onClick={save} disabled={busy || !fields.amount}>
                 {t('expenses.scan_save', { defaultValue: 'Save expense' })}
               </ProfessionalButton>
             )}

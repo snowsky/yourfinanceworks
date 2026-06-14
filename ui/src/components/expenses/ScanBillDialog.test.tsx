@@ -83,4 +83,14 @@ describe('ScanBillDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
     expect(api.createExpense).not.toHaveBeenCalled();
   });
+
+  it('on scan error shows the notice, empty form, and a toast', async () => {
+    api.scanReceipt.mockRejectedValue(new Error('network down'));
+    open();
+    pickFile();
+    expect(await screen.findByText(/couldn't read it automatically/i)).toBeInTheDocument();
+    const amount = screen.getByLabelText(/amount/i) as HTMLInputElement;
+    expect(amount.value).toBe('');
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+  });
 });
