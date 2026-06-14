@@ -255,6 +255,7 @@ const SubscriptionsPage: React.FC = () => {
                   {sortedItems.map((sub) => {
                     const change = priceChangePercent(sub);
                     const flagPriceChange = hasUnacknowledgedPriceChange(sub);
+                    const reviewLabel = reviewReasonLabel(sub);
                     return (
                       <TableRow
                         key={sub.id}
@@ -268,13 +269,13 @@ const SubscriptionsPage: React.FC = () => {
                               {sub.category}
                             </div>
                           ) : null}
-                          {reviewReasonLabel(sub) ? (
+                          {reviewLabel ? (
                             <Badge
                               className="mt-1 bg-amber-500/10 text-amber-600"
                               title={reviewReasonDetail(sub) ?? undefined}
                             >
                               <AlertTriangle className="mr-1 h-3 w-3" />
-                              {reviewReasonLabel(sub)}
+                              {reviewLabel}
                             </Badge>
                           ) : null}
                         </TableCell>

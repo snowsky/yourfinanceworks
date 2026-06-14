@@ -75,10 +75,13 @@ def to_response(sub, *, today: Optional[date] = None) -> SubscriptionResponse:
         today = date.today()
     resp = SubscriptionResponse.model_validate(sub)
     info = evaluate_review(sub, today=today)
-    resp.review_reason = info.reason
-    resp.days_overdue = info.days_overdue
-    resp.months_running = info.months_running
-    return resp
+    return resp.model_copy(
+        update={
+            "review_reason": info.reason,
+            "days_overdue": info.days_overdue,
+            "months_running": info.months_running,
+        }
+    )
 
 
 def build_summary(
