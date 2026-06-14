@@ -50,11 +50,15 @@ preview and confirm before creating the expense.
   3. Call the commercial extractor:
      `UnifiedOCRService(...).extract_structured_data(temp_path,
      DocumentType.EXPENSE_RECEIPT, db_session=db)`.
-  4. Map the raw extraction to a stable field dict using the **same mapping logic**
-     `apply_ocr_extraction_to_expense` uses (extract that mapping into a shared pure
-     helper `map_extraction_to_fields(extracted) -> dict` in
-     `commercial/ai/services/ocr_service/expense_extraction.py`, and call it from both
-     `apply_ocr_extraction_to_expense` and the new service — DRY, no logic divergence).
+  4. Map the extraction to a stable field dict via a **new pure helper**
+     `map_extraction_to_fields(extracted) -> dict` in
+     `commercial/ai/services/ocr_service/expense_extraction.py`. Scan only handles the
+     **success path** (a clean `structured_data` dict from `UnifiedOCRService`), so the
+     helper does field-name mapping + light normalization (amount→float, currency
+     symbol→code, date→ISO) and does **not** need `apply`'s raw-text fallback parsing.
+     The helper faithfully mirrors `apply_ocr_extraction_to_expense`'s field reads.
+     (Migrating `apply` — a 770-line, db-coupled function that commits — onto this helper
+     is a deliberate **follow-up**, out of scope for slice 1 to avoid a risky refactor.)
   5. `finally:` delete the temp file.
   - Returns `{"available": True, "fields": {vendor, amount, currency, expense_date,
     category, tax_amount, total_amount, payment_method, reference_number, notes}}`
