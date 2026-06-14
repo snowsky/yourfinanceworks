@@ -26,6 +26,63 @@ from .text_parsers import (
 from .usage_tracking import track_ocr_usage
 
 
+def map_extraction_to_fields(extracted: Any) -> Dict[str, Any]:
+    """Map a clean OCR ``structured_data`` dict to a stable expense-field dict.
+
+    Used by the synchronous scan-receipt path. Only the success path is handled
+    (the input is the parsed ``structured_data`` from ``UnifiedOCRService``), so no
+    raw-text fallback parsing is needed here. Keys with no extracted value are omitted
+    so callers can distinguish "not found" from an empty value. Mirrors the field reads
+    in ``apply_ocr_extraction_to_expense``.
+    """
+    if not isinstance(extracted, dict):
+        return {}
+
+    fields: Dict[str, Any] = {}
+
+    vendor = first_key(extracted, ["vendor", "merchant", "vendor_name", "supplier"])
+    if isinstance(vendor, str) and vendor.strip():
+        fields["vendor"] = vendor.strip()
+
+    total = parse_number(first_key(extracted, ["total_amount", "total", "amount"]))
+    amount = parse_number(first_key(extracted, ["amount", "total_amount", "total"]))
+    primary = total if total is not None else amount
+    if primary is not None:
+        fields["amount"] = primary
+        fields["total_amount"] = primary
+
+    currency = first_key(extracted, ["currency", "currency_code"])
+    if isinstance(currency, str) and currency.strip():
+        cur = currency.strip()
+        fields["currency"] = CURRENCY_SYMBOL_MAP.get(cur, cur.upper())
+
+    date_val = first_key(extracted, ["date", "expense_date", "transaction_date", "invoice_date"])
+    if isinstance(date_val, str) and date_val.strip():
+        fields["expense_date"] = date_val.strip()
+
+    category = first_key(extracted, ["category"])
+    if isinstance(category, str) and category.strip():
+        fields["category"] = category.strip()
+
+    tax = parse_number(first_key(extracted, ["tax_amount", "tax"]))
+    if tax is not None:
+        fields["tax_amount"] = tax
+
+    payment = first_key(extracted, ["payment_method", "payment"])
+    if isinstance(payment, str) and payment.strip():
+        fields["payment_method"] = payment.strip()
+
+    reference = first_key(extracted, ["reference_number", "reference", "invoice_number"])
+    if isinstance(reference, str) and reference.strip():
+        fields["reference_number"] = reference.strip()
+
+    notes = first_key(extracted, ["notes", "description"])
+    if isinstance(notes, str) and notes.strip():
+        fields["notes"] = notes.strip()
+
+    return fields
+
+
 async def apply_ocr_extraction_to_expense(
     db: Session,
     expense: Any,
