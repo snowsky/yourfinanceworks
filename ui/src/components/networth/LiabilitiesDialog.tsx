@@ -101,7 +101,8 @@ export const LiabilitiesDialog: React.FC<Props> = ({ open, onClose, liability })
     onSuccess: () => qc.invalidateQueries({ queryKey: ['networth'] }),
   });
 
-  const canSave = name.trim().length > 0 && (parseFloat(balance) || 0) >= 0;
+  const canSave =
+    name.trim().length > 0 && balance.trim() !== '' && parseFloat(balance) >= 0;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>

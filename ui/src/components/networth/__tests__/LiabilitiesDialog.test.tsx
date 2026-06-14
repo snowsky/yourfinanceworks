@@ -53,4 +53,13 @@ describe('LiabilitiesDialog', () => {
     await waitFor(() => expect(createLiability).toHaveBeenCalledTimes(1));
     expect(createLiability.mock.calls[0][0]).toMatchObject({ name: 'New card', balance: 500 });
   });
+
+  it('keeps the add button disabled until a balance is entered', () => {
+    render(<LiabilitiesDialog open onClose={() => {}} />);
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New card' } });
+    // name filled but balance still empty -> disabled
+    expect(screen.getByRole('button', { name: /add liability/i })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Balance'), { target: { value: '0' } });
+    expect(screen.getByRole('button', { name: /add liability/i })).not.toBeDisabled();
+  });
 });
