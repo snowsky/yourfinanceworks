@@ -13,6 +13,8 @@ class ChatRequest(BaseModel):
     message: str
     config_id: int = 0  # Default to 0 if not provided
     page_context: Optional[Dict[str, Any]] = None
+    mode: Optional[str] = None  # "onboarding" enables the propose/confirm gate
+    confirmed_action: Optional[Dict[str, Any]] = None  # {"action": str, "params": dict}
 
 
 class ChatMessageRequest(BaseModel):
