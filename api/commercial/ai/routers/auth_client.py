@@ -192,6 +192,9 @@ class AuthenticatedAPIClient(BaseAPIClient):
             json=settings,
         )
 
+    async def update_settings(self, settings_data: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._make_request("PUT", "/settings/", json=settings_data)
+
     # Currency Management Methods
     async def list_currencies(self, active_only: bool = True) -> List[Dict[str, Any]]:
         return await self._make_request(
