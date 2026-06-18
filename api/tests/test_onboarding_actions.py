@@ -78,3 +78,35 @@ async def test_onboarding_no_action_falls_through(monkeypatch):
         ai_config=_Cfg(), db=None, current_user_email="u@x.com", mode="onboarding",
     )
     assert result is None  # falls through to normal chat answer
+
+
+def test_clean_onboarding_name_strips_leading_filler():
+    assert ah._clean_onboarding_name("with john doe") == "john doe"
+    assert ah._clean_onboarding_name("named Acme Co") == "Acme Co"
+    assert ah._clean_onboarding_name("called  Globex") == "Globex"
+    assert ah._clean_onboarding_name("with the John") == "John"  # iterates
+
+
+def test_clean_onboarding_name_leaves_real_names_untouched():
+    assert ah._clean_onboarding_name("John Doe") == "John Doe"
+    assert ah._clean_onboarding_name("Acme Corp") == "Acme Corp"
+    assert ah._clean_onboarding_name(None) is None
+
+
+def test_extract_applies_name_cleaning(monkeypatch):
+    import litellm
+
+    class _Resp(dict):
+        pass
+
+    def _fake_completion(**kwargs):
+        return {
+            "choices": [
+                {"message": {"content": '{"action":"create_client","params":{"name":"with john doe","email":"jd@x.com"}}'}}
+            ]
+        }
+
+    monkeypatch.setattr(litellm, "completion", _fake_completion, raising=False)
+    out = ah._extract_onboarding_action("create a client with john doe email jd@x.com", _Cfg())
+    assert out["action"] == "create_client"
+    assert out["params"]["name"] == "john doe"  # 'with ' stripped

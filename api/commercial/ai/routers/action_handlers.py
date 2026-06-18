@@ -79,6 +79,28 @@ _ONBOARDING_LABELS = {
 }
 
 
+# Leading command-filler words an extractor sometimes leaves on a captured name,
+# e.g. "create a client with John Doe" -> "with John Doe".
+_NAME_FILLER_PREFIXES = ("with ", "named ", "called ", "for ", "the ", "a ")
+
+
+def _clean_onboarding_name(name: Optional[str]) -> Optional[str]:
+    """Strip leading command-filler words from an extracted name (iteratively)."""
+    if not isinstance(name, str):
+        return name
+    cleaned = name.strip()
+    changed = True
+    while changed:
+        changed = False
+        lowered = cleaned.lower()
+        for pref in _NAME_FILLER_PREFIXES:
+            if lowered.startswith(pref):
+                cleaned = cleaned[len(pref):].strip()
+                changed = True
+                break
+    return cleaned
+
+
 def _extract_onboarding_action(message: str, ai_config: Any) -> Optional[Dict[str, Any]]:
     """Use the LLM to map an onboarding message to one whitelisted action + params.
 
@@ -96,6 +118,9 @@ def _extract_onboarding_action(message: str, ai_config: Any) -> Optional[Dict[st
         "create_invoice (params: client_id, amount, due_date YYYY-MM-DD, notes), "
         "create_expense (params: amount, currency, expense_date YYYY-MM-DD, category, vendor). "
         "Respond with ONLY compact JSON: {\"action\": <name|null>, \"params\": {...}}. "
+        "Extract clean values: drop command words like 'create', 'add', 'with', 'named', 'called'. "
+        "Example: 'create a client with John Doe, email jd@x.com' -> "
+        "{\"action\":\"create_client\",\"params\":{\"name\":\"John Doe\",\"email\":\"jd@x.com\"}}. "
         "Use null when the message is a question or no action is clearly intended. "
         "Never invent IDs you were not given."
     )
@@ -117,7 +142,10 @@ def _extract_onboarding_action(message: str, ai_config: Any) -> Optional[Dict[st
     action = parsed.get("action")
     if action not in _ONBOARDING_ACTIONS:
         return None
-    return {"action": action, "params": parsed.get("params") or {}}
+    params = parsed.get("params") or {}
+    if params.get("name"):
+        params["name"] = _clean_onboarding_name(params["name"])
+    return {"action": action, "params": params}
 
 
 async def _handle_onboarding_action(
