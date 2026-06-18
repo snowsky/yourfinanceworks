@@ -11,7 +11,7 @@ import PaymentCharts from './PaymentCharts';
 import { useTranslation } from 'react-i18next';
 import { usePageContext } from '@/contexts/PageContext';
 import { promptImprovementApi, type PromptImprovementJob } from '@/lib/api/settings';
-import { onboardingAssistantApi } from '@/lib/api/onboarding';
+import { onboardingAssistantApi, onboardingAiSummary } from '@/lib/api/onboarding';
 import { isOnboardingIntent } from '@/components/onboarding/onboardingShortcut';
 import { ConfirmActionCard } from '@/components/onboarding/ConfirmActionCard';
 
@@ -1107,18 +1107,23 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
       } else if (isOnboardingIntent(lowerText, getStartedText)) {
         const res = await onboardingAssistantApi.sendOnboardingMessage({ message: textToSend });
         if (res?.data?.type === 'proposed_action') {
+          await saveChatMessage(onboardingAiSummary(res.data), 'ai');
           updateAiMessage(
             <ConfirmActionCard
               action={res.data}
               onConfirm={async (a) => {
                 const done = await onboardingAssistantApi.sendOnboardingMessage({ message: '', confirmed_action: a });
-                updateAiMessage(done?.data?.response ?? 'Done.');
+                const doneText = done?.data?.response ?? 'Done.';
+                await saveChatMessage(doneText, 'ai');
+                updateAiMessage(doneText);
               }}
               onCancel={() => updateAiMessage("No problem — let me know when you're ready.")}
             />,
           );
         } else {
-          updateAiMessage(res?.data?.response ?? res?.error ?? 'Let me help you get set up.');
+          const aiText = res?.data?.response ?? res?.error ?? 'Let me help you get set up.';
+          await saveChatMessage(aiText, 'ai');
+          updateAiMessage(aiText);
         }
       } else if (
         lowerText === paymentChartsText ||

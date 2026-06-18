@@ -55,6 +55,12 @@ export interface ChatEnvelope {
   error?: string;
 }
 
+export interface ChatHistoryItem {
+  sender: 'user' | 'ai';
+  message: string;
+  created_at?: string;
+}
+
 export const onboardingAssistantApi = {
   getAssistantStatus: () => apiRequest<AssistantStatus>('/onboarding/assistant/status'),
   dismissAssistant: () =>
@@ -68,4 +74,20 @@ export const onboardingAssistantApi = {
         ...(body.confirmed_action ? { confirmed_action: body.confirmed_action } : {}),
       }),
     }),
+  // Onboarding shares the AI assistant's persisted chat history.
+  getHistory: () => apiRequest<ChatHistoryItem[]>('/ai/chat/history?limit=20&offset=0'),
+  saveMessage: (message: string, sender: 'user' | 'ai') =>
+    apiRequest<{ success: boolean }>('/ai/chat/message', {
+      method: 'POST',
+      body: JSON.stringify({ message, sender }),
+    }),
 };
+
+/** Human-readable AI text for persisting an onboarding turn to chat history. */
+export function onboardingAiSummary(data: any): string {
+  if (data?.response) return data.response;
+  if (data?.type === 'proposed_action') {
+    return `Let's ${String(data.action).replace(/_/g, ' ')} — please review and confirm the details.`;
+  }
+  return 'Let me help you get set up.';
+}

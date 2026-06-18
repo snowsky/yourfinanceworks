@@ -8,7 +8,10 @@ vi.mock('@/lib/api/onboarding', () => ({
     getAssistantStatus: vi.fn(),
     dismissAssistant: vi.fn(),
     sendOnboardingMessage: vi.fn(),
+    getHistory: vi.fn().mockResolvedValue([]),
+    saveMessage: vi.fn().mockResolvedValue({ success: true }),
   },
+  onboardingAiSummary: (d: any) => d?.response ?? 'help',
   onboardingApi: { getChecklist: vi.fn().mockResolvedValue({ all_complete: false }) },
 }));
 import { onboardingAssistantApi } from '@/lib/api/onboarding';
