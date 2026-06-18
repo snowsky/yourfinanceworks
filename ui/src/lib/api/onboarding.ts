@@ -33,3 +33,39 @@ export const onboardingApi = {
   dismissChecklist: () =>
     apiRequest<ChecklistStatus>('/onboarding/checklist/dismiss', { method: 'POST' }),
 };
+
+export interface AssistantStatus {
+  ai_configured: boolean;
+  dismissed: boolean;
+}
+
+export interface OnboardingAction {
+  action: string;
+  params: Record<string, unknown>;
+}
+
+export interface ProposedAction extends OnboardingAction {
+  type: 'proposed_action';
+  source: 'onboarding';
+}
+
+export interface ChatEnvelope {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
+
+export const onboardingAssistantApi = {
+  getAssistantStatus: () => apiRequest<AssistantStatus>('/onboarding/assistant/status'),
+  dismissAssistant: () =>
+    apiRequest<AssistantStatus>('/onboarding/assistant/dismiss', { method: 'POST' }),
+  sendOnboardingMessage: (body: { message: string; confirmed_action?: OnboardingAction }) =>
+    apiRequest<ChatEnvelope>('/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        message: body.message,
+        mode: 'onboarding',
+        ...(body.confirmed_action ? { confirmed_action: body.confirmed_action } : {}),
+      }),
+    }),
+};
