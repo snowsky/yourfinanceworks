@@ -11,6 +11,7 @@ from core.models.models import MasterUser
 from core.utils.rbac import require_non_viewer
 from core.services.sample_data import SampleDataError, SampleDataService
 from core.services.onboarding_checklist import OnboardingChecklistService
+from core.services.onboarding_assistant import OnboardingAssistantService
 
 logger = logging.getLogger(__name__)
 
@@ -61,3 +62,20 @@ async def dismiss_onboarding_checklist(
 ):
     require_non_viewer(current_user, "dismiss the onboarding checklist")
     return OnboardingChecklistService(db).dismiss()
+
+
+@router.get("/assistant/status")
+async def get_onboarding_assistant_status(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    return OnboardingAssistantService(db).status()
+
+
+@router.post("/assistant/dismiss")
+async def dismiss_onboarding_assistant(
+    db: Session = Depends(get_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    require_non_viewer(current_user, "dismiss the onboarding assistant")
+    return OnboardingAssistantService(db).dismiss()

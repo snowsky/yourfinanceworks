@@ -703,6 +703,10 @@ class InvoiceAPIClient(BaseAPIClient):
         """Get tenant settings"""
         return await self._make_request("GET", "/settings/")
 
+    async def update_settings(self, settings_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Update tenant settings (partial; e.g. invoice_branding)."""
+        return await self._make_request("PUT", "/settings/", json=settings_data)
+
     # Discount Rules Methods
     async def list_discount_rules(self) -> List[Dict[str, Any]]:
         """List all discount rules"""

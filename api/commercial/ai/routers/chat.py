@@ -155,6 +155,8 @@ Category:"""
             ai_config=ai_config,
             db=db,
             current_user_email=current_user.email,
+            mode=request.mode,
+            confirmed_action=request.confirmed_action,
         )
         if result is not None:
             return result

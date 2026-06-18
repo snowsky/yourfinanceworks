@@ -28,6 +28,7 @@ import { NetWorthWidget } from './NetWorthWidget';
 import { HelpCenter } from '@/components/onboarding/HelpCenter';
 import { SampleDataBanner } from '@/components/onboarding/SampleDataBanner';
 import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist';
+import { OnboardingAssistantCard } from '@/components/onboarding/OnboardingAssistantCard';
 import { dashboardApi } from '@/lib/api';
 import { getCurrentUser } from '@/utils/auth';
 import { toast } from 'sonner';
@@ -273,6 +274,9 @@ export function ProfessionalDashboard() {
 
       {/* New-tenant onboarding: load/remove sample data (renders only on an empty workspace) */}
       <SampleDataBanner onChanged={() => window.location.reload()} />
+
+      {/* AI-guided setup: conversational wizard (commercial; hides when dismissed/complete/unconfigured) */}
+      <OnboardingAssistantCard />
 
       {/* Activation checklist: derived setup-progress; hides when dismissed or complete */}
       <OnboardingChecklist />

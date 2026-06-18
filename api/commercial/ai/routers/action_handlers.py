@@ -38,6 +38,159 @@ async def _init_tools(current_user_email: str):
     return InvoiceTools(api_client)
 
 
+async def _dispatch_create_client(tools, params):
+    return await tools.create_client(
+        name=params["name"], email=params.get("email"), phone=params.get("phone")
+    )
+
+
+async def _dispatch_set_branding(tools, params):
+    return await tools.set_branding(
+        brand_color=params.get("brand_color"), accent_color=params.get("accent_color")
+    )
+
+
+async def _dispatch_create_invoice(tools, params):
+    return await tools.create_invoice(
+        client_id=int(params["client_id"]), amount=float(params["amount"]),
+        due_date=params["due_date"], status="draft", notes=params.get("notes"),
+    )
+
+
+async def _dispatch_create_expense(tools, params):
+    return await tools.create_expense(
+        amount=float(params["amount"]), currency=params.get("currency", "USD"),
+        expense_date=params["expense_date"], category=params["category"], vendor=params.get("vendor"),
+    )
+
+
+_ONBOARDING_ACTIONS = {
+    "create_client": _dispatch_create_client,
+    "set_branding": _dispatch_set_branding,
+    "create_invoice": _dispatch_create_invoice,
+    "create_expense": _dispatch_create_expense,
+}
+
+_ONBOARDING_LABELS = {
+    "create_client": "Client created",
+    "set_branding": "Branding updated",
+    "create_invoice": "Draft invoice created",
+    "create_expense": "Expense recorded",
+}
+
+
+# Leading command-filler words an extractor sometimes leaves on a captured name,
+# e.g. "create a client with John Doe" -> "with John Doe".
+_NAME_FILLER_PREFIXES = ("with ", "named ", "called ", "for ", "the ", "a ")
+
+
+def _clean_onboarding_name(name: Optional[str]) -> Optional[str]:
+    """Strip leading command-filler words from an extracted name (iteratively)."""
+    if not isinstance(name, str):
+        return name
+    cleaned = name.strip()
+    changed = True
+    while changed:
+        changed = False
+        lowered = cleaned.lower()
+        for pref in _NAME_FILLER_PREFIXES:
+            if lowered.startswith(pref):
+                cleaned = cleaned[len(pref):].strip()
+                changed = True
+                break
+    return cleaned
+
+
+def _extract_onboarding_action(message: str, ai_config: Any) -> Optional[Dict[str, Any]]:
+    """Use the LLM to map an onboarding message to one whitelisted action + params.
+
+    Returns {"action": str, "params": dict} or None when no action is clearly intended.
+    """
+    try:
+        from litellm import completion
+    except ImportError:
+        return None
+
+    system = (
+        "You map a user's onboarding message to ONE setup action. "
+        "Allowed actions: create_client (params: name, email, phone), "
+        "set_branding (params: brand_color, accent_color as #RRGGBB hex), "
+        "create_invoice (params: client_id, amount, due_date YYYY-MM-DD, notes), "
+        "create_expense (params: amount, currency, expense_date YYYY-MM-DD, category, vendor). "
+        "Respond with ONLY compact JSON: {\"action\": <name|null>, \"params\": {...}}. "
+        "Extract clean values: drop command words like 'create', 'add', 'with', 'named', 'called'. "
+        "Example: 'create a client with John Doe, email jd@x.com' -> "
+        "{\"action\":\"create_client\",\"params\":{\"name\":\"John Doe\",\"email\":\"jd@x.com\"}}. "
+        "Use null when the message is a question or no action is clearly intended. "
+        "Never invent IDs you were not given."
+    )
+    model = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
+    try:
+        resp = completion(
+            model=model,
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": message}],
+            api_key=getattr(ai_config, "api_key", None),
+            api_base=getattr(ai_config, "provider_url", None),
+            temperature=0,
+        )
+        content = resp["choices"][0]["message"]["content"].strip()
+        parsed = json.loads(content)
+    except Exception as exc:
+        logger.warning("Onboarding action extraction failed: %s", exc)
+        return None
+
+    action = parsed.get("action")
+    if action not in _ONBOARDING_ACTIONS:
+        return None
+    params = parsed.get("params") or {}
+    if params.get("name"):
+        params["name"] = _clean_onboarding_name(params["name"])
+    return {"action": action, "params": params}
+
+
+async def _handle_onboarding_action(
+    message: str, confirmed_action: Optional[Dict[str, Any]], ai_config: Any, current_user_email: str,
+) -> Optional[Dict[str, Any]]:
+    # Execute path: only after explicit confirmation.
+    if confirmed_action:
+        action = confirmed_action.get("action")
+        params = confirmed_action.get("params") or {}
+        dispatch = _ONBOARDING_ACTIONS.get(action)
+        if dispatch is None:
+            return {"success": False, "error": f"Unknown onboarding action: {action}"}
+        tools = await _init_tools(current_user_email)
+        try:
+            result = await dispatch(tools, params)
+        except Exception as exc:
+            logger.warning("Onboarding action %s failed: %s", action, exc)
+            return {"success": False, "error": f"Could not complete {action}: {exc}"}
+        if not result.get("success"):
+            return {"success": False, "error": result.get("error", f"{action} failed")}
+        return {
+            "success": True,
+            "data": {
+                "response": f"✅ {_ONBOARDING_LABELS.get(action, 'Done')}.",
+                "executed_action": action,
+                "result": result,
+                "source": "onboarding",
+            },
+        }
+
+    # Propose path: classify + return for confirmation, never execute.
+    proposal = _extract_onboarding_action(message, ai_config)
+    if proposal is None:
+        return None  # let the normal chat path answer the question
+    return {
+        "success": True,
+        "data": {
+            "type": "proposed_action",
+            "action": proposal["action"],
+            "params": proposal["params"],
+            "source": "onboarding",
+        },
+    }
+
+
 async def handle_early_actions(
     message: str,
     lower_message: str,
@@ -45,7 +198,13 @@ async def handle_early_actions(
     ai_config: Any,
     db: Session,
     current_user_email: str,
+    mode: Optional[str] = None,
+    confirmed_action: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
+    # Onboarding mode: propose/confirm gate, isolated from the live write fast-path.
+    if mode == "onboarding":
+        return await _handle_onboarding_action(message, confirmed_action, ai_config, current_user_email)
+
     # Page-aware statement actions (use current page context if available)
     entity = page_context.get("entity") if isinstance(page_context, dict) else None
     entity_type = entity.get("type") if isinstance(entity, dict) else None

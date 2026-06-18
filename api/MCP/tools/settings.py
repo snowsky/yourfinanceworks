@@ -24,6 +24,11 @@ class CreateDiscountRuleArgs(BaseModel):
     currency: Optional[str] = Field(default=None, description="Currency code for the rule")
 
 
+class SetBrandingArgs(BaseModel):
+    brand_color: Optional[str] = Field(default=None, description="Primary brand color as #RRGGBB hex")
+    accent_color: Optional[str] = Field(default=None, description="Accent color as #RRGGBB hex")
+
+
 class GetNotificationSettingsArgs(BaseModel):
     pass  # No arguments needed
 
@@ -51,6 +56,22 @@ class SettingsToolsMixin:
 
         except Exception as e:
             return {"success": False, "error": f"Failed to get settings: {e}"}
+
+    async def set_branding(self, brand_color: Optional[str] = None, accent_color: Optional[str] = None) -> Dict[str, Any]:
+        """Set invoice branding colors (onboarding). Only provided colors are written."""
+        try:
+            branding: Dict[str, Any] = {}
+            if brand_color is not None:
+                branding["brand_color"] = brand_color
+            if accent_color is not None:
+                branding["accent_color"] = accent_color
+            if not branding:
+                return {"success": False, "error": "No branding values provided"}
+
+            settings = await self.api_client.update_settings({"invoice_branding": branding})
+            return {"success": True, "data": settings, "message": "Branding updated successfully"}
+        except Exception as e:
+            return {"success": False, "error": f"Failed to set branding: {e}"}
 
     # Discount Rules
     async def list_discount_rules(self) -> Dict[str, Any]:
