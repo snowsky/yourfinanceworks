@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   onboardingAssistantApi,
   onboardingAiSummary,
@@ -15,16 +15,26 @@ export interface ChatMessage {
 let _seq = 0;
 const nextId = () => `m${_seq++}`;
 
-export function useOnboardingConversation() {
+/**
+ * @param enabled When false, the hook does NOT touch the network on mount. This
+ * gates the shared-history load so it only happens when the onboarding card is
+ * actually shown — avoiding an ungated /ai/chat/history call (a write-path that
+ * purges old rows) on every dashboard load for every user.
+ */
+export function useOnboardingConversation(enabled: boolean = true) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingAction, setPendingAction] = useState<ProposedAction | null>(null);
   const [loading, setLoading] = useState(false);
+  const historyLoaded = useRef(false);
 
   const push = (role: ChatMessage['role'], text: string) =>
     setMessages((m) => [...m, { id: nextId(), role, text }]);
 
-  // Onboarding shares the assistant's persisted history — hydrate on mount.
+  // Onboarding shares the assistant's persisted history — hydrate once, only
+  // when the card is actually shown (enabled).
   useEffect(() => {
+    if (!enabled || historyLoaded.current) return;
+    historyLoaded.current = true;
     let active = true;
     onboardingAssistantApi
       .getHistory()
@@ -38,11 +48,13 @@ export function useOnboardingConversation() {
           })),
         );
       })
-      .catch(() => {});
+      .catch(() => {
+        historyLoaded.current = false; // allow a retry on next enable
+      });
     return () => {
       active = false;
     };
-  }, []);
+  }, [enabled]);
 
   const send = useCallback(async (text: string) => {
     push('user', text);
