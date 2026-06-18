@@ -342,6 +342,10 @@ class TenantDatabaseManager:
             # Register the enforcement listener for this engine
             event.listen(self.tenant_engines[tenant_key], "before_cursor_execute", _enforce_database_isolation)
 
+            # Optional, env-gated pool instrumentation (no-op unless YFW_LOG_POOL_STATS set)
+            from core.utils.pool_stats import maybe_log_pool
+            maybe_log_pool(self.tenant_engines[tenant_key], f"tenant_{tenant_id}")
+
             self.tenant_sessions[tenant_key] = sessionmaker(
                 autocommit=False,
                 autoflush=False,
