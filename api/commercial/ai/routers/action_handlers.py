@@ -101,13 +101,17 @@ def _clean_onboarding_name(name: Optional[str]) -> Optional[str]:
     return cleaned
 
 
-def _extract_onboarding_action(message: str, ai_config: Any) -> Optional[Dict[str, Any]]:
+async def _extract_onboarding_action(message: str, ai_config: Any) -> Optional[Dict[str, Any]]:
     """Use the LLM to map an onboarding message to one whitelisted action + params.
 
     Returns {"action": str, "params": dict} or None when no action is clearly intended.
+
+    Uses async ``acompletion`` so the LLM round-trip does not block the event loop —
+    a sync call here would serialize all concurrent /ai/chat requests and starve
+    unrelated endpoints.
     """
     try:
-        from litellm import completion
+        from litellm import acompletion
     except ImportError:
         return None
 
@@ -126,7 +130,7 @@ def _extract_onboarding_action(message: str, ai_config: Any) -> Optional[Dict[st
     )
     model = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
     try:
-        resp = completion(
+        resp = await acompletion(
             model=model,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": message}],
             api_key=getattr(ai_config, "api_key", None),
@@ -177,7 +181,7 @@ async def _handle_onboarding_action(
         }
 
     # Propose path: classify + return for confirmation, never execute.
-    proposal = _extract_onboarding_action(message, ai_config)
+    proposal = await _extract_onboarding_action(message, ai_config)
     if proposal is None:
         return None  # let the normal chat path answer the question
     return {

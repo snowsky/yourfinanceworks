@@ -46,10 +46,10 @@ async def test_onboarding_confirmed_action_executes_tool(patch_tools):
 
 @pytest.mark.asyncio
 async def test_onboarding_proposes_without_executing(monkeypatch, patch_tools):
-    monkeypatch.setattr(
-        ah, "_extract_onboarding_action",
-        lambda message, ai_config: {"action": "create_client", "params": {"name": "Acme", "email": "ap@acme.com"}},
-    )
+    async def _fake_extract(message, ai_config):
+        return {"action": "create_client", "params": {"name": "Acme", "email": "ap@acme.com"}}
+
+    monkeypatch.setattr(ah, "_extract_onboarding_action", _fake_extract)
     result = await ah.handle_early_actions(
         message="add a client called Acme ap@acme.com", lower_message="add a client called acme ap@acme.com",
         page_context=None, ai_config=_Cfg(), db=None, current_user_email="u@x.com", mode="onboarding",
@@ -72,7 +72,10 @@ async def test_onboarding_rejects_non_whitelisted_action(patch_tools):
 
 @pytest.mark.asyncio
 async def test_onboarding_no_action_falls_through(monkeypatch):
-    monkeypatch.setattr(ah, "_extract_onboarding_action", lambda message, ai_config: None)
+    async def _none(message, ai_config):
+        return None
+
+    monkeypatch.setattr(ah, "_extract_onboarding_action", _none)
     result = await ah.handle_early_actions(
         message="what is an invoice?", lower_message="what is an invoice?", page_context=None,
         ai_config=_Cfg(), db=None, current_user_email="u@x.com", mode="onboarding",
@@ -93,20 +96,18 @@ def test_clean_onboarding_name_leaves_real_names_untouched():
     assert ah._clean_onboarding_name(None) is None
 
 
-def test_extract_applies_name_cleaning(monkeypatch):
+@pytest.mark.asyncio
+async def test_extract_applies_name_cleaning(monkeypatch):
     import litellm
 
-    class _Resp(dict):
-        pass
-
-    def _fake_completion(**kwargs):
+    async def _fake_acompletion(**kwargs):
         return {
             "choices": [
                 {"message": {"content": '{"action":"create_client","params":{"name":"with john doe","email":"jd@x.com"}}'}}
             ]
         }
 
-    monkeypatch.setattr(litellm, "completion", _fake_completion, raising=False)
-    out = ah._extract_onboarding_action("create a client with john doe email jd@x.com", _Cfg())
+    monkeypatch.setattr(litellm, "acompletion", _fake_acompletion, raising=False)
+    out = await ah._extract_onboarding_action("create a client with john doe email jd@x.com", _Cfg())
     assert out["action"] == "create_client"
     assert out["params"]["name"] == "john doe"  # 'with ' stripped
