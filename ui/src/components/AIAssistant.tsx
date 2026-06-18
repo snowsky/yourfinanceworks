@@ -11,6 +11,9 @@ import PaymentCharts from './PaymentCharts';
 import { useTranslation } from 'react-i18next';
 import { usePageContext } from '@/contexts/PageContext';
 import { promptImprovementApi, type PromptImprovementJob } from '@/lib/api/settings';
+import { onboardingAssistantApi } from '@/lib/api/onboarding';
+import { isOnboardingIntent } from '@/components/onboarding/onboardingShortcut';
+import { ConfirmActionCard } from '@/components/onboarding/ConfirmActionCard';
 
 // Debug toggle for AI Assistant logs (set VITE_DEBUG_AI_ASSISTANT=true to enable)
 const DEBUG_AI_ASSISTANT = (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_DEBUG_AI_ASSISTANT === 'true');
@@ -1069,6 +1072,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     const analyzePatternsText = t('aiAssistant.analyzePatterns').toLowerCase();
     const suggestActionsText = t('aiAssistant.suggestActions').toLowerCase();
     const paymentChartsText = t('aiAssistant.paymentCharts').toLowerCase();
+    const getStartedText = t('aiAssistant.getStarted').toLowerCase();
 
     try {
       // Check for specific patterns that should use dedicated endpoints
@@ -1099,6 +1103,22 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
           updateAiMessage(<SuggestedActionsCard data={data} />);
         } else {
           throw new Error('Failed to get suggestions');
+        }
+      } else if (isOnboardingIntent(lowerText, getStartedText)) {
+        const res = await onboardingAssistantApi.sendOnboardingMessage({ message: textToSend });
+        if (res?.data?.type === 'proposed_action') {
+          updateAiMessage(
+            <ConfirmActionCard
+              action={res.data}
+              onConfirm={async (a) => {
+                const done = await onboardingAssistantApi.sendOnboardingMessage({ message: '', confirmed_action: a });
+                updateAiMessage(done?.data?.response ?? 'Done.');
+              }}
+              onCancel={() => updateAiMessage("No problem — let me know when you're ready.")}
+            />,
+          );
+        } else {
+          updateAiMessage(res?.data?.response ?? res?.error ?? 'Let me help you get set up.');
         }
       } else if (
         lowerText === paymentChartsText ||
@@ -1376,6 +1396,14 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                   >
                     <Target className="mr-1.5 h-3.5 w-3.5" />
                     {t('aiAssistant.suggestActions')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full bg-white/50 dark:bg-black/20 backdrop-blur border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-xs shadow-sm hover:shadow-md transition-all whitespace-nowrap"
+                    onClick={() => handleQuickAction(t('aiAssistant.getStarted'))}
+                  >
+                    {t('aiAssistant.getStarted')}
                   </Button>
                   <Button
                     variant="outline"
