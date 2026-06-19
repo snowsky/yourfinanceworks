@@ -102,7 +102,8 @@ class TenantDatabaseManager:
                 pool_pre_ping=True,
                 pool_recycle=300,
                 pool_size=5,
-                max_overflow=10
+                max_overflow=10,
+                pool_timeout=10,  # fail fast on pool exhaustion instead of hanging 30s
             )
             self.master_session = sessionmaker(
                 autocommit=False, 
@@ -211,7 +212,8 @@ class TenantDatabaseManager:
                 pool_pre_ping=True,
                 pool_recycle=300,
                 pool_size=5,
-                max_overflow=10
+                max_overflow=10,
+                pool_timeout=10,  # fail fast on pool exhaustion instead of hanging 30s
             )
 
             # Create all tables in tenant database
@@ -333,7 +335,8 @@ class TenantDatabaseManager:
                 pool_pre_ping=True,
                 pool_recycle=300,
                 pool_size=5,
-                max_overflow=10
+                max_overflow=10,
+                pool_timeout=10,  # fail fast on pool exhaustion instead of hanging 30s
             )
 
             # Register the enforcement listener for this engine

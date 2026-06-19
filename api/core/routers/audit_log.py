@@ -43,6 +43,7 @@ def get_all_organizations_audit_logs(
 
         # Collect logs from each tenant database
         for tenant in tenants:
+            tenant_db = None
             try:
                 # Check if tenant database exists before trying to access it
                 if not tenant_db_manager.tenant_database_exists(tenant.id):
@@ -111,11 +112,19 @@ def get_all_organizations_audit_logs(
                     }
                     all_audit_logs.append(log_dict)
 
-                tenant_db.close()
             except Exception as e:
                 print(f"Error fetching logs from tenant {tenant.id}: {str(e)}")
                 # Log error but continue with other tenants
                 continue
+            finally:
+                # Always release the tenant connection back to the pool, even if a
+                # query above raised — otherwise a repeatedly-failing tenant leaks
+                # a connection per call and exhausts that tenant's pool.
+                if tenant_db is not None:
+                    try:
+                        tenant_db.close()
+                    except Exception:
+                        pass
 
         # Sort all logs by date (most recent first)
         all_audit_logs.sort(key=lambda x: x['created_at'], reverse=True)

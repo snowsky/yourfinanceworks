@@ -45,14 +45,22 @@ describe('useOnboardingConversation', () => {
     expect(result.current.pendingAction).toBeNull();
   });
 
-  it('loads persisted history on mount', async () => {
+  it('loads persisted history on mount when enabled', async () => {
     (onboardingAssistantApi.getHistory as any).mockResolvedValue([
       { sender: 'user', message: 'hi' },
       { sender: 'ai', message: 'hello there' },
     ]);
-    const { result } = renderHook(() => useOnboardingConversation());
+    const { result } = renderHook(() => useOnboardingConversation(true));
     await waitFor(() => expect(result.current.messages).toHaveLength(2));
     expect(result.current.messages[1]).toMatchObject({ role: 'assistant', text: 'hello there' });
+  });
+
+  it('does NOT load history when disabled', async () => {
+    const { result } = renderHook(() => useOnboardingConversation(false));
+    // give any effects a chance to run
+    await new Promise((r) => setTimeout(r, 0));
+    expect(onboardingAssistantApi.getHistory).not.toHaveBeenCalled();
+    expect(result.current.messages).toHaveLength(0);
   });
 
   it('persists both the user message and the AI turn on send', async () => {

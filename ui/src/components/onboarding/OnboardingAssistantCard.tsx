@@ -12,7 +12,11 @@ export function OnboardingAssistantCard() {
   const [status, setStatus] = useState<AssistantStatus | null>(null);
   const [hidden, setHidden] = useState(false);
   const [input, setInput] = useState('');
-  const { messages, pendingAction, send, confirm, cancelPending, loading } = useOnboardingConversation();
+  // Only hydrate shared chat history once the chat composer is actually shown,
+  // so /ai/chat/history isn't called on every dashboard load.
+  const composerShown = !hidden && status?.ai_configured === true;
+  const { messages, pendingAction, send, confirm, cancelPending, loading } =
+    useOnboardingConversation(composerShown);
 
   useEffect(() => {
     if (!isFeatureEnabled('ai_chat')) {

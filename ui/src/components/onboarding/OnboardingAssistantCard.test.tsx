@@ -27,16 +27,19 @@ const renderCard = () =>
 describe('OnboardingAssistantCard', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('shows the configure-AI prompt when ai is not configured', async () => {
+  it('shows the configure-AI prompt when ai is not configured, WITHOUT loading history', async () => {
     (onboardingAssistantApi.getAssistantStatus as any).mockResolvedValue({ ai_configured: false, dismissed: false });
     renderCard();
     await waitFor(() => expect(screen.getByText(/Set up your AI provider first/i)).toBeInTheDocument());
+    // Regression guard: no ungated /ai/chat/history call when the composer isn't shown.
+    expect(onboardingAssistantApi.getHistory).not.toHaveBeenCalled();
   });
 
-  it('shows the chat composer when ai is configured', async () => {
+  it('shows the chat composer when ai is configured, and loads history', async () => {
     (onboardingAssistantApi.getAssistantStatus as any).mockResolvedValue({ ai_configured: true, dismissed: false });
     renderCard();
     await waitFor(() => expect(screen.getByPlaceholderText(/set up/i)).toBeInTheDocument());
+    expect(onboardingAssistantApi.getHistory).toHaveBeenCalled();
   });
 
   it('renders nothing when dismissed', async () => {
