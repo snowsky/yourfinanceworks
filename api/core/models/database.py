@@ -27,7 +27,8 @@ if DATABASE_URL and DATABASE_URL.startswith("postgresql"):
         pool_pre_ping=True,  # Enable connection health checks
         pool_recycle=300,    # Recycle connections after 5 minutes
         pool_size=10,        # Maximum number of connections in the pool
-        max_overflow=20      # Maximum number of connections that can be created beyond pool_size
+        max_overflow=20,     # Maximum number of connections that can be created beyond pool_size
+        pool_timeout=10,     # fail fast on pool exhaustion instead of hanging 30s
     )
 else:
     # SQLite configuration - This is the master database

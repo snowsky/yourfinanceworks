@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
 
-from core.models.database import get_db, set_tenant_context
+from core.models.database import get_db, set_tenant_context, SessionLocal
 from core.services.license_service import LicenseService
 
 
@@ -41,57 +41,69 @@ def check_feature(feature_id: str, db: Session, error_message: Optional[str] = N
     try:
         import logging
         logger = logging.getLogger(__name__)
-        
-        license_service = LicenseService(db)
-        has_feature = license_service.has_feature_for_gating(feature_id)
-        
-        # Log for debugging
-        license_status = license_service.get_license_status()
-        logger.debug(f"Feature gate check for '{feature_id}': has_feature={has_feature}, license_status={license_status}")
 
-        if not has_feature:
-            # Get trial status for better error message
-            trial_status = license_service.get_trial_status()
-            license_status = license_service.get_license_status()
+        # The license check needs the master DB (global installation / license
+        # fallback). Open it here with a deterministic lifecycle and pass it in:
+        # if LicenseService self-creates the master session (next(get_master_db())
+        # in _get_or_create_global_installation), it is only released on GC, so
+        # under load these checked-out master connections pile up and exhaust the
+        # master pool. Opening + closing it here keeps the hold to this check only.
+        master_db = SessionLocal()
+        try:
+            license_service = LicenseService(db, master_db=master_db)
+            has_feature = license_service.has_feature_for_gating(feature_id)
 
-            # Determine appropriate message
-            if trial_status["is_trial"] and not trial_status["trial_active"]:
-                if trial_status["in_grace_period"]:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    f"Feature gate check for '{feature_id}': has_feature={has_feature}, "
+                    f"license_status={license_service.get_license_status()}"
+                )
+
+            if not has_feature:
+                # Get trial status for better error message (rare path)
+                trial_status = license_service.get_trial_status()
+                license_status = license_service.get_license_status()
+
+                # Determine appropriate message
+                if trial_status["is_trial"] and not trial_status["trial_active"]:
+                    if trial_status["in_grace_period"]:
+                        message = (
+                            f"Your trial has expired. You are in a grace period. "
+                            f"Please activate a license to continue using the '{feature_id}' feature."
+                        )
+                    else:
+                        message = (
+                            f"Your trial has expired. Please activate a license to use the '{feature_id}' feature."
+                        )
+                elif license_status["is_licensed"]:
                     message = (
-                        f"Your trial has expired. You are in a grace period. "
-                        f"Please activate a license to continue using the '{feature_id}' feature."
+                        f"The '{feature_id}' feature is not included in your current license. "
+                        f"Please upgrade your license to access this feature."
                     )
                 else:
                     message = (
-                        f"Your trial has expired. Please activate a license to use the '{feature_id}' feature."
+                        f"The '{feature_id}' feature requires a valid license. "
+                        f"Please activate a license or start a trial."
                     )
-            elif license_status["is_licensed"]:
-                message = (
-                    f"The '{feature_id}' feature is not included in your current license. "
-                    f"Please upgrade your license to access this feature."
-                )
-            else:
-                message = (
-                    f"The '{feature_id}' feature requires a valid license. "
-                    f"Please activate a license or start a trial."
-                )
 
-            # Use custom message if provided
-            if error_message:
-                message = error_message
+                # Use custom message if provided
+                if error_message:
+                    message = error_message
 
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "error": "FEATURE_NOT_LICENSED",
-                    "message": message,
-                    "feature_id": feature_id,
-                    "license_status": license_status["license_status"],
-                    "trial_active": trial_status["trial_active"],
-                    "in_grace_period": trial_status["in_grace_period"],
-                    "upgrade_required": True
-                }
-            )
+                raise HTTPException(
+                    status_code=402,
+                    detail={
+                        "error": "FEATURE_NOT_LICENSED",
+                        "message": message,
+                        "feature_id": feature_id,
+                        "license_status": license_status["license_status"],
+                        "trial_active": trial_status["trial_active"],
+                        "in_grace_period": trial_status["in_grace_period"],
+                        "upgrade_required": True
+                    }
+                )
+        finally:
+            master_db.close()
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
@@ -120,57 +132,65 @@ def check_feature_read_only(feature_id: str, db: Session, error_message: Optiona
     try:
         import logging
         logger = logging.getLogger(__name__)
-        
-        license_service = LicenseService(db)
-        has_feature = license_service.has_feature_read_only(feature_id)
-        
-        # Log for debugging
-        license_status = license_service.get_license_status()
-        logger.debug(f"Feature gate check for '{feature_id}': has_feature={has_feature}, license_status={license_status}")
 
-        if not has_feature:
-            # Get trial status for better error message
-            trial_status = license_service.get_trial_status()
-            license_status = license_service.get_license_status()
+        # See check_feature: open the master DB session here and close it in a
+        # finally so it is not self-created by LicenseService and leaked until GC.
+        master_db = SessionLocal()
+        try:
+            license_service = LicenseService(db, master_db=master_db)
+            has_feature = license_service.has_feature_read_only(feature_id)
 
-            # Determine appropriate message
-            if trial_status["is_trial"] and not trial_status["trial_active"]:
-                if trial_status["in_grace_period"]:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    f"Feature gate check for '{feature_id}': has_feature={has_feature}, "
+                    f"license_status={license_service.get_license_status()}"
+                )
+
+            if not has_feature:
+                # Get trial status for better error message (rare path)
+                trial_status = license_service.get_trial_status()
+                license_status = license_service.get_license_status()
+
+                # Determine appropriate message
+                if trial_status["is_trial"] and not trial_status["trial_active"]:
+                    if trial_status["in_grace_period"]:
+                        message = (
+                            f"Your trial has expired. You are in a grace period. "
+                            f"Please activate a license to continue viewing the '{feature_id}' resources."
+                        )
+                    else:
+                        message = (
+                            f"Your trial has expired. Please activate a license to view the '{feature_id}' resources."
+                        )
+                elif license_status["is_licensed"]:
                     message = (
-                        f"Your trial has expired. You are in a grace period. "
-                        f"Please activate a license to continue viewing the '{feature_id}' resources."
+                        f"The '{feature_id}' feature is not included in your current license. "
+                        f"Please upgrade your license to access these resources."
                     )
                 else:
                     message = (
-                        f"Your trial has expired. Please activate a license to view the '{feature_id}' resources."
+                        f"The '{feature_id}' feature requires a valid license. "
+                        f"Please activate a license or start a trial."
                     )
-            elif license_status["is_licensed"]:
-                message = (
-                    f"The '{feature_id}' feature is not included in your current license. "
-                    f"Please upgrade your license to access these resources."
-                )
-            else:
-                message = (
-                    f"The '{feature_id}' feature requires a valid license. "
-                    f"Please activate a license or start a trial."
-                )
 
-            # Use custom message if provided
-            if error_message:
-                message = error_message
+                # Use custom message if provided
+                if error_message:
+                    message = error_message
 
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "error": "FEATURE_NOT_LICENSED",
-                    "message": message,
-                    "feature_id": feature_id,
-                    "license_status": license_status["license_status"],
-                    "trial_active": trial_status["trial_active"],
-                    "in_grace_period": trial_status["in_grace_period"],
-                    "upgrade_required": True
-                }
-            )
+                raise HTTPException(
+                    status_code=402,
+                    detail={
+                        "error": "FEATURE_NOT_LICENSED",
+                        "message": message,
+                        "feature_id": feature_id,
+                        "license_status": license_status["license_status"],
+                        "trial_active": trial_status["trial_active"],
+                        "in_grace_period": trial_status["in_grace_period"],
+                        "upgrade_required": True
+                    }
+                )
+        finally:
+            master_db.close()
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
@@ -369,15 +389,17 @@ def feature_enabled(feature_id: str, db: Optional[Session] = None) -> bool:
         True if feature is enabled, False otherwise
     """
     close_db = False
-    
     if db is None:
         db = next(get_db())
         close_db = True
-    
+
+    # Open the master DB session here and close it in a finally so it is not
+    # self-created by LicenseService and leaked until GC (see check_feature).
+    master_db = SessionLocal()
     try:
-        license_service = LicenseService(db)
-        return license_service.has_feature_for_gating(feature_id)
+        return LicenseService(db, master_db=master_db).has_feature_for_gating(feature_id)
     finally:
+        master_db.close()
         if close_db:
             db.close()
 
@@ -393,14 +415,18 @@ def get_enabled_features(db: Optional[Session] = None) -> list:
         List of enabled feature IDs
     """
     close_db = False
-    
+
     if db is None:
         db = next(get_db())
         close_db = True
-    
+
+    # Open the master DB session here and close it in a finally so it is not
+    # self-created by LicenseService and leaked until GC (see check_feature).
+    master_db = SessionLocal()
     try:
-        license_service = LicenseService(db)
+        license_service = LicenseService(db, master_db=master_db)
         return license_service.get_enabled_features()
     finally:
+        master_db.close()
         if close_db:
             db.close()
