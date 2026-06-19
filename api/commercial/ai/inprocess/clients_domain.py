@@ -7,10 +7,11 @@ notification). Spyable helpers are imported at module top for testability.
 
 from typing import Any, Dict
 
+from fastapi import HTTPException
 from core.utils.rbac import require_component_permission
 from core.utils.audit import log_audit_event
 from core.services.operation_notifications import maybe_send_operation_notification
-from core.constants.error_codes import CLIENT_ALREADY_EXISTS
+from core.constants.error_codes import CLIENT_ALREADY_EXISTS, FAILED_TO_CREATE_CLIENT
 
 
 def _tenant_default_currency(tenant_id: int) -> str:
@@ -44,51 +45,83 @@ class ClientsInProcessMixin:
         # Validate + normalize via the same schema the route uses.
         payload = ClientCreate(**client_data)
         data = payload.model_dump()
-        if data.get("email") is not None and data["email"].strip() == "":
-            data["email"] = None
+        client_name = data.get("name")
 
-        # Duplicate guard (mirror the route: compare decrypted name+email).
-        if data.get("email") is not None:
-            for existing in db.query(Client).all():
-                if existing.name == data.get("name") and existing.email == data["email"]:
-                    raise ValueError(CLIENT_ALREADY_EXISTS)
+        try:
+            if data.get("email") is not None and data["email"].strip() == "":
+                data["email"] = None
 
-        if not data.get("preferred_currency") or not str(data.get("preferred_currency")).strip():
-            data["preferred_currency"] = _tenant_default_currency(user.tenant_id)
+            # Duplicate guard (mirror the route: compare decrypted name+email).
+            if data.get("email") is not None:
+                for existing in db.query(Client).all():
+                    if existing.name == data.get("name") and existing.email == data["email"]:
+                        raise HTTPException(status_code=400, detail=CLIENT_ALREADY_EXISTS)
 
-        with db.begin_nested():
-            db_client = Client(
-                **data,
-                created_at=get_tenant_timezone_aware_datetime(db),
-                updated_at=get_tenant_timezone_aware_datetime(db),
+            if not data.get("preferred_currency") or not str(data.get("preferred_currency")).strip():
+                data["preferred_currency"] = _tenant_default_currency(user.tenant_id)
+
+            with db.begin_nested():
+                db_client = Client(
+                    **data,
+                    created_at=get_tenant_timezone_aware_datetime(db),
+                    updated_at=get_tenant_timezone_aware_datetime(db),
+                )
+                db.add(db_client)
+            db.commit()
+            db.refresh(db_client)
+
+            log_audit_event(
+                db=db,
+                user_id=user.id,
+                user_email=user.email,
+                action="CREATE",
+                resource_type="client",
+                resource_id=str(db_client.id),
+                resource_name=db_client.name,
+                details=data,
+                status="success",
             )
-            db.add(db_client)
-        db.commit()
-        db.refresh(db_client)
-
-        log_audit_event(
-            db=db,
-            user_id=user.id,
-            user_email=user.email,
-            action="CREATE",
-            resource_type="client",
-            resource_id=str(db_client.id),
-            resource_name=db_client.name,
-            details=data,
-            status="success",
-        )
-        maybe_send_operation_notification(
-            db,
-            event_type="client_created",
-            user_id=user.id,
-            tenant_id=user.tenant_id,
-            resource_type="client",
-            resource_id=str(db_client.id),
-            resource_name=db_client.name,
-            details={
-                "email": db_client.email,
-                "phone": db_client.phone or "N/A",
-                "preferred_currency": db_client.preferred_currency,
-            },
-        )
-        return _client_to_dict(db_client)
+            maybe_send_operation_notification(
+                db,
+                event_type="client_created",
+                user_id=user.id,
+                tenant_id=user.tenant_id,
+                resource_type="client",
+                resource_id=str(db_client.id),
+                resource_name=db_client.name,
+                details={
+                    "email": db_client.email,
+                    "phone": db_client.phone or "N/A",
+                    "preferred_currency": db_client.preferred_currency,
+                },
+            )
+            return _client_to_dict(db_client)
+        except HTTPException as e:
+            log_audit_event(
+                db=db,
+                user_id=user.id,
+                user_email=user.email,
+                action="CREATE",
+                resource_type="client",
+                resource_id=None,
+                resource_name=client_name,
+                details=data,
+                status="error",
+                error_message=str(getattr(e, "detail", e)),
+            )
+            raise
+        except Exception as e:
+            db.rollback()
+            log_audit_event(
+                db=db,
+                user_id=user.id,
+                user_email=user.email,
+                action="CREATE",
+                resource_type="client",
+                resource_id=None,
+                resource_name=client_name,
+                details=data,
+                status="error",
+                error_message=str(e),
+            )
+            raise HTTPException(status_code=500, detail=FAILED_TO_CREATE_CLIENT)
