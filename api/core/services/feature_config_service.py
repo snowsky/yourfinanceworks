@@ -11,6 +11,7 @@ from typing import Optional, Dict, List
 from functools import lru_cache
 from sqlalchemy.orm import Session
 
+from core.models.database import SessionLocal
 from core.services.license_service import LicenseService
 
 
@@ -265,12 +266,16 @@ class FeatureConfigService:
         
         # Check license if database session provided and check_license is True
         if check_license and db is not None:
+            # Open the master DB session here and close it in a finally so it is not
+            # self-created by LicenseService (next(get_master_db()) in
+            # _get_or_create_global_installation) and leaked until GC.
+            master_db = SessionLocal()
             try:
-                license_service = LicenseService(db)
+                license_service = LicenseService(db, master_db=master_db)
                 # If license check passes, feature is enabled
                 if license_service.has_feature(feature_id, tier=tier):
                     return True
-                
+
                 # Check if license status is invalid (fresh install)
                 license_status = license_service.get_license_status()
                 if license_status.get("license_status") == "invalid":
@@ -289,6 +294,8 @@ class FeatureConfigService:
             except Exception:
                 # If license check fails, fall through to env var check
                 pass
+            finally:
+                master_db.close()
         
         # Check environment variable
         env_var = feature.get('env_var')
