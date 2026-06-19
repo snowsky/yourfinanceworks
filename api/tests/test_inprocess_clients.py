@@ -65,3 +65,19 @@ async def test_create_client_rejects_duplicate(db_session, monkeypatch):
     with pytest.raises(HTTPException) as exc_info:
         await client.create_client({"name": "Acme", "email": "dup@acme.com"})
     assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_list_clients_returns_items_shape(db_session, monkeypatch):
+    monkeypatch.setattr(cd, "require_component_permission", lambda *a, **k: None)
+    monkeypatch.setattr(cd, "log_audit_event", lambda **k: None)
+    monkeypatch.setattr(cd, "maybe_send_operation_notification", lambda *a, **k: None)
+    client = InProcessAPIClient(db=db_session, current_user=_admin())
+    await client.create_client({"name": "Acme", "email": "a@acme.com"})
+
+    result = await client.list_clients(skip=0, limit=10)
+    assert isinstance(result, dict)
+    assert result["total"] == 1
+    assert isinstance(result["items"], list)
+    assert result["items"][0]["name"] == "Acme"
+    assert "outstanding_balance" in result["items"][0]   # aggregate shape preserved
