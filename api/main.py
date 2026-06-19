@@ -38,6 +38,7 @@ ensure_env_file()
 from core.routers import (
     auth,
     clients,
+    dashboard,
     invoices,
     payments,
     expenses,
@@ -587,6 +588,7 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(tenant.router, prefix="/api/v1")
 app.include_router(super_admin.router, prefix="/api/v1")  # Add super admin router
 app.include_router(clients.router, prefix="/api/v1")
+app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(invoices.router, prefix="/api/v1")
 app.include_router(payments.router, prefix="/api/v1")
 app.include_router(expenses.router, prefix="/api/v1")
