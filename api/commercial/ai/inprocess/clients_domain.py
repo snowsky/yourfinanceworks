@@ -31,6 +31,51 @@ def _tenant_default_currency(tenant_id: int) -> str:
 
 
 class ClientsInProcessMixin:
+    async def list_clients(self, skip: int = 0, limit: int = 100, label_filter=None) -> Dict[str, Any]:
+        import sqlalchemy as sa
+        from sqlalchemy import func, and_
+        from core.models.models_per_tenant import Client, Invoice, Payment
+        from core.routers.clients import _client_to_dict
+
+        db = self._db
+        query = db.query(
+            Client,
+            func.coalesce(func.sum(Payment.amount), 0).label("total_paid"),
+            func.coalesce(func.sum(Invoice.amount), 0).label("total_invoiced"),
+            func.coalesce(
+                func.sum(
+                    sa.case(
+                        (and_(Invoice.status.in_(["pending", "overdue", "partially_paid"]), Invoice.is_deleted == False), Invoice.amount),  # noqa: E712
+                        else_=0,
+                    )
+                ), 0
+            ).label("pending_invoiced"),
+            func.coalesce(
+                func.sum(
+                    sa.case(
+                        (and_(Invoice.status.in_(["pending", "overdue", "partially_paid"]), Invoice.is_deleted == False), Payment.amount),  # noqa: E712
+                        else_=0,
+                    )
+                ), 0
+            ).label("pending_paid"),
+        ).outerjoin(
+            Invoice, and_(Invoice.client_id == Client.id, Invoice.is_deleted == False)  # noqa: E712
+        ).outerjoin(
+            Payment, Payment.invoice_id == Invoice.id
+        )
+
+        if label_filter:
+            query = query.filter(sa.cast(Client.labels, sa.String).ilike(f"%{label_filter}%"))
+
+        total_count = query.group_by(Client.id).count()
+        rows = query.group_by(Client.id).offset(skip).limit(limit).all()
+
+        items = []
+        for client, total_paid, total_invoiced, pending_invoiced, pending_paid in rows:
+            outstanding = float(pending_invoiced or 0) - float(pending_paid or 0)
+            items.append(_client_to_dict(client, total_paid=float(total_paid), outstanding_balance=outstanding))
+        return {"items": items, "total": total_count}
+
     async def create_client(self, client_data: Dict[str, Any]) -> Dict[str, Any]:
         from core.models.models_per_tenant import Client
         from core.schemas.client import ClientCreate
