@@ -1,0 +1,21 @@
+# Python build / cache artifacts — regenerated, never a build input
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+
+# Test & coverage artifacts (the slow ones: htmlcov + thousands of .pyc)
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+
+# Runtime data, not build inputs
+attachments/
+plugins_dynamic/
+*.log
+.DS_Store
