@@ -7,12 +7,10 @@
 import json
 import logging
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
-
-from commercial.ai.routers.auth_client import AuthenticatedAPIClient
 
 logger = logging.getLogger(__name__)
 
@@ -22,20 +20,11 @@ def _split_labels(raw: str) -> List[str]:
     return [p.strip().strip("\"'") for p in parts if p.strip()]
 
 
-async def _init_tools(current_user_email: str):
+async def _init_tools(db, current_user):
     from MCP.tools import InvoiceTools
-    from core.routers.auth import create_access_token
+    from commercial.ai.inprocess.base import InProcessAPIClient
 
-    access_token_expires = timedelta(minutes=30)
-    jwt_token = create_access_token(
-        data={"sub": current_user_email}, expires_delta=access_token_expires
-    )
-
-    api_client = AuthenticatedAPIClient(
-        base_url="http://localhost:8000/api/v1",
-        jwt_token=jwt_token
-    )
-    return InvoiceTools(api_client)
+    return InvoiceTools(InProcessAPIClient(db=db, current_user=current_user))
 
 
 async def _dispatch_create_client(tools, params):
@@ -153,7 +142,7 @@ async def _extract_onboarding_action(message: str, ai_config: Any) -> Optional[D
 
 
 async def _handle_onboarding_action(
-    message: str, confirmed_action: Optional[Dict[str, Any]], ai_config: Any, current_user_email: str,
+    message: str, confirmed_action: Optional[Dict[str, Any]], ai_config: Any, db, current_user,
 ) -> Optional[Dict[str, Any]]:
     # Execute path: only after explicit confirmation.
     if confirmed_action:
@@ -162,7 +151,7 @@ async def _handle_onboarding_action(
         dispatch = _ONBOARDING_ACTIONS.get(action)
         if dispatch is None:
             return {"success": False, "error": f"Unknown onboarding action: {action}"}
-        tools = await _init_tools(current_user_email)
+        tools = await _init_tools(db, current_user)
         try:
             result = await dispatch(tools, params)
         except Exception as exc:
@@ -201,13 +190,13 @@ async def handle_early_actions(
     page_context: Optional[Dict[str, Any]],
     ai_config: Any,
     db: Session,
-    current_user_email: str,
+    current_user,
     mode: Optional[str] = None,
     confirmed_action: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     # Onboarding mode: propose/confirm gate, isolated from the live write fast-path.
     if mode == "onboarding":
-        return await _handle_onboarding_action(message, confirmed_action, ai_config, current_user_email)
+        return await _handle_onboarding_action(message, confirmed_action, ai_config, db, current_user)
 
     # Page-aware statement actions (use current page context if available)
     entity = page_context.get("entity") if isinstance(page_context, dict) else None
@@ -221,7 +210,7 @@ async def handle_early_actions(
 
         if statement_id:
             if any(k in lower_message for k in ["reprocess", "re-process", "reanalyze", "re-analyze", "retry extraction", "re-run"]):
-                tools = await _init_tools(current_user_email)
+                tools = await _init_tools(db, current_user)
                 result = await tools.reprocess_bank_statement(statement_id=statement_id)
                 if result.get("success"):
                     return {
@@ -242,7 +231,7 @@ async def handle_early_actions(
             remove_labels_match = re.search(r"(?:remove|delete)\s*(?:label|labels|tag|tags)\s*(?:named\s+)?(.+)$", message, re.IGNORECASE)
 
             if note_match or add_labels_match or remove_labels_match:
-                tools = await _init_tools(current_user_email)
+                tools = await _init_tools(db, current_user)
                 notes_value = note_match.group(1).strip() if note_match else None
                 labels_to_add = _split_labels(add_labels_match.group(1)) if add_labels_match else []
                 labels_to_remove = _split_labels(remove_labels_match.group(1)) if remove_labels_match else []
@@ -318,7 +307,7 @@ async def handle_early_actions(
                         }
                     }
 
-                tools = await _init_tools(current_user_email)
+                tools = await _init_tools(db, current_user)
                 current_statement = await tools.get_bank_statement(statement_id=statement_id)
                 if not current_statement.get("success"):
                     return {
@@ -378,7 +367,7 @@ async def handle_early_actions(
             from MCP.tools import InvoiceTools
             from MCP.api_client import InvoiceAPIClient
 
-            tools = await _init_tools(current_user_email)
+            tools = await _init_tools(db, current_user)
 
             print(f"MCP Integration: Detected client creation intent (Pre-LLM): '{message}'")
 
@@ -502,7 +491,7 @@ You can now create invoices for this client.
 
         elif "expense" in lower_message:
             # Initialize basic components needed for this early path
-            tools = await _init_tools(current_user_email)
+            tools = await _init_tools(db, current_user)
 
             print(f"MCP Integration: Detected expense creation intent (Pre-LLM): '{message}'")
 
