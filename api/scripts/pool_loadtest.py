@@ -74,6 +74,19 @@ async def run(args):
 
     async with httpx.AsyncClient() as client:
 
+        # Pre-flight: a single quick probe. If the server isn't responding BEFORE
+        # any load, the run can't tell us anything about pool behavior — abort so a
+        # dead/hung server doesn't masquerade as pool starvation (60s timeouts).
+        pre = await _timed(client, "GET", probe_url, headers, None)
+        if pre[1] is None or pre[1] >= 500:
+            print(
+                f"ABORT: pre-flight {args.probe_endpoint} returned status={pre[1]} err={pre[2]} "
+                f"in {pre[0]:.2f}s.\nThe server is down/unresponsive (or the token/tenant is wrong) "
+                f"BEFORE any load — this is NOT a pool result. Bring the stack up healthy and retry."
+            )
+            return
+        print(f"pre-flight {args.probe_endpoint}: {pre[0]:.2f}s status={pre[1]} (server healthy)\n")
+
         async def load_worker():
             while not stop.is_set():
                 load_results.append(await _timed(client, args.load_method, load_url, headers, body))
@@ -112,7 +125,10 @@ def main():
     ap.add_argument("--tenant", required=True, help="Tenant id (X-Tenant-ID header)")
     ap.add_argument("--load-endpoint", default="/ai/chat")
     ap.add_argument("--load-method", default="POST")
-    ap.add_argument("--load-body", default='{"message":"hello","mode":"onboarding"}')
+    # Default exercises a MIGRATED tool path (clients intent → in-process list_clients),
+    # so it tests Layer 2a (self-HTTP elimination). NOTE: mode:onboarding does NOT — its
+    # propose path makes zero tool calls, so it only stresses Layer 2b (conn held across LLM).
+    ap.add_argument("--load-body", default='{"message":"list my clients"}')
     ap.add_argument("--probe-endpoint", default="/invoices/")
     ap.add_argument("--concurrency", type=int, default=20)
     ap.add_argument("--duration", type=float, default=30.0)
