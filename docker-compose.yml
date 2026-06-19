@@ -3,6 +3,10 @@ services:
   postgres-master:
     image: postgres:15
     container_name: invoice_app_postgres_master
+    # Headroom for the multi-worker API (see api.deploy.replicas). The connection
+    # budget is workers x (pool_size + max_overflow) x active_tenants; the postgres
+    # default of 100 is too low once the API runs 2+ replicas with per-tenant pools.
+    command: ["postgres", "-c", "max_connections=300"]
     environment:
       POSTGRES_DB: invoice_master
       POSTGRES_USER: postgres
@@ -26,7 +30,10 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
-    container_name: invoice_app_api
+    # No fixed container_name: the API runs as multiple replicas (see deploy.replicas),
+    # load-balanced by the nginx upstream; reach a worker with `docker compose exec api`.
+    deploy:
+      replicas: 2  # multiple API workers (parallel event loops) so sync DB I/O doesn't serialize requests
     env_file:
       - ./api/.env
     extra_hosts:
