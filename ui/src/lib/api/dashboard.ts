@@ -2,10 +2,24 @@ import { clientApi } from './clients';
 import { invoiceApi } from './invoices';
 import { expenseApi } from './expenses';
 import type { DashboardStats } from './invoices';
+import { apiRequest } from './_base';
 
 // Dashboard API
 export const dashboardApi = {
   getStats: async (): Promise<DashboardStats> => {
+    try {
+      // Server-side aggregate: one small call instead of fetching up to ~2000 rows.
+      return await apiRequest<DashboardStats>('/dashboard/stats');
+    } catch (error) {
+      // Endpoint missing (e.g. mid-deploy old backend) or failed — fall back to the
+      // original client-side aggregation so the dashboard always loads.
+      console.warn('dashboard/stats unavailable, using client-side fallback:', error);
+      return dashboardApi.getStatsClientSide();
+    }
+  },
+
+  // Original client-side aggregation, retained as a fallback.
+  getStatsClientSide: async (): Promise<DashboardStats> => {
     try {
       const [clientsData, invoicesData] = await Promise.all([
         clientApi.getClients(0, 1000), // get more for dashboard
