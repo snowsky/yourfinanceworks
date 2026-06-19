@@ -13,7 +13,11 @@ from litellm import acompletion
 
 def materialize_ai_config(cfg) -> SimpleNamespace:
     """Copy the resolved AI config into a plain object so later attribute access
-    cannot trigger an ORM re-query (which would re-check-out the connection)."""
+    cannot trigger an ORM re-query (which would re-check-out the connection).
+
+    Intentionally carries ONLY the four fields the chat path reads when building
+    LLM kwargs; other AIConfig attributes (is_active/is_default/id/…) are dropped.
+    """
     return SimpleNamespace(
         provider_name=getattr(cfg, "provider_name", None),
         model_name=getattr(cfg, "model_name", None),

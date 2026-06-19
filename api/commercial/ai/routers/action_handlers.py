@@ -97,9 +97,9 @@ async def _extract_onboarding_action(message: str, ai_config: Any, db) -> Option
 
     Returns {"action": str, "params": dict} or None when no action is clearly intended.
 
-    Uses async ``acompletion`` so the LLM round-trip does not block the event loop —
-    a sync call here would serialize all concurrent /ai/chat requests and starve
-    unrelated endpoints.
+    Routes the LLM round-trip through ``llm_acompletion(db, ...)``, which releases the
+    tenant DB connection (rollback) before the call so it isn't held idle while waiting
+    on the model, and runs it async so the event loop isn't blocked.
     """
     system = (
         "You map a user's onboarding message to ONE setup action. "
