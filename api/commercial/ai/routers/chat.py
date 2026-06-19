@@ -21,6 +21,7 @@ from commercial.ai.routers.chat_models import ChatRequest
 from commercial.ai.routers.action_handlers import handle_early_actions
 from commercial.ai.routers.intent_handlers import dispatch_intent
 from commercial.ai.routers.intent_routing import TOOL_INTENTS, parse_agent_tool_plan
+from commercial.ai.routers.llm import llm_acompletion, materialize_ai_config
 
 logger = logging.getLogger(__name__)
 logger.setLevel(os.getenv("LOG_LEVEL", "INFO"))
@@ -98,17 +99,13 @@ async def ai_chat(
             print(f"Using AI config from environment: provider={ai_config.provider_name}, model={ai_config.model_name}")
             logger.info(f"Using AI config from environment: provider={ai_config.provider_name}, model={ai_config.model_name}")
 
+        # Materialize the config into a plain object BEFORE any LLM call, so that
+        # releasing the connection (rollback inside llm_acompletion) cannot later
+        # trigger an ORM re-query when building LLM kwargs.
+        ai_config = materialize_ai_config(ai_config)
+
         # Use AI to classify user intent and determine MCP tool
         logger.info(f"MCP Integration: Processing message: '{request.message}'")
-
-        # Import litellm for intent classification
-        try:
-            from litellm import acompletion as completion
-        except ImportError:
-            return {
-                "success": False,
-                "error": "LiteLLM not installed. Please install it with: pip install litellm"
-            }
 
         # Classify user intent using AI
         page_context = request.page_context if isinstance(request.page_context, dict) else None
@@ -164,6 +161,7 @@ Category:"""
             message=request.message,
             page_context_block=page_context_block,
             ai_config=ai_config,
+            db=db,
         )
         if tool_plan:
             intent = tool_plan[0]["intent"]
@@ -188,7 +186,7 @@ Category:"""
                 kwargs["api_key"] = ai_config.api_key
 
             try:
-                intent_response = await completion(**kwargs)
+                intent_response = await llm_acompletion(db, **kwargs)
                 intent = intent_response.choices[0].message.content.strip().lower()
                 if intent not in {*TOOL_INTENTS, "general"}:
                     intent = "general"
@@ -231,6 +229,7 @@ Category:"""
                     planned_results=planned_results,
                     page_context_block=page_context_block,
                     ai_config=ai_config,
+                    db=db,
                 )
                 return {
                     "success": True,
@@ -257,14 +256,6 @@ Category:"""
             return result
 
         # For general queries or unmatched intents, use the regular LLM
-        # Import litellm here to avoid circular imports
-        try:
-            from litellm import acompletion as completion
-        except ImportError:
-            return {
-                "success": False,
-                "error": "LiteLLM not installed. Please install it with: pip install litellm"
-            }
 
         # Format model name based on provider for LiteLLM
         model_name = ai_config.model_name
@@ -319,7 +310,7 @@ Category:"""
                 kwargs["api_base"] = ai_config.provider_url
 
         # Make the completion call
-        response = await completion(**kwargs)
+        response = await llm_acompletion(db, **kwargs)
 
         ai_response = response.choices[0].message.content if response.choices else "I'm sorry, I couldn't generate a response."
 
@@ -345,12 +336,9 @@ async def _plan_mcp_tool_intents(
     message: str,
     page_context_block: str,
     ai_config,
+    db,
 ) -> list[str]:
     """Ask the AI model to choose the MCP tool intents needed to answer."""
-    try:
-        from litellm import acompletion as completion
-    except ImportError:
-        return []
 
     model_name = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
     model_params = AIConfigService.get_model_parameters(model_name, max_tokens=120, temperature=0.0)
@@ -400,7 +388,7 @@ JSON:"""
         kwargs["api_key"] = ai_config.api_key
 
     try:
-        response = await completion(**kwargs)
+        response = await llm_acompletion(db, **kwargs)
         raw_plan = response.choices[0].message.content.strip()
     except Exception as exc:
         logger.info(f"MCP Integration: agent tool planning failed: {exc}")
@@ -415,11 +403,14 @@ async def _synthesize_tool_results(
     planned_results: list[tuple[str, dict]],
     page_context_block: str,
     ai_config,
+    db,
 ) -> str:
     """Use the chat model to combine multiple MCP tool outputs into one answer."""
     tool_outputs = []
     for intent, result in planned_results:
         data = result.get("data", {}) if isinstance(result, dict) else {}
+        if not isinstance(data, dict):
+            data = {}
         tool_outputs.append(
             {
                 "intent": intent,
@@ -431,10 +422,6 @@ async def _synthesize_tool_results(
     fallback = "\n\n".join(
         output["response"] for output in tool_outputs if output.get("response")
     )
-    try:
-        from litellm import acompletion as completion
-    except ImportError:
-        return fallback
 
     model_name = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
     prompt = f"""Answer the user's question using only the MCP tool outputs below.
@@ -460,7 +447,7 @@ Answer:"""
         kwargs["api_key"] = ai_config.api_key
 
     try:
-        response = await completion(**kwargs)
+        response = await llm_acompletion(db, **kwargs)
         return response.choices[0].message.content if response.choices else fallback
     except Exception as exc:
         logger.info(f"MCP Integration: tool result synthesis failed: {exc}")

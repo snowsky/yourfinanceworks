@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
+from commercial.ai.routers.llm import llm_acompletion
+
 logger = logging.getLogger(__name__)
 
 
@@ -90,20 +92,15 @@ def _clean_onboarding_name(name: Optional[str]) -> Optional[str]:
     return cleaned
 
 
-async def _extract_onboarding_action(message: str, ai_config: Any) -> Optional[Dict[str, Any]]:
+async def _extract_onboarding_action(message: str, ai_config: Any, db) -> Optional[Dict[str, Any]]:
     """Use the LLM to map an onboarding message to one whitelisted action + params.
 
     Returns {"action": str, "params": dict} or None when no action is clearly intended.
 
-    Uses async ``acompletion`` so the LLM round-trip does not block the event loop —
-    a sync call here would serialize all concurrent /ai/chat requests and starve
-    unrelated endpoints.
+    Routes the LLM round-trip through ``llm_acompletion(db, ...)``, which releases the
+    tenant DB connection (rollback) before the call so it isn't held idle while waiting
+    on the model, and runs it async so the event loop isn't blocked.
     """
-    try:
-        from litellm import acompletion
-    except ImportError:
-        return None
-
     system = (
         "You map a user's onboarding message to ONE setup action. "
         "Allowed actions: create_client (params: name, email, phone), "
@@ -119,7 +116,8 @@ async def _extract_onboarding_action(message: str, ai_config: Any) -> Optional[D
     )
     model = f"ollama/{ai_config.model_name}" if ai_config.provider_name == "ollama" else ai_config.model_name
     try:
-        resp = await acompletion(
+        resp = await llm_acompletion(
+            db,
             model=model,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": message}],
             api_key=getattr(ai_config, "api_key", None),
@@ -170,7 +168,7 @@ async def _handle_onboarding_action(
         }
 
     # Propose path: classify + return for confirmation, never execute.
-    proposal = await _extract_onboarding_action(message, ai_config)
+    proposal = await _extract_onboarding_action(message, ai_config, db)
     if proposal is None:
         return None  # let the normal chat path answer the question
     return {
@@ -370,8 +368,6 @@ async def handle_early_actions(
 
             # Use LLM to extract client details for robustness
             try:
-                from litellm import acompletion as completion
-
                 # Prepare extraction prompt
                 extraction_prompt = f"""Extract the client details from the following request. Return ONLY a JSON object with keys 'name', 'email', and 'phone'.
 If a field is not missing, set it to null.
@@ -398,7 +394,7 @@ JSON:"""
 
                 print(f"MCP Integration: Extracting client details using LLM model: {extraction_model}")
 
-                extract_response = await completion(**extraction_params)
+                extract_response = await llm_acompletion(db, **extraction_params)
                 extract_content = extract_response.choices[0].message.content.strip()
                 # Clean up any potential markdown code blocks
                 extract_content = extract_content.replace('```json', '').replace('```', '').strip()
@@ -494,8 +490,6 @@ You can now create invoices for this client.
 
             # Use LLM to extract expense details
             try:
-                from litellm import acompletion as completion
-
                 # Prepare extraction prompt
                 current_date = datetime.now().strftime("%Y-%m-%d")
                 extraction_prompt = f"""Extract the expense details from the following request. Return ONLY a JSON object.
@@ -525,7 +519,7 @@ JSON:"""
 
                 print(f"MCP Integration: Extracting expense details using LLM model: {extraction_model}")
 
-                extract_response = await completion(**extraction_params)
+                extract_response = await llm_acompletion(db, **extraction_params)
                 extract_content = extract_response.choices[0].message.content.strip()
                 extract_content = extract_content.replace('```json', '').replace('```', '').strip()
 
