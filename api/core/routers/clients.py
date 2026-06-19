@@ -18,8 +18,6 @@ from core.routers.auth import get_current_user
 from core.utils.rbac import require_component_permission
 from core.utils.audit import log_audit_event
 from core.constants.error_codes import CLIENT_ALREADY_EXISTS, CLIENT_NOT_FOUND, CLIENT_HAS_INVOICES, FAILED_TO_CREATE_CLIENT, FAILED_TO_UPDATE_CLIENT, FAILED_TO_FETCH_CLIENTS, FAILED_TO_FETCH_CLIENT
-from core.services.notification_service import NotificationService
-from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
 from core.services.client_record_service import ClientRecordService
 from core.utils.timezone import get_tenant_timezone_aware_datetime
 
@@ -266,49 +264,22 @@ async def create_client(
             status="success"
         )
         
-        # Send notification if email service is configured
-        try:
-            email_settings = db.query(Settings).filter(Settings.key == "email_config").first()
-            if email_settings and email_settings.value and email_settings.value.get('enabled'):
-                email_config_data = email_settings.value
-                config = EmailProviderConfig(
-                    provider=EmailProvider(email_config_data['provider']),
-                    from_email=email_config_data.get('from_email'),
-                    from_name=email_config_data.get('from_name'),
-                    aws_access_key_id=email_config_data.get('aws_access_key_id'),
-                    aws_secret_access_key=email_config_data.get('aws_secret_access_key'),
-                    aws_region=email_config_data.get('aws_region'),
-                    azure_connection_string=email_config_data.get('azure_connection_string'),
-                    mailgun_api_key=email_config_data.get('mailgun_api_key'),
-                    mailgun_domain=email_config_data.get('mailgun_domain')
-                )
-                email_service = EmailService(config)
-                notification_service = NotificationService(db, email_service)
-
-                # Get tenant name for notification
-                master_db = next(get_master_db())
-                try:
-                    tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
-                    company_name = tenant.name if tenant else APP_NAME
-                finally:
-                    master_db.close()
-
-                notification_service.send_operation_notification(
-                    event_type="client_created",
-                    user_id=current_user.id,
-                    resource_type="client",
-                    resource_id=str(db_client.id),
-                    resource_name=db_client.name,
-                    details={
-                        "email": db_client.email,
-                        "phone": db_client.phone or "N/A",
-                        "preferred_currency": db_client.preferred_currency
-                    },
-                    company_name=company_name
-                )
-        except Exception as e:
-            logger.warning(f"Failed to send client creation notification: {str(e)}")
-            # Don't fail the request if notification fails
+        # Send notification if email service is configured (shared helper; never raises)
+        from core.services.operation_notifications import maybe_send_operation_notification
+        maybe_send_operation_notification(
+            db,
+            event_type="client_created",
+            user_id=current_user.id,
+            tenant_id=current_user.tenant_id,
+            resource_type="client",
+            resource_id=str(db_client.id),
+            resource_name=db_client.name,
+            details={
+                "email": db_client.email,
+                "phone": db_client.phone or "N/A",
+                "preferred_currency": db_client.preferred_currency,
+            },
+        )
         
         # Return client data as dict to avoid DetachedInstanceError
         client_dict = _client_to_dict(db_client)

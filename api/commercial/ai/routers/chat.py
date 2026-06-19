@@ -21,7 +21,6 @@ from commercial.ai.routers.chat_models import ChatRequest
 from commercial.ai.routers.action_handlers import handle_early_actions
 from commercial.ai.routers.intent_handlers import dispatch_intent
 from commercial.ai.routers.intent_routing import TOOL_INTENTS, parse_agent_tool_plan
-from commercial.ai.routers.auth_client import AuthenticatedAPIClient
 
 logger = logging.getLogger(__name__)
 logger.setLevel(os.getenv("LOG_LEVEL", "INFO"))
@@ -154,7 +153,7 @@ Category:"""
             page_context=page_context,
             ai_config=ai_config,
             db=db,
-            current_user_email=current_user.email,
+            current_user=current_user,
             mode=request.mode,
             confirmed_action=request.confirmed_action,
         )
@@ -198,28 +197,13 @@ Category:"""
                 print(f"MCP Integration: Intent classification failed: {e}")
                 intent = "general"
 
-        # Initialize MCP tools using current user's session
+        # Initialize MCP tools using an in-process client (no self-HTTP, reuses this
+        # request's tenant session). Unmigrated methods fall back to HTTP internally.
         from MCP.tools import InvoiceTools
-        from MCP.api_client import InvoiceAPIClient
-        from fastapi import Request
+        from commercial.ai.inprocess.base import InProcessAPIClient
 
-        # Create a token for the current user to use with MCP tools
-        from core.routers.auth import create_access_token
-        from datetime import timedelta
-
-        # Create a token for the current user
-        access_token_expires = timedelta(minutes=30)
-        jwt_token = create_access_token(
-            data={"sub": current_user.email}, expires_delta=access_token_expires
-        )
-
-        print(f"MCP Integration: Initializing API client with token...")
-        api_client = AuthenticatedAPIClient(
-            base_url="http://localhost:8000/api/v1",
-            jwt_token=jwt_token
-        )
+        api_client = InProcessAPIClient(db=db, current_user=current_user)
         tools = InvoiceTools(api_client)
-        print("MCP Integration: API client and tools initialized successfully")
 
         if tool_plan:
             planned_results = []
