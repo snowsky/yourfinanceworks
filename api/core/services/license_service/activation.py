@@ -27,8 +27,16 @@ class LicenseActivationMixin:
     def _get_or_create_global_installation(self) -> GlobalInstallationInfo:
         """Get or create the global installation info in the master database"""
         if not self.master_db:
-            # Fallback for when master_db is not provided (should be rare)
+            # No master_db provided: self-create one. Request-path callers MUST pass a
+            # managed master_db (see #414) — this self-created session is NOT closed
+            # here and is only released on GC, so a hot caller hitting this path
+            # reintroduces the master-pool leak. The fallback exists only for
+            # short-lived scripts / one-offs where process exit releases the connection.
             from core.models.database import get_master_db
+            logger.warning(
+                "LicenseService self-creating a master DB session (no master_db passed); "
+                "request-path callers should pass master_db to avoid leaking the connection until GC."
+            )
             try:
                 self.master_db = next(get_master_db())
             except Exception as e:
@@ -551,31 +559,33 @@ class LicenseActivationMixin:
 
             # Get master database session
             master_db = next(get_master_db())
+            try:
+                # Find super admin user
+                super_admin = (
+                    master_db.query(MasterUser)
+                    .filter(MasterUser.is_superuser == True)
+                    .first()
+                )
 
-            # Find super admin user
-            super_admin = (
-                master_db.query(MasterUser)
-                .filter(MasterUser.is_superuser == True)
-                .first()
-            )
+                if super_admin:
+                    # Create tenant management service and enforce limits
+                    tenant_service = TenantManagementService(master_db, self.db)
+                    enforcement_result = tenant_service.enforce_tenant_limits(super_admin)
 
-            if super_admin:
-                # Create tenant management service and enforce limits
-                tenant_service = TenantManagementService(master_db, self.db)
-                enforcement_result = tenant_service.enforce_tenant_limits(super_admin)
-
-                if enforcement_result["success"]:
-                    logger.info(
-                        f"Tenant limits enforced after license activation: {enforcement_result['message']}"
-                    )
+                    if enforcement_result["success"]:
+                        logger.info(
+                            f"Tenant limits enforced after license activation: {enforcement_result['message']}"
+                        )
+                    else:
+                        logger.warning(
+                            f"Failed to enforce tenant limits: {enforcement_result.get('error', 'Unknown error')}"
+                        )
                 else:
-                    logger.warning(
-                        f"Failed to enforce tenant limits: {enforcement_result.get('error', 'Unknown error')}"
-                    )
-            else:
-                logger.warning("No super admin found - cannot enforce tenant limits")
-
-            master_db.close()
+                    logger.warning("No super admin found - cannot enforce tenant limits")
+            finally:
+                # Close even if enforcement raises — otherwise this master session
+                # leaks until GC (see #414).
+                master_db.close()
 
         except Exception as e:
             logger.error(

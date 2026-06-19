@@ -196,8 +196,15 @@ async def upload_receipt(
             disable_ai = getattr(expense, "disable_ai_recognition", False)
             if not disable_ai:
                 from core.services.license_service import LicenseService
-                license_service = LicenseService(db)
-                if not license_service.has_feature("ai_expense"):
+                from core.models.database import SessionLocal
+                # Pass a managed master session and close it right after the check —
+                # LicenseService self-creates and leaks one otherwise (see #414).
+                master_db = SessionLocal()
+                try:
+                    has_ai = LicenseService(db, master_db=master_db).has_feature("ai_expense")
+                finally:
+                    master_db.close()
+                if not has_ai:
                     logger.info(f"Skipping AI processing for expense {expense_id} - ai_expense feature not licensed")
                     expense.analysis_status = "skipped"
                     db.commit()
@@ -315,8 +322,15 @@ async def reprocess_expense(
             tenant_id = get_tenant_context()
 
             from core.services.license_service import LicenseService
-            license_service = LicenseService(db)
-            if not license_service.has_feature("ai_expense"):
+            from core.models.database import SessionLocal
+            # Pass a managed master session and close it right after the check —
+            # LicenseService self-creates and leaks one otherwise (see #414).
+            master_db = SessionLocal()
+            try:
+                has_ai = LicenseService(db, master_db=master_db).has_feature("ai_expense")
+            finally:
+                master_db.close()
+            if not has_ai:
                 logger.info(f"Cannot reprocess expense {expense_id} - ai_expense feature not licensed")
                 expense.analysis_status = "skipped"
                 db.commit()
