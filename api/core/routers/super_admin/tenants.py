@@ -324,8 +324,9 @@ async def create_tenant(
         admin_tenant_db = tenant_session()
 
         try:
-            # Check license from super admin's tenant
-            license_service = LicenseService(admin_tenant_db)
+            # Check license from super admin's tenant. Pass the request-scoped
+            # master_db so LicenseService doesn't self-create and leak one (see #414).
+            license_service = LicenseService(admin_tenant_db, master_db=master_db)
             max_tenants = license_service.get_max_tenants()
             current_tenants_count = master_db.query(Tenant).filter(
                 Tenant.count_against_license == True
