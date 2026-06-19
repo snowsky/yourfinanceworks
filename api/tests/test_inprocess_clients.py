@@ -81,3 +81,22 @@ async def test_list_clients_returns_items_shape(db_session, monkeypatch):
     assert isinstance(result["items"], list)
     assert result["items"][0]["name"] == "Acme"
     assert "outstanding_balance" in result["items"][0]   # aggregate shape preserved
+
+
+@pytest.mark.asyncio
+async def test_outstanding_balance_lists_clients_with_positive_balance(db_session, monkeypatch):
+    monkeypatch.setattr(cd, "require_component_permission", lambda *a, **k: None)
+    monkeypatch.setattr(cd, "log_audit_event", lambda **k: None)
+    monkeypatch.setattr(cd, "maybe_send_operation_notification", lambda *a, **k: None)
+    client = InProcessAPIClient(db=db_session, current_user=_admin())
+    created = await client.create_client({"name": "Owes", "email": "owes@x.com"})
+
+    from core.models.models_per_tenant import Client
+    # Client.name is an EncryptedColumn — never filter it by plaintext; query by id.
+    row = db_session.query(Client).filter(Client.id == created["id"]).first()
+    row.balance = 150.0
+    db_session.commit()
+
+    result = await client.get_clients_with_outstanding_balance()
+    assert isinstance(result, list)
+    assert any(c["name"] == "Owes" and c["outstanding_balance"] == 150.0 for c in result)
