@@ -47,6 +47,11 @@ def test_currency_formatting_usd():
     vm = assemble_view_model(_data(), CFG)
     assert vm.totals.total == "$90.00"
 
+def test_fixed_discount_capped_at_subtotal():
+    vm = assemble_view_model(_data(discount={"type": "fixed", "value": 150.0}), CFG)
+    assert vm.totals.discount_amount_raw == 100.0  # capped at subtotal 100
+    assert vm.totals.total_raw == 0.0
+
 def test_logo_hidden_when_config_off():
     cfg = InvoiceTemplateConfig(brand_color="#000", accent_color="#000",
         footer_text="", show={"logo": False, "notes": True, "custom_fields": True, "footer": True})

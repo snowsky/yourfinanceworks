@@ -189,7 +189,7 @@ def build_view_model(db, invoice, tenant, config: InvoiceTemplateConfig) -> Invo
             }
             for it in invoice.items
         ],
-        "amount": float(invoice.amount),
+        "amount": float(invoice.subtotal),  # pre-discount; assemble_view_model applies discount
         "paid_amount": float(paid),
         "discount": {
             "type": invoice.discount_type,
