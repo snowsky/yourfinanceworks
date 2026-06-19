@@ -170,3 +170,23 @@ class ClientsInProcessMixin:
                 error_message=str(e),
             )
             raise HTTPException(status_code=500, detail=FAILED_TO_CREATE_CLIENT)
+
+    async def get_clients_with_outstanding_balance(self) -> list:
+        from core.models.models_per_tenant import Client
+
+        rows = (
+            self._db.query(Client)
+            .filter(Client.balance > 0)
+            .order_by(Client.balance.desc())
+            .all()
+        )
+        return [
+            {
+                "name": c.name,
+                "email": c.email,
+                "phone": c.phone,
+                "outstanding_balance": float(c.balance or 0),
+                "preferred_currency": c.preferred_currency,
+            }
+            for c in rows
+        ]
