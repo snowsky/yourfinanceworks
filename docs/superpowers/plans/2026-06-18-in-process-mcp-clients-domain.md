@@ -17,6 +17,7 @@
 - Do NOT modify the standalone MCP server (`api/MCP/server/`, `api/MCP/api_client.py`).
 - Spyable shared helpers are imported at module top of the domain mixin (so tests can monkeypatch them); `_client_to_dict` is imported lazily inside methods to avoid a circular import with the `core.routers.clients` module.
 - Backend tests run in-container: `docker compose exec api python -m pytest tests/<file> -v` (use `python -m pytest`, never bare `pytest`; the conftest provides the SQLite `db_session`).
+- **EncryptedColumn caveat:** `Client.name`/`email`/`phone`/`address`/`company` are `EncryptedColumn`s — encryption is non-deterministic, so a SQL `filter_by(name="X")` / `WHERE name = 'X'` NEVER matches. In tests and code, identify a client by `id` (e.g. from the `create_client` return dict) or load rows and compare decrypted attributes in Python (as the real handler's dup-check does). Counting all rows (`query(Client).count()`) is fine.
 
 ---
 
@@ -840,10 +841,11 @@ async def test_outstanding_balance_lists_clients_with_positive_balance(db_sessio
     monkeypatch.setattr(cd, "log_audit_event", lambda **k: None)
     monkeypatch.setattr(cd, "maybe_send_operation_notification", lambda *a, **k: None)
     client = InProcessAPIClient(db=db_session, current_user=_admin())
-    await client.create_client({"name": "Owes", "email": "owes@x.com"})
+    created = await client.create_client({"name": "Owes", "email": "owes@x.com"})
 
     from core.models.models_per_tenant import Client
-    row = db_session.query(Client).filter_by(name="Owes").first()
+    # Client.name is an EncryptedColumn — never filter it by plaintext; query by id.
+    row = db_session.query(Client).filter(Client.id == created["id"]).first()
     row.balance = 150.0
     db_session.commit()
 
