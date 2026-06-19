@@ -18,8 +18,6 @@ from core.routers.auth import get_current_user
 from core.utils.rbac import require_component_permission
 from core.utils.audit import log_audit_event
 from core.constants.error_codes import CLIENT_ALREADY_EXISTS, CLIENT_NOT_FOUND, CLIENT_HAS_INVOICES, FAILED_TO_CREATE_CLIENT, FAILED_TO_UPDATE_CLIENT, FAILED_TO_FETCH_CLIENTS, FAILED_TO_FETCH_CLIENT
-from core.services.notification_service import NotificationService
-from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
 from core.services.client_record_service import ClientRecordService
 from core.utils.timezone import get_tenant_timezone_aware_datetime
 
