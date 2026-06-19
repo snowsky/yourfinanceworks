@@ -50,7 +50,7 @@ async def test_onboarding_confirmed_action_executes_tool(patch_tools):
 
 @pytest.mark.asyncio
 async def test_onboarding_proposes_without_executing(monkeypatch, patch_tools):
-    async def _fake_extract(message, ai_config):
+    async def _fake_extract(message, ai_config, db):
         return {"action": "create_client", "params": {"name": "Acme", "email": "ap@acme.com"}}
 
     monkeypatch.setattr(ah, "_extract_onboarding_action", _fake_extract)
@@ -76,7 +76,7 @@ async def test_onboarding_rejects_non_whitelisted_action(patch_tools):
 
 @pytest.mark.asyncio
 async def test_onboarding_no_action_falls_through(monkeypatch):
-    async def _none(message, ai_config):
+    async def _none(message, ai_config, db):
         return None
 
     monkeypatch.setattr(ah, "_extract_onboarding_action", _none)
@@ -102,7 +102,7 @@ def test_clean_onboarding_name_leaves_real_names_untouched():
 
 @pytest.mark.asyncio
 async def test_extract_applies_name_cleaning(monkeypatch):
-    import litellm
+    import commercial.ai.routers.llm as llm_mod
 
     async def _fake_acompletion(**kwargs):
         return {
@@ -111,7 +111,7 @@ async def test_extract_applies_name_cleaning(monkeypatch):
             ]
         }
 
-    monkeypatch.setattr(litellm, "acompletion", _fake_acompletion, raising=False)
-    out = await ah._extract_onboarding_action("create a client with john doe email jd@x.com", _Cfg())
+    monkeypatch.setattr(llm_mod, "acompletion", _fake_acompletion, raising=False)
+    out = await ah._extract_onboarding_action("create a client with john doe email jd@x.com", _Cfg(), None)
     assert out["action"] == "create_client"
     assert out["params"]["name"] == "john doe"  # 'with ' stripped
