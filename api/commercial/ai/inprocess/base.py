@@ -11,13 +11,14 @@ from datetime import timedelta
 
 from core.routers.auth import create_access_token
 from commercial.ai.routers.auth_client import AuthenticatedAPIClient
+from commercial.ai.inprocess.clients_domain import ClientsInProcessMixin
 
 logger = logging.getLogger(__name__)
 
 _SELF_BASE_URL = "http://localhost:8000/api/v1"
 
 
-class InProcessAPIClient:
+class InProcessAPIClient(ClientsInProcessMixin):
     def __init__(self, db, current_user):
         self._db = db
         self._current_user = current_user
