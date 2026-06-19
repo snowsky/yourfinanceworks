@@ -30,3 +30,30 @@ def test_blank_or_invalid_env_falls_back_to_default(monkeypatch):
     kw = dpc.pool_engine_kwargs()
     assert kw["pool_size"] == 5
     assert kw["max_overflow"] == 10
+
+
+def test_master_prefix_is_an_independent_env_family(monkeypatch):
+    monkeypatch.delenv("DB_POOL_SIZE", raising=False)
+    monkeypatch.setenv("DB_MASTER_POOL_SIZE", "15")
+    # master family reads its own var...
+    assert dpc.pool_engine_kwargs("DB_MASTER_POOL", pool_size=10, max_overflow=20)["pool_size"] == 15
+    # ...and does not bleed into the default per-tenant family
+    assert dpc.pool_engine_kwargs()["pool_size"] == 5
+
+
+def test_custom_defaults_preserve_master_baseline_when_env_unset(monkeypatch):
+    for var in (
+        "DB_MASTER_POOL_SIZE",
+        "DB_MASTER_POOL_MAX_OVERFLOW",
+        "DB_MASTER_POOL_TIMEOUT",
+        "DB_MASTER_POOL_RECYCLE",
+    ):
+        monkeypatch.delenv(var, raising=False)
+    # This is exactly how database.py builds the primary master engine.
+    assert dpc.pool_engine_kwargs("DB_MASTER_POOL", pool_size=10, max_overflow=20) == {
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+        "pool_size": 10,
+        "max_overflow": 20,
+        "pool_timeout": 10,
+    }

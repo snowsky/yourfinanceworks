@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from fastapi.exceptions import RequestValidationError
 from core.constants.error_codes import TENANT_CONTEXT_REQUIRED
+from core.utils.db_pool_config import pool_engine_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +25,10 @@ if DATABASE_URL and DATABASE_URL.startswith("postgresql"):
     # PostgreSQL configuration - This is the master database
     engine = create_engine(
         DATABASE_URL,
-        pool_pre_ping=True,  # Enable connection health checks
-        pool_recycle=300,    # Recycle connections after 5 minutes
-        pool_size=10,        # Maximum number of connections in the pool
-        max_overflow=20,     # Maximum number of connections that can be created beyond pool_size
-        pool_timeout=10,     # fail fast on pool exhaustion instead of hanging 30s
+        # Primary master engine: a single shared pool with a larger baseline than the
+        # per-tenant pools. Env-tunable via DB_MASTER_POOL_* (defaults below preserve
+        # the prior hardcoded 10/20, pool_timeout=10, pool_recycle=300, pre_ping=True).
+        **pool_engine_kwargs("DB_MASTER_POOL", pool_size=10, max_overflow=20),
     )
 else:
     # SQLite configuration - This is the master database
