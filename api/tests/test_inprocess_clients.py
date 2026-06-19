@@ -55,10 +55,13 @@ async def test_create_client_enforces_permission(db_session, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_create_client_rejects_duplicate(db_session, monkeypatch):
+    from fastapi import HTTPException
+
     monkeypatch.setattr(cd, "require_component_permission", lambda *a, **k: None)
     monkeypatch.setattr(cd, "log_audit_event", lambda **k: None)
     monkeypatch.setattr(cd, "maybe_send_operation_notification", lambda *a, **k: None)
     client = InProcessAPIClient(db=db_session, current_user=_admin())
     await client.create_client({"name": "Acme", "email": "dup@acme.com"})
-    with pytest.raises(Exception):
+    with pytest.raises(HTTPException) as exc_info:
         await client.create_client({"name": "Acme", "email": "dup@acme.com"})
+    assert exc_info.value.status_code == 400
