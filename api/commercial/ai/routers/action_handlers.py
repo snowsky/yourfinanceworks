@@ -364,9 +364,6 @@ async def handle_early_actions(
         if is_client_intent and "invoice" not in lower_message and "expense" not in lower_message:
             # Initialize basic components needed for this early path
             # Initialize MCP tools using current user's session
-            from MCP.tools import InvoiceTools
-            from MCP.api_client import InvoiceAPIClient
-
             tools = await _init_tools(db, current_user)
 
             print(f"MCP Integration: Detected client creation intent (Pre-LLM): '{message}'")
