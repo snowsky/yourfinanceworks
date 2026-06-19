@@ -1,4 +1,5 @@
 import pytest
+from types import SimpleNamespace
 
 import commercial.ai.routers.action_handlers as ah
 
@@ -21,11 +22,14 @@ class _Cfg:
     model_name = "gpt-4o-mini"
 
 
+_USER = SimpleNamespace(id=1, email="u@x.com", tenant_id=1, role="admin", is_superuser=True)
+
+
 @pytest.fixture
 def patch_tools(monkeypatch):
     fake = _FakeTools()
 
-    async def _fake_init(email):
+    async def _fake_init(db, current_user):
         return fake
 
     monkeypatch.setattr(ah, "_init_tools", _fake_init)
@@ -36,7 +40,7 @@ def patch_tools(monkeypatch):
 async def test_onboarding_confirmed_action_executes_tool(patch_tools):
     result = await ah.handle_early_actions(
         message="", lower_message="", page_context=None, ai_config=_Cfg(), db=None,
-        current_user_email="u@x.com", mode="onboarding",
+        current_user=_USER, mode="onboarding",
         confirmed_action={"action": "create_client", "params": {"name": "Acme", "email": "ap@acme.com"}},
     )
     assert result["success"] is True
@@ -52,7 +56,7 @@ async def test_onboarding_proposes_without_executing(monkeypatch, patch_tools):
     monkeypatch.setattr(ah, "_extract_onboarding_action", _fake_extract)
     result = await ah.handle_early_actions(
         message="add a client called Acme ap@acme.com", lower_message="add a client called acme ap@acme.com",
-        page_context=None, ai_config=_Cfg(), db=None, current_user_email="u@x.com", mode="onboarding",
+        page_context=None, ai_config=_Cfg(), db=None, current_user=_USER, mode="onboarding",
     )
     assert result["data"]["type"] == "proposed_action"
     assert result["data"]["action"] == "create_client"
@@ -63,7 +67,7 @@ async def test_onboarding_proposes_without_executing(monkeypatch, patch_tools):
 async def test_onboarding_rejects_non_whitelisted_action(patch_tools):
     result = await ah.handle_early_actions(
         message="", lower_message="", page_context=None, ai_config=_Cfg(), db=None,
-        current_user_email="u@x.com", mode="onboarding",
+        current_user=_USER, mode="onboarding",
         confirmed_action={"action": "delete_everything", "params": {}},
     )
     assert result["success"] is False
@@ -78,7 +82,7 @@ async def test_onboarding_no_action_falls_through(monkeypatch):
     monkeypatch.setattr(ah, "_extract_onboarding_action", _none)
     result = await ah.handle_early_actions(
         message="what is an invoice?", lower_message="what is an invoice?", page_context=None,
-        ai_config=_Cfg(), db=None, current_user_email="u@x.com", mode="onboarding",
+        ai_config=_Cfg(), db=None, current_user=_USER, mode="onboarding",
     )
     assert result is None  # falls through to normal chat answer
 
