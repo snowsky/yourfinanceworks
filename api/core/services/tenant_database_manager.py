@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from core.models.models import Base, Tenant
 from core.models.database import SQLALCHEMY_DATABASE_URL
 from core.models.models_per_tenant import Base as TenantBase
+from core.utils.db_pool_config import pool_engine_kwargs
 from core.utils.plugin_context import get_current_plugin_id, is_lockdown_mode
 from core.utils._plugin_isolation import is_isolation_bypassed
 
@@ -99,11 +100,7 @@ class TenantDatabaseManager:
         try:
             self.master_engine = create_engine(
                 SQLALCHEMY_DATABASE_URL,
-                pool_pre_ping=True,
-                pool_recycle=300,
-                pool_size=5,
-                max_overflow=10,
-                pool_timeout=10,  # fail fast on pool exhaustion instead of hanging 30s
+                **pool_engine_kwargs(),  # env-tunable; defaults = pool_size 5 / overflow 10 / timeout 10
             )
             self.master_session = sessionmaker(
                 autocommit=False, 
@@ -209,11 +206,7 @@ class TenantDatabaseManager:
             tenant_url = self.get_tenant_database_url(tenant_id)
             tenant_engine = create_engine(
                 tenant_url,
-                pool_pre_ping=True,
-                pool_recycle=300,
-                pool_size=5,
-                max_overflow=10,
-                pool_timeout=10,  # fail fast on pool exhaustion instead of hanging 30s
+                **pool_engine_kwargs(),  # env-tunable; defaults = pool_size 5 / overflow 10 / timeout 10
             )
 
             # Create all tables in tenant database
@@ -332,11 +325,7 @@ class TenantDatabaseManager:
 
             self.tenant_engines[tenant_key] = create_engine(
                 tenant_url,
-                pool_pre_ping=True,
-                pool_recycle=300,
-                pool_size=5,
-                max_overflow=10,
-                pool_timeout=10,  # fail fast on pool exhaustion instead of hanging 30s
+                **pool_engine_kwargs(),  # env-tunable; defaults = pool_size 5 / overflow 10 / timeout 10
             )
 
             # Register the enforcement listener for this engine
