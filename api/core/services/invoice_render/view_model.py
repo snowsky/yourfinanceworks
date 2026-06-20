@@ -91,7 +91,7 @@ def _discount_amount(subtotal: float, dtype: str, dvalue: float) -> float:
     return min(dvalue, subtotal)  # fixed, never exceeds subtotal
 
 
-def assemble_view_model(data: Dict[str, Any], config: InvoiceTemplateConfig) -> InvoiceViewModel:
+def assemble_view_model(data: Dict[str, Any], config: InvoiceTemplateConfig, public: bool = False) -> InvoiceViewModel:
     cur = data["meta"]["currency"] or "USD"
     fm = lambda v: format_money(v, cur)
 
@@ -117,9 +117,12 @@ def assemble_view_model(data: Dict[str, Any], config: InvoiceTemplateConfig) -> 
         balance_raw=balance, balance=fm(balance),
     )
 
-    raw_cf = data.get("custom_fields") or {}
-    custom_fields = [CustomFieldVM(label=k, value=v) for k, v in raw_cf.items()
-                     if k not in _RESERVED_CUSTOM_KEYS]
+    if public:
+        custom_fields: List[CustomFieldVM] = []
+    else:
+        raw_cf = data.get("custom_fields") or {}
+        custom_fields = [CustomFieldVM(label=k, value=v) for k, v in raw_cf.items()
+                         if k not in _RESERVED_CUSTOM_KEYS]
 
     c = data["company"]
     logo = c.get("logo_url") if config.show.get("logo", True) else None
@@ -130,15 +133,20 @@ def assemble_view_model(data: Dict[str, Any], config: InvoiceTemplateConfig) -> 
                   due_date=m.get("due_date", ""), status=m.get("status", ""),
                   currency=cur, show_discount=bool(m.get("show_discount", True)))
     cl = data["client"]
-    client = ClientVM(name=cl.get("name", ""), email=cl.get("email", ""),
-                      phone=cl.get("phone", ""), address=cl.get("address", ""))
+    if public:
+        client = ClientVM(name=cl.get("name", ""), email="", phone="", address="")
+    else:
+        client = ClientVM(name=cl.get("name", ""), email=cl.get("email", ""),
+                          phone=cl.get("phone", ""), address=cl.get("address", ""))
+
+    notes = "" if public else (data.get("notes", "") or "")
 
     return InvoiceViewModel(company=company, meta=meta, client=client, items=items,
-        totals=totals, custom_fields=custom_fields, notes=data.get("notes", "") or "",
+        totals=totals, custom_fields=custom_fields, notes=notes,
         footer_text=config.footer_text)
 
 
-def build_view_model(db, invoice, tenant, config: InvoiceTemplateConfig) -> InvoiceViewModel:
+def build_view_model(db, invoice, tenant, config: InvoiceTemplateConfig, public: bool = False) -> InvoiceViewModel:
     """Adapt ORM objects into the `assemble_view_model` data dict.
     paid_amount = SUM(payments.amount) for this invoice.
 
@@ -158,7 +166,7 @@ def build_view_model(db, invoice, tenant, config: InvoiceTemplateConfig) -> Invo
     client = invoice.client
     data = {
         "company": {
-            "name": tenant.name,
+            "name": tenant.name if tenant else "",
             "logo_url": getattr(tenant, "company_logo_url", None),
             "address": getattr(tenant, "address", "") or "",
             "phone": getattr(tenant, "phone", "") or "",
@@ -198,4 +206,4 @@ def build_view_model(db, invoice, tenant, config: InvoiceTemplateConfig) -> Invo
         "custom_fields": invoice.custom_fields or {},
         "notes": invoice.notes or "",
     }
-    return assemble_view_model(data, config)
+    return assemble_view_model(data, config, public=public)

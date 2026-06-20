@@ -58,3 +58,29 @@ def test_logo_hidden_when_config_off():
     vm = assemble_view_model(_data(company={"name": "Acme", "logo_url": "http://x/l.png",
         "address": "", "phone": "", "email": "", "tax_id": ""}), cfg)
     assert vm.company.logo_url is None  # suppressed by config
+
+def test_public_mode_suppresses_notes_custom_fields_and_client_pii():
+    data = _data(notes="INTERNAL", custom_fields={"PO": "x", "tax_amount": 5.0},
+                 client={"name": "Bob", "email": "b@x.co", "phone": "555", "address": "1 St"})
+    vm = assemble_view_model(data, CFG, public=True)
+    assert vm.notes == ""
+    assert vm.custom_fields == []
+    assert vm.client.name == "Bob"
+    assert vm.client.email == "" and vm.client.phone == "" and vm.client.address == ""
+    assert vm.totals.total == "$90.00"  # document still renders
+
+def test_non_public_mode_keeps_internal_fields():
+    data = _data(notes="N", custom_fields={"PO": "x"})
+    vm = assemble_view_model(data, CFG)  # public defaults False
+    assert vm.notes == "N"
+    assert any(cf.label == "PO" for cf in vm.custom_fields)
+
+def test_non_public_mode_keeps_client_pii_when_provided():
+    data = _data(notes="N", custom_fields={"PO": "x"},
+                 client={"name": "Bob", "email": "b@x.co", "phone": "555", "address": "1 St"})
+    vm = assemble_view_model(data, CFG)  # public defaults False
+    assert vm.notes == "N"
+    assert any(cf.label == "PO" for cf in vm.custom_fields)
+    assert vm.client.email == "b@x.co"
+    assert vm.client.phone == "555"
+    assert vm.client.address == "1 St"

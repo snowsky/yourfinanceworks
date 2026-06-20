@@ -677,7 +677,7 @@ def _get_shared_record_response(token: str, request: Request, access_payload: Op
                         tenant = master_db.query(Tenant).filter(Tenant.id == share.tenant_id).first()
                         if tenant:
                             cfg = load_template_config(tenant_db)
-                            vm = build_view_model(tenant_db, invoice, tenant, cfg)
+                            vm = build_view_model(tenant_db, invoice, tenant, cfg, public=True)
                             return HTMLResponse(render_invoice_html(vm, cfg))
                         else:
                             logger.warning(
