@@ -22,7 +22,8 @@ from core.services.client_email import build_tenant_email_service
 from core.services.email_service import EmailMessage
 from core.services.invoice_branding import get_invoice_branding
 from core.utils.client_email_hash import compute_email_hash, normalize_email
-from core.utils.pdf_generator import generate_invoice_pdf
+from core.services.invoice_render import build_view_model, load_template_config
+from core.services.invoice_render.renderer import render_invoice_pdf
 from core.utils.rate_limiter import record_and_check
 from core.utils.feature_gate import check_feature
 from core.services.client_portal_auth import (
@@ -302,57 +303,9 @@ def get_invoice_pdf(
         raise HTTPException(status_code=404, detail="Invoice not found")
 
     tenant = master_db.query(Tenant).filter(Tenant.id == ctx.tenant_id).first()
-    company_data = {
-        "name": tenant.name if tenant else "Your Company",
-        "email": tenant.email if tenant else "",
-        "phone": tenant.phone if tenant else "",
-        "address": tenant.address if tenant else "",
-        "tax_id": tenant.tax_id if tenant else "",
-        "logo": tenant.company_logo_url if tenant else "",
-    }
-    client = ctx.client
-    client_data = {
-        "id": client.id,
-        "name": client.name,
-        "email": client.email,
-        "phone": client.phone or "",
-        "address": client.address or "",
-    }
-    # The ReportLab generator expects items as dicts (item.get(...)), not ORM rows.
-    item_dicts = [
-        {
-            "description": it.description,
-            "quantity": it.quantity,
-            "price": it.price,
-            "amount": it.amount,
-            "unit_of_measure": it.unit_of_measure,
-        }
-        for it in (invoice.items or [])
-    ]
-    invoice_data = {
-        "id": invoice.id,
-        "number": invoice.number,
-        "date": invoice.created_at.strftime("%Y-%m-%d") if invoice.created_at else "",
-        "due_date": invoice.due_date.strftime("%Y-%m-%d") if invoice.due_date else "",
-        "amount": float(invoice.amount or 0),
-        "currency": invoice.currency,
-        "subtotal": float(invoice.subtotal or 0),
-        "discount_type": invoice.discount_type,
-        "discount_value": float(invoice.discount_value or 0),
-        "paid_amount": _paid_amount(invoice),
-        "status": invoice.status,
-        "notes": invoice.notes or "",
-        "items": item_dicts,
-    }
-    pdf_bytes = generate_invoice_pdf(
-        invoice_data=invoice_data,
-        client_data=client_data,
-        company_data=company_data,
-        items=item_dicts,
-        db=ctx.db,
-        show_discount=invoice.show_discount_in_pdf,
-        branding=get_invoice_branding(ctx.db),
-    )
+    cfg = load_template_config(ctx.db)
+    vm = build_view_model(ctx.db, invoice, tenant, cfg)
+    pdf_bytes = render_invoice_pdf(vm, cfg)
     return StreamingResponse(
         iter([pdf_bytes]),
         media_type="application/pdf",

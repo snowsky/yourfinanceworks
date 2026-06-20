@@ -6,12 +6,13 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
+import core.models.database as _db_module
 from core.models.database import (
     get_db,
     get_master_db,
-    SessionLocal,
     clear_tenant_context,
     get_tenant_context,
     set_tenant_context,
@@ -24,6 +25,8 @@ from core.models.models_per_tenant import (
 )
 from core.routers.auth import get_current_user
 from core.utils.auth import get_password_hash, verify_password
+from core.services.invoice_render import build_view_model, load_template_config
+from core.services.invoice_render.renderer import render_invoice_html
 from core.schemas.share_token import (
     ALLOWED_RECORD_TYPES,
     ShareTokenAccessRequest,
@@ -570,7 +573,7 @@ def _build_invoice_branding(
 
 def _get_shared_record_response(token: str, request: Request, access_payload: Optional[ShareTokenAccessRequest] = None):
     """Public endpoint helper. Returns a sanitized view after optional link-level access checks."""
-    master_db = SessionLocal()
+    master_db = _db_module.SessionLocal()
     try:
         share = (
             master_db.query(ShareToken)
@@ -660,6 +663,29 @@ def _get_shared_record_response(token: str, request: Request, access_payload: Op
                     tenant_db.rollback()
                 except Exception:
                     pass
+
+            # Invoice share links return a fully rendered HTML document instead
+            # of raw JSON so the recipient sees a styled, printable invoice.
+            if isinstance(result, PublicInvoiceView) and share.record_type == "invoice":
+                invoice = (
+                    tenant_db.query(Invoice)
+                    .filter(Invoice.id == share.record_id, Invoice.is_deleted == False)
+                    .first()
+                )
+                if invoice:
+                    try:
+                        tenant = master_db.query(Tenant).filter(Tenant.id == share.tenant_id).first()
+                        if tenant:
+                            cfg = load_template_config(tenant_db)
+                            vm = build_view_model(tenant_db, invoice, tenant, cfg, public=True)
+                            return HTMLResponse(render_invoice_html(vm, cfg))
+                        else:
+                            logger.warning(
+                                "Share token tenant %s not found; returning JSON invoice view",
+                                share.tenant_id,
+                            )
+                    except Exception:
+                        logger.exception("Failed to render invoice HTML for share token; falling back to JSON")
 
             return result
         finally:

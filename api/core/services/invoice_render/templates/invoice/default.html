@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>{{ css }}</style></head>
+<body>
+<div class="invoice" style="--brand: {{ cfg.brand_color }}; --accent: {{ cfg.accent_color }};">
+  <header class="head">
+    {% if cfg.show.logo and vm.company.logo_url %}<img class="logo" src="{{ vm.company.logo_url }}">{% endif %}
+    <div class="company">
+      <h1>{{ vm.company.name }}</h1>
+      <div>{{ vm.company.address }}</div><div>{{ vm.company.email }} {{ vm.company.phone }}</div>
+      {% if vm.company.tax_id %}<div>Tax ID: {{ vm.company.tax_id }}</div>{% endif %}
+    </div>
+    <div class="meta">
+      <h2>INVOICE</h2>
+      <div>#{{ vm.meta.number }}</div><div>Date: {{ vm.meta.issue_date }}</div>
+      <div>Due: {{ vm.meta.due_date }}</div><div class="status">{{ vm.meta.status }}</div>
+    </div>
+  </header>
+
+  <section class="billto"><h3>Bill To</h3><div>{{ vm.client.name }}</div>
+    <div>{{ vm.client.email }}</div><div>{{ vm.client.address }}</div></section>
+
+  {% if cfg.show.custom_fields and vm.custom_fields %}
+  <section class="custom"><h3>Details</h3>
+    {% for cf in vm.custom_fields %}<div>{{ cf.label }}: {{ cf.value }}</div>{% endfor %}</section>
+  {% endif %}
+
+  <table class="items"><thead><tr><th>Description</th><th>Qty</th><th>Price</th><th>Amount</th></tr></thead>
+    <tbody>{% for it in vm.items %}<tr><td>{{ it.description }}</td><td>{{ it.quantity }}</td>
+      <td>{{ it.unit_price }}</td><td>{{ it.amount }}</td></tr>{% endfor %}</tbody></table>
+
+  <section class="totals">
+    <div><span>Subtotal</span><span>{{ vm.totals.subtotal }}</span></div>
+    {% if vm.meta.show_discount and vm.totals.discount_amount_raw %}
+      <div><span>Discount</span><span>-{{ vm.totals.discount_amount }}</span></div>{% endif %}
+    <div class="grand"><span>Total</span><span>{{ vm.totals.total }}</span></div>
+    <div><span>Paid</span><span>{{ vm.totals.paid }}</span></div>
+    <div class="balance"><span>Balance Due</span><span>{{ vm.totals.balance }}</span></div>
+  </section>
+
+  {% if cfg.show.notes and vm.notes %}<section class="notes"><h3>Notes</h3><div>{{ vm.notes }}</div></section>{% endif %}
+  {% if cfg.show.footer and vm.footer_text %}<footer class="foot">{{ vm.footer_text }}</footer>{% endif %}
+</div>
+</body></html>

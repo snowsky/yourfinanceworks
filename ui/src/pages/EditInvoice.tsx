@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 import { InvoiceFormWithApproval } from "@/components/invoices/InvoiceFormWithApproval";
 import { InvoiceStockImpact } from "@/components/invoices/InvoiceStockImpact";
 import { InvoiceHistoryDetailsModal } from "@/components/invoices/InvoiceHistoryDetailsModal";
-import { InvoicePDF } from "@/components/invoices/InvoicePDF";
-import { invoiceApi, Invoice, getErrorMessage, expenseApi, Expense, inventoryApi, approvalApi, InvoiceHistory, clientApi, settingsApi, Settings } from "@/lib/api";
+import { invoiceApi, Invoice, getErrorMessage, expenseApi, Expense, inventoryApi, approvalApi, InvoiceHistory, clientApi } from "@/lib/api";
+import { API_BASE_URL, getTenantId } from "@/lib/api/_base";
 import { canEditInvoice, canEditInvoicePayment } from "@/utils/auth";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { Trash, Loader2, Package, Plus, FileText, DollarSign, Calendar, AlertTriangle, CheckCircle, Clock, History, Eye, Download, File, ArrowLeft, RotateCcw } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
-import { pdf } from '@react-pdf/renderer';
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import { ProfessionalCard, MetricCard } from "@/components/ui/professional-card";
 
@@ -37,11 +36,10 @@ const EditInvoice = () => {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showLivePreviewModal, setShowLivePreviewModal] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [livePreviewUrl, setLivePreviewUrl] = useState<string | null>(null);
+  const [livePreviewHtml, setLivePreviewHtml] = useState<string>('');
   const [previewLoading, setPreviewLoading] = useState(false);
   const [livePreviewLoading, setLivePreviewLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [settings, setSettings] = useState<Settings | null>(null);
 
   // Calculate payment editing permissions when invoice changes
   const canEditPayment = invoice ? canEditInvoicePayment(invoice) : false;
@@ -63,25 +61,6 @@ const EditInvoice = () => {
       setInvoiceHistory([]);
     }
   }, [invoice?.id]);
-
-  // Fetch settings data
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const settingsData = await settingsApi.getSettings();
-        setSettings(settingsData);
-      } catch (error) {
-        console.error("Failed to fetch settings:", error);
-        // Set fallback settings
-        setSettings({
-          company_info: { name: 'InvoiceApp', email: '', phone: '', address: '', tax_id: '', logo: '' },
-          invoice_settings: { prefix: 'INV-', next_number: '0001', terms: 'Net 30 days', notes: 'Thank you for your business!', send_copy: true, auto_reminders: true },
-          enable_ai_assistant: false
-        });
-      }
-    };
-    fetchSettings();
-  }, []);
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -234,25 +213,49 @@ const EditInvoice = () => {
     invoiceApi.downloadAttachment(invoice.id);
   };
 
-  // Handle live preview functionality
+  // Handle live preview functionality — POSTs form data to server; renders same template as View screen
   const handleLivePreview = async () => {
+    if (!invoice) return;
     setLivePreviewLoading(true);
     setShowLivePreviewModal(true);
 
     try {
-      // Generate PDF blob using InvoicePDF component
-      const blob = await pdf(
-        <InvoicePDF
-          invoice={invoice}
-          companyName={settings?.company_info?.name || 'Your Company Name'}
-          clientCompany={invoice.client_company}
-          showDiscount={invoice.show_discount_in_pdf || false}
-          template="modern"
-        />
-      ).toBlob();
+      const tenantId = getTenantId();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
-      const url = URL.createObjectURL(blob);
-      setLivePreviewUrl(url);
+      const payload = {
+        number: invoice.number,
+        date: invoice.created_at,
+        due_date: invoice.due_date,
+        status: invoice.status,
+        currency: invoice.currency,
+        subtotal: invoice.subtotal,
+        amount: invoice.amount,
+        paid_amount: invoice.paid_amount,
+        client_id: invoice.client_id,
+        discount_type: invoice.discount_type,
+        discount_value: invoice.discount_value,
+        show_discount_in_pdf: invoice.show_discount_in_pdf,
+        notes: invoice.notes,
+        custom_fields: invoice.custom_fields,
+        items: (invoice.items || []).map((it: any) => ({
+          description: it.description,
+          quantity: it.quantity,
+          price: it.price,
+          unit_of_measure: it.unit_of_measure,
+        })),
+      };
+
+      const res = await fetch(`${API_BASE_URL}/invoices/preview`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`Preview fetch failed: ${res.status}`);
+      const html = await res.text();
+      setLivePreviewHtml(html);
     } catch (error) {
       console.error("Failed to generate live preview:", error);
       toast.error("Failed to generate live preview");
@@ -753,15 +756,12 @@ const EditInvoice = () => {
           onOpenChange={(open) => {
             if (!open) {
               setShowLivePreviewModal(false);
-              if (livePreviewUrl) {
-                URL.revokeObjectURL(livePreviewUrl);
-                setLivePreviewUrl(null);
-              }
+              setLivePreviewHtml('');
               setLivePreviewLoading(false);
             }
           }}
         >
-          <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogContent className="max-w-4xl max-h-[90vh]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <File className="h-5 w-5" />
@@ -774,11 +774,12 @@ const EditInvoice = () => {
                   <Loader2 className="h-8 w-8 animate-spin mr-2" />
                   <p>Generating live preview...</p>
                 </div>
-              ) : livePreviewUrl ? (
+              ) : livePreviewHtml ? (
                 <iframe
-                  src={livePreviewUrl}
-                  className="w-full h-[70vh]"
                   title="Live Invoice Preview"
+                  sandbox=""
+                  srcDoc={livePreviewHtml}
+                  className="w-full min-h-[1000px] border rounded"
                 />
               ) : (
                 <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -789,15 +790,10 @@ const EditInvoice = () => {
                 </div>
               )}
             </div>
-            {livePreviewUrl && (
+            {livePreviewHtml && (
               <div className="flex gap-2">
                 <ProfessionalButton variant="outline" onClick={() => {
-                  const a = document.createElement('a');
-                  a.href = livePreviewUrl;
-                  a.download = `invoice-${invoice.number || 'preview'}.pdf`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
+                  window.open(`${API_BASE_URL}/invoices/${invoice.id}/pdf`, '_blank');
                 }}>
                   Download PDF
                 </ProfessionalButton>

@@ -15,8 +15,8 @@ from core.schemas.email import (
 from core.routers.auth import get_current_user
 from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
 import os
-from core.utils.pdf_generator import generate_invoice_pdf
-from core.services.invoice_branding import get_invoice_branding
+from core.services.invoice_render import build_view_model, load_template_config
+from core.services.invoice_render.renderer import render_invoice_pdf
 from core.services.invoice_approval_policy import send_blocked_by_approval
 from core.services.invoice_send import resolve_send_bcc, status_after_send
 from core.utils.feature_gate import feature_enabled
@@ -176,17 +176,8 @@ async def send_invoice_email(
         pdf_content = None
         if request.include_pdf:
             try:
-                # Use the request value if provided, otherwise use the invoice's field
-                show_discount = request.show_discount_in_pdf if request.show_discount_in_pdf is not None else getattr(invoice, 'show_discount_in_pdf', True)
-                pdf_content = generate_invoice_pdf(
-                    invoice_data=invoice_data,
-                    client_data=client_data,
-                    company_data=company_data,
-                    items=invoice.items, # Pass items to PDF generator
-                    db=db,
-                    show_discount=show_discount,
-                    branding=get_invoice_branding(db)
-                )
+                cfg = load_template_config(db)
+                pdf_content = render_invoice_pdf(build_view_model(db, invoice, tenant, cfg), cfg)
             except Exception as e:
                 logger.error(f"Failed to generate PDF: {str(e)}")
                 raise HTTPException(

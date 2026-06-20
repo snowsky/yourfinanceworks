@@ -15,18 +15,28 @@ import { CalendarIcon, Edit, Eye, Loader2, AlertCircle, RotateCcw } from 'lucide
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { invoiceApi, Invoice, approvalApi, INVOICE_STATUSES, settingsApi, Settings } from '@/lib/api';
-import { loadImageAsDataUrl } from '@/lib/invoice-branding';
+import { API_BASE_URL, getTenantId } from '@/lib/api/_base';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ApprovalActionButtons } from '@/components/approvals/ApprovalActionButtons';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { ApprovalHistoryEntry } from '@/types';
 import { canEditInvoice, canEditInvoicePayment } from '@/utils/auth';
-import { InvoicePDF } from '@/components/invoices/InvoicePDF';
-import { pdf } from '@react-pdf/renderer';
 import { ProfessionalButton } from '@/components/ui/professional-button';
 import { ShareButton } from '@/components/sharing/ShareButton';
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
+
+async function fetchInvoicePreviewHtml(id: number): Promise<string> {
+  const tenantId = getTenantId();
+  const headers: Record<string, string> = {};
+  if (tenantId) headers['X-Tenant-ID'] = tenantId;
+  const res = await fetch(`${API_BASE_URL}/invoices/${id}/preview`, {
+    headers,
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error(`Preview fetch failed: ${res.status}`);
+  return res.text();
+}
 
 export default function ViewInvoice() {
   const { t } = useTranslation();
@@ -37,7 +47,7 @@ export default function ViewInvoice() {
   const [approval, setApproval] = useState<ApprovalHistoryEntry | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [showLivePreviewModal, setShowLivePreviewModal] = useState(false);
-  const [livePreviewUrl, setLivePreviewUrl] = useState<string | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string>('');
   const [livePreviewLoading, setLivePreviewLoading] = useState(false);
 
   useEffect(() => {
@@ -111,38 +121,16 @@ export default function ViewInvoice() {
     }
   };
 
-  // Handle live preview functionality
+  // Handle live preview functionality — fetches the server-rendered HTML template
   const handleLivePreview = async () => {
-    if (!invoice || !settings) return;
+    if (!invoice) return;
 
     setLivePreviewLoading(true);
     setShowLivePreviewModal(true);
 
     try {
-      // Pre-fetch the logo into a data URL so react-pdf never does a network
-      // fetch at render time (a bad/CORS-blocked URL would otherwise throw and
-      // break PDF generation). Skips silently on any failure.
-      const showLogo = settings.invoice_branding?.show_logo !== false;
-      const logoPath = settings.company_info?.logo;
-      const logoDataUrl = (showLogo && logoPath)
-        ? await loadImageAsDataUrl(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${logoPath}`)
-        : null;
-
-      // Generate PDF blob using InvoicePDF component
-      const blob = await pdf(
-        <InvoicePDF
-          invoice={invoice}
-          companyName={settings.company_info?.name || 'Your Company'}
-          clientCompany={invoice.client_company}
-          showDiscount={true}
-          template="modern"
-          branding={settings.invoice_branding}
-          logoUrl={logoDataUrl}
-        />
-      ).toBlob();
-
-      const url = URL.createObjectURL(blob);
-      setLivePreviewUrl(url);
+      const html = await fetchInvoicePreviewHtml(invoice.id);
+      setPreviewHtml(html);
     } catch (error) {
       console.error("Failed to generate live preview:", error);
       toast.error("Failed to generate live preview");
@@ -244,7 +232,7 @@ export default function ViewInvoice() {
                 onClick={handleLivePreview}
                 leftIcon={<Eye className="h-4 w-4" />}
                 loading={livePreviewLoading}
-                disabled={!invoice || !settings}
+                disabled={!invoice}
               >
                 {t('viewInvoice.livePreview', { defaultValue: 'Live Preview' })}
               </ProfessionalButton>
@@ -524,10 +512,7 @@ export default function ViewInvoice() {
           onOpenChange={(open) => {
             if (!open) {
               setShowLivePreviewModal(false);
-              if (livePreviewUrl) {
-                URL.revokeObjectURL(livePreviewUrl);
-                setLivePreviewUrl(null);
-              }
+              setPreviewHtml('');
               setLivePreviewLoading(false);
             }
           }}
@@ -542,11 +527,12 @@ export default function ViewInvoice() {
                   <Loader2 className="h-8 w-8 animate-spin mr-2" />
                   <p>{t('viewInvoice.generatingPreview', { defaultValue: 'Generating live preview...' })}</p>
                 </div>
-              ) : livePreviewUrl ? (
+              ) : previewHtml ? (
                 <iframe
-                  src={livePreviewUrl}
-                  className="w-full h-[70vh]"
-                  title="Live Invoice Preview"
+                  title="Invoice preview"
+                  sandbox=""
+                  srcDoc={previewHtml}
+                  className="w-full min-h-[1000px] border rounded"
                 />
               ) : (
                 <div className="flex items-center justify-center h-64">
@@ -554,15 +540,10 @@ export default function ViewInvoice() {
                 </div>
               )}
             </div>
-            {livePreviewUrl && (
+            {previewHtml && (
               <div className="flex gap-2">
                 <ProfessionalButton variant="outline" onClick={() => {
-                  const a = document.createElement('a');
-                  a.href = livePreviewUrl;
-                  a.download = `invoice-${invoice.number || 'preview'}.pdf`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
+                  window.open(`${API_BASE_URL}/invoices/${invoice.id}/pdf`, '_blank');
                 }}>
                   {t('viewInvoice.downloadPDF', { defaultValue: 'Download PDF' })}
                 </ProfessionalButton>

@@ -1,18 +1,43 @@
 """PDF generation and email stub endpoints."""
 
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, Response
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import logging
 
 from core.models.database import get_db, get_master_db
-from core.models.models_per_tenant import Invoice, Client
+from core.models.models_per_tenant import Client, Invoice
 from core.models.models import MasterUser, Tenant
 from core.routers.auth import get_current_user
-from core.utils.pdf_generator import generate_invoice_pdf
-from core.services.invoice_branding import get_invoice_branding
+from core.schemas.invoice import InvoiceItemCreate
+from core.services.invoice_render import assemble_view_model, build_view_model, load_template_config
+from core.services.invoice_render.renderer import render_invoice_html, render_invoice_pdf_async
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+
+class InvoicePreviewRequest(BaseModel):
+    """Loose schema for rendering a draft invoice (no save needed).
+    All fields are optional so in-progress forms can preview at any point."""
+    number: Optional[str] = None
+    date: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    status: Optional[str] = None
+    currency: Optional[str] = None
+    amount: Optional[float] = None          # post-discount total (not used as subtotal)
+    subtotal: Optional[float] = None        # pre-discount base — preferred
+    paid_amount: Optional[float] = None
+    client_id: Optional[int] = None
+    discount_type: Optional[str] = None
+    discount_value: Optional[float] = None
+    show_discount_in_pdf: Optional[bool] = None
+    notes: Optional[str] = None
+    custom_fields: Optional[Dict[str, Any]] = None
+    items: Optional[List[InvoiceItemCreate]] = None
 
 router = APIRouter()
 
@@ -32,72 +57,138 @@ async def send_invoice_email(
     }
 
 
+def _load_invoice_and_tenant(
+    invoice_id: int,
+    db: Session,
+    master_db: Session,
+    current_user: MasterUser,
+):
+    """Fetch the invoice (tenant-scoped) and the Tenant record (master DB)."""
+    invoice = db.query(Invoice).filter(
+        Invoice.id == invoice_id, Invoice.is_deleted == False
+    ).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    return invoice, tenant
+
+
+@router.get("/{invoice_id}/preview", response_class=HTMLResponse)
+async def preview_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Return an HTML preview of the invoice using the unified WeasyPrint renderer."""
+    invoice, tenant = _load_invoice_and_tenant(invoice_id, db, master_db, current_user)
+    cfg = load_template_config(db)
+    html = render_invoice_html(build_view_model(db, invoice, tenant, cfg), cfg)
+    return HTMLResponse(content=html)
+
+
+@router.post("/preview", response_class=HTMLResponse)
+async def preview_invoice_from_body(
+    body: InvoicePreviewRequest,
+    db: Session = Depends(get_db),
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Render the unified HTML template from posted form data (no save needed).
+
+    Use this from the Edit screen's Live Preview so unsaved changes are rendered
+    with the same server template as the View screen.
+    """
+    # Company — from the master Tenant record
+    tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    company: Dict[str, Any] = {
+        "name": tenant.name if tenant else "",
+        "logo_url": getattr(tenant, "company_logo_url", None),
+        "address": getattr(tenant, "address", "") or "",
+        "phone": getattr(tenant, "phone", "") or "",
+        "email": getattr(tenant, "email", "") or "",
+        "tax_id": getattr(tenant, "tax_id", "") or "",
+    }
+
+    # Meta
+    issue_date = str(body.date.date()) if body.date else ""
+    due_date_str = str(body.due_date.date()) if body.due_date else ""
+    meta: Dict[str, Any] = {
+        "number": body.number or "DRAFT",
+        "issue_date": issue_date,
+        "due_date": due_date_str,
+        "status": body.status or "draft",
+        "currency": body.currency or "USD",
+        "show_discount": body.show_discount_in_pdf if body.show_discount_in_pdf is not None else True,
+    }
+
+    # Client — look up by client_id; blank if not found
+    client_record: Optional[Client] = None
+    if body.client_id is not None:
+        client_record = db.query(Client).filter(Client.id == body.client_id).first()
+    client: Dict[str, Any] = {
+        "name": getattr(client_record, "name", "") or "" if client_record else "",
+        "email": getattr(client_record, "email", "") or "" if client_record else "",
+        "phone": getattr(client_record, "phone", "") or "" if client_record else "",
+        "address": getattr(client_record, "address", "") or "" if client_record else "",
+    }
+
+    # Items
+    raw_items = body.items or []
+    items: List[Dict[str, Any]] = [
+        {
+            "description": it.description,
+            "quantity": float(it.quantity),
+            "unit_of_measure": getattr(it, "unit_of_measure", "") or "",
+            "unit_price": float(it.price),
+            "amount": float(it.quantity) * float(it.price),
+        }
+        for it in raw_items
+    ]
+
+    # Amount (pre-discount base) — use subtotal first; fall back to sum of item amounts
+    item_sum = sum(it["amount"] for it in items)
+    if body.subtotal is not None:
+        base_amount = float(body.subtotal)
+    elif body.amount is not None:
+        # body.amount is post-discount; avoid double-discounting by using item sum
+        base_amount = item_sum if item_sum else float(body.amount)
+    else:
+        base_amount = item_sum
+
+    data: Dict[str, Any] = {
+        "company": company,
+        "meta": meta,
+        "client": client,
+        "items": items,
+        "amount": base_amount,  # pre-discount; assemble_view_model applies discount
+        "paid_amount": body.paid_amount or 0.0,
+        "discount": {
+            "type": body.discount_type or "percentage",
+            "value": float(body.discount_value or 0.0),
+        },
+        "custom_fields": body.custom_fields or {},
+        "notes": body.notes or "",
+    }
+
+    cfg = load_template_config(db)
+    vm = assemble_view_model(data, cfg, public=False)
+    return HTMLResponse(content=render_invoice_html(vm, cfg))
+
+
 @router.get("/{invoice_id}/pdf")
 async def download_invoice_pdf(
     invoice_id: int,
-    template: str = 'modern',
     db: Session = Depends(get_db),
     master_db: Session = Depends(get_master_db),
-    current_user: MasterUser = Depends(get_current_user)
+    current_user: MasterUser = Depends(get_current_user),
 ):
-    """Download or preview the invoice PDF, respecting the invoice's show_discount_in_pdf field."""
-    try:
-        # Fetch invoice, client, and company/tenant info
-        invoice = db.query(Invoice).filter(Invoice.id == invoice_id, Invoice.is_deleted == False).first()
-        if not invoice:
-            raise HTTPException(status_code=404, detail="Invoice not found")
-        client = db.query(Client).filter(Client.id == invoice.client_id).first()
-        if not client:
-            raise HTTPException(status_code=404, detail="Client not found")
-        # Company/tenant info lives in the master DB (not the per-tenant `db`).
-        tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
-        company_data = {
-            "name": tenant.name if tenant else "Your Company",
-            "email": tenant.email if tenant else "",
-            "phone": tenant.phone if tenant else "",
-            "address": tenant.address if tenant else "",
-            "tax_id": tenant.tax_id if tenant else "",
-            "logo": tenant.company_logo_url if tenant else "",
-        }
-        # Prepare invoice data
-        invoice_data = {
-            'id': invoice.id,
-            'number': invoice.number,
-            'date': invoice.created_at.strftime('%Y-%m-%d') if invoice.created_at else '',
-            'due_date': invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else '',
-            'amount': float(invoice.amount),
-            'subtotal': float(invoice.subtotal) if invoice.subtotal else float(invoice.amount),
-            'discount_type': invoice.discount_type,
-            'discount_value': float(invoice.discount_value) if invoice.discount_value else 0,
-            'paid_amount': 0,  # Optionally calculate from payments
-            'status': invoice.status,
-            'notes': invoice.notes or '',
-            'items': [item.__dict__ for item in invoice.items] if invoice.items else []
-        }
-        client_data = {
-            'id': client.id,
-            'name': client.name,
-            'email': client.email,
-            'phone': client.phone or '',
-            'address': client.address or ''
-        }
-        # Generate PDF using the invoice's show_discount_in_pdf field
-        pdf_bytes = generate_invoice_pdf(
-            invoice_data=invoice_data,
-            client_data=client_data,
-            company_data=company_data,
-            items=invoice.items,
-            db=db,
-            show_discount=invoice.show_discount_in_pdf,
-            template_name=template,
-            branding=get_invoice_branding(db)
-        )
-        return StreamingResponse(
-            iter([pdf_bytes]),
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f"inline; filename=invoice-{invoice.number}.pdf"
-            }
-        )
-    finally:
-        db.close()
+    """Download the invoice as a PDF using the unified WeasyPrint renderer."""
+    invoice, tenant = _load_invoice_and_tenant(invoice_id, db, master_db, current_user)
+    cfg = load_template_config(db)
+    pdf = await render_invoice_pdf_async(build_view_model(db, invoice, tenant, cfg), cfg)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename=invoice-{invoice.number}.pdf"},
+    )
