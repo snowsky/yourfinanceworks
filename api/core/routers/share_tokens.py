@@ -25,6 +25,8 @@ from core.models.models_per_tenant import (
 )
 from core.routers.auth import get_current_user
 from core.utils.auth import get_password_hash, verify_password
+from core.services.invoice_render import build_view_model, load_template_config
+from core.services.invoice_render.renderer import render_invoice_html
 from core.schemas.share_token import (
     ALLOWED_RECORD_TYPES,
     ShareTokenAccessRequest,
@@ -672,13 +674,16 @@ def _get_shared_record_response(token: str, request: Request, access_payload: Op
                 )
                 if invoice:
                     try:
-                        from core.services.invoice_render import build_view_model, load_template_config
-                        from core.services.invoice_render.renderer import render_invoice_html
                         tenant = master_db.query(Tenant).filter(Tenant.id == share.tenant_id).first()
                         if tenant:
                             cfg = load_template_config(tenant_db)
                             vm = build_view_model(tenant_db, invoice, tenant, cfg)
                             return HTMLResponse(render_invoice_html(vm, cfg))
+                        else:
+                            logger.warning(
+                                "Share token tenant %s not found; returning JSON invoice view",
+                                share.tenant_id,
+                            )
                     except Exception:
                         logger.exception("Failed to render invoice HTML for share token; falling back to JSON")
 
