@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { InvoiceFormWithApproval } from "@/components/invoices/InvoiceFormWithApproval";
 import { InvoiceStockImpact } from "@/components/invoices/InvoiceStockImpact";
 import { InvoiceHistoryDetailsModal } from "@/components/invoices/InvoiceHistoryDetailsModal";
-import { invoiceApi, Invoice, getErrorMessage, expenseApi, Expense, inventoryApi, approvalApi, InvoiceHistory, clientApi, settingsApi, Settings } from "@/lib/api";
+import { invoiceApi, Invoice, getErrorMessage, expenseApi, Expense, inventoryApi, approvalApi, InvoiceHistory, clientApi } from "@/lib/api";
 import { API_BASE_URL, getTenantId } from "@/lib/api/_base";
 import { canEditInvoice, canEditInvoicePayment } from "@/utils/auth";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +40,6 @@ const EditInvoice = () => {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [livePreviewLoading, setLivePreviewLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [settings, setSettings] = useState<Settings | null>(null);
 
   // Calculate payment editing permissions when invoice changes
   const canEditPayment = invoice ? canEditInvoicePayment(invoice) : false;
@@ -62,25 +61,6 @@ const EditInvoice = () => {
       setInvoiceHistory([]);
     }
   }, [invoice?.id]);
-
-  // Fetch settings data
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const settingsData = await settingsApi.getSettings();
-        setSettings(settingsData);
-      } catch (error) {
-        console.error("Failed to fetch settings:", error);
-        // Set fallback settings
-        setSettings({
-          company_info: { name: 'InvoiceApp', email: '', phone: '', address: '', tax_id: '', logo: '' },
-          invoice_settings: { prefix: 'INV-', next_number: '0001', terms: 'Net 30 days', notes: 'Thank you for your business!', send_copy: true, auto_reminders: true },
-          enable_ai_assistant: false
-        });
-      }
-    };
-    fetchSettings();
-  }, []);
 
   useEffect(() => {
     const fetchInvoice = async () => {

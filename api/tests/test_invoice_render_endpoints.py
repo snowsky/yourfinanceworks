@@ -144,10 +144,7 @@ def test_post_preview_from_body_returns_html(render_client, render_invoice, rend
     )
     assert r.status_code == 200, r.text
     assert r.headers["content-type"].startswith("text/html"), r.headers["content-type"]
-    # The rendered HTML should contain either the client name or a currency amount
-    assert "Render Test Client" in r.text or "200" in r.text, (
-        "Expected client name or amount in rendered HTML"
-    )
+    assert "Render Test Client" in r.text, "Expected client name in rendered HTML"
 
 
 # ---------------------------------------------------------------------------
