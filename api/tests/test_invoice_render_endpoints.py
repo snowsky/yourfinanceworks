@@ -83,6 +83,7 @@ def render_invoice(render_client: TestClient, render_auth):
         def __init__(self, data):
             self.id = data["id"]
             self.number = data["number"]
+            self.client_id = data["client_id"]
 
     return _Invoice(ir.json())
 
@@ -119,6 +120,34 @@ def test_preview_404_for_unknown_invoice(render_client, render_auth):
 def test_pdf_404_for_unknown_invoice(render_client, render_auth):
     r = render_client.get("/api/v1/invoices/9999999/pdf", headers=render_auth)
     assert r.status_code == 404
+
+
+def test_post_preview_from_body_returns_html(render_client, render_invoice, render_auth):
+    """POST /api/v1/invoices/preview renders the unified template from form data (no save needed)."""
+    due_date = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    r = render_client.post(
+        "/api/v1/invoices/preview",
+        json={
+            "client_id": render_invoice.client_id,
+            "number": "PREVIEW-001",
+            "currency": "USD",
+            "subtotal": 200.0,
+            "amount": 200.0,
+            "discount_type": "percentage",
+            "discount_value": 0.0,
+            "due_date": due_date,
+            "items": [
+                {"description": "Preview Widget", "quantity": 2, "price": 100.0},
+            ],
+        },
+        headers=render_auth,
+    )
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"].startswith("text/html"), r.headers["content-type"]
+    # The rendered HTML should contain either the client name or a currency amount
+    assert "Render Test Client" in r.text or "200" in r.text, (
+        "Expected client name or amount in rendered HTML"
+    )
 
 
 # ---------------------------------------------------------------------------
