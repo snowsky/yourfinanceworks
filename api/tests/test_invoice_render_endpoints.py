@@ -119,3 +119,32 @@ def test_preview_404_for_unknown_invoice(render_client, render_auth):
 def test_pdf_404_for_unknown_invoice(render_client, render_auth):
     r = render_client.get("/api/v1/invoices/9999999/pdf", headers=render_auth)
     assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Public share-link renders the unified HTML template
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def shared_invoice_token(render_client: TestClient, render_invoice, render_auth):
+    """Create a public share token for the render test invoice."""
+    resp = render_client.post(
+        "/api/v1/share-tokens/",
+        json={
+            "record_type": "invoice",
+            "record_id": render_invoice.id,
+            "access_type": "public",
+            "expires_in_hours": 24,
+        },
+        headers=render_auth,
+    )
+    assert resp.status_code == 200, f"Share token creation failed: {resp.text}"
+    return resp.json()["token"]
+
+
+def test_public_share_invoice_renders_template(render_client: TestClient, shared_invoice_token: str):
+    """GET /api/v1/shared/{token} for an invoice returns 200 HTML with INVOICE keyword."""
+    r = render_client.get(f"/api/v1/shared/{shared_invoice_token}")
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"].startswith("text/html"), r.headers["content-type"]
+    assert "INVOICE" in r.text.upper(), "Expected 'INVOICE' keyword in rendered HTML"
