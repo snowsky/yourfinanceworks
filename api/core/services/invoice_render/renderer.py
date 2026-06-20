@@ -25,4 +25,5 @@ def render_invoice_pdf(vm, config) -> bytes:
 
 async def render_invoice_pdf_async(vm, config) -> bytes:
     # WeasyPrint is sync CPU work — offload so it never blocks the event loop.
-    return await asyncio.get_event_loop().run_in_executor(None, render_invoice_pdf, vm, config)
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, render_invoice_pdf, vm, config)
