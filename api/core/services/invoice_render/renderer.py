@@ -1,4 +1,5 @@
 """Render an InvoiceViewModel + config to HTML (Jinja2) and PDF (WeasyPrint)."""
+import asyncio
 import os
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -14,3 +15,14 @@ def _css() -> str:
 
 def render_invoice_html(vm, config) -> str:
     return _env.get_template("invoice/default.html").render(vm=vm, cfg=config, css=_css())
+
+
+def render_invoice_pdf(vm, config) -> bytes:
+    from weasyprint import HTML
+    html = render_invoice_html(vm, config)
+    return HTML(string=html).write_pdf()
+
+
+async def render_invoice_pdf_async(vm, config) -> bytes:
+    # WeasyPrint is sync CPU work — offload so it never blocks the event loop.
+    return await asyncio.get_event_loop().run_in_executor(None, render_invoice_pdf, vm, config)

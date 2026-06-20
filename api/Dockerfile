@@ -22,6 +22,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libtesseract-dev \
  && rm -rf /var/lib/apt/lists/*
 
+# WeasyPrint system libs (Pango/Cairo/GDK-Pixbuf for PDF rendering)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 libffi-dev \
+    fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
+
 # (Optional) Install Rust if needed for certain deps
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
  && echo 'export PATH=/root/.cargo/bin:$PATH' >> /root/.bashrc

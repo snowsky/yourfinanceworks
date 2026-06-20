@@ -20,3 +20,9 @@ def test_html_hides_notes_when_toggled_off():
 def test_html_hides_discount_when_invoice_flag_off():
     html = render_invoice_html(assemble_view_model(_data(meta={**_data()["meta"], "show_discount": False}), CFG), CFG)
     assert "Discount" not in html
+
+
+def test_render_pdf_returns_valid_pdf_bytes():
+    from core.services.invoice_render.renderer import render_invoice_pdf
+    pdf = render_invoice_pdf(assemble_view_model(_data(), CFG), CFG)
+    assert isinstance(pdf, bytes) and pdf[:5] == b"%PDF-" and len(pdf) > 1000
