@@ -1,3 +1,8 @@
+# DORMANT — superseded by core/services/invoice_render/ (Jinja2 + WeasyPrint)
+# as part of the 2026-06-19 invoice-render-foundation plan.
+# All live callers (pdf_email.py, email.py, client_portal.py) have been switched
+# to the new renderer.  Retained dormant for one release to allow rollback.
+# Remove at next release.
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle

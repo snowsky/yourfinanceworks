@@ -1,3 +1,10 @@
+// DORMANT — retained ONLY for EditInvoice's live preview of unsaved edits
+// (the server endpoint cannot replace a client-side render of uncommitted form state).
+// The saved-invoice view, PDF download, email, and share/portal now all use the
+// server renderer (`/invoices/{id}/preview` + `/invoices/{id}/pdf`).
+// Superseded by core/services/invoice_render/ (Jinja2 + WeasyPrint) per the
+// 2026-06-19 invoice-render-foundation plan.  Remove when EditInvoice preview
+// is migrated to a server round-trip or the file is no longer needed.
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import { Invoice, InvoiceBranding } from '@/lib/api';
 import { isHexColor } from '@/lib/invoice-branding';
