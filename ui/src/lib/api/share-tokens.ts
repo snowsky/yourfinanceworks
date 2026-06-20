@@ -58,7 +58,10 @@ export const shareTokenApi = {
   revokeToken: (token: string) =>
     apiRequest<void>(`/share-tokens/${token}`, { method: 'DELETE' }),
 
-  // Uses raw fetch — bypasses tenant header injection since this is a public endpoint
+  // Uses raw fetch — bypasses tenant header injection since this is a public endpoint.
+  // For invoice shares the backend now returns Content-Type: text/html; for all other
+  // record types it still returns JSON. The caller can distinguish by checking for
+  // the __html marker on the returned object.
   getPublicRecord: async (
     token: string,
     access?: { password?: string; security_answer?: string },
@@ -81,6 +84,15 @@ export const shareTokenApi = {
     if (res.status === 404) throw new Error('Link not found or has been revoked');
     if (res.status === 410) throw new Error('This link has expired or has already been used');
     if (!res.ok) throw new Error('Failed to load shared record');
+
+    // Branch on content-type: invoice shares now return rendered HTML
+    const contentType = res.headers.get('content-type') ?? '';
+    if (contentType.includes('text/html')) {
+      const html = await res.text();
+      // Return a sentinel object so SharedRecord.tsx knows to render an iframe
+      return { record_type: 'invoice', __html: html } as Record<string, unknown>;
+    }
+
     return res.json();
   },
 };

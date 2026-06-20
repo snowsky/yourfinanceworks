@@ -463,7 +463,9 @@ export default function SharedRecord() {
               </div>
             </CardHeader>
             <CardContent>
-              {recordType === 'invoice' && <InvoiceView data={data} />}
+              {recordType === 'invoice' && typeof data.__html === 'string'
+                ? <iframe title="Invoice" sandbox="" srcDoc={data.__html as string} className="w-full min-h-[1000px] border rounded" />
+                : recordType === 'invoice' && <InvoiceView data={data} />}
               {recordType === 'expense' && <ExpenseView data={data} />}
               {recordType === 'payment' && <PaymentView data={data} />}
               {recordType === 'client' && <ClientView data={data} />}
