@@ -84,3 +84,33 @@ def test_non_public_mode_keeps_client_pii_when_provided():
     assert vm.client.email == "b@x.co"
     assert vm.client.phone == "555"
     assert vm.client.address == "1 St"
+
+
+class _FakeTenant:
+    name = "Acme Co"
+    company_logo_url = "http://x/logo.png"
+    address = "1 Main St"
+    phone = "555-0100"
+    email = "hello@acme.co"
+    tax_id = "TAX-1"
+
+
+def test_sample_view_model_uses_tenant_identity_and_canned_items():
+    from core.services.invoice_render.view_model import sample_view_model
+    vm = sample_view_model(_FakeTenant(), CFG)
+    assert vm.company.name == "Acme Co"
+    assert vm.company.logo_url == "http://x/logo.png"
+    assert len(vm.items) == 3
+    assert vm.totals.subtotal_raw == 2500.0
+    assert vm.totals.discount_amount_raw == 250.0   # 10% of 2500
+    assert vm.totals.total_raw == 2250.0
+    assert vm.totals.paid_raw == 500.0
+    assert vm.totals.balance_raw == 1750.0
+    assert any(cf.label == "PO Number" for cf in vm.custom_fields)
+
+
+def test_sample_view_model_handles_none_tenant():
+    from core.services.invoice_render.view_model import sample_view_model
+    vm = sample_view_model(None, CFG)
+    assert vm.company.name        # non-empty fallback
+    assert len(vm.items) == 3

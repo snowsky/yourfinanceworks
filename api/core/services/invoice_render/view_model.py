@@ -146,6 +146,46 @@ def assemble_view_model(data: Dict[str, Any], config: InvoiceTemplateConfig, pub
         footer_text=config.footer_text)
 
 
+def sample_view_model(tenant, config: InvoiceTemplateConfig) -> InvoiceViewModel:
+    """A representative invoice for the template editor's live preview.
+
+    Real company identity comes from `tenant` (the tenant sees their own logo
+    placed/sized); the client, line items, totals, notes and custom fields are
+    canned. Pure — no DB access.
+    """
+    data = {
+        "company": {
+            "name": (getattr(tenant, "name", "") or "Your Company") if tenant else "Your Company",
+            "logo_url": getattr(tenant, "company_logo_url", None) if tenant else None,
+            "address": (getattr(tenant, "address", "") or "") if tenant else "",
+            "phone": (getattr(tenant, "phone", "") or "") if tenant else "",
+            "email": (getattr(tenant, "email", "") or "") if tenant else "",
+            "tax_id": (getattr(tenant, "tax_id", "") or "") if tenant else "",
+        },
+        "meta": {
+            "number": "INV-0001", "issue_date": "2026-06-01", "due_date": "2026-06-15",
+            "status": "sent", "currency": "USD", "show_discount": True,
+        },
+        "client": {
+            "name": "Sample Client LLC", "email": "billing@sampleclient.com",
+            "phone": "(555) 123-4567", "address": "123 Market St, Springfield",
+        },
+        "items": [
+            {"description": "Consulting services", "quantity": 10, "unit_of_measure": "hrs",
+             "unit_price": 150.0, "amount": 1500.0},
+            {"description": "Design work", "quantity": 1, "unit_of_measure": "",
+             "unit_price": 800.0, "amount": 800.0},
+            {"description": "Support retainer", "quantity": 1, "unit_of_measure": "mo",
+             "unit_price": 200.0, "amount": 200.0},
+        ],
+        "amount": 2500.0, "paid_amount": 500.0,
+        "discount": {"type": "percentage", "value": 10.0},
+        "custom_fields": {"PO Number": "PO-2026-0042", "Project": "Website Redesign"},
+        "notes": "Thank you for your business! Payment due within 15 days.",
+    }
+    return assemble_view_model(data, config, public=False)
+
+
 def build_view_model(db, invoice, tenant, config: InvoiceTemplateConfig, public: bool = False) -> InvoiceViewModel:
     """Adapt ORM objects into the `assemble_view_model` data dict.
     paid_amount = SUM(payments.amount) for this invoice.
