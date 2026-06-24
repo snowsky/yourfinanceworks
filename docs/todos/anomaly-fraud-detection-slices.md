@@ -31,3 +31,8 @@ Settings UI to control detection sensitivity / noise:
 - Tune thresholds: threshold-splitting amount, rounding tolerance, temporal window, risk-score cut-offs.
 - Persist per-tenant (likely a Settings row, mirroring `invoice_branding`); the engine's `_initialize_rules` + each rule reads its config.
 - **Decisions for its brainstorm:** which thresholds are worth exposing; whether disabling a rule suppresses existing anomalies or only future ones; defaults.
+
+---
+
+## Follow-up from Slice 1 final review (capture for Slice 2/3)
+- Re-resolution overwrites the audit fields (`resolved_at`/`resolved_by_id`/`resolution_note`) with no history, and the detail drawer shows Confirm/Dismiss even on already-resolved items (Slice 1 deliberately allows re-resolving). Consider: disable/hide the resolution buttons when `anomaly.status !== 'open'`, or keep a small resolution-history trail. Low priority; acceptable for a record-only single-reviewer slice.
