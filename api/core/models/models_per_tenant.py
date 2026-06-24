@@ -1547,6 +1547,14 @@ class Anomaly(Base):
     dismissed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     dismiss_notes = Column(Text, nullable=True)
 
+    # Resolution workflow (Slice 1). `status` is the source of truth; the
+    # existing is_dismissed boolean is kept as a derived mirror
+    # (is_dismissed == (status != "open")) for the legacy super-admin
+    # aggregator. dismissed_at / dismissed_by_id double as the resolution
+    # audit fields (who/when, either outcome).
+    status = Column(String(20), nullable=False, default="open", index=True)  # open, confirmed, dismissed
+    resolution_note = Column(Text, nullable=True)
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
