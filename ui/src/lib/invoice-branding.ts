@@ -1,11 +1,21 @@
-import type { InvoiceBranding } from '@/lib/api/settings';
+import type { InvoiceBranding, InvoiceFont, LogoPlacement, LogoSize } from '@/lib/api/settings';
 
 export const DEFAULT_BRANDING: InvoiceBranding = {
   brand_color: '#1e3a8a',
   accent_color: '#3b82f6',
   show_logo: true,
   footer_text: '',
+  font_family: 'sans',
+  logo_placement: 'left',
+  logo_size: 'medium',
+  show_notes: true,
+  show_custom_fields: true,
+  show_footer: true,
 };
+
+export const FONT_OPTIONS: InvoiceFont[] = ['sans', 'serif', 'mono'];
+export const LOGO_PLACEMENTS: LogoPlacement[] = ['left', 'center', 'right'];
+export const LOGO_SIZES: LogoSize[] = ['small', 'medium', 'large'];
 
 /** Whether a hex string is a valid 6-digit colour (with or without leading #). */
 export function isHexColor(value: string): boolean {

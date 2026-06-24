@@ -14,3 +14,12 @@ table.items th:nth-child(n+2), table.items td:nth-child(n+2) { text-align: right
 .totals .grand { border-top: 2px solid var(--brand); font-weight: 700; }
 .totals .balance { border-top: 1px solid #e5e7eb; color: var(--accent); font-weight: 700; }
 .foot { margin-top: 32px; text-align: center; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 12px; }
+.invoice.font-sans { font-family: "DejaVu Sans", Arial, sans-serif; }
+.invoice.font-serif { font-family: "DejaVu Serif", Georgia, serif; }
+.invoice.font-mono { font-family: "DejaVu Sans Mono", monospace; }
+.logo.logo-small { max-width: 80px; max-height: 56px; }
+.logo.logo-medium { max-width: 120px; max-height: 72px; }
+.logo.logo-large { max-width: 160px; max-height: 96px; }
+.logo.logo-left { margin-right: auto; }
+.logo.logo-center { display: block; margin-left: auto; margin-right: auto; }
+.logo.logo-right { margin-left: auto; }

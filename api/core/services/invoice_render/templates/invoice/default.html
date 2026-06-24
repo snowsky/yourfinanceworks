@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>{{ css }}</style></head>
 <body>
-<div class="invoice" style="--brand: {{ cfg.brand_color }}; --accent: {{ cfg.accent_color }};">
+<div class="invoice font-{{ cfg.font_family }}" style="--brand: {{ cfg.brand_color }}; --accent: {{ cfg.accent_color }};">
   <header class="head">
-    {% if cfg.show.logo and vm.company.logo_url %}<img class="logo" src="{{ vm.company.logo_url }}">{% endif %}
+    {% if cfg.show.logo and vm.company.logo_url %}<img class="logo logo-{{ cfg.logo_placement }} logo-{{ cfg.logo_size }}" src="{{ vm.company.logo_url }}">{% endif %}
     <div class="company">
       <h1>{{ vm.company.name }}</h1>
       <div>{{ vm.company.address }}</div><div>{{ vm.company.email }} {{ vm.company.phone }}</div>

@@ -26,3 +26,23 @@ def test_render_pdf_returns_valid_pdf_bytes():
     from core.services.invoice_render.renderer import render_invoice_pdf
     pdf = render_invoice_pdf(assemble_view_model(_data(), CFG), CFG)
     assert isinstance(pdf, bytes) and pdf[:5] == b"%PDF-" and len(pdf) > 1000
+
+
+def test_html_applies_font_class():
+    cfg = InvoiceTemplateConfig(font_family="serif")
+    html = render_invoice_html(assemble_view_model(_data(), cfg), cfg)
+    assert "font-serif" in html
+
+
+def test_html_applies_logo_placement_and_size_classes():
+    cfg = InvoiceTemplateConfig(logo_placement="right", logo_size="large")
+    data = _data(company={"name": "Acme", "logo_url": "http://x/l.png", "address": "",
+                          "phone": "", "email": "", "tax_id": ""})
+    html = render_invoice_html(assemble_view_model(data, cfg), cfg)
+    assert "logo-right" in html and "logo-large" in html
+
+
+def test_css_defines_font_and_logo_classes():
+    cfg = InvoiceTemplateConfig()
+    html = render_invoice_html(assemble_view_model(_data(), cfg), cfg)
+    assert ".font-serif" in html and ".logo-large" in html  # CSS rules inlined in <style>

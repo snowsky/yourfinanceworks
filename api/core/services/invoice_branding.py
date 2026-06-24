@@ -12,6 +12,9 @@ from typing import Any, Dict
 
 from sqlalchemy.orm import Session
 
+from core.services.invoice_render.config import (
+    ALLOWED_FONTS, ALLOWED_LOGO_PLACEMENTS, ALLOWED_LOGO_SIZES)
+
 INVOICE_BRANDING_KEY = "invoice_branding"
 
 HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -23,6 +26,12 @@ DEFAULT_INVOICE_BRANDING: Dict[str, Any] = {
     "accent_color": "#3b82f6",
     "show_logo": True,
     "footer_text": "",
+    "font_family": "sans",
+    "logo_placement": "left",
+    "logo_size": "medium",
+    "show_notes": True,
+    "show_custom_fields": True,
+    "show_footer": True,
 }
 
 
@@ -75,5 +84,20 @@ def validate_invoice_branding(value: Dict[str, Any]) -> Dict[str, Any]:
         if len(footer) > MAX_FOOTER_LEN:
             raise ValueError(f"footer_text must be at most {MAX_FOOTER_LEN} characters")
         cleaned["footer_text"] = footer
+
+    for key, allowed in (
+        ("font_family", ALLOWED_FONTS),
+        ("logo_placement", ALLOWED_LOGO_PLACEMENTS),
+        ("logo_size", ALLOWED_LOGO_SIZES),
+    ):
+        if value.get(key) is not None:
+            v = str(value[key]).strip().lower()
+            if v not in allowed:
+                raise ValueError(f"{key} must be one of: {', '.join(allowed)}")
+            cleaned[key] = v
+
+    for key in ("show_notes", "show_custom_fields", "show_footer"):
+        if value.get(key) is not None:
+            cleaned[key] = bool(value[key])
 
     return cleaned

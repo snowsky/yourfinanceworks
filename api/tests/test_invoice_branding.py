@@ -152,3 +152,34 @@ def test_build_items_table_accepts_orm_rows():
     # dicts still work
     dict_item = {"description": "Gadget", "quantity": 1, "price": 5.0, "amount": 5.0}
     assert gen._build_items_table([dict_item], "USD", None, False, 0, "percentage", 0)
+
+
+# --- new style fields: fonts, logo placement/size, section toggles ----------
+
+def test_validate_accepts_new_style_fields():
+    out = validate_invoice_branding({
+        "font_family": "Serif", "logo_placement": "CENTER", "logo_size": "large",
+        "show_notes": False, "show_custom_fields": True, "show_footer": False,
+    })
+    assert out["font_family"] == "serif"          # lowercased
+    assert out["logo_placement"] == "center"
+    assert out["logo_size"] == "large"
+    assert out["show_notes"] is False
+    assert out["show_custom_fields"] is True
+    assert out["show_footer"] is False
+
+
+@pytest.mark.parametrize("field,bad", [
+    ("font_family", "comic"), ("logo_placement", "diagonal"), ("logo_size", "huge")])
+def test_validate_rejects_bad_enum(field, bad):
+    with pytest.raises(ValueError):
+        validate_invoice_branding({field: bad})
+
+
+def test_defaults_include_new_style_fields():
+    assert DEFAULT_INVOICE_BRANDING["font_family"] == "sans"
+    assert DEFAULT_INVOICE_BRANDING["logo_placement"] == "left"
+    assert DEFAULT_INVOICE_BRANDING["logo_size"] == "medium"
+    assert DEFAULT_INVOICE_BRANDING["show_notes"] is True
+    assert DEFAULT_INVOICE_BRANDING["show_custom_fields"] is True
+    assert DEFAULT_INVOICE_BRANDING["show_footer"] is True
