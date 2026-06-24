@@ -13,7 +13,8 @@ from core.models.models_per_tenant import Client, Invoice
 from core.models.models import MasterUser, Tenant
 from core.routers.auth import get_current_user
 from core.schemas.invoice import InvoiceItemCreate
-from core.services.invoice_render import assemble_view_model, build_view_model, load_template_config
+from core.services.invoice_render import (
+    assemble_view_model, build_config, build_view_model, load_template_config, sample_view_model)
 from core.services.invoice_render.renderer import render_invoice_html, render_invoice_pdf_async
 from datetime import datetime
 
@@ -38,6 +39,21 @@ class InvoicePreviewRequest(BaseModel):
     notes: Optional[str] = None
     custom_fields: Optional[Dict[str, Any]] = None
     items: Optional[List[InvoiceItemCreate]] = None
+
+
+class TemplatePreviewRequest(BaseModel):
+    """Draft template config for the settings editor's live preview.
+    Flat keys mirror the invoice_branding row; all optional → defaults apply."""
+    brand_color: Optional[str] = None
+    accent_color: Optional[str] = None
+    footer_text: Optional[str] = None
+    show_logo: Optional[bool] = None
+    show_notes: Optional[bool] = None
+    show_custom_fields: Optional[bool] = None
+    show_footer: Optional[bool] = None
+    font_family: Optional[str] = None
+    logo_placement: Optional[str] = None
+    logo_size: Optional[str] = None
 
 router = APIRouter()
 
@@ -173,6 +189,25 @@ async def preview_invoice_from_body(
 
     cfg = load_template_config(db)
     vm = assemble_view_model(data, cfg, public=False)
+    return HTMLResponse(content=render_invoice_html(vm, cfg))
+
+
+@router.post("/template-preview", response_class=HTMLResponse)
+async def preview_invoice_template(
+    body: TemplatePreviewRequest,
+    master_db: Session = Depends(get_master_db),
+    current_user: MasterUser = Depends(get_current_user),
+):
+    """Render a canned sample invoice with the posted draft template config.
+
+    Powers the Invoice Settings template editor's live preview. Company identity
+    (name + logo) comes from the tenant; the rest of the invoice is sample data.
+    The draft config is clamped via build_config, so an out-of-range value is
+    rendered as its default class, never as raw text.
+    """
+    tenant = master_db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    cfg = build_config(body.model_dump(exclude_none=True))
+    vm = sample_view_model(tenant, cfg)
     return HTMLResponse(content=render_invoice_html(vm, cfg))
 
 

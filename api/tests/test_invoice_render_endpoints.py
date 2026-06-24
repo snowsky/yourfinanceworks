@@ -174,3 +174,42 @@ def test_public_share_invoice_renders_template(render_client: TestClient, shared
     assert r.status_code == 200, r.text
     assert r.headers["content-type"].startswith("text/html"), r.headers["content-type"]
     assert "INVOICE" in r.text.upper(), "Expected 'INVOICE' keyword in rendered HTML"
+
+
+# ---------------------------------------------------------------------------
+# POST /invoices/template-preview — settings editor live preview
+# ---------------------------------------------------------------------------
+
+def test_template_preview_renders_sample_with_draft_config(render_client, render_auth):
+    resp = render_client.post(
+        "/api/v1/invoices/template-preview",
+        headers=render_auth,
+        json={"font_family": "serif", "show_notes": False},
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/html")
+    body = resp.text
+    assert "font-serif" in body                 # draft font applied
+    assert "Sample Client LLC" in body          # canned sample data rendered
+    assert "Payment due within 15 days" not in body  # notes hidden by draft toggle
+
+
+def test_template_preview_clamps_bad_enum(render_client, render_auth):
+    resp = render_client.post(
+        "/api/v1/invoices/template-preview",
+        headers=render_auth,
+        json={"font_family": "comic-sans"},
+    )
+    assert resp.status_code == 200
+    assert "font-sans" in resp.text             # clamped to default, never raw value
+    assert "comic-sans" not in resp.text
+
+
+def test_template_preview_requires_auth(render_client):
+    # render_client is module-scoped and shared with render_auth, whose login
+    # call leaves an `auth_token` cookie on the client's cookie jar; clear it
+    # so this request is actually unauthenticated (get_current_user accepts
+    # either the Bearer header or the cookie).
+    render_client.cookies.clear()
+    resp = render_client.post("/api/v1/invoices/template-preview", json={})
+    assert resp.status_code in (401, 403)
