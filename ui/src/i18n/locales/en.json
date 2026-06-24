@@ -4451,7 +4451,24 @@
     "col_detected": "Detected",
     "col_action": "Action",
     "dismiss": "Dismiss",
-    "page_of": "Page {{page}} of {{pages}}"
+    "page_of": "Page {{page}} of {{pages}}",
+    "resolved": "Anomaly resolved",
+    "resolve_failed": "Could not resolve the anomaly",
+    "evidence": "Evidence",
+    "prior_note": "Note",
+    "note_placeholder": "Optional note (why you're confirming or dismissing)",
+    "confirm_real": "Confirm real",
+    "dismiss_false": "False positive",
+    "tab": {
+      "open": "Open",
+      "confirmed": "Confirmed",
+      "dismissed": "Dismissed"
+    },
+    "status": {
+      "open": "Open",
+      "confirmed": "Confirmed",
+      "dismissed": "Dismissed"
+    }
   },
   "viewInvoice": {
     "send": "Send",

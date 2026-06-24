@@ -34,3 +34,20 @@ export function entityLabel(a: Anomaly): string {
   const type = a.entity_type.replace(/_/g, ' ');
   return `${type.charAt(0).toUpperCase()}${type.slice(1)} #${a.entity_id}`;
 }
+
+/** Tailwind classes for an outline Badge, keyed by resolution status. */
+export const STATUS_BADGE: Record<string, string> = {
+  open: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
+  confirmed: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30',
+  dismissed: 'bg-muted text-muted-foreground border-border',
+};
+
+/** Flatten an anomaly `details` blob into label/value rows for generic display. */
+export function renderDetailEntries(details: unknown): Array<{ label: string; value: string }> {
+  if (!details || typeof details !== 'object') return [];
+  return Object.entries(details as Record<string, unknown>).map(([k, v]) => ({
+    label: k.replace(/_/g, ' '),
+    value:
+      v != null && typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v),
+  }));
+}
