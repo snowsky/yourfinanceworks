@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiRequest } from './_base';
+import { API_BASE_URL, apiRequest, getTenantId } from './_base';
 
 // Add settings types
 export interface CompanyInfo {
@@ -24,11 +24,21 @@ export interface InvoiceSettings {
   approval_threshold_amount?: number;
 }
 
+export type InvoiceFont = 'sans' | 'serif' | 'mono';
+export type LogoPlacement = 'left' | 'center' | 'right';
+export type LogoSize = 'small' | 'medium' | 'large';
+
 export interface InvoiceBranding {
   brand_color: string;
   accent_color: string;
   show_logo: boolean;
   footer_text: string;
+  font_family: InvoiceFont;
+  logo_placement: LogoPlacement;
+  logo_size: LogoSize;
+  show_notes: boolean;
+  show_custom_fields: boolean;
+  show_footer: boolean;
 }
 
 export type ShareAccessType = 'public' | 'password' | 'question';
@@ -237,6 +247,19 @@ export const settingsApi = {
       method: 'PUT',
       body: JSON.stringify(settings),
     }),
+  previewInvoiceTemplate: async (branding: Partial<InvoiceBranding>): Promise<string> => {
+    const tenantId = getTenantId();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+    const res = await fetch(`${API_BASE_URL}/invoices/template-preview`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify(branding),
+    });
+    if (!res.ok) throw new Error(`Template preview failed: ${res.status}`);
+    return res.text();
+  },
   getSetting: (key: string) => apiRequest<{ key: string; value: any }>(`/settings/value/${key}`),
   updateSetting: (key: string, value: any) =>
     apiRequest<{ key: string; value: any }>(`/settings/value/${key}`, {

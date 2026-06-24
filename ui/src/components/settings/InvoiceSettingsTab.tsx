@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ReminderCadenceEditor } from "@/components/settings/ReminderCadenceEditor";
 import { settingsApi, InvoiceSettings, InvoiceBranding } from "@/lib/api";
-import { DEFAULT_BRANDING, isHexColor, readableTextColor } from "@/lib/invoice-branding";
+import { DEFAULT_BRANDING, isHexColor, FONT_OPTIONS, LOGO_PLACEMENTS, LOGO_SIZES } from "@/lib/invoice-branding";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -49,13 +49,25 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
 
     const [branding, setBranding] = useState<InvoiceBranding>(DEFAULT_BRANDING);
 
+    const [previewHtml, setPreviewHtml] = useState<string>("");
+
+    useEffect(() => {
+        if (!isAdmin) return;
+        const handle = setTimeout(() => {
+            settingsApi
+                .previewInvoiceTemplate(branding)
+                .then(setPreviewHtml)
+                .catch(() => { /* keep last good preview */ });
+        }, 300);
+        return () => clearTimeout(handle);
+    }, [branding, isAdmin]);
+
     const { data: settings, isLoading } = useQuery({
         queryKey: ['settings'],
         queryFn: () => settingsApi.getSettings(),
         enabled: isAdmin,
     });
 
-    const companyName = settings?.company_info?.name || '';
     const companyLogo = settings?.company_info?.logo || '';
 
     const { data: portalLink } = useQuery({
@@ -298,7 +310,7 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                 </ProfessionalCardContent>
             </ProfessionalCard>
 
-            {/* Branding Card */}
+            {/* Branding / Template Editor Card */}
             <ProfessionalCard variant="elevated">
                 <ProfessionalCardHeader>
                     <ProfessionalCardTitle className="text-base font-semibold flex items-center gap-2">
@@ -306,115 +318,163 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                         {t('settings.branding.title')}
                     </ProfessionalCardTitle>
                 </ProfessionalCardHeader>
-                <ProfessionalCardContent className="space-y-6">
-                    <p className="text-sm text-muted-foreground">
+                <ProfessionalCardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
                         {t('settings.branding.description')}
                     </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Left: controls */}
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label htmlFor="brand_color">{t('settings.branding.brand_color')}</Label>
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="color"
+                                            aria-label={t('settings.branding.brand_color')}
+                                            value={isHexColor(branding.brand_color) ? branding.brand_color : '#1e3a8a'}
+                                            onChange={(e) => setBrandColor('brand_color', e.target.value)}
+                                            className="h-10 w-14 cursor-pointer rounded-md border border-input bg-background p-1"
+                                        />
+                                        <ProfessionalInput
+                                            id="brand_color"
+                                            value={branding.brand_color}
+                                            onChange={(e) => setBrandColor('brand_color', e.target.value)}
+                                            className="font-mono"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="accent_color">{t('settings.branding.accent_color')}</Label>
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="color"
+                                            aria-label={t('settings.branding.accent_color')}
+                                            value={isHexColor(branding.accent_color) ? branding.accent_color : '#3b82f6'}
+                                            onChange={(e) => setBrandColor('accent_color', e.target.value)}
+                                            className="h-10 w-14 cursor-pointer rounded-md border border-input bg-background p-1"
+                                        />
+                                        <ProfessionalInput
+                                            id="accent_color"
+                                            value={branding.accent_color}
+                                            onChange={(e) => setBrandColor('accent_color', e.target.value)}
+                                            className="font-mono"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Font */}
+                            <div className="space-y-2">
+                                <Label htmlFor="font_family">{t('settings.branding.font')}</Label>
+                                <div className="flex gap-2" role="group" aria-label={t('settings.branding.font')}>
+                                    {FONT_OPTIONS.map((font) => (
+                                        <button
+                                            key={font}
+                                            type="button"
+                                            onClick={() => setBranding((prev) => ({ ...prev, font_family: font }))}
+                                            className={`px-3 py-1.5 rounded-lg border text-sm capitalize ${branding.font_family === font ? 'border-primary bg-primary/10 font-semibold' : 'border-input'}`}
+                                        >
+                                            {t(`settings.branding.font_${font}`)}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Logo */}
+                            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                                <div className="space-y-0.5 pr-4">
+                                    <Label htmlFor="show_logo" className="text-base font-semibold">
+                                        {t('settings.branding.show_logo')}
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        {companyLogo
+                                            ? t('settings.branding.show_logo_description')
+                                            : t('settings.branding.no_logo_hint')}
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="show_logo"
+                                    checked={!!branding.show_logo}
+                                    onCheckedChange={(checked) => setBranding((prev) => ({ ...prev, show_logo: checked }))}
+                                />
+                            </div>
+                            {branding.show_logo && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>{t('settings.branding.logo_placement')}</Label>
+                                        <div className="flex gap-2" role="group" aria-label={t('settings.branding.logo_placement')}>
+                                            {LOGO_PLACEMENTS.map((p) => (
+                                                <button
+                                                    key={p}
+                                                    type="button"
+                                                    onClick={() => setBranding((prev) => ({ ...prev, logo_placement: p }))}
+                                                    className={`px-3 py-1.5 rounded-lg border text-sm capitalize ${branding.logo_placement === p ? 'border-primary bg-primary/10 font-semibold' : 'border-input'}`}
+                                                >
+                                                    {t(`settings.branding.placement_${p}`)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>{t('settings.branding.logo_size')}</Label>
+                                        <div className="flex gap-2" role="group" aria-label={t('settings.branding.logo_size')}>
+                                            {LOGO_SIZES.map((s) => (
+                                                <button
+                                                    key={s}
+                                                    type="button"
+                                                    onClick={() => setBranding((prev) => ({ ...prev, logo_size: s }))}
+                                                    className={`px-3 py-1.5 rounded-lg border text-sm capitalize ${branding.logo_size === s ? 'border-primary bg-primary/10 font-semibold' : 'border-input'}`}
+                                                >
+                                                    {t(`settings.branding.size_${s}`)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Section visibility */}
+                            <div className="p-4 bg-muted/30 rounded-xl space-y-3">
+                                <p className="text-sm font-semibold">{t('settings.branding.sections')}</p>
+                                {([
+                                    ['show_custom_fields', 'settings.branding.section_custom_fields'],
+                                    ['show_notes', 'settings.branding.section_notes'],
+                                    ['show_footer', 'settings.branding.section_footer'],
+                                ] as const).map(([key, label]) => (
+                                    <div key={key} className="flex items-center justify-between">
+                                        <Label htmlFor={key}>{t(label)}</Label>
+                                        <Switch
+                                            id={key}
+                                            checked={!!branding[key]}
+                                            onCheckedChange={(checked) => setBranding((prev) => ({ ...prev, [key]: checked }))}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+
+                            <ProfessionalTextarea
+                                label={t('settings.branding.footer_text')}
+                                id="branding_footer"
+                                name="branding_footer"
+                                rows={2}
+                                maxLength={500}
+                                value={branding.footer_text || ''}
+                                onChange={(e) => setBranding((prev) => ({ ...prev, footer_text: e.target.value }))}
+                                placeholder={t('settings.branding.footer_placeholder')}
+                            />
+                        </div>
+
+                        {/* Right: live preview */}
                         <div className="space-y-2">
-                            <Label htmlFor="brand_color">{t('settings.branding.brand_color')}</Label>
-                            <div className="flex items-center gap-3">
-                                <input
-                                    type="color"
-                                    aria-label={t('settings.branding.brand_color')}
-                                    value={isHexColor(branding.brand_color) ? branding.brand_color : '#1e3a8a'}
-                                    onChange={(e) => setBrandColor('brand_color', e.target.value)}
-                                    className="h-10 w-14 cursor-pointer rounded-md border border-input bg-background p-1"
-                                />
-                                <ProfessionalInput
-                                    id="brand_color"
-                                    value={branding.brand_color}
-                                    onChange={(e) => setBrandColor('brand_color', e.target.value)}
-                                    className="font-mono"
-                                />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="accent_color">{t('settings.branding.accent_color')}</Label>
-                            <div className="flex items-center gap-3">
-                                <input
-                                    type="color"
-                                    aria-label={t('settings.branding.accent_color')}
-                                    value={isHexColor(branding.accent_color) ? branding.accent_color : '#3b82f6'}
-                                    onChange={(e) => setBrandColor('accent_color', e.target.value)}
-                                    className="h-10 w-14 cursor-pointer rounded-md border border-input bg-background p-1"
-                                />
-                                <ProfessionalInput
-                                    id="accent_color"
-                                    value={branding.accent_color}
-                                    onChange={(e) => setBrandColor('accent_color', e.target.value)}
-                                    className="font-mono"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
-                        <div className="space-y-0.5 pr-4">
-                            <Label htmlFor="show_logo" className="text-base font-semibold">
-                                {t('settings.branding.show_logo')}
-                            </Label>
-                            <p className="text-sm text-muted-foreground">
-                                {companyLogo
-                                    ? t('settings.branding.show_logo_description')
-                                    : t('settings.branding.no_logo_hint')}
-                            </p>
-                        </div>
-                        <Switch
-                            id="show_logo"
-                            checked={!!branding.show_logo}
-                            onCheckedChange={(checked) => setBranding((prev) => ({ ...prev, show_logo: checked }))}
-                        />
-                    </div>
-
-                    <ProfessionalTextarea
-                        label={t('settings.branding.footer_text')}
-                        id="branding_footer"
-                        name="branding_footer"
-                        rows={2}
-                        maxLength={500}
-                        value={branding.footer_text || ''}
-                        onChange={(e) => setBranding((prev) => ({ ...prev, footer_text: e.target.value }))}
-                        placeholder={t('settings.branding.footer_placeholder')}
-                    />
-
-                    {/* Live preview */}
-                    <div>
-                        <p className="text-sm font-medium mb-2">{t('settings.branding.preview')}</p>
-                        <div className="rounded-xl border overflow-hidden bg-white text-gray-900 shadow-sm">
-                            <div
-                                className="flex items-center justify-between gap-4 px-5 py-4"
-                                style={{
-                                    backgroundColor: isHexColor(branding.brand_color) ? branding.brand_color : '#1e3a8a',
-                                    color: readableTextColor(branding.brand_color),
-                                }}
-                            >
-                                <div className="flex items-center gap-3 min-w-0">
-                                    {branding.show_logo && companyLogo && (
-                                        <img src={companyLogo} alt="" className="h-8 w-8 rounded bg-white/90 object-contain p-0.5" />
-                                    )}
-                                    <span className="font-semibold truncate">{companyName || t('settings.branding.your_company')}</span>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-xs uppercase tracking-wide opacity-80">{t('settings.branding.invoice_label')}</div>
-                                    <div className="font-mono font-semibold">INV-0001</div>
-                                </div>
-                            </div>
-                            <div className="px-5 py-4 space-y-3">
-                                <div className="h-1 w-16 rounded" style={{ backgroundColor: isHexColor(branding.accent_color) ? branding.accent_color : '#3b82f6' }} />
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">{t('settings.branding.sample_item')}</span>
-                                    <span className="font-medium">$1,200.00</span>
-                                </div>
-                                <div className="flex justify-between text-base font-bold" style={{ color: isHexColor(branding.brand_color) ? branding.brand_color : '#1e3a8a' }}>
-                                    <span>{t('settings.branding.sample_total')}</span>
-                                    <span>$1,200.00</span>
-                                </div>
-                                {branding.footer_text && (
-                                    <p className="pt-2 border-t text-xs text-gray-500">{branding.footer_text}</p>
-                                )}
-                            </div>
+                            <p className="text-sm font-medium">{t('settings.branding.preview')}</p>
+                            <iframe
+                                title="invoice-template-preview"
+                                sandbox=""
+                                srcDoc={previewHtml}
+                                className="w-full h-[640px] rounded-xl border bg-white"
+                            />
                         </div>
                     </div>
                 </ProfessionalCardContent>
