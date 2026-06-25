@@ -237,6 +237,33 @@ def ensure_tenant_required_columns(tenant_db_url: str, tenant_id: int) -> bool:
                         )
                         conn.commit()
 
+            # anomalies: resolution-workflow columns (Slice 1). status is the
+            # source of truth; backfill pre-existing rows from is_dismissed so
+            # the NOT NULL default is correct for historical data.
+            if "anomalies" in inspector.get_table_names():
+                existing = {c["name"] for c in inspector.get_columns("anomalies")}
+                if "status" not in existing:
+                    logger.info(f"[tenant {tenant_id}] Adding anomalies.status")
+                    conn.execute(
+                        text(
+                            "ALTER TABLE anomalies "
+                            "ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'open'"
+                        )
+                    )
+                    conn.execute(
+                        text(
+                            "UPDATE anomalies SET status = 'dismissed' "
+                            "WHERE is_dismissed = true"
+                        )
+                    )
+                    conn.commit()
+                if "resolution_note" not in existing:
+                    logger.info(f"[tenant {tenant_id}] Adding anomalies.resolution_note")
+                    conn.execute(
+                        text("ALTER TABLE anomalies ADD COLUMN resolution_note TEXT")
+                    )
+                    conn.commit()
+
             # Sample-data flag for onboarding (mirrors models_per_tenant).
             for table in ("clients", "invoices", "expenses"):
                 if table in inspector.get_table_names():

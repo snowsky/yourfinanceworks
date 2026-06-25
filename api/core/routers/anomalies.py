@@ -11,7 +11,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import status as http_status
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -28,12 +29,45 @@ router = APIRouter()
 # Highest-severity first when ordering / summarizing.
 RISK_LEVELS = ("critical", "high", "medium", "low")
 
+RESOLVABLE_STATUSES = ("confirmed", "dismissed")
+
+
+def _serialize_anomaly(a, statement_by_txn=None):
+    statement_by_txn = statement_by_txn or {}
+    return {
+        "id": a.id,
+        "entity_type": a.entity_type,
+        "entity_id": a.entity_id,
+        "risk_score": a.risk_score,
+        "risk_level": a.risk_level,
+        "reason": a.reason,
+        "rule_id": a.rule_id,
+        "details": a.details,
+        "created_at": a.created_at,
+        "status": a.status,
+        "resolution_note": a.resolution_note,
+        "resolved_at": a.dismissed_at,
+        "resolved_by_id": a.dismissed_by_id,
+        "statement_id": statement_by_txn.get(a.entity_id),
+    }
+
+
+def _apply_resolution(anomaly, status: str, note, user) -> None:
+    """Set the resolution fields + keep the is_dismissed mirror in sync."""
+    anomaly.status = status
+    anomaly.is_dismissed = status != "open"
+    anomaly.dismissed_at = datetime.now(timezone.utc)
+    anomaly.dismissed_by_id = user.id
+    anomaly.resolution_note = note
+    anomaly.dismiss_notes = note  # keep the legacy column in sync
+
 
 @router.get("")
 async def list_anomalies(
     skip: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(50, ge=1, le=100, description="Number of items to return"),
     risk_level: Optional[str] = Query(None, description="Filter by risk level"),
+    status: Optional[str] = Query(None, description="Filter by resolution status (open/confirmed/dismissed)"),
     is_dismissed: bool = Query(False, description="Return dismissed items instead of open ones"),
     db: Session = Depends(get_db),
     current_user: TenantUser = Depends(get_current_user),
@@ -46,11 +80,14 @@ async def list_anomalies(
     """
     if not FeatureConfigService.is_enabled("anomaly_detection", db=db):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Anomaly detection is not available in your current license",
         )
 
-    query = db.query(Anomaly).filter(Anomaly.is_dismissed == is_dismissed)
+    if status is not None:
+        query = db.query(Anomaly).filter(Anomaly.status == status)
+    else:
+        query = db.query(Anomaly).filter(Anomaly.is_dismissed == is_dismissed)
     if risk_level:
         query = query.filter(Anomaly.risk_level == risk_level)
 
@@ -99,21 +136,7 @@ async def list_anomalies(
         "summary": summary,
         "skip": skip,
         "limit": limit,
-        "items": [
-            {
-                "id": a.id,
-                "entity_type": a.entity_type,
-                "entity_id": a.entity_id,
-                "risk_score": a.risk_score,
-                "risk_level": a.risk_level,
-                "reason": a.reason,
-                "rule_id": a.rule_id,
-                "details": a.details,
-                "created_at": a.created_at,
-                "statement_id": statement_by_txn.get(a.entity_id),
-            }
-            for a in items
-        ],
+        "items": [_serialize_anomaly(a, statement_by_txn) for a in items],
     }
 
 
@@ -131,18 +154,76 @@ async def dismiss_anomaly(
     """Dismiss (acknowledge) one of the current tenant's anomalies."""
     if not FeatureConfigService.is_enabled("anomaly_detection", db=db):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Anomaly detection is not available in your current license",
         )
 
     anomaly = db.query(Anomaly).filter(Anomaly.id == anomaly_id).first()
     if not anomaly:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
 
-    anomaly.is_dismissed = True
-    anomaly.dismissed_at = datetime.now(timezone.utc)
-    anomaly.dismissed_by_id = current_user.id
-    anomaly.dismiss_notes = payload.notes
+    _apply_resolution(anomaly, "dismissed", payload.notes, current_user)
     db.commit()
 
     return {"id": anomaly.id, "is_dismissed": True}
+
+
+class ResolveAnomalyRequest(BaseModel):
+    status: str
+    note: Optional[str] = None
+
+
+@router.patch("/{anomaly_id}/resolve")
+async def resolve_anomaly(
+    anomaly_id: int,
+    payload: ResolveAnomalyRequest,
+    db: Session = Depends(get_db),
+    current_user: TenantUser = Depends(get_current_user),
+):
+    """Resolve an anomaly as confirmed (true positive) or dismissed (false positive)."""
+    if not FeatureConfigService.is_enabled("anomaly_detection", db=db):
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="Anomaly detection is not available in your current license",
+        )
+    if payload.status not in RESOLVABLE_STATUSES:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="status must be 'confirmed' or 'dismissed'",
+        )
+    anomaly = db.query(Anomaly).filter(Anomaly.id == anomaly_id).first()
+    if not anomaly:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
+
+    _apply_resolution(anomaly, payload.status, payload.note, current_user)
+    db.commit()
+    return {"id": anomaly.id, "status": anomaly.status}
+
+
+@router.get("/{anomaly_id}")
+async def get_anomaly(
+    anomaly_id: int,
+    db: Session = Depends(get_db),
+    current_user: TenantUser = Depends(get_current_user),
+):
+    """Fetch a single anomaly (for the detail drawer / deep-links)."""
+    if not FeatureConfigService.is_enabled("anomaly_detection", db=db):
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="Anomaly detection is not available in your current license",
+        )
+    anomaly = db.query(Anomaly).filter(Anomaly.id == anomaly_id).first()
+    if not anomaly:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
+
+    statement_by_txn = {}
+    if anomaly.entity_type == "bank_statement_transaction":
+        from core.models.models_per_tenant import BankStatementTransaction
+        row = (
+            db.query(BankStatementTransaction.statement_id)
+            .filter(BankStatementTransaction.id == anomaly.entity_id)
+            .first()
+        )
+        if row:
+            statement_by_txn[anomaly.entity_id] = row[0]
+    return _serialize_anomaly(anomaly, statement_by_txn)
