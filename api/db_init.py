@@ -263,6 +263,12 @@ def ensure_tenant_required_columns(tenant_db_url: str, tenant_id: int) -> bool:
                         text("ALTER TABLE anomalies ADD COLUMN resolution_note TEXT")
                     )
                     conn.commit()
+                if "alerted_at" not in existing:
+                    logger.info(f"[tenant {tenant_id}] Adding anomalies.alerted_at")
+                    conn.execute(
+                        text("ALTER TABLE anomalies ADD COLUMN alerted_at TIMESTAMP WITH TIME ZONE")
+                    )
+                    conn.commit()
 
             # Sample-data flag for onboarding (mirrors models_per_tenant).
             for table in ("clients", "invoices", "expenses"):
