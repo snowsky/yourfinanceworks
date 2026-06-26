@@ -167,8 +167,16 @@ class AuditConsumer:
                 else:
                     # Run Anomaly Detection
                     service = AnomalyDetectionService(tenant_session)
-                    await service.analyze_entity(entity, entity_type, reprocess_mode=reprocess_mode)
+                    created = await service.analyze_entity(
+                        entity, entity_type, reprocess_mode=reprocess_mode
+                    )
                     logger.info(f"Completed audit for {entity_type} {entity_id}")
+                    # Slice 2: immediate in-app alerts for new high/critical anomalies
+                    # (suppressed for bulk reprocess; digest catches those).
+                    from commercial.anomaly_detection.alert_service import AnomalyAlertService
+                    AnomalyAlertService(tenant_session).notify_new_anomalies(
+                        created or [], reprocess_mode=reprocess_mode
+                    )
             finally:
                 tenant_session.close()
 
