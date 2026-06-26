@@ -808,6 +808,40 @@ APPROVAL_DIGEST_TEXT_TEMPLATE = _TEXT_ENV.from_string("""
         """)
 
 
+ANOMALY_DIGEST_HTML_TEMPLATE = _HTML_ENV.from_string("""
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>{{ subject }}</title></head>
+<body style="font-family: Arial, sans-serif; background:#f5f5f5; padding:20px;">
+  <div style="max-width:600px; margin:0 auto; background:#fff; padding:30px; border-radius:10px;">
+    <h2 style="color:#333;">{{ subject }}</h2>
+    <p style="color:#666;">{{ count }} high/critical anomal{{ 'y' if count == 1 else 'ies' }} need review.</p>
+    <ul style="color:#444; line-height:1.6;">
+      {% for item in items %}
+      <li>
+        <strong>[{{ item.risk_level | upper }}]</strong>
+        {{ item.entity_label }} #{{ item.entity_id }} — {{ item.reason }}
+        — <a href="{{ item.url }}">Review</a>
+      </li>
+      {% endfor %}
+    </ul>
+    <p style="color:#999; font-size:12px;">{{ company_name }}</p>
+  </div>
+</body>
+</html>
+""")
+
+ANOMALY_DIGEST_TEXT_TEMPLATE = _TEXT_ENV.from_string("""{{ subject }}
+
+{{ count }} high/critical anomalies need review.
+
+{% for item in items %}- [{{ item.risk_level | upper }}] {{ item.entity_label }} #{{ item.entity_id }} — {{ item.reason }}
+  Review: {{ item.url }}
+{% endfor %}
+{{ company_name }}
+""")
+
+
 # Client-facing "thank you for your payment" email, sent when an invoice is
 # fully paid. Plain and warm; no action required by the recipient.
 THANK_YOU_HTML_TEMPLATE = _HTML_ENV.from_string("""
