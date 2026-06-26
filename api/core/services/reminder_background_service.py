@@ -140,6 +140,11 @@ class ReminderBackgroundService:
                 if expense_digest_stats.get("status") not in {"skipped", "failed"}:
                     logger.info(f"Processed expense digest for tenant {tenant_id}: {expense_digest_stats}")
 
+                # Process anomaly digest schedule (Slice 2)
+                anomaly_digest_stats = self._process_anomaly_digest(db, tenant_id)
+                if anomaly_digest_stats.get("status") not in {"skipped", "failed"}:
+                    logger.info(f"Processed anomaly digest for tenant {tenant_id}: {anomaly_digest_stats}")
+
                 # Cleanup old notifications once per day (roughly)
                 if self._should_cleanup():
                     cleanup_count = scheduler.cleanup_old_notifications()
@@ -151,6 +156,7 @@ class ReminderBackgroundService:
                     "upcoming_reminders": upcoming_stats,
                     "workflow_runs": workflow_stats,
                     "expense_digest": expense_digest_stats,
+                    "anomaly_digest": anomaly_digest_stats,
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }
 
@@ -203,7 +209,39 @@ class ReminderBackgroundService:
         except Exception as e:
             logger.error(f"Error processing expense digest for tenant {tenant_id}: {str(e)}")
             return {"status": "failed", "reason": str(e)}
-    
+
+    def _process_anomaly_digest(self, db, tenant_id: int) -> Dict[str, Any]:
+        """Process the due anomaly digest for a tenant if email is configured."""
+        try:
+            from core.models.models_per_tenant import Settings
+            from core.services.email_service import EmailProvider, EmailProviderConfig, EmailService
+            from core.services.anomaly_digest_service import AnomalyDigestService
+
+            email_settings = db.query(Settings).filter(Settings.key == "email_config").first()
+            if not email_settings or not email_settings.value:
+                return {"status": "skipped", "reason": "email_config_missing"}
+
+            email_config_data = email_settings.value
+            if not email_config_data.get("enabled", False):
+                return {"status": "skipped", "reason": "email_disabled"}
+
+            config = EmailProviderConfig(
+                provider=EmailProvider(email_config_data["provider"]),
+                from_email=email_config_data.get("from_email"),
+                from_name=email_config_data.get("from_name"),
+                aws_access_key_id=email_config_data.get("aws_access_key_id"),
+                aws_secret_access_key=email_config_data.get("aws_secret_access_key"),
+                aws_region=email_config_data.get("aws_region"),
+                azure_connection_string=email_config_data.get("azure_connection_string"),
+                mailgun_api_key=email_config_data.get("mailgun_api_key"),
+                mailgun_domain=email_config_data.get("mailgun_domain"),
+            )
+            email_service = EmailService(config)
+            return AnomalyDigestService(db, email_service).process_due_digest(force=False)
+        except Exception as e:
+            logger.error(f"Anomaly digest pass failed for tenant {tenant_id}: {e}")
+            return {"status": "failed", "error": str(e)}
+
     def _should_cleanup(self) -> bool:
         """Determine if we should run cleanup (approximately once per day)."""
         # Run cleanup roughly once per day based on check interval
