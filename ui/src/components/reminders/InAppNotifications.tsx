@@ -233,6 +233,17 @@ export function InAppNotifications({ className }: InAppNotificationsProps) {
       }
       return;
     }
+
+    // Handle anomaly / fraud alerts (Slice 2) -> Slice-1 review drawer
+    if (notification_type === 'anomaly_alert') {
+      const anomalyId = extractResourceId(subject);
+      if (anomalyId) {
+        markAsRead(notification.id);
+        setOpen(false);
+        window.location.href = `/anomalies?selected=${anomalyId}`;
+      }
+      return;
+    }
   };
 
   return (
