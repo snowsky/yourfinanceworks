@@ -41,7 +41,7 @@ DEFAULT_EXPENSE_SETTINGS: Dict[str, Any] = {
 
 
 def ensure_expense_digest_preference_columns(db: Session) -> None:
-    """Backfill per-user digest columns for tenant DBs that have not run migrations yet."""
+    """Backfill per-user digest + anomaly-alert columns for tenant DBs that have not run migrations yet."""
     bind = db.get_bind()
     inspector = inspect(bind)
     if not inspector.has_table("email_notification_settings"):
@@ -58,6 +58,11 @@ def ensure_expense_digest_preference_columns(db: Session) -> None:
         "expense_digest_frequency": "VARCHAR DEFAULT 'weekly' NOT NULL",
         "expense_digest_next_run_at": "TIMESTAMP WITH TIME ZONE" if dialect == "postgresql" else "DATETIME",
         "expense_digest_last_sent_at": "TIMESTAMP WITH TIME ZONE" if dialect == "postgresql" else "DATETIME",
+        "anomaly_alert": (
+            "BOOLEAN NOT NULL DEFAULT TRUE"
+            if dialect == "postgresql"
+            else "BOOLEAN NOT NULL DEFAULT 1"
+        ),
     }
 
     changed = False

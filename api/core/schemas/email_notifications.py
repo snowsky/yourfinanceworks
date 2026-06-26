@@ -37,7 +37,10 @@ class EmailNotificationSettingsBase(BaseModel):
     expense_imported: bool = True
     expense_analysis_completed: bool = True
     expense_analysis_failed: bool = True
-    
+
+    # Anomaly / fraud alerts (Slice 2)
+    anomaly_alert: bool = True
+
     # Inventory operation notifications
     inventory_created: bool = True
     inventory_updated: bool = False

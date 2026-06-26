@@ -64,6 +64,9 @@ class EmailNotificationSettings(Base):
     inventory_category_updated = Column(Boolean, default=False)
     inventory_category_deleted = Column(Boolean, default=True)
 
+    # Anomaly / fraud alerts (Slice 2) — gates both in-app and email channels
+    anomaly_alert = Column(Boolean, default=True)
+
     # Statement operation notifications
     statement_generated = Column(Boolean, default=True)
     statement_sent = Column(Boolean, default=True)
