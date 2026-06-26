@@ -23,7 +23,6 @@ ALERT_LEVELS = {"high", "critical"}
 _ENTITY_LABELS = {
     "invoice": "invoice",
     "expense": "expense",
-    "bank_transaction": "transaction",
     "bank_statement_transaction": "transaction",
 }
 

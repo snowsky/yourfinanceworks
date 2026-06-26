@@ -240,7 +240,7 @@ class ReminderBackgroundService:
             return AnomalyDigestService(db, email_service).process_due_digest(force=False)
         except Exception as e:
             logger.error(f"Anomaly digest pass failed for tenant {tenant_id}: {e}")
-            return {"status": "failed", "error": str(e)}
+            return {"status": "failed", "reason": str(e)}
 
     def _should_cleanup(self) -> bool:
         """Determine if we should run cleanup (approximately once per day)."""
