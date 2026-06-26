@@ -28,7 +28,6 @@ ALERT_LEVELS = ("high", "critical")
 _ENTITY_LABELS = {
     "invoice": "Invoice",
     "expense": "Expense",
-    "bank_transaction": "Transaction",
     "bank_statement_transaction": "Transaction",
 }
 
@@ -114,7 +113,10 @@ class AnomalyDigestService:
             from_email=from_email,
             from_name=from_name,
         )
-        return self.email_service.send_email(message)
+        ok = self.email_service.send_email(message)
+        if not ok:
+            logger.warning(f"Anomaly digest email to admin {admin.id} failed to send")
+        return ok
 
     def _load_last_run_at(self) -> Optional[datetime]:
         record = self.db.query(Settings).filter(Settings.key == self.RUNTIME_KEY).first()
