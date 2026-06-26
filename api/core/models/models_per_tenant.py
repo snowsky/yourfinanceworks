@@ -1555,6 +1555,10 @@ class Anomaly(Base):
     status = Column(String(20), nullable=False, default="open", index=True)  # open, confirmed, dismissed
     resolution_note = Column(Text, nullable=True)
 
+    # Slice 2 (alerting): set when an immediate in-app alert has been fired for
+    # this anomaly, so a Kafka redelivery (at-least-once) does not re-alert.
+    alerted_at = Column(DateTime(timezone=True), nullable=True)
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
