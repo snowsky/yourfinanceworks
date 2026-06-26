@@ -74,6 +74,7 @@ interface NotificationSettings {
     notification_email: string;
     daily_summary: boolean;
     weekly_summary: boolean;
+    anomaly_alert: boolean;
 }
 
 interface NotificationsTabProps {
@@ -153,7 +154,8 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({ isAdmin }) =
         statement_generated: false, statement_sent: false, statement_overdue: false,
         reminder_created: false, reminder_sent: false, reminder_overdue: false,
         settings_updated: false, notification_email: '',
-        daily_summary: false, weekly_summary: false
+        daily_summary: false, weekly_summary: false,
+        anomaly_alert: true
     });
 
     const { data: emailConfigData, isLoading: isLoadingEmailConfig } = useQuery({
@@ -294,6 +296,14 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({ isAdmin }) =
                 { key: 'expense_approved' as keyof NotificationSettings, label: t('settings.expense_approved'), desc: t('settings.expense_approved_description') },
                 { key: 'expense_rejected' as keyof NotificationSettings, label: t('settings.expense_rejected'), desc: t('settings.expense_rejected_description') },
                 { key: 'expense_submitted' as keyof NotificationSettings, label: t('settings.expense_submitted'), desc: t('settings.expense_submitted_description') },
+            ]
+        },
+        {
+            value: 'security',
+            icon: <Activity className="w-4 h-4 text-primary" />,
+            title: 'Security & Fraud Alerts',
+            ops: [
+                { key: 'anomaly_alert' as keyof NotificationSettings, label: 'Anomaly / fraud alerts', desc: 'Notify admins when a high/critical anomaly is detected.' },
             ]
         },
         {
@@ -486,7 +496,7 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({ isAdmin }) =
                     </div>
 
                     {/* Accordion Groups */}
-                    <Accordion type="multiple" defaultValue={['users', 'invoices']} className="space-y-2">
+                    <Accordion type="multiple" defaultValue={['users', 'invoices', 'security']} className="space-y-2">
                         {notificationGroups.map((group) => (
                             <NotificationGroup
                                 key={group.value}
