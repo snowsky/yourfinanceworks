@@ -19,10 +19,13 @@ from core.routers import anomalies as anomalies_router
 from core.routers.anomalies import (
     DismissAnomalyRequest,
     ResolveAnomalyRequest,
+    UpdateAnomalyConfigRequest,
     dismiss_anomaly,
     get_anomaly,
+    get_anomaly_config,
     list_anomalies,
     resolve_anomaly,
+    update_anomaly_config,
 )
 from core.services.feature_config_service import FeatureConfigService
 
@@ -289,3 +292,61 @@ async def test_list_status_filter_returns_only_that_status(db_session, create_te
     # cleanup the confirmed row (FK to users)
     db_session.delete(db_session.query(Anomaly).filter(Anomaly.id == confirmed.id).first())
     db_session.commit()
+
+
+# ---------------------------------------------------------------------------
+# Config endpoint tests (Task 5)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def admin_user():
+    return SimpleNamespace(id=7, tenant_id=1, email="a@x.com", role="admin", is_superuser=False)
+
+
+@pytest.fixture
+def viewer_user():
+    return SimpleNamespace(id=8, tenant_id=1, email="v@x.com", role="viewer", is_superuser=False)
+
+
+@pytest.mark.asyncio
+async def test_get_config_returns_defaults(db_session, user, feature_on):
+    result = await get_anomaly_config(db=db_session, current_user=user)
+    assert result["rules"]["rounding_anomaly"]["min_amount"] == 250
+    assert result["min_risk_score"] == 0
+
+
+@pytest.mark.asyncio
+async def test_get_config_feature_off(db_session, user, feature_off):
+    with pytest.raises(HTTPException) as exc:
+        await get_anomaly_config(db=db_session, current_user=user)
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_update_config_admin_persists(db_session, admin_user, feature_on):
+    payload = UpdateAnomalyConfigRequest(
+        config={"min_risk_score": 30, "rules": {"phantom_vendor": {"enabled": False}}}
+    )
+    result = await update_anomaly_config(payload=payload, db=db_session, current_user=admin_user)
+    assert result["min_risk_score"] == 30
+    assert result["rules"]["phantom_vendor"]["enabled"] is False
+    # Persisted + reads back.
+    again = await get_anomaly_config(db=db_session, current_user=admin_user)
+    assert again["rules"]["phantom_vendor"]["enabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_update_config_non_admin_forbidden(db_session, viewer_user, feature_on):
+    payload = UpdateAnomalyConfigRequest(config={"min_risk_score": 10})
+    with pytest.raises(HTTPException) as exc:
+        await update_anomaly_config(payload=payload, db=db_session, current_user=viewer_user)
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_update_config_invalid_is_422(db_session, admin_user, feature_on):
+    payload = UpdateAnomalyConfigRequest(config={"min_risk_score": 999})
+    with pytest.raises(HTTPException) as exc:
+        await update_anomaly_config(payload=payload, db=db_session, current_user=admin_user)
+    assert exc.value.status_code == 422
