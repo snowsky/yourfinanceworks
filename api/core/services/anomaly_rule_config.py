@@ -131,3 +131,69 @@ def _validate_rule(rule_id: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
             out["flag_weekend"] = bool(cfg["flag_weekend"])
 
     return out
+
+
+def _clamp_number(value: Any, lo: float, hi: float, default: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return default
+    return float(min(max(value, lo), hi))
+
+
+def _clamp_int(value: Any, lo: int, hi: int, default: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return default
+    return min(max(value, lo), hi)
+
+
+def _clamp_rule(rule_id: str, stored: Dict[str, Any]) -> Dict[str, Any]:
+    default = DEFAULT_ANOMALY_RULE_CONFIG["rules"][rule_id]
+    out: Dict[str, Any] = dict(default)
+    if not isinstance(stored, dict):
+        return out
+
+    out["enabled"] = bool(stored.get("enabled", default["enabled"]))
+
+    if rule_id == "rounding_anomaly":
+        out["min_amount"] = _clamp_number(
+            stored.get("min_amount", default["min_amount"]), 0, float("inf"), default["min_amount"]
+        )
+    elif rule_id == "threshold_splitting":
+        out["min_count"] = _clamp_int(
+            stored.get("min_count", default["min_count"]), 2, 1000, default["min_count"]
+        )
+        out["proximity_pct"] = _clamp_number(
+            stored.get("proximity_pct", default["proximity_pct"]), 0.5, 1.0, default["proximity_pct"]
+        )
+    elif rule_id == "temporal_anomaly":
+        out["start_hour"] = _clamp_int(
+            stored.get("start_hour", default["start_hour"]), 0, 23, default["start_hour"]
+        )
+        out["end_hour"] = _clamp_int(
+            stored.get("end_hour", default["end_hour"]), 0, 23, default["end_hour"]
+        )
+        out["flag_weekend"] = bool(stored.get("flag_weekend", default["flag_weekend"]))
+
+    return out
+
+
+def get_anomaly_rule_config(db: Session) -> Dict[str, Any]:
+    """Return the tenant's effective rule config: defaults deep-merged with the
+    stored row, every value clamped/coerced into its valid range (defence in
+    depth on top of :func:`validate_anomaly_rule_config`)."""
+    from core.models.models_per_tenant import Settings
+
+    record = (
+        db.query(Settings).filter(Settings.key == ANOMALY_RULE_CONFIG_KEY).first()
+    )
+    stored = record.value if record and isinstance(record.value, dict) else {}
+
+    merged: Dict[str, Any] = {
+        "min_risk_score": _clamp_number(
+            stored.get("min_risk_score", 0), 0, 100, 0
+        ),
+        "rules": {
+            rule_id: _clamp_rule(rule_id, (stored.get("rules") or {}).get(rule_id, {}))
+            for rule_id in RULE_IDS
+        },
+    }
+    return merged

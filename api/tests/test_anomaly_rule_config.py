@@ -64,3 +64,46 @@ def test_validate_rejects_non_dict():
 def test_validate_partial_update_keeps_only_provided():
     cleaned = validate_anomaly_rule_config({"rules": {"phantom_vendor": {"enabled": False}}})
     assert cleaned == {"rules": {"phantom_vendor": {"enabled": False}}}
+
+
+from core.models.models_per_tenant import Settings
+from core.services.anomaly_rule_config import (
+    ANOMALY_RULE_CONFIG_KEY,
+    get_anomaly_rule_config,
+)
+
+
+def _set_row(db, value):
+    db.add(Settings(key=ANOMALY_RULE_CONFIG_KEY, value=value))
+    db.commit()
+
+
+def test_get_returns_defaults_when_unset(db_session):
+    assert get_anomaly_rule_config(db_session) == DEFAULT_ANOMALY_RULE_CONFIG
+
+
+def test_get_deep_merges_partial_row(db_session):
+    _set_row(db_session, {"rules": {"rounding_anomaly": {"enabled": False}}})
+    cfg = get_anomaly_rule_config(db_session)
+    # Overridden field applied...
+    assert cfg["rules"]["rounding_anomaly"]["enabled"] is False
+    # ...sibling default within the same rule preserved...
+    assert cfg["rules"]["rounding_anomaly"]["min_amount"] == 250
+    # ...other rules untouched.
+    assert cfg["rules"]["phantom_vendor"]["enabled"] is True
+
+
+def test_get_clamps_poisoned_values(db_session):
+    _set_row(db_session, {
+        "min_risk_score": 999,
+        "rules": {
+            "temporal_anomaly": {"start_hour": "nonsense", "end_hour": 50},
+            "threshold_splitting": {"min_count": 0, "proximity_pct": 5.0},
+        },
+    })
+    cfg = get_anomaly_rule_config(db_session)
+    assert cfg["min_risk_score"] == 100            # clamped to max
+    assert cfg["rules"]["temporal_anomaly"]["start_hour"] == 7   # bad type -> default
+    assert cfg["rules"]["temporal_anomaly"]["end_hour"] == 23    # clamped to max
+    assert cfg["rules"]["threshold_splitting"]["min_count"] == 2  # clamped to min
+    assert cfg["rules"]["threshold_splitting"]["proximity_pct"] == 1.0  # clamped to max
