@@ -38,7 +38,7 @@ class TemporalAnomalyRule(BaseAnomalyRule):
         flag_weekend = rule_cfg.get("flag_weekend", True)
 
         is_weekend = flag_weekend and dt.weekday() >= 5  # 5=Sat, 6=Sun
-        is_odd_hours = dt.hour < start_hour or dt.hour >= end_hour
+        is_odd_hours = dt.hour < start_hour or dt.hour > end_hour
         
         reasons = []
         if is_weekend:
