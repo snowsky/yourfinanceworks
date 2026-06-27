@@ -149,6 +149,26 @@ async def test_temporal_rule_respects_custom_hours(db_session):
     assert await rule.analyze(db_session, expense, "expense", ctx) is None
 
 
+@pytest.mark.asyncio
+async def test_temporal_rule_default_does_not_flag_hour_20(db_session):
+    # Regression: with default config (end_hour=20), 20:00 on a weekday must NOT be flagged,
+    # matching the original `dt.hour > 20` behavior.
+    rule = TemporalAnomalyRule()
+    expense = Expense(
+        user_id=None, vendor="Acme", amount=10.0, currency="USD",
+        expense_date=datetime(2023, 10, 3, 20, 0, tzinfo=timezone.utc),  # 20:00 Tuesday
+        category="Office", status="recorded",
+    )
+    assert await rule.analyze(db_session, expense, "expense", {}) is None
+    # 21:00 the same weekday IS still flagged (> 20).
+    expense_21 = Expense(
+        user_id=None, vendor="Acme", amount=10.0, currency="USD",
+        expense_date=datetime(2023, 10, 3, 21, 0, tzinfo=timezone.utc),
+        category="Office", status="recorded",
+    )
+    assert await rule.analyze(db_session, expense_21, "expense", {}) is not None
+
+
 if __name__ == "__main__":
     # For manual runs if needed
     pass
