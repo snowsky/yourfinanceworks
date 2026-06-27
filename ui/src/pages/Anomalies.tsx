@@ -1,8 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
-import { ShieldAlert, ShieldCheck, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ShieldAlert, ShieldCheck, ChevronLeft, ChevronRight, ExternalLink, Settings as SettingsIcon, ChevronDown, ChevronUp } from 'lucide-react';
+import { toast } from 'sonner';
+import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { useAuth } from '@/hooks/useAuth';
+import type { AnomalyRuleConfig, AnomalyRuleSettings } from '@/lib/api/anomalies';
 import {
   ProfessionalCard,
   ProfessionalCardHeader,
@@ -23,6 +28,230 @@ import { AnomalyDetailDrawer } from '@/components/anomalies/AnomalyDetailDrawer'
 
 const PAGE_SIZE = 20;
 const STATUSES = ['open', 'confirmed', 'dismissed'] as const;
+
+const RULE_LABELS: Record<string, string> = {
+  duplicate_billing: 'Duplicate Billing',
+  rounding_anomaly: 'Rounding Anomaly',
+  phantom_vendor: 'Phantom Vendor',
+  threshold_splitting: 'Threshold Splitting',
+  temporal_anomaly: 'Temporal Anomaly',
+  description_mismatch: 'Description Mismatch',
+  attachment_audit: 'Attachment Audit',
+};
+
+function DetectionSettingsPanel() {
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [edited, setEdited] = useState<AnomalyRuleConfig | null>(null);
+
+  const { data } = useQuery({
+    queryKey: ['anomalies', 'config'],
+    queryFn: () => anomaliesApi.getConfig(),
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    if (data) setEdited(data);
+  }, [data]);
+
+  const { mutate: save, isPending } = useMutation({
+    mutationFn: () => anomaliesApi.updateConfig(edited!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['anomalies', 'config'] });
+      toast.success('Detection settings saved');
+    },
+    onError: () => toast.error('Failed to save settings'),
+  });
+
+  const updateRule = (ruleId: string, patch: Partial<AnomalyRuleSettings>) => {
+    setEdited((prev) =>
+      prev
+        ? {
+            ...prev,
+            rules: {
+              ...prev.rules,
+              [ruleId]: { ...prev.rules[ruleId], ...patch },
+            },
+          }
+        : prev,
+    );
+  };
+
+  return (
+    <ProfessionalCard variant="elevated" className="mb-4">
+      <ProfessionalCardHeader
+        className="cursor-pointer select-none"
+        onClick={() => setPanelOpen((o) => !o)}
+      >
+        <ProfessionalCardTitle className="flex items-center gap-2 text-base font-semibold">
+          <SettingsIcon className="h-4 w-4 text-muted-foreground" />
+          Detection settings
+          <span className="ml-auto text-muted-foreground">
+            {panelOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </span>
+        </ProfessionalCardTitle>
+      </ProfessionalCardHeader>
+      {panelOpen && (
+        <ProfessionalCardContent>
+          {!edited ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : (
+            <div className="space-y-6">
+              {/* Global min risk score */}
+              <div className="flex items-center justify-between gap-4">
+                <label className="text-sm font-medium">Minimum risk score to record</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={edited.min_risk_score}
+                  onChange={(e) =>
+                    setEdited((prev) =>
+                      prev ? { ...prev, min_risk_score: Number(e.target.value) } : prev,
+                    )
+                  }
+                  disabled={!isAdmin}
+                  className="w-24"
+                />
+              </div>
+
+              {/* Per-rule controls */}
+              <div className="space-y-3">
+                {Object.entries(RULE_LABELS).map(([ruleId, label]) => {
+                  const rule: AnomalyRuleSettings = edited.rules[ruleId] ?? { enabled: true };
+                  return (
+                    <div key={ruleId} className="rounded-md border p-3 space-y-3">
+                      {/* Enabled toggle */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{label}</span>
+                        <Switch
+                          checked={rule.enabled}
+                          onCheckedChange={(v) => updateRule(ruleId, { enabled: v })}
+                          disabled={!isAdmin}
+                        />
+                      </div>
+
+                      {/* rounding_anomaly: min_amount */}
+                      {ruleId === 'rounding_anomaly' && (
+                        <div className="flex items-center gap-3">
+                          <label className="text-xs text-muted-foreground w-36">Min amount</label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={rule.min_amount ?? 0}
+                            onChange={(e) =>
+                              updateRule(ruleId, { min_amount: Number(e.target.value) })
+                            }
+                            disabled={!isAdmin}
+                            className="w-28"
+                          />
+                        </div>
+                      )}
+
+                      {/* threshold_splitting: min_count + proximity_pct */}
+                      {ruleId === 'threshold_splitting' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <label className="text-xs text-muted-foreground w-36">Min count</label>
+                            <Input
+                              type="number"
+                              min={2}
+                              step={1}
+                              value={rule.min_count ?? 2}
+                              onChange={(e) =>
+                                updateRule(ruleId, { min_count: Number(e.target.value) })
+                              }
+                              disabled={!isAdmin}
+                              className="w-28"
+                            />
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <label className="text-xs text-muted-foreground w-36">
+                              Proximity (0.5–1.0)
+                            </label>
+                            <Input
+                              type="number"
+                              min={0.5}
+                              max={1.0}
+                              step={0.01}
+                              value={rule.proximity_pct ?? 0.9}
+                              onChange={(e) =>
+                                updateRule(ruleId, { proximity_pct: Number(e.target.value) })
+                              }
+                              disabled={!isAdmin}
+                              className="w-28"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* temporal_anomaly: start_hour + end_hour + flag_weekend */}
+                      {ruleId === 'temporal_anomaly' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <label className="text-xs text-muted-foreground w-36">
+                              Start hour (0–23)
+                            </label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={23}
+                              step={1}
+                              value={rule.start_hour ?? 0}
+                              onChange={(e) =>
+                                updateRule(ruleId, { start_hour: Number(e.target.value) })
+                              }
+                              disabled={!isAdmin}
+                              className="w-28"
+                            />
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <label className="text-xs text-muted-foreground w-36">
+                              End hour (0–23)
+                            </label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={23}
+                              step={1}
+                              value={rule.end_hour ?? 23}
+                              onChange={(e) =>
+                                updateRule(ruleId, { end_hour: Number(e.target.value) })
+                              }
+                              disabled={!isAdmin}
+                              className="w-28"
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs text-muted-foreground">Flag weekends</label>
+                            <Switch
+                              checked={rule.flag_weekend ?? false}
+                              onCheckedChange={(v) => updateRule(ruleId, { flag_weekend: v })}
+                              disabled={!isAdmin}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {isAdmin && (
+                <ProfessionalButton onClick={() => save()} disabled={isPending}>
+                  {isPending ? 'Saving…' : 'Save'}
+                </ProfessionalButton>
+              )}
+            </div>
+          )}
+        </ProfessionalCardContent>
+      )}
+    </ProfessionalCard>
+  );
+}
 
 function AnomaliesList() {
   const { t } = useTranslation();
@@ -184,6 +413,7 @@ function AnomaliesList() {
 export default function Anomalies() {
   return (
     <FeatureGate feature="anomaly_detection" showUpgradePrompt>
+      <DetectionSettingsPanel />
       <AnomaliesList />
     </FeatureGate>
   );

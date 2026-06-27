@@ -1,5 +1,20 @@
 import { apiRequest } from './_base';
 
+export interface AnomalyRuleSettings {
+  enabled: boolean;
+  min_amount?: number;       // rounding_anomaly
+  min_count?: number;        // threshold_splitting
+  proximity_pct?: number;    // threshold_splitting
+  start_hour?: number;       // temporal_anomaly
+  end_hour?: number;         // temporal_anomaly
+  flag_weekend?: boolean;    // temporal_anomaly
+}
+
+export interface AnomalyRuleConfig {
+  min_risk_score: number;
+  rules: Record<string, AnomalyRuleSettings>;
+}
+
 export type AnomalyRiskLevel = 'low' | 'medium' | 'high' | 'critical';
 
 export type AnomalyStatus = 'open' | 'confirmed' | 'dismissed';
@@ -52,5 +67,13 @@ export const anomaliesApi = {
     apiRequest<{ id: number; is_dismissed: boolean }>(`/anomalies/${id}/dismiss`, {
       method: 'PATCH',
       body: JSON.stringify({ notes: notes ?? null }),
+    }),
+
+  getConfig: () => apiRequest<AnomalyRuleConfig>('/anomalies/config'),
+
+  updateConfig: (config: Partial<AnomalyRuleConfig>) =>
+    apiRequest<AnomalyRuleConfig>('/anomalies/config', {
+      method: 'PUT',
+      body: JSON.stringify({ config }),
     }),
 };
