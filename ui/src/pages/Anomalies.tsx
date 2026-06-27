@@ -40,7 +40,8 @@ const RULE_LABELS: Record<string, string> = {
 };
 
 function DetectionSettingsPanel() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  const canEdit = isAdmin || user?.is_superuser === true;
   const queryClient = useQueryClient();
   const [panelOpen, setPanelOpen] = useState(false);
   const [edited, setEdited] = useState<AnomalyRuleConfig | null>(null);
@@ -112,7 +113,7 @@ function DetectionSettingsPanel() {
                       prev ? { ...prev, min_risk_score: Number(e.target.value) } : prev,
                     )
                   }
-                  disabled={!isAdmin}
+                  disabled={!canEdit}
                   className="w-24"
                 />
               </div>
@@ -129,7 +130,7 @@ function DetectionSettingsPanel() {
                         <Switch
                           checked={rule.enabled}
                           onCheckedChange={(v) => updateRule(ruleId, { enabled: v })}
-                          disabled={!isAdmin}
+                          disabled={!canEdit}
                         />
                       </div>
 
@@ -145,7 +146,7 @@ function DetectionSettingsPanel() {
                             onChange={(e) =>
                               updateRule(ruleId, { min_amount: Number(e.target.value) })
                             }
-                            disabled={!isAdmin}
+                            disabled={!canEdit}
                             className="w-28"
                           />
                         </div>
@@ -164,7 +165,7 @@ function DetectionSettingsPanel() {
                               onChange={(e) =>
                                 updateRule(ruleId, { min_count: Number(e.target.value) })
                               }
-                              disabled={!isAdmin}
+                              disabled={!canEdit}
                               className="w-28"
                             />
                           </div>
@@ -181,7 +182,7 @@ function DetectionSettingsPanel() {
                               onChange={(e) =>
                                 updateRule(ruleId, { proximity_pct: Number(e.target.value) })
                               }
-                              disabled={!isAdmin}
+                              disabled={!canEdit}
                               className="w-28"
                             />
                           </div>
@@ -204,7 +205,7 @@ function DetectionSettingsPanel() {
                               onChange={(e) =>
                                 updateRule(ruleId, { start_hour: Number(e.target.value) })
                               }
-                              disabled={!isAdmin}
+                              disabled={!canEdit}
                               className="w-28"
                             />
                           </div>
@@ -221,7 +222,7 @@ function DetectionSettingsPanel() {
                               onChange={(e) =>
                                 updateRule(ruleId, { end_hour: Number(e.target.value) })
                               }
-                              disabled={!isAdmin}
+                              disabled={!canEdit}
                               className="w-28"
                             />
                           </div>
@@ -230,7 +231,7 @@ function DetectionSettingsPanel() {
                             <Switch
                               checked={rule.flag_weekend ?? false}
                               onCheckedChange={(v) => updateRule(ruleId, { flag_weekend: v })}
-                              disabled={!isAdmin}
+                              disabled={!canEdit}
                             />
                           </div>
                         </div>
@@ -240,7 +241,7 @@ function DetectionSettingsPanel() {
                 })}
               </div>
 
-              {isAdmin && (
+              {canEdit && (
                 <ProfessionalButton onClick={() => save()} disabled={isPending}>
                   {isPending ? 'Saving…' : 'Save'}
                 </ProfessionalButton>

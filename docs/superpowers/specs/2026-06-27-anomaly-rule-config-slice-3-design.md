@@ -58,7 +58,7 @@ Notes on field semantics:
 - `min_risk_score` — global floor; a rule result with `risk_score < min_risk_score` is discarded (not recorded).
 - `threshold_splitting.min_count` — **total** transactions (incl. the entity) required to fire; engine compares `recent_count + 1 >= min_count`. Default 3 (matches `recent_count >= 2`).
 - `threshold_splitting.proximity_pct` — lower bound of the "just below" band, `amount > t * proximity_pct`.
-- `temporal_anomaly.start_hour`/`end_hour` — normal business hours; flag when `hour < start_hour or hour >= end_hour`. `flag_weekend` toggles the weekend component independently.
+- `temporal_anomaly.start_hour`/`end_hour` — normal business hours; flag when `hour < start_hour or hour > end_hour`. `end_hour` is the **inclusive** last normal business hour (default 20 → flags hour > 20, identical to the original hardcoded `> 20`). `flag_weekend` toggles the weekend component independently.
 
 ### Functions (mirror `invoice_branding.py`)
 
