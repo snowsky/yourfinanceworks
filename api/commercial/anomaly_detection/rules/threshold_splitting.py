@@ -26,12 +26,16 @@ class ThresholdSplittingRule(BaseAnomalyRule):
         if not vendor or not amount:
             return None
 
+        rule_cfg = (context or {}).get("rule_config", {}).get("rules", {}).get("threshold_splitting", {})
+        min_count = rule_cfg.get("min_count", 3)
+        proximity_pct = rule_cfg.get("proximity_pct", 0.8)
+
         # 2. Define common approval thresholds
         THRESHOLDS = [100, 250, 500, 1000, 2500, 5000]
-        
+
         target_threshold = None
         for t in THRESHOLDS:
-            if amount < t and amount > t * 0.8: # within 20% below threshold
+            if amount < t and amount > t * proximity_pct:  # within proximity% below threshold
                 target_threshold = t
                 break
         
@@ -57,17 +61,17 @@ class ThresholdSplittingRule(BaseAnomalyRule):
             vendor_attr == vendor,
             model.id != entity.id,
             amount_attr < target_threshold,
-            amount_attr > target_threshold * 0.8,
+            amount_attr > target_threshold * proximity_pct,
             model.is_deleted == False if hasattr(model, 'is_deleted') else True
         ).count()
 
-        if recent_count >= 2: # 3 total transactions just below threshold
+        if recent_count + 1 >= min_count:  # total transactions just below threshold
             return AnomalyResult(
                 risk_score=80.0,
                 risk_level="high",
                 reason=f"Threshold splitting detected: {recent_count + 1} transactions for '{vendor}' are all just below the ${target_threshold} approval limit.",
                 rule_id=self.rule_id,
-                details={"threshold": target_threshold, "count": recent_count + 1}
+                details={"threshold": target_threshold, "count": recent_count + 1},
             )
-            
+
         return None

@@ -25,6 +25,9 @@ class RoundingAnomalyRule(BaseAnomalyRule):
         if amount is None or amount == 0:
             return None
 
+        rule_cfg = (context or {}).get("rule_config", {}).get("rules", {}).get("rounding_anomaly", {})
+        min_amount = rule_cfg.get("min_amount", 250)
+
         # Check if amount is perfectly round (e.g., 100.00, 500.00, 1000.00)
         # We define "perfectly round" as significant round numbers like multiples of 50 or 100 for higher amounts
         is_round = False
@@ -32,13 +35,13 @@ class RoundingAnomalyRule(BaseAnomalyRule):
             is_round = True
         elif amount >= 50 and amount % 50 == 0:
             is_round = True
-        
-        if is_round and amount > 250: # Only flag significant round numbers above a threshold
+
+        if is_round and amount > min_amount:
             return AnomalyResult(
                 risk_score=40.0,
                 risk_level="medium",
                 reason=f"Rounding anomaly: Perfect round amount of {amount} detected. This may indicate a lack of precise documentation or potential falsification.",
                 rule_id=self.rule_id,
-                details={"amount": amount}
+                details={"amount": amount},
             )
         return None
