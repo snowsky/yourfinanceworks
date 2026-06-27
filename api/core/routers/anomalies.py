@@ -18,9 +18,16 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.models.database import get_db
-from core.models.models_per_tenant import Anomaly, User as TenantUser
+from core.models.models_per_tenant import Anomaly, Settings, User as TenantUser
 from core.routers.auth import get_current_user
+from core.services.anomaly_rule_config import (
+    ANOMALY_RULE_CONFIG_KEY,
+    get_anomaly_rule_config,
+    validate_anomaly_rule_config,
+)
 from core.services.feature_config_service import FeatureConfigService
+from core.utils.audit import log_audit_event
+from core.utils.rbac import require_admin_or_superuser
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +205,80 @@ async def resolve_anomaly(
     _apply_resolution(anomaly, payload.status, payload.note, current_user)
     db.commit()
     return {"id": anomaly.id, "status": anomaly.status}
+
+
+def _require_anomaly_feature(db: Session) -> None:
+    if not FeatureConfigService.is_enabled("anomaly_detection", db=db):
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="Anomaly detection is not available in your current license",
+        )
+
+
+@router.get("/config")
+async def get_anomaly_config(
+    db: Session = Depends(get_db),
+    current_user: TenantUser = Depends(get_current_user),
+):
+    """Return the tenant's effective anomaly rule config (defaults merged + clamped)."""
+    _require_anomaly_feature(db)
+    return get_anomaly_rule_config(db)
+
+
+class UpdateAnomalyConfigRequest(BaseModel):
+    config: dict
+
+
+@router.put("/config")
+async def update_anomaly_config(
+    payload: UpdateAnomalyConfigRequest,
+    db: Session = Depends(get_db),
+    current_user: TenantUser = Depends(get_current_user),
+):
+    """Update the tenant's anomaly rule config (admin-only). Future audits only."""
+    _require_anomaly_feature(db)
+    require_admin_or_superuser(current_user, "update anomaly rule config")
+
+    try:
+        cleaned = validate_anomaly_rule_config(payload.config)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+
+    record = db.query(Settings).filter(Settings.key == ANOMALY_RULE_CONFIG_KEY).first()
+    if record:
+        current_value = record.value or {}
+        merged_rules = {**(current_value.get("rules") or {}), **(cleaned.get("rules") or {})}
+        new_value = {**current_value, **{k: v for k, v in cleaned.items() if k != "rules"}}
+        if "rules" in cleaned or "rules" in current_value:
+            new_value["rules"] = merged_rules
+        record.value = new_value
+        record.updated_at = datetime.now(timezone.utc)
+    else:
+        record = Settings(
+            key=ANOMALY_RULE_CONFIG_KEY,
+            value=cleaned,
+            category="features",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        db.add(record)
+    db.commit()
+
+    log_audit_event(
+        db=db,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        action="UPDATE",
+        resource_type="anomaly_rule_config",
+        resource_id="1",
+        resource_name="Anomaly Rule Config",
+        details=cleaned,
+        status="success",
+    )
+
+    return get_anomaly_rule_config(db)
 
 
 @router.get("/{anomaly_id}")
