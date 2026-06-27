@@ -105,20 +105,30 @@ class AnomalyDetectionService:
         # 3. Fetch attachments for the entity
         attachment_paths = self._get_attachment_paths(entity, entity_type)
 
+        # Per-tenant rule config (future-only: consulted here, never mutates existing rows).
+        from core.services.anomaly_rule_config import get_anomaly_rule_config
+        rule_config = get_anomaly_rule_config(self.db)
+        min_risk_score = rule_config["min_risk_score"]
+
         context = {
             "ai_config": ai_config,
             "attachment_paths": attachment_paths,
             "audit_timestamp": datetime.now(timezone.utc),
             "forensic_persona": "Senior Forensic Auditor and Fraud Detection Specialist",
+            "rule_config": rule_config,
         }
 
         created_anomalies = []
 
         # 3. Run all rules
         for rule in self._rules:
+            if not rule_config["rules"].get(rule.rule_id, {}).get("enabled", True):
+                continue
             try:
                 result = await rule.analyze(self.db, entity, entity_type, context)
                 if result:
+                    if result.risk_score < min_risk_score:
+                        continue
                     anomaly = self._save_anomaly(entity, entity_type, result)
                     created_anomalies.append(anomaly)
                     logger.warning(
