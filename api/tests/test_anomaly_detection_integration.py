@@ -115,6 +115,40 @@ async def test_min_risk_score_floor_drops_low_results(db_session, sample_user, m
     assert "temporal_anomaly" not in saved_rule_ids  # 30 < 35 dropped by the floor
 
 
+from commercial.anomaly_detection.rules.rounding_anomaly import RoundingAnomalyRule
+from commercial.anomaly_detection.rules.temporal_anomaly import TemporalAnomalyRule
+
+
+@pytest.mark.asyncio
+async def test_rounding_rule_respects_min_amount(db_session):
+    rule = RoundingAnomalyRule()
+    expense = Expense(
+        user_id=None, vendor="Acme", amount=500.00, currency="USD",
+        expense_date=datetime(2023, 10, 3, 14, 0, tzinfo=timezone.utc),
+        category="Office", status="recorded",
+    )
+    # Raise the floor above 500 -> no flag.
+    ctx = {"rule_config": {"rules": {"rounding_anomaly": {"min_amount": 1000}}}}
+    assert await rule.analyze(db_session, expense, "expense", ctx) is None
+    # Default behavior (no config) still flags it.
+    assert await rule.analyze(db_session, expense, "expense", {}) is not None
+
+
+@pytest.mark.asyncio
+async def test_temporal_rule_respects_custom_hours(db_session):
+    rule = TemporalAnomalyRule()
+    expense = Expense(
+        user_id=None, vendor="Acme", amount=10.0, currency="USD",
+        expense_date=datetime(2023, 10, 3, 22, 0, tzinfo=timezone.utc),  # 22:00 Tuesday
+        category="Office", status="recorded",
+    )
+    # Default hours (7-20) flag 22:00.
+    assert await rule.analyze(db_session, expense, "expense", {}) is not None
+    # Widen end_hour to 23 and drop weekend flag -> 22:00 Tuesday no longer odd.
+    ctx = {"rule_config": {"rules": {"temporal_anomaly": {"end_hour": 23, "flag_weekend": False}}}}
+    assert await rule.analyze(db_session, expense, "expense", ctx) is None
+
+
 if __name__ == "__main__":
     # For manual runs if needed
     pass

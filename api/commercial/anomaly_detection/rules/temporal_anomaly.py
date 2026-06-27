@@ -32,8 +32,13 @@ class TemporalAnomalyRule(BaseAnomalyRule):
         if not isinstance(dt, datetime):
             return None
 
-        is_weekend = dt.weekday() >= 5 # 5=Saturday, 6=Sunday
-        is_odd_hours = dt.hour < 7 or dt.hour > 20 # Before 7am or after 8pm
+        rule_cfg = (context or {}).get("rule_config", {}).get("rules", {}).get("temporal_anomaly", {})
+        start_hour = rule_cfg.get("start_hour", 7)
+        end_hour = rule_cfg.get("end_hour", 20)
+        flag_weekend = rule_cfg.get("flag_weekend", True)
+
+        is_weekend = flag_weekend and dt.weekday() >= 5  # 5=Sat, 6=Sun
+        is_odd_hours = dt.hour < start_hour or dt.hour >= end_hour
         
         reasons = []
         if is_weekend:
