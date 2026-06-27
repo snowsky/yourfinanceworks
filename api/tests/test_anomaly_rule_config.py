@@ -93,6 +93,14 @@ def test_get_deep_merges_partial_row(db_session):
     assert cfg["rules"]["phantom_vendor"]["enabled"] is True
 
 
+def test_get_resets_inverted_temporal_window(db_session):
+    _set_row(db_session, {"rules": {"temporal_anomaly": {"start_hour": 10, "end_hour": 8}}})
+    cfg = get_anomaly_rule_config(db_session)
+    # Inverted window (start >= end) would flag every hour -> falls back to defaults.
+    assert cfg["rules"]["temporal_anomaly"]["start_hour"] == 7
+    assert cfg["rules"]["temporal_anomaly"]["end_hour"] == 20
+
+
 def test_get_clamps_poisoned_values(db_session):
     _set_row(db_session, {
         "min_risk_score": 999,

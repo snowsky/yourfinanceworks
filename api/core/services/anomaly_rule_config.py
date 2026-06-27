@@ -171,6 +171,11 @@ def _clamp_rule(rule_id: str, stored: Dict[str, Any]) -> Dict[str, Any]:
         out["end_hour"] = _clamp_int(
             stored.get("end_hour", default["end_hour"]), 0, 23, default["end_hour"]
         )
+        # Defence-in-depth: an out-of-order window (e.g. from two sequential
+        # partial writes) would make the rule flag every hour. Fall back to defaults.
+        if out["start_hour"] >= out["end_hour"]:
+            out["start_hour"] = default["start_hour"]
+            out["end_hour"] = default["end_hour"]
         out["flag_weekend"] = bool(stored.get("flag_weekend", default["flag_weekend"]))
 
     return out
