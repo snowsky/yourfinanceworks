@@ -1,9 +1,24 @@
 import pytest
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
-from core.models.models_per_tenant import Expense, BankStatementTransaction, Anomaly
+from core.models.models_per_tenant import Expense, BankStatementTransaction, Anomaly, Settings
 from commercial.anomaly_detection.service import AnomalyDetectionService
 from core.models.database import set_tenant_context
+
+
+@pytest.fixture(autouse=True)
+def _cleanup(db_session):
+    """Delete the rows these tests create, in FK-safe order, before the conftest
+    teardown runs. Without this the leaked Expense/Anomaly/Settings rows trip the
+    conftest's cross-base table-delete (teardown ERRORs) and contaminate other
+    test files (e.g. the anomalies-router count assertions) on a full-suite run.
+    """
+    yield
+    db_session.query(Anomaly).delete()
+    db_session.query(Expense).delete()
+    db_session.query(Settings).delete()
+    db_session.commit()
+
 
 @pytest.mark.asyncio
 async def test_anomaly_detection_integration(db_session: Session, monkeypatch):
