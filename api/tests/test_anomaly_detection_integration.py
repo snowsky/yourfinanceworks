@@ -60,11 +60,17 @@ def _set_rule_config(db, value):
 
 
 @pytest.mark.asyncio
-async def test_disabled_rule_produces_no_anomaly(db_session, sample_user):
+async def test_disabled_rule_produces_no_anomaly(db_session, sample_user, monkeypatch):
+    # Force the engine to run despite no licensed feature / master superuser in the test env.
+    monkeypatch.setattr(
+        AnomalyDetectionService, "_is_super_admin_context", lambda self: True
+    )
     _set_rule_config(db_session, {"rules": {"rounding_anomaly": {"enabled": False}}})
+    # $500 round amount on a Sunday: rounding_anomaly WOULD fire (disabled here);
+    # temporal_anomaly fires on the weekend regardless (positive control: proves engine ran).
     expense = Expense(
         user_id=sample_user.id, vendor="Acme Co", amount=500.00, currency="USD",
-        expense_date=datetime(2023, 10, 3, 14, 0, tzinfo=timezone.utc),  # a Tuesday
+        expense_date=datetime(2023, 10, 1, 14, 0, tzinfo=timezone.utc),  # a Sunday
         category="Office", notes="Office chairs", status="recorded",
     )
     db_session.add(expense)
@@ -78,16 +84,20 @@ async def test_disabled_rule_produces_no_anomaly(db_session, sample_user):
         a.rule_id for a in
         db_session.query(Anomaly).filter(Anomaly.entity_id == expense.id).all()
     ]
-    assert "rounding_anomaly" not in rule_ids
+    assert "temporal_anomaly" in rule_ids      # positive control: engine actually ran
+    assert "rounding_anomaly" not in rule_ids  # the disabled rule produced nothing
 
 
 @pytest.mark.asyncio
-async def test_min_risk_score_floor_drops_low_results(db_session, sample_user):
-    # Floor above rounding_anomaly's 40.0 score -> it gets dropped even though it fires.
-    _set_rule_config(db_session, {"min_risk_score": 50})
+async def test_min_risk_score_floor_drops_low_results(db_session, sample_user, monkeypatch):
+    monkeypatch.setattr(
+        AnomalyDetectionService, "_is_super_admin_context", lambda self: True
+    )
+    # Floor at 35: rounding_anomaly (score 40) survives; temporal_anomaly (score 30) is dropped.
+    _set_rule_config(db_session, {"min_risk_score": 35})
     expense = Expense(
         user_id=sample_user.id, vendor="Acme Co", amount=500.00, currency="USD",
-        expense_date=datetime(2023, 10, 3, 14, 0, tzinfo=timezone.utc),
+        expense_date=datetime(2023, 10, 1, 14, 0, tzinfo=timezone.utc),  # a Sunday
         category="Office", notes="Office chairs", status="recorded",
     )
     db_session.add(expense)
@@ -97,9 +107,12 @@ async def test_min_risk_score_floor_drops_low_results(db_session, sample_user):
     service = AnomalyDetectionService(db_session)
     await service.analyze_entity(expense, "expense")
 
-    saved = db_session.query(Anomaly).filter(Anomaly.entity_id == expense.id).all()
-    assert all(a.risk_score >= 50 for a in saved)
-    assert "rounding_anomaly" not in [a.rule_id for a in saved]
+    saved_rule_ids = [
+        a.rule_id for a in
+        db_session.query(Anomaly).filter(Anomaly.entity_id == expense.id).all()
+    ]
+    assert "rounding_anomaly" in saved_rule_ids      # 40 >= 35 survives
+    assert "temporal_anomaly" not in saved_rule_ids  # 30 < 35 dropped by the floor
 
 
 if __name__ == "__main__":
