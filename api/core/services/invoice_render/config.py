@@ -9,6 +9,8 @@ _DEFAULT_SHOW = {"logo": True, "notes": True, "custom_fields": True, "footer": T
 ALLOWED_FONTS = ("sans", "serif", "mono")
 ALLOWED_LOGO_PLACEMENTS = ("left", "center", "right")
 ALLOWED_LOGO_SIZES = ("small", "medium", "large")
+ALLOWED_SECTIONS = ("billto", "custom", "items", "totals", "notes")
+DEFAULT_SECTION_ORDER = list(ALLOWED_SECTIONS)
 
 _HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 _DEFAULT_BRAND = "#1e3a8a"
@@ -24,6 +26,7 @@ class InvoiceTemplateConfig:
     font_family: str = "sans"
     logo_placement: str = "left"
     logo_size: str = "medium"
+    section_order: list = field(default_factory=lambda: list(DEFAULT_SECTION_ORDER))
 
 
 def _clamp(value, allowed, default):
@@ -32,6 +35,21 @@ def _clamp(value, allowed, default):
 
 def _clamp_color(value, default):
     return value if isinstance(value, str) and _HEX_RE.match(value) else default
+
+
+def _clamp_section_order(value) -> list:
+    """Drop unknown ids, de-dupe (first wins), append any missing sections in
+    canonical order. A non-list value falls back to the default order."""
+    if not isinstance(value, list):
+        return list(DEFAULT_SECTION_ORDER)
+    seen = []
+    for sid in value:
+        if sid in ALLOWED_SECTIONS and sid not in seen:
+            seen.append(sid)
+    for sid in DEFAULT_SECTION_ORDER:
+        if sid not in seen:
+            seen.append(sid)
+    return seen
 
 
 def build_config(branding: Dict) -> "InvoiceTemplateConfig":
@@ -54,6 +72,7 @@ def build_config(branding: Dict) -> "InvoiceTemplateConfig":
         font_family=_clamp(b.get("font_family"), ALLOWED_FONTS, "sans"),
         logo_placement=_clamp(b.get("logo_placement"), ALLOWED_LOGO_PLACEMENTS, "left"),
         logo_size=_clamp(b.get("logo_size"), ALLOWED_LOGO_SIZES, "medium"),
+        section_order=_clamp_section_order(b.get("section_order")),
     )
 
 

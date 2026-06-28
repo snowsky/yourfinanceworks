@@ -1,6 +1,7 @@
 from core.services.invoice_render.config import (
     build_config, InvoiceTemplateConfig,
     ALLOWED_FONTS, ALLOWED_LOGO_PLACEMENTS, ALLOWED_LOGO_SIZES,
+    ALLOWED_SECTIONS, DEFAULT_SECTION_ORDER,
 )
 
 
@@ -51,3 +52,37 @@ def test_build_config_reads_show_toggles():
     c = build_config({"show_logo": False, "show_notes": False,
                       "show_custom_fields": False, "show_footer": False})
     assert c.show == {"logo": False, "notes": False, "custom_fields": False, "footer": False}
+
+
+def test_section_order_allowed_set_and_default():
+    assert ALLOWED_SECTIONS == ("billto", "custom", "items", "totals", "notes")
+    assert DEFAULT_SECTION_ORDER == ["billto", "custom", "items", "totals", "notes"]
+
+
+def test_build_config_default_section_order_when_absent():
+    assert build_config({}).section_order == DEFAULT_SECTION_ORDER
+
+
+def test_build_config_reads_valid_section_order():
+    order = ["notes", "totals", "items", "custom", "billto"]
+    assert build_config({"section_order": order}).section_order == order
+
+
+def test_build_config_drops_unknown_section_ids():
+    c = build_config({"section_order": ["notes", "bogus", "items"]})
+    # unknown dropped, then missing appended in canonical order
+    assert c.section_order == ["notes", "items", "billto", "custom", "totals"]
+
+
+def test_build_config_dedupes_section_order():
+    c = build_config({"section_order": ["items", "items", "billto"]})
+    assert c.section_order == ["items", "billto", "custom", "totals", "notes"]
+
+
+def test_build_config_appends_missing_sections():
+    c = build_config({"section_order": ["totals"]})
+    assert c.section_order == ["totals", "billto", "custom", "items", "notes"]
+
+
+def test_build_config_section_order_non_list_falls_back_to_default():
+    assert build_config({"section_order": "items,billto"}).section_order == DEFAULT_SECTION_ORDER
