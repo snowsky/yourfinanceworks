@@ -53,11 +53,11 @@ custom_fields_layout=_clamp(b.get("custom_fields_layout"), ALLOWED_CUSTOM_FIELDS
 
 `build_config` stays pure (no DB); any bad/missing value falls back to a default, so a stale or hostile value can never reach the renderer.
 
-`validate_invoice_branding()` (write path → 400) rejects:
-- a `show_col_*` key whose value is not a bool;
-- a `custom_fields_layout` present but not in `ALLOWED_CUSTOM_FIELDS_LAYOUTS`.
+`validate_invoice_branding()` (write path):
+- coerces each `show_col_*` key with `bool(...)` into the cleaned output — consistent with the sibling `show_notes`/`show_custom_fields`/`show_footer` handling already in this function (booleans are coerced, not rejected);
+- rejects (→ 400) a `custom_fields_layout` present but not in `ALLOWED_CUSTOM_FIELDS_LAYOUTS`, consistent with the existing `font_family`/`logo_*` enum handling (`.strip().lower()` then membership check).
 
-Valid values are copied through into the cleaned output. The clamp in `build_config` remains the real safety net (defense in depth, matching Slices A/B).
+The clamp in `build_config` remains the real safety net (defense in depth, matching Slices A/B).
 
 **Storage:** all keys persist in the single flat `invoice_branding` Settings row. No migration; a missing key → its default.
 

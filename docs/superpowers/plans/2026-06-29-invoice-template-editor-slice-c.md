@@ -134,7 +134,7 @@ git commit -m "feat(invoice-template): clamp line-item columns + custom_fields_l
 
 **Interfaces:**
 - Consumes: `ALLOWED_CUSTOM_FIELDS_LAYOUTS` from Task 1.
-- Produces: `validate_invoice_branding(value)` keeps valid `show_col_*` (bool) and `custom_fields_layout` (allowed string) in its cleaned output; raises `ValueError` for a non-bool `show_col_*` or an unknown `custom_fields_layout`.
+- Produces: `validate_invoice_branding(value)` keeps `show_col_*` (coerced to bool, mirroring the sibling `show_notes`/`show_custom_fields`/`show_footer` handling) and a valid `custom_fields_layout` (allowed string) in its cleaned output; raises `ValueError` for an unknown `custom_fields_layout` (mirroring the `font_family`/`logo_*` enum handling).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -155,6 +155,13 @@ def test_validate_keeps_valid_column_flags():
     assert out["show_col_unit_of_measure"] is True
 
 
+def test_validate_coerces_truthy_column_flag():
+    # mirrors the existing show_notes/show_footer bool() coercion
+    out = validate_invoice_branding({"show_col_quantity": 1, "show_col_unit_price": 0})
+    assert out["show_col_quantity"] is True
+    assert out["show_col_unit_price"] is False
+
+
 def test_validate_keeps_valid_layout():
     assert validate_invoice_branding({"custom_fields_layout": "grid"})["custom_fields_layout"] == "grid"
 
@@ -163,11 +170,6 @@ def test_validate_column_keys_absent_are_omitted():
     out = validate_invoice_branding({"font_family": "serif"})
     assert "show_col_quantity" not in out
     assert "custom_fields_layout" not in out
-
-
-def test_validate_rejects_non_bool_column_flag():
-    with pytest.raises(ValueError):
-        validate_invoice_branding({"show_col_quantity": "yes"})
 
 
 def test_validate_rejects_unknown_layout():
@@ -190,17 +192,15 @@ from core.services.invoice_render.config import (
     ALLOWED_CUSTOM_FIELDS_LAYOUTS)
 ```
 
-In `validate_invoice_branding`, before `return cleaned`, add:
+In `validate_invoice_branding`, before `return cleaned`, add (the `show_col_*` loop mirrors the existing `show_notes`/`show_custom_fields`/`show_footer` `bool()`-coercion loop; the layout check mirrors the existing `font_family`/`logo_*` enum loop, including `.strip().lower()`):
 
 ```python
     for col_key in ("show_col_quantity", "show_col_unit_price", "show_col_unit_of_measure"):
-        if col_key in value:
-            if not isinstance(value[col_key], bool):
-                raise ValueError(f"{col_key} must be a boolean")
-            cleaned[col_key] = value[col_key]
+        if value.get(col_key) is not None:
+            cleaned[col_key] = bool(value[col_key])
 
     if value.get("custom_fields_layout") is not None:
-        layout = value["custom_fields_layout"]
+        layout = str(value["custom_fields_layout"]).strip().lower()
         if layout not in ALLOWED_CUSTOM_FIELDS_LAYOUTS:
             raise ValueError(
                 f"custom_fields_layout must be one of: {', '.join(ALLOWED_CUSTOM_FIELDS_LAYOUTS)}"
@@ -208,7 +208,7 @@ In `validate_invoice_branding`, before `return cleaned`, add:
         cleaned["custom_fields_layout"] = layout
 ```
 
-Note: `isinstance(x, bool)` is intentionally strict — `1`/`0` are rejected on the write path (the editor only ever sends real booleans). The `build_config` clamp still coerces with `bool(...)` as the defense-in-depth net for any legacy stored value.
+Rationale: booleans are coerced (not rejected) to stay consistent with the sibling `show_*` keys in this same function; only the `custom_fields_layout` enum is rejected on an unknown value, consistent with `font_family`/`logo_*`. The `build_config` clamp remains the defense-in-depth net.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -237,9 +237,15 @@ git commit -m "feat(invoice-template): validate column flags + custom_fields_lay
 
 - [ ] **Step 1: Write the failing tests**
 
-Add to `api/tests/test_invoice_renderer.py` (the file already imports `InvoiceTemplateConfig`, `render_invoice_html`, `assemble_view_model`, and a `_data(...)` helper — reuse them):
+The file already imports `InvoiceTemplateConfig`, `render_invoice_html`, `assemble_view_model`, and (from `tests.test_invoice_view_model`) the `_data`/`CFG` helpers. `_data(**over)` merges keyword args over top-level data keys, so override line items via `items=[...]` and custom fields via `custom_fields={...}` — **no helper change is needed**. A `_data()` item is `{"description": "Work", "quantity": N, "unit_of_measure": "...", "unit_price": 50.0, "amount": 100.0}`.
+
+Add to `api/tests/test_invoice_renderer.py`:
 
 ```python
+_ITEM_HRS = [{"description": "Work", "quantity": 10, "unit_of_measure": "hrs",
+              "unit_price": 50.0, "amount": 500.0}]
+
+
 def test_default_columns_render_qty_and_price():
     cfg = InvoiceTemplateConfig()
     html = render_invoice_html(assemble_view_model(_data(), cfg), cfg)
@@ -257,22 +263,22 @@ def test_hiding_unit_price_column_drops_price_header_and_cells():
 
 def test_hiding_quantity_column_drops_qty_and_suppresses_uom():
     cfg = InvoiceTemplateConfig(columns={"quantity": False, "unit_price": True, "unit_of_measure": True})
-    html = render_invoice_html(assemble_view_model(_data(uom="hrs"), cfg), cfg)
+    html = render_invoice_html(assemble_view_model(_data(items=_ITEM_HRS), cfg), cfg)
     assert "<th>Qty</th>" not in html
     assert "hrs" not in html  # UoM has no cell when Qty is hidden
 
 
 def test_uom_merges_into_qty_cell_when_enabled():
     cfg = InvoiceTemplateConfig(columns={"quantity": True, "unit_price": True, "unit_of_measure": True})
-    html = render_invoice_html(assemble_view_model(_data(qty=10, uom="hrs"), cfg), cfg)
+    html = render_invoice_html(assemble_view_model(_data(items=_ITEM_HRS), cfg), cfg)
     assert "10 hrs" in html
 
 
 def test_uom_absent_renders_bare_quantity():
+    # default _data() item has unit_of_measure="" and quantity=2
     cfg = InvoiceTemplateConfig(columns={"quantity": True, "unit_price": True, "unit_of_measure": True})
-    html = render_invoice_html(assemble_view_model(_data(qty=5, uom=""), cfg), cfg)
-    assert "5 " not in html.replace("5 hrs", "")  # no dangling UoM space; bare "5" present
-    assert ">5<" in html
+    html = render_invoice_html(assemble_view_model(_data(), cfg), cfg)
+    assert "<td>2</td>" in html  # bare quantity, no trailing UoM
 
 
 def test_custom_fields_layout_emits_class():
@@ -283,8 +289,6 @@ def test_custom_fields_layout_emits_class():
     assert 'class="custom custom-list"' in list_html
     assert 'class="custom custom-grid"' in grid_html
 ```
-
-If the existing `_data(...)` helper does not accept `qty`, `uom`, or `custom_fields` kwargs, extend it (it builds the data dict passed to `assemble_view_model`): map `qty`/`uom` onto the first item's `quantity`/`unit_of_measure`, and `custom_fields` onto the data dict's `custom_fields`. Keep its existing defaults so the other tests in the file are unaffected.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -628,7 +632,7 @@ git commit -m "docs(invoice-template): C1 shipped; C2 named-templates epic stub"
 
 **Spec coverage:**
 - Config `columns` map + `custom_fields_layout` clamp (defaults preserve output, bool coercion, unknown-layout→list) → Task 1. ✓
-- Write validation → 400 for bad bool / unknown layout → Task 2. ✓
+- Write handling: `show_col_*` coerced via `bool()` (sibling-consistent), `custom_fields_layout` rejected → 400 on unknown value → Task 2. ✓
 - Template conditional columns, Qty+UoM merge (guarded on quantity column + non-empty UoM), `custom-{layout}` class; CSS for list/grid → Task 3. ✓
 - `TemplatePreviewRequest` gains the 4 keys so live preview honors them → Task 4. ✓
 - Frontend types/defaults/normalizer → Task 5; controls UI + i18n → Task 6. ✓
