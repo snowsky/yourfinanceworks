@@ -2139,7 +2139,14 @@
       "sections": "Sections",
       "section_custom_fields": "Custom fields",
       "section_notes": "Notes",
-      "section_footer": "Footer"
+      "section_footer": "Footer",
+      "section_billto": "Bill To",
+      "section_items": "Line Items",
+      "section_totals": "Totals",
+      "section_order": "Section order",
+      "section_order_hint": "Drag to reorder the invoice sections. Use the eye icon to show or hide a section.",
+      "show_section": "Show section",
+      "hide_section": "Hide section"
     },
     "client_portal": {
       "title": "Client Portal",

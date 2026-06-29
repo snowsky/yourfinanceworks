@@ -16,6 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import { ReminderCadenceEditor } from "@/components/settings/ReminderCadenceEditor";
 import { settingsApi, InvoiceSettings, InvoiceBranding } from "@/lib/api";
 import { DEFAULT_BRANDING, isHexColor, FONT_OPTIONS, LOGO_PLACEMENTS, LOGO_SIZES } from "@/lib/invoice-branding";
+import { SectionOrderEditor } from "@/components/settings/SectionOrderEditor";
+import { SectionId } from "@/lib/invoice-branding";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -435,23 +437,23 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                                 </div>
                             )}
 
-                            {/* Section visibility */}
-                            <div className="p-4 bg-muted/30 rounded-xl space-y-3">
-                                <p className="text-sm font-semibold">{t('settings.branding.sections')}</p>
-                                {([
-                                    ['show_custom_fields', 'settings.branding.section_custom_fields'],
-                                    ['show_notes', 'settings.branding.section_notes'],
-                                    ['show_footer', 'settings.branding.section_footer'],
-                                ] as const).map(([key, label]) => (
-                                    <div key={key} className="flex items-center justify-between">
-                                        <Label htmlFor={key}>{t(label)}</Label>
-                                        <Switch
-                                            id={key}
-                                            checked={!!branding[key]}
-                                            onCheckedChange={(checked) => setBranding((prev) => ({ ...prev, [key]: checked }))}
-                                        />
-                                    </div>
-                                ))}
+                            {/* Section order + per-section visibility */}
+                            <SectionOrderEditor
+                                order={branding.section_order as SectionId[] | undefined}
+                                onOrderChange={(order) => setBranding((prev) => ({ ...prev, section_order: order }))}
+                                showCustomFields={!!branding.show_custom_fields}
+                                showNotes={!!branding.show_notes}
+                                onToggle={(key, value) => setBranding((prev) => ({ ...prev, [key]: value }))}
+                            />
+
+                            {/* Footer visibility (footer is pinned at the bottom, not reorderable) */}
+                            <div className="p-4 bg-muted/30 rounded-xl flex items-center justify-between">
+                                <Label htmlFor="show_footer">{t('settings.branding.section_footer')}</Label>
+                                <Switch
+                                    id="show_footer"
+                                    checked={!!branding.show_footer}
+                                    onCheckedChange={(checked) => setBranding((prev) => ({ ...prev, show_footer: checked }))}
+                                />
                             </div>
 
                             <ProfessionalTextarea
