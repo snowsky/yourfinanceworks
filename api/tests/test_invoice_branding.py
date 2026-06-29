@@ -202,3 +202,37 @@ def test_validate_rejects_non_list_section_order():
 def test_validate_rejects_unknown_section_id():
     with pytest.raises(ValueError):
         validate_invoice_branding({"section_order": ["items", "bogus"]})
+
+
+# --- new style fields: column visibility and custom fields layout -----------
+
+def test_validate_keeps_valid_column_flags():
+    out = validate_invoice_branding({
+        "show_col_quantity": True, "show_col_unit_price": False,
+        "show_col_unit_of_measure": True,
+    })
+    assert out["show_col_quantity"] is True
+    assert out["show_col_unit_price"] is False
+    assert out["show_col_unit_of_measure"] is True
+
+
+def test_validate_coerces_truthy_column_flag():
+    # mirrors the existing show_notes/show_footer bool() coercion
+    out = validate_invoice_branding({"show_col_quantity": 1, "show_col_unit_price": 0})
+    assert out["show_col_quantity"] is True
+    assert out["show_col_unit_price"] is False
+
+
+def test_validate_keeps_valid_layout():
+    assert validate_invoice_branding({"custom_fields_layout": "grid"})["custom_fields_layout"] == "grid"
+
+
+def test_validate_column_keys_absent_are_omitted():
+    out = validate_invoice_branding({"font_family": "serif"})
+    assert "show_col_quantity" not in out
+    assert "custom_fields_layout" not in out
+
+
+def test_validate_rejects_unknown_layout():
+    with pytest.raises(ValueError):
+        validate_invoice_branding({"custom_fields_layout": "fancy"})
