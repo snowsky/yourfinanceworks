@@ -46,3 +46,35 @@ def test_css_defines_font_and_logo_classes():
     cfg = InvoiceTemplateConfig()
     html = render_invoice_html(assemble_view_model(_data(), cfg), cfg)
     assert ".font-serif" in html and ".logo-large" in html  # CSS rules inlined in <style>
+
+
+def test_inlined_css_is_not_html_escaped():
+    # Autoescape must NOT mangle the <style> block: quotes and '>' combinators
+    # have to reach the browser/WeasyPrint raw, or font-family declarations and
+    # child selectors are invalid and silently dropped.
+    cfg = InvoiceTemplateConfig()
+    html = render_invoice_html(assemble_view_model(_data(), cfg), cfg)
+    assert 'font-family: "DejaVu Sans Mono"' in html   # raw quotes, not &#34;
+    assert "&#34;" not in html and "&gt;" not in html
+
+
+def test_default_order_renders_all_sections_in_order():
+    html = render_invoice_html(assemble_view_model(_data(notes="HELLO"), CFG), CFG)
+    # billto before items before totals
+    assert html.index('class="billto"') < html.index('class="items"') < html.index('class="totals"')
+
+
+def test_section_order_reorders_body():
+    cfg = InvoiceTemplateConfig(section_order=["notes", "totals", "items", "custom", "billto"])
+    html = render_invoice_html(assemble_view_model(_data(notes="HELLO"), cfg), cfg)
+    assert html.index('class="notes"') < html.index('class="totals"') < html.index('class="billto"')
+
+
+def test_section_order_independent_of_visibility():
+    cfg = InvoiceTemplateConfig(
+        section_order=["notes", "billto", "items", "totals", "custom"],
+        show={"logo": True, "notes": False, "custom_fields": True, "footer": True},
+    )
+    html = render_invoice_html(assemble_view_model(_data(notes="SECRET"), cfg), cfg)
+    assert "SECRET" not in html  # notes still hidden despite being first in order
+    assert html.index('class="billto"') < html.index('class="items"')

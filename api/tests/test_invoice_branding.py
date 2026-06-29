@@ -183,3 +183,22 @@ def test_defaults_include_new_style_fields():
     assert DEFAULT_INVOICE_BRANDING["show_notes"] is True
     assert DEFAULT_INVOICE_BRANDING["show_custom_fields"] is True
     assert DEFAULT_INVOICE_BRANDING["show_footer"] is True
+
+
+def test_validate_keeps_valid_section_order():
+    out = validate_invoice_branding({"section_order": ["notes", "items", "billto", "custom", "totals"]})
+    assert out["section_order"] == ["notes", "items", "billto", "custom", "totals"]
+
+
+def test_validate_section_order_absent_is_omitted():
+    assert "section_order" not in validate_invoice_branding({"font_family": "serif"})
+
+
+def test_validate_rejects_non_list_section_order():
+    with pytest.raises(ValueError):
+        validate_invoice_branding({"section_order": "items,billto"})
+
+
+def test_validate_rejects_unknown_section_id():
+    with pytest.raises(ValueError):
+        validate_invoice_branding({"section_order": ["items", "bogus"]})
