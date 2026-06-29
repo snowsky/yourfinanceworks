@@ -1,4 +1,24 @@
-import type { InvoiceBranding, InvoiceFont, LogoPlacement, LogoSize } from '@/lib/api/settings';
+import type { InvoiceBranding, InvoiceFont, LogoPlacement, LogoSize, SectionId } from '@/lib/api/settings';
+
+export const SECTION_IDS: SectionId[] = ['billto', 'custom', 'items', 'totals', 'notes'];
+export const DEFAULT_SECTION_ORDER: SectionId[] = [...SECTION_IDS];
+
+/** Mirror of the backend clamp: drop unknown ids, de-dupe (first wins),
+ *  append missing sections in canonical order; non-array → default order. */
+export function normalizeSectionOrder(order: unknown): SectionId[] {
+  if (!Array.isArray(order)) return [...DEFAULT_SECTION_ORDER];
+  const allowed = new Set<string>(SECTION_IDS);
+  const seen: SectionId[] = [];
+  for (const id of order) {
+    if (typeof id === 'string' && allowed.has(id) && !seen.includes(id as SectionId)) {
+      seen.push(id as SectionId);
+    }
+  }
+  for (const id of SECTION_IDS) {
+    if (!seen.includes(id)) seen.push(id);
+  }
+  return seen;
+}
 
 export const DEFAULT_BRANDING: InvoiceBranding = {
   brand_color: '#1e3a8a',
@@ -11,6 +31,7 @@ export const DEFAULT_BRANDING: InvoiceBranding = {
   show_notes: true,
   show_custom_fields: true,
   show_footer: true,
+  section_order: [...DEFAULT_SECTION_ORDER],
 };
 
 export const FONT_OPTIONS: InvoiceFont[] = ['sans', 'serif', 'mono'];
