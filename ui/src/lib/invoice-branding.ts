@@ -1,9 +1,17 @@
-import type { InvoiceBranding, InvoiceFont, LogoPlacement, LogoSize, SectionId } from '@/lib/api/settings';
+import type { InvoiceBranding, InvoiceFont, LogoPlacement, LogoSize, SectionId, CustomFieldsLayout } from '@/lib/api/settings';
 
 export type { SectionId } from '@/lib/api/settings';
 
 export const SECTION_IDS: SectionId[] = ['billto', 'custom', 'items', 'totals', 'notes'];
 export const DEFAULT_SECTION_ORDER: SectionId[] = [...SECTION_IDS];
+
+export const CUSTOM_FIELDS_LAYOUTS: CustomFieldsLayout[] = ['list', 'grid'];
+export const DEFAULT_CUSTOM_FIELDS_LAYOUT: CustomFieldsLayout = 'list';
+
+/** Mirror of the backend clamp: a value outside the allowed set → 'list'. */
+export function normalizeCustomFieldsLayout(value: unknown): CustomFieldsLayout {
+  return value === 'grid' ? 'grid' : 'list';
+}
 
 /** Mirror of the backend clamp: drop unknown ids, de-dupe (first wins),
  *  append missing sections in canonical order; non-array → default order. */
@@ -34,6 +42,10 @@ export const DEFAULT_BRANDING: InvoiceBranding = {
   show_custom_fields: true,
   show_footer: true,
   section_order: [...DEFAULT_SECTION_ORDER],
+  show_col_quantity: true,
+  show_col_unit_price: true,
+  show_col_unit_of_measure: false,
+  custom_fields_layout: 'list',
 };
 
 export const FONT_OPTIONS: InvoiceFont[] = ['sans', 'serif', 'mono'];

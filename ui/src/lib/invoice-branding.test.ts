@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeSectionOrder, DEFAULT_SECTION_ORDER } from './invoice-branding';
+import { normalizeSectionOrder, DEFAULT_SECTION_ORDER, normalizeCustomFieldsLayout, DEFAULT_CUSTOM_FIELDS_LAYOUT } from './invoice-branding';
 
 describe('normalizeSectionOrder', () => {
   it('returns the default order for a non-array', () => {
@@ -22,5 +22,22 @@ describe('normalizeSectionOrder', () => {
     expect(normalizeSectionOrder(['items', 'items', 'billto'])).toEqual([
       'items', 'billto', 'custom', 'totals', 'notes',
     ]);
+  });
+});
+
+describe('normalizeCustomFieldsLayout', () => {
+  it('keeps a valid layout', () => {
+    expect(normalizeCustomFieldsLayout('grid')).toBe('grid');
+    expect(normalizeCustomFieldsLayout('list')).toBe('list');
+  });
+
+  it('falls back to list for anything else', () => {
+    expect(normalizeCustomFieldsLayout('fancy')).toBe('list');
+    expect(normalizeCustomFieldsLayout(undefined)).toBe('list');
+    expect(normalizeCustomFieldsLayout(42)).toBe('list');
+  });
+
+  it('default constant is list', () => {
+    expect(DEFAULT_CUSTOM_FIELDS_LAYOUT).toBe('list');
   });
 });
