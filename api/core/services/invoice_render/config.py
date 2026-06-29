@@ -11,6 +11,8 @@ ALLOWED_LOGO_PLACEMENTS = ("left", "center", "right")
 ALLOWED_LOGO_SIZES = ("small", "medium", "large")
 ALLOWED_SECTIONS = ("billto", "custom", "items", "totals", "notes")
 DEFAULT_SECTION_ORDER = list(ALLOWED_SECTIONS)
+ALLOWED_CUSTOM_FIELDS_LAYOUTS = ("list", "grid")
+_DEFAULT_COLUMNS = {"quantity": True, "unit_price": True, "unit_of_measure": False}
 
 _HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 _DEFAULT_BRAND = "#1e3a8a"
@@ -27,6 +29,8 @@ class InvoiceTemplateConfig:
     logo_placement: str = "left"
     logo_size: str = "medium"
     section_order: list = field(default_factory=lambda: list(DEFAULT_SECTION_ORDER))
+    columns: Dict[str, bool] = field(default_factory=lambda: dict(_DEFAULT_COLUMNS))
+    custom_fields_layout: str = "list"
 
 
 def _clamp(value, allowed, default):
@@ -64,6 +68,10 @@ def build_config(branding: Dict) -> "InvoiceTemplateConfig":
     for key in ("notes", "custom_fields", "footer"):
         if f"show_{key}" in b:
             show[key] = bool(b[f"show_{key}"])
+    columns = dict(_DEFAULT_COLUMNS)
+    for key in ("quantity", "unit_price", "unit_of_measure"):
+        if f"show_col_{key}" in b:
+            columns[key] = bool(b[f"show_col_{key}"])
     return InvoiceTemplateConfig(
         brand_color=_clamp_color(b.get("brand_color"), _DEFAULT_BRAND),
         accent_color=_clamp_color(b.get("accent_color"), _DEFAULT_ACCENT),
@@ -73,6 +81,8 @@ def build_config(branding: Dict) -> "InvoiceTemplateConfig":
         logo_placement=_clamp(b.get("logo_placement"), ALLOWED_LOGO_PLACEMENTS, "left"),
         logo_size=_clamp(b.get("logo_size"), ALLOWED_LOGO_SIZES, "medium"),
         section_order=_clamp_section_order(b.get("section_order")),
+        columns=columns,
+        custom_fields_layout=_clamp(b.get("custom_fields_layout"), ALLOWED_CUSTOM_FIELDS_LAYOUTS, "list"),
     )
 
 

@@ -1,7 +1,7 @@
 from core.services.invoice_render.config import (
     build_config, InvoiceTemplateConfig,
     ALLOWED_FONTS, ALLOWED_LOGO_PLACEMENTS, ALLOWED_LOGO_SIZES,
-    ALLOWED_SECTIONS, DEFAULT_SECTION_ORDER,
+    ALLOWED_SECTIONS, DEFAULT_SECTION_ORDER, ALLOWED_CUSTOM_FIELDS_LAYOUTS,
 )
 
 
@@ -86,3 +86,37 @@ def test_build_config_appends_missing_sections():
 
 def test_build_config_section_order_non_list_falls_back_to_default():
     assert build_config({"section_order": "items,billto"}).section_order == DEFAULT_SECTION_ORDER
+
+
+def test_default_columns_and_layout_when_absent():
+    c = build_config({})
+    assert c.columns == {"quantity": True, "unit_price": True, "unit_of_measure": False}
+    assert c.custom_fields_layout == "list"
+
+
+def test_build_config_reads_column_flags():
+    c = build_config({
+        "show_col_quantity": False,
+        "show_col_unit_price": True,
+        "show_col_unit_of_measure": True,
+    })
+    assert c.columns == {"quantity": False, "unit_price": True, "unit_of_measure": True}
+
+
+def test_build_config_coerces_column_flags_to_bool():
+    c = build_config({"show_col_quantity": 0, "show_col_unit_of_measure": 1})
+    assert c.columns["quantity"] is False
+    assert c.columns["unit_of_measure"] is True
+    assert c.columns["unit_price"] is True  # untouched default
+
+
+def test_build_config_reads_valid_layout():
+    assert build_config({"custom_fields_layout": "grid"}).custom_fields_layout == "grid"
+
+
+def test_build_config_clamps_unknown_layout_to_list():
+    assert build_config({"custom_fields_layout": "fancy"}).custom_fields_layout == "list"
+
+
+def test_allowed_layouts_constant():
+    assert ALLOWED_CUSTOM_FIELDS_LAYOUTS == ("list", "grid")
