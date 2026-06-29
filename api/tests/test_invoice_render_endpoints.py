@@ -226,3 +226,15 @@ def test_template_preview_requires_auth(render_client):
     render_client.cookies.clear()
     resp = render_client.post("/api/v1/invoices/template-preview", json={})
     assert resp.status_code in (401, 403)
+
+
+def test_template_preview_honors_column_and_layout_keys(render_client, render_auth):
+    resp = render_client.post(
+        "/api/v1/invoices/template-preview",
+        json={"show_col_unit_price": False, "custom_fields_layout": "grid"},
+        headers=render_auth,
+    )
+    assert resp.status_code == 200
+    html = resp.text
+    assert "<th>Price</th>" not in html          # unit-price column hidden
+    assert 'class="custom custom-grid"' in html  # grid layout applied
