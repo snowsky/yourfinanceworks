@@ -13,7 +13,7 @@ from typing import Any, Dict
 from sqlalchemy.orm import Session
 
 from core.services.invoice_render.config import (
-    ALLOWED_FONTS, ALLOWED_LOGO_PLACEMENTS, ALLOWED_LOGO_SIZES)
+    ALLOWED_FONTS, ALLOWED_LOGO_PLACEMENTS, ALLOWED_LOGO_SIZES, ALLOWED_SECTIONS)
 
 INVOICE_BRANDING_KEY = "invoice_branding"
 
@@ -99,5 +99,15 @@ def validate_invoice_branding(value: Dict[str, Any]) -> Dict[str, Any]:
     for key in ("show_notes", "show_custom_fields", "show_footer"):
         if value.get(key) is not None:
             cleaned[key] = bool(value[key])
+
+    if value.get("section_order") is not None:
+        order = value["section_order"]
+        if not isinstance(order, list) or any(
+            not isinstance(sid, str) or sid not in ALLOWED_SECTIONS for sid in order
+        ):
+            raise ValueError(
+                f"section_order must be a list of: {', '.join(ALLOWED_SECTIONS)}"
+            )
+        cleaned["section_order"] = list(order)
 
     return cleaned
