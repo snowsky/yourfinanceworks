@@ -54,6 +54,7 @@ class TemplatePreviewRequest(BaseModel):
     font_family: Optional[str] = None
     logo_placement: Optional[str] = None
     logo_size: Optional[str] = None
+    section_order: Optional[List[str]] = None
 
 router = APIRouter()
 

@@ -205,6 +205,19 @@ def test_template_preview_clamps_bad_enum(render_client, render_auth):
     assert "comic-sans" not in resp.text
 
 
+def test_template_preview_honors_section_order(render_client, render_auth):
+    # Draft section_order must survive the request model and reach the renderer:
+    # notes-first must render the notes block before the bill-to block.
+    resp = render_client.post(
+        "/api/v1/invoices/template-preview",
+        headers=render_auth,
+        json={"section_order": ["notes", "totals", "items", "custom", "billto"]},
+    )
+    assert resp.status_code == 200
+    body = resp.text
+    assert body.index('class="notes"') < body.index('class="billto"')
+
+
 def test_template_preview_requires_auth(render_client):
     # render_client is module-scoped and shared with render_auth, whose login
     # call leaves an `auth_token` cookie on the client's cookie jar; clear it
