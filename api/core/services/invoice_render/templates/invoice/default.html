@@ -1,6 +1,23 @@
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>{{ css }}</style></head>
 <body>
+{% macro section_billto(vm, cfg) %}<section class="billto"><h3>Bill To</h3><div>{{ vm.client.name }}</div>
+    <div>{{ vm.client.email }}</div><div>{{ vm.client.address }}</div></section>{% endmacro %}
+{% macro section_custom(vm, cfg) %}{% if cfg.show.custom_fields and vm.custom_fields %}<section class="custom"><h3>Details</h3>
+    {% for cf in vm.custom_fields %}<div>{{ cf.label }}: {{ cf.value }}</div>{% endfor %}</section>{% endif %}{% endmacro %}
+{% macro section_items(vm, cfg) %}<table class="items"><thead><tr><th>Description</th><th>Qty</th><th>Price</th><th>Amount</th></tr></thead>
+    <tbody>{% for it in vm.items %}<tr><td>{{ it.description }}</td><td>{{ it.quantity }}</td>
+      <td>{{ it.unit_price }}</td><td>{{ it.amount }}</td></tr>{% endfor %}</tbody></table>{% endmacro %}
+{% macro section_totals(vm, cfg) %}<section class="totals">
+    <div><span>Subtotal</span><span>{{ vm.totals.subtotal }}</span></div>
+    {% if vm.meta.show_discount and vm.totals.discount_amount_raw %}
+      <div><span>Discount</span><span>-{{ vm.totals.discount_amount }}</span></div>{% endif %}
+    <div class="grand"><span>Total</span><span>{{ vm.totals.total }}</span></div>
+    <div><span>Paid</span><span>{{ vm.totals.paid }}</span></div>
+    <div class="balance"><span>Balance Due</span><span>{{ vm.totals.balance }}</span></div>
+  </section>{% endmacro %}
+{% macro section_notes(vm, cfg) %}{% if cfg.show.notes and vm.notes %}<section class="notes"><h3>Notes</h3><div>{{ vm.notes }}</div></section>{% endif %}{% endmacro %}
+{% macro render_section(sid, vm, cfg) %}{% if sid == 'billto' %}{{ section_billto(vm, cfg) }}{% elif sid == 'custom' %}{{ section_custom(vm, cfg) }}{% elif sid == 'items' %}{{ section_items(vm, cfg) }}{% elif sid == 'totals' %}{{ section_totals(vm, cfg) }}{% elif sid == 'notes' %}{{ section_notes(vm, cfg) }}{% endif %}{% endmacro %}
 <div class="invoice font-{{ cfg.font_family }}" style="--brand: {{ cfg.brand_color }}; --accent: {{ cfg.accent_color }};">
   <header class="head">
     {% if cfg.show.logo and vm.company.logo_url %}<img class="logo logo-{{ cfg.logo_placement }} logo-{{ cfg.logo_size }}" src="{{ vm.company.logo_url }}">{% endif %}
@@ -16,28 +33,8 @@
     </div>
   </header>
 
-  <section class="billto"><h3>Bill To</h3><div>{{ vm.client.name }}</div>
-    <div>{{ vm.client.email }}</div><div>{{ vm.client.address }}</div></section>
+  {% for sid in cfg.section_order %}{{ render_section(sid, vm, cfg) }}{% endfor %}
 
-  {% if cfg.show.custom_fields and vm.custom_fields %}
-  <section class="custom"><h3>Details</h3>
-    {% for cf in vm.custom_fields %}<div>{{ cf.label }}: {{ cf.value }}</div>{% endfor %}</section>
-  {% endif %}
-
-  <table class="items"><thead><tr><th>Description</th><th>Qty</th><th>Price</th><th>Amount</th></tr></thead>
-    <tbody>{% for it in vm.items %}<tr><td>{{ it.description }}</td><td>{{ it.quantity }}</td>
-      <td>{{ it.unit_price }}</td><td>{{ it.amount }}</td></tr>{% endfor %}</tbody></table>
-
-  <section class="totals">
-    <div><span>Subtotal</span><span>{{ vm.totals.subtotal }}</span></div>
-    {% if vm.meta.show_discount and vm.totals.discount_amount_raw %}
-      <div><span>Discount</span><span>-{{ vm.totals.discount_amount }}</span></div>{% endif %}
-    <div class="grand"><span>Total</span><span>{{ vm.totals.total }}</span></div>
-    <div><span>Paid</span><span>{{ vm.totals.paid }}</span></div>
-    <div class="balance"><span>Balance Due</span><span>{{ vm.totals.balance }}</span></div>
-  </section>
-
-  {% if cfg.show.notes and vm.notes %}<section class="notes"><h3>Notes</h3><div>{{ vm.notes }}</div></section>{% endif %}
   {% if cfg.show.footer and vm.footer_text %}<footer class="foot">{{ vm.footer_text }}</footer>{% endif %}
 </div>
 </body></html>
