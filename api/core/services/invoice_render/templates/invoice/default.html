@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html><head><meta charset="utf-8"><style>{{ css }}</style></head>
+<html><head><meta charset="utf-8"><style>{{ css | safe }}</style></head>
 <body>
 {% macro section_billto(vm, cfg) %}<section class="billto"><h3>Bill To</h3><div>{{ vm.client.name }}</div>
     <div>{{ vm.client.email }}</div><div>{{ vm.client.address }}</div></section>{% endmacro %}

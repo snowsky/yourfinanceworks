@@ -48,6 +48,16 @@ def test_css_defines_font_and_logo_classes():
     assert ".font-serif" in html and ".logo-large" in html  # CSS rules inlined in <style>
 
 
+def test_inlined_css_is_not_html_escaped():
+    # Autoescape must NOT mangle the <style> block: quotes and '>' combinators
+    # have to reach the browser/WeasyPrint raw, or font-family declarations and
+    # child selectors are invalid and silently dropped.
+    cfg = InvoiceTemplateConfig()
+    html = render_invoice_html(assemble_view_model(_data(), cfg), cfg)
+    assert 'font-family: "DejaVu Sans Mono"' in html   # raw quotes, not &#34;
+    assert "&#34;" not in html and "&gt;" not in html
+
+
 def test_default_order_renders_all_sections_in_order():
     html = render_invoice_html(assemble_view_model(_data(notes="HELLO"), CFG), CFG)
     # billto before items before totals
