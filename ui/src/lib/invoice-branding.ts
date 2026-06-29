@@ -1,5 +1,7 @@
 import type { InvoiceBranding, InvoiceFont, LogoPlacement, LogoSize, SectionId } from '@/lib/api/settings';
 
+export type { SectionId } from '@/lib/api/settings';
+
 export const SECTION_IDS: SectionId[] = ['billto', 'custom', 'items', 'totals', 'notes'];
 export const DEFAULT_SECTION_ORDER: SectionId[] = [...SECTION_IDS];
 
