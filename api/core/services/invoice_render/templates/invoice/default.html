@@ -3,11 +3,10 @@
 <body>
 {% macro section_billto(vm, cfg) %}<section class="billto"><h3>Bill To</h3><div>{{ vm.client.name }}</div>
     <div>{{ vm.client.email }}</div><div>{{ vm.client.address }}</div></section>{% endmacro %}
-{% macro section_custom(vm, cfg) %}{% if cfg.show.custom_fields and vm.custom_fields %}<section class="custom"><h3>Details</h3>
-    {% for cf in vm.custom_fields %}<div>{{ cf.label }}: {{ cf.value }}</div>{% endfor %}</section>{% endif %}{% endmacro %}
-{% macro section_items(vm, cfg) %}<table class="items"><thead><tr><th>Description</th><th>Qty</th><th>Price</th><th>Amount</th></tr></thead>
-    <tbody>{% for it in vm.items %}<tr><td>{{ it.description }}</td><td>{{ it.quantity }}</td>
-      <td>{{ it.unit_price }}</td><td>{{ it.amount }}</td></tr>{% endfor %}</tbody></table>{% endmacro %}
+{% macro section_custom(vm, cfg) %}{% if cfg.show.custom_fields and vm.custom_fields %}<section class="custom custom-{{ cfg.custom_fields_layout }}"><h3>Details</h3>
+    {% for cf in vm.custom_fields %}<div class="cf"><span class="cf-label">{{ cf.label }}</span><span class="cf-value">{{ cf.value }}</span></div>{% endfor %}</section>{% endif %}{% endmacro %}
+{% macro section_items(vm, cfg) %}<table class="items"><thead><tr><th>Description</th>{% if cfg.columns.quantity %}<th>Qty</th>{% endif %}{% if cfg.columns.unit_price %}<th>Price</th>{% endif %}<th>Amount</th></tr></thead>
+    <tbody>{% for it in vm.items %}<tr><td>{{ it.description }}</td>{% if cfg.columns.quantity %}<td>{{ it.quantity }}{% if cfg.columns.unit_of_measure and it.unit_of_measure %} {{ it.unit_of_measure }}{% endif %}</td>{% endif %}{% if cfg.columns.unit_price %}<td>{{ it.unit_price }}</td>{% endif %}<td>{{ it.amount }}</td></tr>{% endfor %}</tbody></table>{% endmacro %}
 {% macro section_totals(vm, cfg) %}<section class="totals">
     <div><span>Subtotal</span><span>{{ vm.totals.subtotal }}</span></div>
     {% if vm.meta.show_discount and vm.totals.discount_amount_raw %}
