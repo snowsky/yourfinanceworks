@@ -24,12 +24,20 @@ Let tenants reorder the invoice's sections (e.g. bill-to, custom fields/details,
 - **Frontend:** a drag-and-drop list in the editor's left pane (check for an existing dnd lib in `ui/` before adding one). Reordering updates the draft config → debounced live preview already reflects it for free.
 - **Decisions to settle in brainstorm:** which sections are reorderable vs. pinned (header/totals?); whether totals can move; default order; how it interacts with the existing visibility toggles.
 
-## Slice C — Column choice / custom-field display modes, or named/multiple templates
+## Slice C1 — Line-item columns / custom-field display modes [SHIPPED]
 
-Two candidate directions (pick one to brainstorm, or split):
+Let tenants choose which line-item columns show (e.g. unit-of-measure, qty, unit price) and how custom fields render (inline list vs. grid). Extends the `show`-style config with column flags and a layout enum; template renders columns/layout conditionally.
 
-- **C1 — Line-item columns / custom-field display modes:** let tenants choose which line-item columns show (e.g. unit-of-measure, qty, unit price) and how custom fields render (inline list vs. table). Extends the `show`-style config with column flags; template renders columns conditionally.
-- **C2 — Named / multiple templates:** move from one config-per-tenant to N named templates, with a selector and a per-invoice template choice. Larger: changes storage from the single `invoice_branding` row to a collection (likely a new table or keyed settings), adds a template CRUD UI, and a per-invoice `template_id`. Needs its own spec.
+- **Config:** add `columns: {quantity, unit_price, unit_of_measure}` (bools) and `custom_fields_layout` enum (`list` / `grid`) to `InvoiceTemplateConfig`, persisted in the `invoice_branding` row.
+- **Template:** `section_items` macro gates optional columns on `cfg.columns.*`; Qty+UoM merge when both are visible and UoM is non-empty. `section_custom` applies `custom-{layout}` CSS class.
+- **Frontend:** new "Line items" and "Details layout" controls in the settings editor; live preview updates debounced.
+- **Surfaces:** all render paths inherit via existing `load_template_config` → `build_config` → `default.html`.
+
+---
+
+## Slice C2 — Named / Multiple Templates [DEFERRED EPIC]
+
+Move from one config-per-tenant to N named templates with per-invoice selection. See `docs/todos/invoice-template-c2-named-templates-epic.md` for full epic stub (storage schema, CRUD UI, render path changes, and planning requirements).
 
 ---
 
