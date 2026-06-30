@@ -78,3 +78,51 @@ def test_section_order_independent_of_visibility():
     html = render_invoice_html(assemble_view_model(_data(notes="SECRET"), cfg), cfg)
     assert "SECRET" not in html  # notes still hidden despite being first in order
     assert html.index('class="billto"') < html.index('class="items"')
+
+
+_ITEM_HRS = [{"description": "Work", "quantity": 10, "unit_of_measure": "hrs",
+              "unit_price": 50.0, "amount": 500.0}]
+
+
+def test_default_columns_render_qty_and_price():
+    cfg = InvoiceTemplateConfig()
+    html = render_invoice_html(assemble_view_model(_data(), cfg), cfg)
+    assert "<th>Qty</th>" in html
+    assert "<th>Price</th>" in html
+
+
+def test_hiding_unit_price_column_drops_price_header_and_cells():
+    cfg = InvoiceTemplateConfig(columns={"quantity": True, "unit_price": False, "unit_of_measure": False})
+    html = render_invoice_html(assemble_view_model(_data(), cfg), cfg)
+    assert "<th>Price</th>" not in html
+    assert "<th>Qty</th>" in html
+    assert "<th>Amount</th>" in html  # always-on
+
+
+def test_hiding_quantity_column_drops_qty_and_suppresses_uom():
+    cfg = InvoiceTemplateConfig(columns={"quantity": False, "unit_price": True, "unit_of_measure": True})
+    html = render_invoice_html(assemble_view_model(_data(items=_ITEM_HRS), cfg), cfg)
+    assert "<th>Qty</th>" not in html
+    assert "hrs" not in html  # UoM has no cell when Qty is hidden
+
+
+def test_uom_merges_into_qty_cell_when_enabled():
+    cfg = InvoiceTemplateConfig(columns={"quantity": True, "unit_price": True, "unit_of_measure": True})
+    html = render_invoice_html(assemble_view_model(_data(items=_ITEM_HRS), cfg), cfg)
+    assert "10 hrs" in html
+
+
+def test_uom_absent_renders_bare_quantity():
+    # default _data() item has unit_of_measure="" and quantity=2
+    cfg = InvoiceTemplateConfig(columns={"quantity": True, "unit_price": True, "unit_of_measure": True})
+    html = render_invoice_html(assemble_view_model(_data(), cfg), cfg)
+    assert "<td>2</td>" in html  # bare quantity, no trailing UoM
+
+
+def test_custom_fields_layout_emits_class():
+    list_cfg = InvoiceTemplateConfig(custom_fields_layout="list")
+    grid_cfg = InvoiceTemplateConfig(custom_fields_layout="grid")
+    list_html = render_invoice_html(assemble_view_model(_data(custom_fields={"PO": "123"}), list_cfg), list_cfg)
+    grid_html = render_invoice_html(assemble_view_model(_data(custom_fields={"PO": "123"}), grid_cfg), grid_cfg)
+    assert 'class="custom custom-list"' in list_html
+    assert 'class="custom custom-grid"' in grid_html

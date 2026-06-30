@@ -28,6 +28,7 @@ export type InvoiceFont = 'sans' | 'serif' | 'mono';
 export type LogoPlacement = 'left' | 'center' | 'right';
 export type LogoSize = 'small' | 'medium' | 'large';
 export type SectionId = 'billto' | 'custom' | 'items' | 'totals' | 'notes';
+export type CustomFieldsLayout = 'list' | 'grid';
 
 export interface InvoiceBranding {
   brand_color: string;
@@ -41,6 +42,10 @@ export interface InvoiceBranding {
   show_custom_fields: boolean;
   show_footer: boolean;
   section_order?: SectionId[];
+  show_col_quantity?: boolean;
+  show_col_unit_price?: boolean;
+  show_col_unit_of_measure?: boolean;
+  custom_fields_layout?: CustomFieldsLayout;
 }
 
 export type ShareAccessType = 'public' | 'password' | 'question';

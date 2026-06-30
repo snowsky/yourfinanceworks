@@ -13,7 +13,8 @@ from typing import Any, Dict
 from sqlalchemy.orm import Session
 
 from core.services.invoice_render.config import (
-    ALLOWED_FONTS, ALLOWED_LOGO_PLACEMENTS, ALLOWED_LOGO_SIZES, ALLOWED_SECTIONS)
+    ALLOWED_FONTS, ALLOWED_LOGO_PLACEMENTS, ALLOWED_LOGO_SIZES, ALLOWED_SECTIONS,
+    ALLOWED_CUSTOM_FIELDS_LAYOUTS)
 
 INVOICE_BRANDING_KEY = "invoice_branding"
 
@@ -109,5 +110,17 @@ def validate_invoice_branding(value: Dict[str, Any]) -> Dict[str, Any]:
                 f"section_order must be a list of: {', '.join(ALLOWED_SECTIONS)}"
             )
         cleaned["section_order"] = list(order)
+
+    for col_key in ("show_col_quantity", "show_col_unit_price", "show_col_unit_of_measure"):
+        if value.get(col_key) is not None:
+            cleaned[col_key] = bool(value[col_key])
+
+    if value.get("custom_fields_layout") is not None:
+        layout = str(value["custom_fields_layout"]).strip().lower()
+        if layout not in ALLOWED_CUSTOM_FIELDS_LAYOUTS:
+            raise ValueError(
+                f"custom_fields_layout must be one of: {', '.join(ALLOWED_CUSTOM_FIELDS_LAYOUTS)}"
+            )
+        cleaned["custom_fields_layout"] = layout
 
     return cleaned

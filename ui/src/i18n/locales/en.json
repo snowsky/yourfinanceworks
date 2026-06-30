@@ -2146,7 +2146,15 @@
       "section_order": "Section order",
       "section_order_hint": "Drag to reorder the invoice sections. Use the eye icon to show or hide a section.",
       "show_section": "Show section",
-      "hide_section": "Hide section"
+      "hide_section": "Hide section",
+      "columns": "Line item columns",
+      "columns_hint": "Choose which optional columns appear in the line-items table.",
+      "col_quantity": "Quantity",
+      "col_unit_price": "Unit price",
+      "col_unit_of_measure": "Show unit of measure (e.g. \"hrs\")",
+      "custom_fields_layout": "Details layout",
+      "layout_list": "List",
+      "layout_grid": "Grid"
     },
     "client_portal": {
       "title": "Client Portal",

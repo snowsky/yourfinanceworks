@@ -55,6 +55,10 @@ class TemplatePreviewRequest(BaseModel):
     logo_placement: Optional[str] = None
     logo_size: Optional[str] = None
     section_order: Optional[List[str]] = None
+    show_col_quantity: Optional[bool] = None
+    show_col_unit_price: Optional[bool] = None
+    show_col_unit_of_measure: Optional[bool] = None
+    custom_fields_layout: Optional[str] = None
 
 router = APIRouter()
 

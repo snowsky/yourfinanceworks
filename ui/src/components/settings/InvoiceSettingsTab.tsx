@@ -15,9 +15,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ReminderCadenceEditor } from "@/components/settings/ReminderCadenceEditor";
 import { settingsApi, InvoiceSettings, InvoiceBranding } from "@/lib/api";
-import { DEFAULT_BRANDING, isHexColor, FONT_OPTIONS, LOGO_PLACEMENTS, LOGO_SIZES } from "@/lib/invoice-branding";
+import { DEFAULT_BRANDING, isHexColor, FONT_OPTIONS, LOGO_PLACEMENTS, LOGO_SIZES, SectionId, normalizeCustomFieldsLayout, CUSTOM_FIELDS_LAYOUTS } from "@/lib/invoice-branding";
+import type { CustomFieldsLayout } from "@/lib/api/settings";
 import { SectionOrderEditor } from "@/components/settings/SectionOrderEditor";
-import { SectionId } from "@/lib/invoice-branding";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -445,6 +445,47 @@ export const InvoiceSettingsTab: React.FC<InvoiceSettingsTabProps> = ({
                                 showNotes={!!branding.show_notes}
                                 onToggle={(key, value) => setBranding((prev) => ({ ...prev, [key]: value }))}
                             />
+
+                            {/* Line-item columns */}
+                            <div className="p-4 bg-muted/30 rounded-xl space-y-3">
+                                <Label className="text-sm font-semibold">{t('settings.branding.columns')}</Label>
+                                <p className="text-xs text-muted-foreground">{t('settings.branding.columns_hint')}</p>
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="show_col_quantity">{t('settings.branding.col_quantity')}</Label>
+                                    <Switch id="show_col_quantity" checked={branding.show_col_quantity !== false}
+                                        onCheckedChange={(checked) => setBranding((prev) => ({ ...prev, show_col_quantity: checked }))} />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="show_col_unit_price">{t('settings.branding.col_unit_price')}</Label>
+                                    <Switch id="show_col_unit_price" checked={branding.show_col_unit_price !== false}
+                                        onCheckedChange={(checked) => setBranding((prev) => ({ ...prev, show_col_unit_price: checked }))} />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="show_col_unit_of_measure">{t('settings.branding.col_unit_of_measure')}</Label>
+                                    <Switch id="show_col_unit_of_measure"
+                                        checked={!!branding.show_col_unit_of_measure}
+                                        disabled={branding.show_col_quantity === false}
+                                        onCheckedChange={(checked) => setBranding((prev) => ({ ...prev, show_col_unit_of_measure: checked }))} />
+                                </div>
+                            </div>
+
+                            {/* Custom-field (Details) layout */}
+                            <div className="p-4 bg-muted/30 rounded-xl space-y-3">
+                                <Label className="text-sm font-semibold">{t('settings.branding.custom_fields_layout')}</Label>
+                                <div className="flex gap-2">
+                                    {CUSTOM_FIELDS_LAYOUTS.map((layout) => (
+                                        <button key={layout} type="button"
+                                            onClick={() => setBranding((prev) => ({ ...prev, custom_fields_layout: layout as CustomFieldsLayout }))}
+                                            className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
+                                                normalizeCustomFieldsLayout(branding.custom_fields_layout) === layout
+                                                    ? 'border-primary bg-primary/10 text-primary'
+                                                    : 'border-input text-muted-foreground'
+                                            }`}>
+                                            {t(`settings.branding.layout_${layout}`)}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
 
                             {/* Footer visibility (footer is pinned at the bottom, not reorderable) */}
                             <div className="p-4 bg-muted/30 rounded-xl flex items-center justify-between">
