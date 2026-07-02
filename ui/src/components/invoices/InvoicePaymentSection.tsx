@@ -3,6 +3,7 @@ import { UseFormReturn } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CurrencyDisplay } from "@/components/ui/currency-display";
 import { FormValues } from "@/hooks/useInvoiceForm";
 import { ProfessionalCard } from "@/components/ui/professional-card";
@@ -13,6 +14,11 @@ interface InvoicePaymentSectionProps {
   form: UseFormReturn<FormValues>;
   canEditPayment: boolean;
 }
+
+// Statuses a user may set directly from this form. Workflow-managed statuses
+// (pending_approval, approved, rejected, sent) are excluded because they're
+// set by dedicated flows (approval submission, send-invoice) elsewhere.
+const MANUALLY_SETTABLE_STATUSES = ["draft", "pending", "partially_paid", "paid", "overdue", "cancelled"] as const;
 
 export function InvoicePaymentSection({
   form,
@@ -73,6 +79,42 @@ export function InvoicePaymentSection({
       </div>
 
       <div className="space-y-8">
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('invoices.status_label')}</FormLabel>
+              <Select
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  if (value === "paid") {
+                    form.setValue("paidAmount", totalAmount);
+                  } else if (value === "pending" || value === "draft" || value === "overdue") {
+                    form.setValue("paidAmount", 0);
+                  }
+                }}
+                value={field.value}
+                disabled={!canEditPayment}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('invoices.select_status')} />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {MANUALLY_SETTABLE_STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {t(`invoices.status.${status}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="p-6 rounded-3xl bg-muted/30 border border-border/50">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mb-2">{t('invoices.total_amount')}</p>

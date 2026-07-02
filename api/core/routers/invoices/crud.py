@@ -1672,13 +1672,28 @@ async def update_invoice(
         logger.info(f"[DEBUG] After setting fields, custom_fields in DB: {db_invoice.custom_fields}")
 
         # A paid invoice's financial record must not be mutated via line items.
-        # The guard above allows the request through when "status" is present in
-        # the payload, so block item edits here explicitly.
-        if db_invoice.status == "paid" and invoice.items is not None:
-            raise HTTPException(
-                status_code=400,
-                detail="Line items on a paid invoice cannot be modified"
+        # The edit form always resends the full items array on every save
+        # (even when the user only changed status/paid_amount), so presence
+        # of "items" in the payload isn't a valid signal of actual mutation.
+        # Compare submitted items against what's persisted and only block
+        # when their content actually differs.
+        if old_status == "paid" and invoice.items is not None:
+            existing_items_for_guard = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
+
+            def _item_key(item_id, description, quantity, price):
+                return (item_id, (description or "").strip(), round_money(quantity), round_money(price))
+
+            existing_keys = sorted(
+                _item_key(i.id, i.description, i.quantity, i.price) for i in existing_items_for_guard
             )
+            submitted_keys = sorted(
+                _item_key(getattr(d, "id", None), d.description, d.quantity, d.price) for d in invoice.items
+            )
+            if existing_keys != submitted_keys:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Line items on a paid invoice cannot be modified"
+                )
 
         items_were_updated = invoice.items is not None
 
@@ -1763,11 +1778,42 @@ async def update_invoice(
             db.commit()
             db.refresh(db_invoice)
 
+        # Reconcile status against paid_amount/amount the same way the payments
+        # router does it (core/utils/payment_status.py), using the *final*
+        # amount (after any item-driven recompute above) and the *final*
+        # payment total. This must run after the field-setting loop rather
+        # than inline in the paid_amount branch: InvoiceUpdate declares
+        # "status" after "paid_amount", so a request that resends the
+        # invoice's existing status unchanged (no status control touched)
+        # would otherwise setattr it right back over a status just derived
+        # from the new payment total, undoing the derivation. Only runs when
+        # a payment-relevant field actually changed, and only when the client
+        # didn't explicitly request a different status (an explicit choice,
+        # e.g. via the status dropdown, always takes precedence).
+        payment_relevant_change = (
+            "paid_amount" in update_data or "amount" in update_data or items_were_updated
+        )
+        explicit_status_change = invoice.status is not None and invoice.status != old_status
+        if payment_relevant_change and not explicit_status_change:
+            from core.utils.payment_status import resolve_invoice_status
+            from core.models.models_per_tenant import Payment as PaymentModel
+            total_paid = sum_money(
+                p.amount for p in db.query(PaymentModel).filter(PaymentModel.invoice_id == db_invoice.id).all()
+            )
+            db_invoice.status, db_invoice.pre_payment_status = resolve_invoice_status(
+                current_status=old_status,
+                pre_payment_status=db_invoice.pre_payment_status,
+                total_paid=total_paid,
+                amount=db_invoice.amount,
+            )
+            db.commit()
+            db.refresh(db_invoice)
+
         # Create history entry for the update only if there are actual changes
         from core.models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
         changes = []
-        if invoice.status is not None and old_status != invoice.status:
-            changes.append(f"Status changed from {old_status} to {invoice.status}")
+        if old_status != db_invoice.status:
+            changes.append(f"Status changed from {old_status} to {db_invoice.status}")
         if invoice.currency and old_currency != invoice.currency:
             changes.append(f"Currency changed from {old_currency} to {invoice.currency}")
         if invoice.discount_value is not None and old_discount_value != invoice.discount_value:

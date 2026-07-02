@@ -43,7 +43,7 @@ const formSchema = z.object({
   currency: z.string().min(1, "Currency is required"),
   date: z.date(),
   dueDate: z.date(),
-  status: z.enum(["draft", "pending", "paid", "partially_paid", "overdue", "pending_approval", "approved"] as const),
+  status: z.enum(["draft", "pending", "paid", "partially_paid", "overdue", "cancelled", "pending_approval", "approved", "rejected", "sent"] as const),
   paidAmount: z.number().min(0, "Paid amount cannot be negative").optional(),
   items: z.array(invoiceItemSchema).min(1, "At least one item is required"),
   notes: z.string().optional(),
