@@ -1684,16 +1684,28 @@ async def update_invoice(
         logger.info(f"[DEBUG] After setting fields, custom_fields in DB: {db_invoice.custom_fields}")
 
         # A paid invoice's financial record must not be mutated via line items.
-        # The guard above allows the request through when "status" is present in
-        # the payload, so block item edits here explicitly. Uses old_status (the
-        # invoice's status *before* this request) so that a request which is
-        # itself transitioning the invoice to "paid" isn't blocked for
-        # resubmitting its own unchanged items.
+        # The edit form always resends the full items array on every save
+        # (even when the user only changed status/paid_amount), so presence
+        # of "items" in the payload isn't a valid signal of actual mutation.
+        # Compare submitted items against what's persisted and only block
+        # when their content actually differs.
         if old_status == "paid" and invoice.items is not None:
-            raise HTTPException(
-                status_code=400,
-                detail="Line items on a paid invoice cannot be modified"
+            existing_items_for_guard = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
+
+            def _item_key(item_id, description, quantity, price):
+                return (item_id, (description or "").strip(), round_money(quantity), round_money(price))
+
+            existing_keys = sorted(
+                _item_key(i.id, i.description, i.quantity, i.price) for i in existing_items_for_guard
             )
+            submitted_keys = sorted(
+                _item_key(getattr(d, "id", None), d.description, d.quantity, d.price) for d in invoice.items
+            )
+            if existing_keys != submitted_keys:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Line items on a paid invoice cannot be modified"
+                )
 
         items_were_updated = invoice.items is not None
 

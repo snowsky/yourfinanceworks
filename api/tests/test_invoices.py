@@ -203,6 +203,84 @@ def test_update_invoice_status_to_paid_with_unchanged_items_succeeds(client: Tes
     assert update_resp.status_code == 200, update_resp.text
     assert update_resp.json()["status"] == "paid"
 
+def test_update_paid_invoice_to_draft_with_unchanged_items_succeeds(client: TestClient, auth_headers, test_client_id):
+    # Reverting a paid invoice's status back to draft/pending via the edit
+    # form's dropdown also resubmits the invoice's own unchanged items. This
+    # must be allowed, symmetric to the paid-with-unchanged-items case above.
+    invoice_resp = client.post(
+        "/api/v1/invoices/",
+        json={
+            "client_id": test_client_id,
+            "amount": 100.00,
+            "description": "Revert Paid Test",
+            "status": "paid",
+            "paid_amount": 100.00,
+            "items": [{"description": "DevOps Activities", "quantity": 1, "price": 100.00}]
+        },
+        headers=auth_headers
+    )
+    assert invoice_resp.status_code == 201
+    invoice_data = invoice_resp.json()
+    invoice_id = invoice_data["id"]
+    existing_item = invoice_data["items"][0]
+
+    update_resp = client.put(
+        f"/api/v1/invoices/{invoice_id}",
+        json={
+            "amount": 100.00,
+            "paid_amount": 0.00,
+            "status": "draft",
+            "items": [{
+                "id": existing_item["id"],
+                "description": existing_item["description"],
+                "quantity": existing_item["quantity"],
+                "price": existing_item["price"]
+            }]
+        },
+        headers=auth_headers
+    )
+    assert update_resp.status_code == 200, update_resp.text
+    assert update_resp.json()["status"] == "draft"
+
+def test_update_paid_invoice_with_actually_changed_items_still_blocked(client: TestClient, auth_headers, test_client_id):
+    # The guard's original purpose must still hold: genuinely modifying a
+    # paid invoice's line items (not just resubmitting them unchanged) is
+    # rejected.
+    invoice_resp = client.post(
+        "/api/v1/invoices/",
+        json={
+            "client_id": test_client_id,
+            "amount": 100.00,
+            "description": "Paid Item Mutation Test",
+            "status": "paid",
+            "paid_amount": 100.00,
+            "items": [{"description": "DevOps Activities", "quantity": 1, "price": 100.00}]
+        },
+        headers=auth_headers
+    )
+    assert invoice_resp.status_code == 201
+    invoice_data = invoice_resp.json()
+    invoice_id = invoice_data["id"]
+    existing_item = invoice_data["items"][0]
+
+    update_resp = client.put(
+        f"/api/v1/invoices/{invoice_id}",
+        json={
+            "amount": 250.00,
+            "paid_amount": 100.00,
+            "status": "paid",
+            "items": [{
+                "id": existing_item["id"],
+                "description": existing_item["description"],
+                "quantity": 1,
+                "price": 250.00
+            }]
+        },
+        headers=auth_headers
+    )
+    assert update_resp.status_code == 400
+    assert "cannot be modified" in update_resp.json()["detail"]
+
 def test_update_invoice_paid_amount_sets_status_paid(client: TestClient, auth_headers, test_client_id):
     # Editing an invoice's paid_amount (the "mark as paid" flow in the edit UI)
     # must derive invoice status the same way recording a payment does.
