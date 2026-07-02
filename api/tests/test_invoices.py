@@ -164,6 +164,45 @@ def test_payment_sync(client: TestClient, auth_headers, test_client_id):
     assert data["status"] == "paid"
     assert data["paid_amount"] == 200.00
 
+def test_update_invoice_status_to_paid_with_unchanged_items_succeeds(client: TestClient, auth_headers, test_client_id):
+    # Full-edit flow: the status dropdown lets a user set status to "paid"
+    # directly, in the same request that resubmits the invoice's (unchanged)
+    # line items. This must not trip the "paid invoices can't have items
+    # modified" guard, since the invoice wasn't paid *before* this request.
+    invoice_resp = client.post(
+        "/api/v1/invoices/",
+        json={
+            "client_id": test_client_id,
+            "amount": 100.00,
+            "description": "Status Dropdown Paid Test",
+            "status": "pending",
+            "items": [{"description": "DevOps Activities", "quantity": 1, "price": 100.00}]
+        },
+        headers=auth_headers
+    )
+    assert invoice_resp.status_code == 201
+    invoice_data = invoice_resp.json()
+    invoice_id = invoice_data["id"]
+    existing_item = invoice_data["items"][0]
+
+    update_resp = client.put(
+        f"/api/v1/invoices/{invoice_id}",
+        json={
+            "amount": 100.00,
+            "paid_amount": 100.00,
+            "status": "paid",
+            "items": [{
+                "id": existing_item["id"],
+                "description": existing_item["description"],
+                "quantity": existing_item["quantity"],
+                "price": existing_item["price"]
+            }]
+        },
+        headers=auth_headers
+    )
+    assert update_resp.status_code == 200, update_resp.text
+    assert update_resp.json()["status"] == "paid"
+
 def test_update_invoice_paid_amount_sets_status_paid(client: TestClient, auth_headers, test_client_id):
     # Editing an invoice's paid_amount (the "mark as paid" flow in the edit UI)
     # must derive invoice status the same way recording a payment does.
