@@ -1666,6 +1666,18 @@ async def update_invoice(
                         except Exception as e:
                             logger.warning(f"Failed to decrease payment from paid_amount update: {e}", exc_info=True)
                     # If incremental_amount == 0, no change needed
+
+                    # Derive status from the new payment total the same way the
+                    # payments router does (core/utils/payment_status.py), since
+                    # editing paid_amount here is otherwise indistinguishable from
+                    # recording a payment.
+                    from core.utils.payment_status import resolve_invoice_status
+                    db_invoice.status, db_invoice.pre_payment_status = resolve_invoice_status(
+                        current_status=db_invoice.status,
+                        pre_payment_status=db_invoice.pre_payment_status,
+                        total_paid=new_paid_amount,
+                        amount=db_invoice.amount,
+                    )
                     continue
                 setattr(db_invoice, key, value)
 

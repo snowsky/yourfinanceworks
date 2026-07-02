@@ -164,3 +164,43 @@ def test_payment_sync(client: TestClient, auth_headers, test_client_id):
     assert data["status"] == "paid"
     assert data["paid_amount"] == 200.00
 
+def test_update_invoice_paid_amount_sets_status_paid(client: TestClient, auth_headers, test_client_id):
+    # Editing an invoice's paid_amount (the "mark as paid" flow in the edit UI)
+    # must derive invoice status the same way recording a payment does.
+    invoice_resp = client.post(
+        "/api/v1/invoices/",
+        json={
+            "client_id": test_client_id,
+            "amount": 200.00,
+            "description": "Edit Paid Amount Test",
+            "status": "pending"
+        },
+        headers=auth_headers
+    )
+    assert invoice_resp.status_code == 201
+    invoice_id = invoice_resp.json()["id"]
+
+    # Partial payment via edit form
+    update_resp = client.put(
+        f"/api/v1/invoices/{invoice_id}",
+        json={"paid_amount": 50.00},
+        headers=auth_headers
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["status"] == "partially_paid"
+
+    # Full payment via edit form
+    update_resp = client.put(
+        f"/api/v1/invoices/{invoice_id}",
+        json={"paid_amount": 200.00},
+        headers=auth_headers
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["status"] == "paid"
+
+    invoice_resp = client.get(f"/api/v1/invoices/{invoice_id}", headers=auth_headers)
+    assert invoice_resp.status_code == 200
+    data = invoice_resp.json()
+    assert data["status"] == "paid"
+    assert data["paid_amount"] == 200.00
+
