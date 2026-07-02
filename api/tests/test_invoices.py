@@ -281,6 +281,50 @@ def test_update_paid_invoice_with_actually_changed_items_still_blocked(client: T
     assert update_resp.status_code == 400
     assert "cannot be modified" in update_resp.json()["detail"]
 
+def test_update_invoice_amount_reduced_to_match_existing_paid_amount_derives_paid(client: TestClient, auth_headers, test_client_id):
+    # Forms that don't expose a status control (e.g. InventoryInvoiceForm) or
+    # a user who edits line items without touching the status dropdown still
+    # resend the invoice's current "status" value unchanged, alongside a
+    # lower "amount" (from reduced item prices) and the existing paid_amount.
+    # Because InvoiceUpdate declares "status" after "paid_amount", this
+    # resent-unchanged status must not clobber the status derived from the
+    # new amount vs. the existing payment total.
+    invoice_resp = client.post(
+        "/api/v1/invoices/",
+        json={
+            "client_id": test_client_id,
+            "amount": 200.00,
+            "description": "Amount Reduced To Paid Test",
+            "status": "draft",
+            "paid_amount": 100.00,
+            "items": [{"description": "DevOps Activities", "quantity": 1, "price": 200.00}]
+        },
+        headers=auth_headers
+    )
+    assert invoice_resp.status_code == 201
+    invoice_data = invoice_resp.json()
+    invoice_id = invoice_data["id"]
+    existing_item = invoice_data["items"][0]
+    assert invoice_data["status"] == "draft"
+
+    update_resp = client.put(
+        f"/api/v1/invoices/{invoice_id}",
+        json={
+            "amount": 100.00,
+            "paid_amount": 100.00,
+            "status": "draft",  # resent unchanged, no explicit status change
+            "items": [{
+                "id": existing_item["id"],
+                "description": existing_item["description"],
+                "quantity": 1,
+                "price": 100.00
+            }]
+        },
+        headers=auth_headers
+    )
+    assert update_resp.status_code == 200, update_resp.text
+    assert update_resp.json()["status"] == "paid"
+
 def test_update_invoice_paid_amount_sets_status_paid(client: TestClient, auth_headers, test_client_id):
     # Editing an invoice's paid_amount (the "mark as paid" flow in the edit UI)
     # must derive invoice status the same way recording a payment does.

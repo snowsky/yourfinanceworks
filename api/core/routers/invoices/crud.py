@@ -1666,18 +1666,6 @@ async def update_invoice(
                         except Exception as e:
                             logger.warning(f"Failed to decrease payment from paid_amount update: {e}", exc_info=True)
                     # If incremental_amount == 0, no change needed
-
-                    # Derive status from the new payment total the same way the
-                    # payments router does (core/utils/payment_status.py), since
-                    # editing paid_amount here is otherwise indistinguishable from
-                    # recording a payment.
-                    from core.utils.payment_status import resolve_invoice_status
-                    db_invoice.status, db_invoice.pre_payment_status = resolve_invoice_status(
-                        current_status=db_invoice.status,
-                        pre_payment_status=db_invoice.pre_payment_status,
-                        total_paid=new_paid_amount,
-                        amount=db_invoice.amount,
-                    )
                     continue
                 setattr(db_invoice, key, value)
 
@@ -1790,11 +1778,42 @@ async def update_invoice(
             db.commit()
             db.refresh(db_invoice)
 
+        # Reconcile status against paid_amount/amount the same way the payments
+        # router does it (core/utils/payment_status.py), using the *final*
+        # amount (after any item-driven recompute above) and the *final*
+        # payment total. This must run after the field-setting loop rather
+        # than inline in the paid_amount branch: InvoiceUpdate declares
+        # "status" after "paid_amount", so a request that resends the
+        # invoice's existing status unchanged (no status control touched)
+        # would otherwise setattr it right back over a status just derived
+        # from the new payment total, undoing the derivation. Only runs when
+        # a payment-relevant field actually changed, and only when the client
+        # didn't explicitly request a different status (an explicit choice,
+        # e.g. via the status dropdown, always takes precedence).
+        payment_relevant_change = (
+            "paid_amount" in update_data or "amount" in update_data or items_were_updated
+        )
+        explicit_status_change = invoice.status is not None and invoice.status != old_status
+        if payment_relevant_change and not explicit_status_change:
+            from core.utils.payment_status import resolve_invoice_status
+            from core.models.models_per_tenant import Payment as PaymentModel
+            total_paid = sum_money(
+                p.amount for p in db.query(PaymentModel).filter(PaymentModel.invoice_id == db_invoice.id).all()
+            )
+            db_invoice.status, db_invoice.pre_payment_status = resolve_invoice_status(
+                current_status=old_status,
+                pre_payment_status=db_invoice.pre_payment_status,
+                total_paid=total_paid,
+                amount=db_invoice.amount,
+            )
+            db.commit()
+            db.refresh(db_invoice)
+
         # Create history entry for the update only if there are actual changes
         from core.models.models_per_tenant import InvoiceHistory as InvoiceHistoryModel
         changes = []
-        if invoice.status is not None and old_status != invoice.status:
-            changes.append(f"Status changed from {old_status} to {invoice.status}")
+        if old_status != db_invoice.status:
+            changes.append(f"Status changed from {old_status} to {db_invoice.status}")
         if invoice.currency and old_currency != invoice.currency:
             changes.append(f"Currency changed from {old_currency} to {invoice.currency}")
         if invoice.discount_value is not None and old_discount_value != invoice.discount_value:
