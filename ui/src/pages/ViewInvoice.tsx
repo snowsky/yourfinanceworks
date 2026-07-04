@@ -6,6 +6,7 @@ import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/professional-layout';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CurrencySelector } from '@/components/ui/currency-selector';
 import { Calendar } from '@/components/ui/calendar';
@@ -445,7 +446,7 @@ export default function ViewInvoice() {
             {invoice.notes && (
               <div className="sm:col-span-2">
                 <label className="text-sm font-medium">{t('invoices.notes')}</label>
-                <Input value={invoice.notes || ''} disabled={true} />
+                <Textarea value={invoice.notes || ''} disabled={true} className="min-h-[100px] resize-none" />
               </div>
             )}
           </CardContent>
