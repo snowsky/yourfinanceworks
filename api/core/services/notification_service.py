@@ -126,6 +126,7 @@ class NotificationService:
                 return True  # Consider it successful if no email service
             
         except Exception as e:
+            self.db.rollback()
             logger.error(f"Failed to send notification: {str(e)}")
             return False
     
@@ -234,6 +235,7 @@ class NotificationService:
                 return True  # Consider it successful if no email service
             
         except Exception as e:
+            self.db.rollback()
             logger.error(f"Failed to send approval daily digest: {str(e)}")
             return False
     
@@ -264,6 +266,7 @@ class NotificationService:
             return True
             
         except Exception as e:
+            self.db.rollback()
             logger.error(f"Failed to create in-app notification: {str(e)}")
             return False
     
@@ -328,6 +331,7 @@ class NotificationService:
                 return True  # Consider it successful if no email service
             
         except Exception as e:
+            self.db.rollback()
             logger.error(f"Failed to send approval reminder: {str(e)}")
             return False
     
@@ -398,6 +402,7 @@ class NotificationService:
                 return True  # Consider it successful if no email service
             
         except Exception as e:
+            self.db.rollback()
             logger.error(f"Failed to send approval escalation: {str(e)}")
             return False
     
