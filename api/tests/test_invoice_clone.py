@@ -16,7 +16,7 @@ def auth_headers(client: TestClient):
         "/api/v1/auth/register",
         json={
             "email": unique_email,
-            "password": "testpass123",
+            "password": "TestPass123!",
             "first_name": "Test",
             "last_name": "User"
         }
@@ -24,7 +24,7 @@ def auth_headers(client: TestClient):
 
     response = client.post(
         "/api/v1/auth/login",
-        json={"email": unique_email, "password": "testpass123"}
+        json={"email": unique_email, "password": "TestPass123!"}
     )
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
@@ -99,4 +99,37 @@ def test_clone_invoice_success(client: TestClient, auth_headers, test_client_id)
 def test_clone_invoice_not_found(client: TestClient, auth_headers):
     resp = client.post("/api/v1/invoices/9999999/clone", headers=auth_headers)
     assert resp.status_code == 404
+
+
+def test_clone_invoice_preserves_creator_attribution(client: TestClient, auth_headers, test_client_id):
+    create_resp = client.post(
+        "/api/v1/invoices/",
+        json={
+            "client_id": test_client_id,
+            "amount": 100,
+            "currency": "USD",
+            "description": "Original Invoice",
+            "status": "draft",
+        },
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201, create_resp.text
+    original_id = create_resp.json()["id"]
+
+    clone_resp = client.post(f"/api/v1/invoices/{original_id}/clone", headers=auth_headers)
+    assert clone_resp.status_code == 201, clone_resp.text
+    cloned_id = clone_resp.json()["id"]
+
+    # Creator attribution should carry over to the person who performed the clone,
+    # not be dropped (which the UI renders as "Unknown").
+    detail_resp = client.get(f"/api/v1/invoices/{cloned_id}", headers=auth_headers)
+    assert detail_resp.status_code == 200
+    detail = detail_resp.json()
+    assert detail["created_by_username"] == "Test User"
+
+    list_resp = client.get("/api/v1/invoices/", headers=auth_headers)
+    assert list_resp.status_code == 200
+    list_items = list_resp.json()["items"]
+    cloned_in_list = next(i for i in list_items if i["id"] == cloned_id)
+    assert cloned_in_list["created_by_username"] == "Test User"
 

@@ -549,7 +549,8 @@ async def clone_invoice(
             custom_fields=source_invoice.custom_fields,
             show_discount_in_pdf=source_invoice.show_discount_in_pdf,
             payer=source_invoice.payer,
-            labels=source_invoice.labels
+            labels=source_invoice.labels,
+            created_by_user_id=current_user.id
         )
 
         # If the original has items, recalc subtotal/amount like create endpoint
@@ -668,7 +669,13 @@ async def clone_invoice(
             "attachment_count": 0,
             "review_status": cloned_invoice.review_status,
             "review_result": cloned_invoice.review_result,
-            "reviewed_at": cloned_invoice.reviewed_at.isoformat() if cloned_invoice.reviewed_at else None
+            "reviewed_at": cloned_invoice.reviewed_at.isoformat() if cloned_invoice.reviewed_at else None,
+            "created_by_user_id": cloned_invoice.created_by_user_id,
+            "created_by_username": (
+                f"{current_user.first_name} {current_user.last_name}" if current_user.first_name and current_user.last_name
+                else current_user.first_name or current_user.email
+            ),
+            "created_by_email": current_user.email
         }
     except HTTPException:
         raise
