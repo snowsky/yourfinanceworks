@@ -281,6 +281,19 @@ def ensure_tenant_required_columns(tenant_db_url: str, tenant_id: int) -> bool:
                         )
                         conn.commit()
 
+            # email_notification_settings: anomaly alert preference (Slice 2).
+            # Pre-existing tenant DBs predate this column, which breaks every
+            # notification send (UndefinedColumn) and poisons the caller's
+            # transaction for the rest of the request.
+            if "email_notification_settings" in inspector.get_table_names():
+                existing = {c["name"] for c in inspector.get_columns("email_notification_settings")}
+                if "anomaly_alert" not in existing:
+                    logger.info(f"[tenant {tenant_id}] Adding email_notification_settings.anomaly_alert")
+                    conn.execute(
+                        text("ALTER TABLE email_notification_settings ADD COLUMN anomaly_alert BOOLEAN DEFAULT TRUE")
+                    )
+                    conn.commit()
+
             # clients: searchable email_hash for client-portal login lookup.
             # Existing rows are backfilled separately (needs tenant context to
             # decrypt the email); the column is added here so writes don't fail.
