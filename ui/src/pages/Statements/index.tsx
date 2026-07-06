@@ -597,6 +597,22 @@ export default function Statements() {
 
   const handleEmptyRecycleBin = () => setEmptyRecycleBinModalOpen(true);
 
+  // Poll the recycle bin until the background deletion actually finishes,
+  // instead of assuming it's done after a fixed delay (large batches can
+  // take longer than a couple seconds to delete).
+  const waitForRecycleBinEmpty = async (maxAttempts = 15, intervalMs = 1500): Promise<boolean> => {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      try {
+        const response = await bankStatementApi.getDeletedStatements(0, recycleBinPageSize);
+        if (response.total === 0) return true;
+      } catch (error) {
+        console.error('Failed to poll recycle bin status:', error);
+      }
+    }
+    return false;
+  };
+
   const confirmEmptyRecycleBin = async () => {
     const addNotification = (window as any).addAINotification;
     try {
@@ -604,10 +620,14 @@ export default function Statements() {
       toast.success(response.message || t('statementRecycleBin.deletion_initiated', { count: response.deleted_count }));
       if (addNotification && response.status === 'processing') {
         addNotification('info', t('statementRecycleBin.deletion_title'), t('statementRecycleBin.deletion_processing', { count: response.deleted_count }));
-        setTimeout(() => {
-          addNotification('success', t('statementRecycleBin.deletion_completed_title'), t('statementRecycleBin.deletion_completed', { count: response.deleted_count }));
+        // Poll in the background without blocking the modal close; large
+        // batches can take longer than a couple seconds to actually finish.
+        waitForRecycleBinEmpty().then((emptied) => {
+          if (emptied) {
+            addNotification('success', t('statementRecycleBin.deletion_completed_title'), t('statementRecycleBin.deletion_completed', { count: response.deleted_count }));
+          }
           fetchDeletedStatements();
-        }, 2000);
+        });
       } else { fetchDeletedStatements(); }
       setEmptyRecycleBinModalOpen(false);
     } catch (error: any) {
