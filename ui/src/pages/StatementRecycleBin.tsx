@@ -107,6 +107,22 @@ const StatementRecycleBin = () => {
     setUserInteracted(true);
   };
 
+  // Poll the recycle bin until the background deletion actually finishes,
+  // instead of assuming it's done after a fixed delay (large batches can
+  // take longer than a couple seconds to delete).
+  const waitForRecycleBinEmpty = async (maxAttempts = 15, intervalMs = 1500): Promise<boolean> => {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      try {
+        const response = await bankStatementApi.getDeletedStatements(0, pageSize);
+        if (response.total === 0) return true;
+      } catch (error) {
+        console.error('Failed to poll recycle bin status:', error);
+      }
+    }
+    return false;
+  };
+
   const confirmEmptyRecycleBin = async () => {
     const addNotification = (window as any).addAINotification;
     try {
@@ -118,21 +134,23 @@ const StatementRecycleBin = () => {
       // Add bell notification for completion
       if (addNotification && response.status === 'processing') {
         addNotification(
-          'info', 
-          t('statementRecycleBin.deletion_title'), 
+          'info',
+          t('statementRecycleBin.deletion_title'),
           t('statementRecycleBin.deletion_processing', { count: response.deleted_count })
         );
 
-        // Show completion notification and refresh after background task completes
-        setTimeout(() => {
-          addNotification(
-            'success', 
-            t('statementRecycleBin.deletion_completed_title'), 
-            t('statementRecycleBin.deletion_completed', { count: response.deleted_count })
-          );
-          // Refresh the list after deletion completes
+        // Poll in the background without blocking the modal close; large
+        // batches can take longer than a couple seconds to actually finish.
+        waitForRecycleBinEmpty().then((emptied) => {
+          if (emptied) {
+            addNotification(
+              'success',
+              t('statementRecycleBin.deletion_completed_title'),
+              t('statementRecycleBin.deletion_completed', { count: response.deleted_count })
+            );
+          }
           fetchDeletedStatements();
-        }, 2000);
+        });
       } else {
         // If not async (empty bin already or other reason), refresh immediately
         fetchDeletedStatements();

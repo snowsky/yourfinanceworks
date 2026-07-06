@@ -507,11 +507,23 @@ async def empty_statement_recycle_bin(
                 .filter(BankStatement.tenant_id == tenant_id, BankStatement.is_deleted == True)
                 .all()
             )
+            statement_ids = [s.id for s in deleted_statements]
 
             # Delete all attachment files from storage before deleting statements
             try:
                 from core.models.models_per_tenant import BankStatementAttachment
-                import asyncio
+                from collections import defaultdict
+
+                # Batch-fetch attachments for all statements in one query instead of
+                # one query per statement (N+1).
+                attachments_by_statement = defaultdict(list)
+                if statement_ids:
+                    for att in (
+                        db_task.query(BankStatementAttachment)
+                        .filter(BankStatementAttachment.statement_id.in_(statement_ids))
+                        .all()
+                    ):
+                        attachments_by_statement[att.statement_id].append(att)
 
                 async def delete_files():
                     # Import CloudStorageService locally to avoid circular imports or if missing
@@ -559,13 +571,7 @@ async def empty_statement_recycle_bin(
                             except Exception as e:
                                 logger.warning(f"Failed to delete cloud file {cloud_key}: {e}")
 
-                        # Delete attachments
-                        attachments = (
-                            db_task.query(BankStatementAttachment)
-                            .filter(BankStatementAttachment.statement_id == statement.id)
-                            .all()
-                        )
-                        for att in attachments:
+                        for att in attachments_by_statement.get(statement.id, []):
                             if att.file_path:
                                 try:
                                     await delete_file_from_storage(
@@ -588,9 +594,15 @@ async def empty_statement_recycle_bin(
                     f"Failed to delete attachment files during statement recycle bin empty: {e}"
                 )
 
-            # Delete all statements in recycle bin
-            for statement in deleted_statements:
-                db_task.delete(statement)
+            # Bulk-delete all statements in one DELETE statement instead of an ORM
+            # per-object delete loop. Child rows (transactions, transaction_links,
+            # attachments) all have DB-level ondelete="CASCADE" foreign keys, so
+            # Postgres cascades them without SQLAlchemy having to load and delete
+            # each child object individually.
+            if statement_ids:
+                db_task.query(BankStatement).filter(
+                    BankStatement.id.in_(statement_ids)
+                ).delete(synchronize_session=False)
 
             db_task.commit()
 
