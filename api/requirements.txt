@@ -15,7 +15,7 @@ fastapi-users[oauth]==15.0.4
 httpx-oauth==0.16.1
 httpx==0.28.1
 msal==1.37.0  # Microsoft Authentication Library for Azure AD SSO
-setuptools==80.9.0
+setuptools>=83.0.0
 python-multipart>=0.0.31
 pyotp==2.9.0
 qrcode==8.2
