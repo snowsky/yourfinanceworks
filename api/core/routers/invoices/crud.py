@@ -1695,7 +1695,9 @@ async def update_invoice(
             existing_items_for_guard = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
 
             def _item_key(item_id, description, quantity, price):
-                return (item_id, (description or "").strip(), round_money(quantity), round_money(price))
+                # Quantity and unit price retain four decimal places in the DB.
+                # Rounding them to cents can hide changes to the line total.
+                return (item_id, (description or "").strip(), quantity, price)
 
             existing_keys = sorted(
                 _item_key(i.id, i.description, i.quantity, i.price) for i in existing_items_for_guard
