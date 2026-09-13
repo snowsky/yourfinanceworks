@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Stop on installation/test failures and preserve their nonzero exit status.
+set -euo pipefail
+
 echo "🧪 Running Invoice App Tests"
 echo "============================"
 
@@ -54,6 +57,7 @@ else
         run_api_tests
     else
         echo "❌ API directory not found"
+        exit 1
     fi
     
     # Check if UI directory exists
@@ -61,6 +65,7 @@ else
         run_ui_tests
     else
         echo "❌ UI directory not found"
+        exit 1
     fi
 fi
 
