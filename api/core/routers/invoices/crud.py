@@ -1685,6 +1685,13 @@ async def update_invoice(
         # Compare submitted items against what's persisted and only block
         # when their content actually differs.
         if old_status == "paid" and invoice.items is not None:
+            # An item without an ID is new, so it cannot be an unchanged item.
+            # Reject it before sorting keys that would mix None and integer IDs.
+            if any(item.id is None for item in invoice.items):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Line items on a paid invoice cannot be modified"
+                )
             existing_items_for_guard = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
 
             def _item_key(item_id, description, quantity, price):
