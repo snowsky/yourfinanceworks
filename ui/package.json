@@ -82,7 +82,7 @@
     "nanoid": ">=3.3.18",
     "ws": ">=8.21.0",
     "brace-expansion": ">=5.0.7",
-    "js-yaml": ">=4.3.1",
+    "js-yaml": ">=4.3.2",
     "jsdom": ">=30.0.1",
     "postcss": ">=8.5.23"
   },
@@ -97,8 +97,8 @@
     "@types/react-dom": "^19.2.2",
     "@types/react-dropzone": "^4.2.2",
     "@vitejs/plugin-react-swc": "^4.3.1",
-    "@vitest/coverage-v8": "^4.1.8",
-    "@vitest/ui": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/ui": "^4.1.11",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.9.0",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
@@ -112,9 +112,12 @@
     "typescript-eslint": "^8.0.1",
     "nanoid": ">=3.3.18",
     "vite": ">=8.0.16",
-    "vitest": "^4.1.8",
+    "vitest": "^4.1.11",
     "ws": ">=8.21.0",
     "brace-expansion": ">=5.0.7",
-    "js-yaml": ">=4.3.1"
+    "js-yaml": ">=4.3.2"
+  },
+  "overrides": {
+    "sharp": "^0.35.4"
   }
 }
