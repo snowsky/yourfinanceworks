@@ -94,4 +94,4 @@ aiohttp>=3.14.3  # Async HTTP client for market data APIs
 stripe>=10.0.0
 
 # PDF rendering (invoice templates)
-weasyprint==69.0
+weasyprint==70.0
