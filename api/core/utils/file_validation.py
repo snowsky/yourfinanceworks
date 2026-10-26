@@ -25,9 +25,9 @@ def validate_file_path(file_path: str, must_exist: bool = True, base_dir: Option
     Raises:
         ValueError: If the path is invalid or unsafe
     """
-    safe_path = os.path.abspath(file_path)
+    safe_path = os.path.realpath(file_path)
     if base_dir is not None:
-        safe_base = os.path.abspath(base_dir)
+        safe_base = os.path.realpath(base_dir)
         # Ensure trailing separator so "/safe/dir" doesn't prefix-match "/safe/dir-other"
         if not safe_path.startswith(safe_base + os.sep) and safe_path != safe_base:
             raise ValueError(f"Invalid or unsafe file path: {file_path}")

@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getCurrentUser,
+  clearAuthSession,
   hasRole as checkHasRole,
   canAccess as checkCanAccess,
   User,
   UserRole
 } from '@/utils/auth';
+import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { authApi } from '@/lib/api';
 
 export interface UseAuthReturn {
@@ -26,7 +29,7 @@ export interface UseAuthReturn {
   // Functions
   hasRole: (allowedRoles: UserRole[]) => boolean;
   canAccess: (feature: string, allowedRoles: UserRole[]) => boolean;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshAuth: () => void;
 }
 
@@ -41,6 +44,7 @@ export const useAuth = (): UseAuthReturn => {
   const [isLoading, setIsLoading] = useState(true);
 
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   // Derived state
@@ -96,27 +100,19 @@ export const useAuth = (): UseAuthReturn => {
   }, [loadAuthState]);
 
   // Logout function
-  const logout = useCallback(() => {
-    console.log('useAuth: Logging out');
-
-    // Clear local state
+  const logout = useCallback(async () => {
+    try {
+      await clearAuthSession();
+    } catch {
+      toast.error(t('auth.logout_failed', { defaultValue: 'Unable to log out. Please try again.' }));
+      return;
+    }
     setUser(null);
     setUserRole('user');
     setIsAuthenticated(false);
-
-    // Clear localStorage
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-
-    // Dispatch custom event to notify FeatureContext
-    window.dispatchEvent(new Event('auth-changed'));
-
-    // Clear React Query cache
     queryClient.clear();
-
-    // Navigate to login
     navigate('/login');
-  }, [navigate, queryClient]);
+  }, [navigate, queryClient, t]);
 
   // Role checking functions
   const hasRole = useCallback((allowedRoles: UserRole[]): boolean => {

@@ -451,33 +451,25 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 app.mount("/api/v1/static", StaticFiles(directory=static_dir), name="api_static")
 
-# CORS Middleware (permissive for development)
-# Check multiple environment indicators for debug mode
+# Browser trust is explicit even when debugging locally.
 debug_env = os.getenv("DEBUG", "False").lower()
-dev_env = os.getenv("ENVIRONMENT", "development").lower()
+dev_env = os.getenv("ENVIRONMENT", "production").lower()
 debug_mode = debug_env == "true" or dev_env in ["development", "dev"]
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
 
-if debug_mode:
-    # In debug mode, allow all origins
-    allowed_origins = ["*"]
-    allow_credentials = False  # Cannot use credentials with wildcard
+if allowed_origins_env:
+    allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
 else:
-    # In production, use specific origins
-    if allowed_origins_env:
-        allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
-    else:
-        allowed_origins = [
-            "http://localhost:8080", "http://localhost:3000"
-        ]
+    allowed_origins = ["http://localhost:8080", "http://localhost:3000"]
 
-    # Add license key request URL to allowed origins if specified
-    license_key_site = os.getenv("LICENSE_KEY_REQUEST_URL")
-    if license_key_site:
-        if license_key_site not in allowed_origins:
-            allowed_origins.append(license_key_site)
+# Add license key request URL to allowed origins if specified
+license_key_site = os.getenv("LICENSE_KEY_REQUEST_URL")
+if license_key_site and license_key_site not in allowed_origins:
+    allowed_origins.append(license_key_site)
 
-    allow_credentials = os.getenv("ALLOW_CORS_CREDENTIALS", "True").lower() == "true"
+if "*" in allowed_origins:
+    raise ValueError("ALLOWED_ORIGINS must contain explicit trusted origins")
+allow_credentials = os.getenv("ALLOW_CORS_CREDENTIALS", "True").lower() == "true"
 
 # Log CORS configuration for debugging
 logger.info(f"CORS Configuration:")
@@ -506,13 +498,13 @@ async def csrf_protection(request: Request, call_next):
 
     Rules:
     - Safe methods (GET/HEAD/OPTIONS) are always allowed.
-    - In debug mode (wildcard CORS) the check is skipped.
+    - Debug mode does not bypass browser-origin checks.
     - Requests using Bearer token auth are inherently CSRF-safe; skip check.
     - For cookie-authenticated requests, the Origin header must match an
       allowed origin. If Origin is absent, the Referer is checked instead.
       Requests with neither header are allowed (non-browser API clients).
     """
-    if request.method in _CSRF_SAFE_METHODS or debug_mode:
+    if request.method in _CSRF_SAFE_METHODS:
         return await call_next(request)
 
     # Bearer token ⇒ CSRF-safe by design

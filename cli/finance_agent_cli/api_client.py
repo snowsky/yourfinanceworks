@@ -12,6 +12,7 @@ import webbrowser
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -189,6 +190,8 @@ class InvestmentAPIClient:
             return False
         try:
             data = json.loads(token_path.read_text())
+            if not isinstance(data, dict) or data.get("scope") != self._token_cache_scope():
+                return False
             token = data.get("token")
             expires = data.get("expires")
             if not token or not expires:
@@ -202,6 +205,19 @@ class InvestmentAPIClient:
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             return False
 
+    def _token_cache_scope(self) -> dict[str, str | None]:
+        """Bind persisted credentials to the complete API and selected identity."""
+        endpoint = urlsplit(self.profile.api_base_url)
+        api_base_url = urlunsplit((
+            endpoint.scheme.lower(), endpoint.netloc.lower(),
+            endpoint.path.rstrip("/"), endpoint.query, endpoint.fragment,
+        ))
+        return {
+            "api_base_url": api_base_url,
+            "profile": self.profile.name,
+            "email": self.profile.email.strip().casefold() if self.profile.email else None,
+        }
+
     def _save_token_to_disk(self) -> None:
         if not self._token or not self._token_expires:
             return
@@ -211,6 +227,7 @@ class InvestmentAPIClient:
                 {
                     "token": self._token,
                     "expires": self._token_expires.isoformat(),
+                    "scope": self._token_cache_scope(),
                 },
                 indent=2,
                 sort_keys=True,

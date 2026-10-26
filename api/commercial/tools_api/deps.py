@@ -14,6 +14,7 @@ from commercial.developer_api.router import (
     get_tenant_db,
 )
 from core.models.database import get_master_db
+from core.utils.rbac import require_component_permission
 from core.services.external_api_auth_service import AuthContext, Permission
 
 __all__ = [
@@ -43,7 +44,9 @@ class ToolResponse(BaseModel, Generic[T]):
         arbitrary_types_allowed = True
 
 
-def require_write(auth_context: AuthContext) -> None:
+def require_write(auth_context: AuthContext, db: Session, component: str) -> None:
     """Raise 403 if the API key does not have write permission."""
     if Permission.WRITE not in auth_context.permissions and not auth_context.is_admin:
         raise HTTPException(status_code=403, detail="Write permission required")
+    if auth_context.user is not None:
+        require_component_permission(db, auth_context.user, component, "user", "write via tools API")

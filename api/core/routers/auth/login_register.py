@@ -62,6 +62,14 @@ def _maybe_require_mfa_for_user(user, next_path="/dashboard"):
 
 @router.post("/register", response_model=Token, status_code=201)
 async def register(user: UserCreate, db: Session = Depends(get_master_db)):
+    if user.tenant_id:
+        raise HTTPException(status_code=403, detail="Use an invitation to join an existing organization.")
+    return await _register_user(user, db)
+
+
+async def _register_user(user: UserCreate, db: Session, *, _mobile_signup: bool = False):
+    if user.tenant_id and not _mobile_signup:
+        raise HTTPException(status_code=403, detail="Use an invitation to join an existing organization.")
     logger = logging.getLogger("registration")
     logger.info(f"Starting registration for {user.email}")
 
@@ -90,6 +98,10 @@ async def register(user: UserCreate, db: Session = Depends(get_master_db)):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid password for existing user"
             )
+        if not existing_user.is_active:
+            raise HTTPException(status_code=401, detail="Your account has been disabled.")
+        if getattr(existing_user, "mfa_chain_enabled", False):
+            raise HTTPException(status_code=403, detail="Sign in with MFA before creating an organization.")
         if user.first_name and not existing_user.first_name:
             existing_user.first_name = user.first_name
         if user.last_name and not existing_user.last_name:

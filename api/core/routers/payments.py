@@ -1,3 +1,4 @@
+from core.utils.rbac import require_component_permission
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
@@ -332,6 +333,7 @@ async def create_payment(
     current_user: MasterUser = Depends(get_current_user)
 ):
     # Manually set tenant context and get tenant database
+    require_component_permission(db, current_user, "invoices", "user", "create payment")
     try:
         # Get the invoice to determine currency
         invoice = db.query(Invoice).filter(
@@ -428,6 +430,7 @@ async def update_payment(
     current_user: MasterUser = Depends(get_current_user)
 ):
     # Manually set tenant context and get tenant database
+    require_component_permission(db, current_user, "invoices", "user", "update payment")
     try:
         db_payment = db.query(Payment).filter(
             Payment.id == payment_id
@@ -494,6 +497,7 @@ async def delete_payment(
     current_user: MasterUser = Depends(get_current_user)
 ):
     # Manually set tenant context and get tenant database
+    require_component_permission(db, current_user, "invoices", "admin", "delete payment")
     try:
         db_payment = db.query(Payment).filter(
             Payment.id == payment_id

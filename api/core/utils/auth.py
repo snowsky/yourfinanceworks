@@ -1,5 +1,5 @@
 from passlib.context import CryptContext
-from jose import jwt
+from jose import jwt, JWTError
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import os
@@ -30,4 +30,15 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
- 
+
+
+def validate_staff_claims(payload: dict) -> str:
+    """Accept staff sessions, including legacy untyped sessions, only."""
+    if payload.get("type") not in (None, "staff"):
+        raise JWTError("Not a staff session")
+    if any(key in payload for key in ("plugin_id", "client_id", "scope", "purpose")):
+        raise JWTError("Not a staff session")
+    subject = payload.get("sub")
+    if not isinstance(subject, str) or not subject.strip():
+        raise JWTError("Missing staff subject")
+    return subject

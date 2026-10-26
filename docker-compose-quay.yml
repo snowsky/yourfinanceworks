@@ -30,6 +30,9 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
+      # Override stale development values in api/.env for deployed API workers.
+      - DEBUG=false
+      - ENVIRONMENT=production
       # ============================================================================
       # Docker-Specific Overrides
       # All other variables are loaded from ./api/.env
@@ -170,13 +173,14 @@ services:
 
   # Kafdrop (Kafka UI)
   kafdrop:
+    profiles: ["admin"]
     image: obsidiandynamics/kafdrop:4.0.2
     container_name: invoice_app_kafdrop
     environment:
       KAFKA_BROKERCONNECT: kafka:9092
       JVM_OPTS: -Xms32M -Xmx64M
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
     depends_on:
       kafka:
         condition: service_healthy
@@ -477,10 +481,11 @@ services:
 
   # OpenSearch Dashboards (optional)
   opensearch-dashboards:
+    profiles: ["admin"]
     image: opensearchproject/opensearch-dashboards:3.4.0
     container_name: invoice_app_opensearch_dashboards
     ports:
-      - "5601:5601"
+      - "127.0.0.1:5601:5601"
     expose:
       - "5601"
     environment:

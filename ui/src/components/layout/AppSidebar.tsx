@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -46,7 +47,7 @@ import {
 import { iconRegistry } from '@/plugins/plugin-icons';
 import type { PluginNavItem } from '@/types/plugin-routes';
 import { API_BASE_URL, settingsApi } from "@/lib/api";
-import { isAdmin, getCurrentUserRole, getCurrentUser } from "@/utils/auth";
+import { isAdmin, getCurrentUserRole, getCurrentUser, clearAuthSession } from "@/utils/auth";
 import { Building } from 'lucide-react';
 import { OrganizationSwitcher } from "./OrganizationSwitcher";
 import { useOrganizations } from "@/hooks/useOrganizations";
@@ -305,18 +306,14 @@ export function AppSidebar() {
     };
   }, [queryClient]);
 
-  const handleLogout = () => {
-    // Clear authentication data
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-
-    // Dispatch custom event to notify FeatureContext
-    window.dispatchEvent(new Event('auth-changed'));
-
-    // Clear React Query cache to prevent 403 errors
+  const handleLogout = async () => {
+    try {
+      await clearAuthSession();
+    } catch {
+      toast.error(t('auth.logout_failed', { defaultValue: 'Unable to log out. Please try again.' }));
+      return;
+    }
     queryClient.clear();
-
-    // Redirect to login page
     navigate('/login');
   };
 

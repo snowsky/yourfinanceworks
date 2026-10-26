@@ -16,7 +16,7 @@ import logging
 from core.models.database import get_master_db
 from core.models.models import MasterUser, Tenant, Invite, PasswordResetToken, Settings, user_tenant_association
 from core.services.email_service import EmailService, EmailProviderConfig, EmailProvider
-from core.utils.auth import SECRET_KEY, ALGORITHM
+from core.utils.auth import SECRET_KEY, ALGORITHM, validate_staff_claims
 from core.models.models_per_tenant import User as TenantUser
 from core.services.tenant_database_manager import tenant_db_manager
 from core.constants.error_codes import INVALID_CREDENTIALS
@@ -32,7 +32,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 security = HTTPBearer(auto_error=False)
 
 AUTH_COOKIE_NAME = "auth_token"
-_is_production = os.getenv("ENVIRONMENT", "development").lower() not in ("development", "dev")
+_is_production = os.getenv("ENVIRONMENT", "production").lower() not in ("development", "dev")
 
 
 class ChangePasswordRequest(BaseModel):
@@ -111,7 +111,7 @@ def get_current_user(
         raise credentials_exception
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
+        email: str = validate_staff_claims(payload)
         if email is None:
             logger.warning("get_current_user: No email in JWT payload")
             raise credentials_exception
@@ -120,7 +120,7 @@ def get_current_user(
         raise credentials_exception
 
     user = db.query(MasterUser).filter(MasterUser.email == email).first()
-    if user is None:
+    if user is None or not user.is_active:
         logger.warning(f"get_current_user: User {email} not found in database")
         raise credentials_exception
 
@@ -128,20 +128,27 @@ def get_current_user(
     current_tenant_id = get_tenant_context()
 
     if current_tenant_id and current_tenant_id != user.tenant_id:
+        membership = db.execute(user_tenant_association.select().where(
+            user_tenant_association.c.user_id == user.id,
+            user_tenant_association.c.tenant_id == current_tenant_id,
+            user_tenant_association.c.is_active == True,
+        )).first()
+        if not membership:
+            raise credentials_exception
         try:
             TenantSession = tenant_db_manager.get_tenant_session(current_tenant_id)
             tenant_db = TenantSession()
             try:
                 tenant_db.expire_all()
                 tenant_user = tenant_db.query(TenantUser).filter(TenantUser.id == user.id).first()
-                if tenant_user:
+                if tenant_user and tenant_user.is_active:
                     user_copy = MasterUser(
                         id=user.id,
                         email=user.email,
                         hashed_password=user.hashed_password,
                         first_name=user.first_name,
                         last_name=user.last_name,
-                        role=tenant_user.role,
+                        role=membership.role,
                         tenant_id=current_tenant_id,
                         is_active=user.is_active,
                         is_superuser=user.is_superuser,
@@ -154,28 +161,12 @@ def get_current_user(
                     )
                     return user_copy
                 else:
-                    user_copy = MasterUser(
-                        id=user.id,
-                        email=user.email,
-                        hashed_password=user.hashed_password,
-                        first_name=user.first_name,
-                        last_name=user.last_name,
-                        role='viewer',
-                        tenant_id=current_tenant_id,
-                        is_active=user.is_active,
-                        is_superuser=user.is_superuser,
-                        is_verified=user.is_verified,
-                        must_reset_password=bool(getattr(user, 'must_reset_password', False)),
-                        theme=user.theme,
-                        google_id=user.google_id,
-                        created_at=user.created_at,
-                        updated_at=user.updated_at
-                    )
-                    return user_copy
+                    raise credentials_exception
             finally:
                 tenant_db.close()
         except Exception as e:
             logger.warning(f"Failed to get tenant-specific role for user {user.email} in tenant {current_tenant_id}: {e}")
+            raise credentials_exception
 
     return user
 
