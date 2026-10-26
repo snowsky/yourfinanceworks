@@ -18,7 +18,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError as JWTError
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 

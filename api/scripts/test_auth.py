@@ -13,7 +13,7 @@ from core.models.models import User, Tenant
 from core.routers.auth import get_current_user, create_access_token
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import jwt
+import jwt
 import os
 
 def test_token_creation():

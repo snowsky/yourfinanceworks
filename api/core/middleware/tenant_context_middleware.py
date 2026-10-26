@@ -17,7 +17,8 @@ from core.models.database import (
 from core.models.models import MasterUser, user_tenant_association
 from core.services.tenant_database_manager import tenant_db_manager
 from core.services.analytics_service import analytics_service
-from jose import jwt, JWTError
+import jwt
+from jwt import InvalidTokenError as JWTError
 from core.utils.auth import validate_staff_claims
 
 logger = logging.getLogger(__name__)

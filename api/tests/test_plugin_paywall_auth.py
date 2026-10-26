@@ -9,7 +9,7 @@ mutates billing state. These tests cover the helper directly.
 
 import pytest
 from fastapi import HTTPException
-from jose import jwt
+import jwt
 
 from core.routers.auth import SECRET_KEY, ALGORITHM
 from commercial.plugin_management.router import _validate_plugin_user_token

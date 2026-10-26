@@ -1,5 +1,6 @@
 from passlib.context import CryptContext
-from jose import jwt, JWTError
+import jwt
+from jwt import InvalidTokenError as JWTError
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import os
