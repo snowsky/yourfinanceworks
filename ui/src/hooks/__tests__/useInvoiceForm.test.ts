@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import { useInvoiceForm } from '../useInvoiceForm'
 import * as api from '@/lib/api'
@@ -86,5 +86,38 @@ describe('useInvoiceForm', () => {
     await waitFor(() => {
       expect(result.current.availableDiscountRules).toEqual(mockRules)
     })
+  })
+
+  it('submits coerced numeric fields through the Zod resolver', async () => {
+    const { result } = renderHook(() => useInvoiceForm({}))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const submit = vi.fn()
+    await act(async () => {
+      result.current.form.setValue('client', '1')
+      result.current.form.setValue('items', [{ description: 'Service', quantity: '2' as unknown as number, price: '12.50' as unknown as number }])
+      result.current.form.setValue('taxRate', '5' as unknown as number)
+      await result.current.form.handleSubmit(submit)()
+    })
+    expect(submit).toHaveBeenCalledOnce()
+    expect(submit.mock.calls[0][0]).toMatchObject({
+      items: [{ description: 'Service', quantity: 2, price: 12.5 }],
+      taxRate: 5,
+      discountType: 'percentage',
+    })
+  })
+
+  it('rejects invalid invoice amounts through the Zod resolver', async () => {
+    const { result } = renderHook(() => useInvoiceForm({}))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const submit = vi.fn()
+    const invalid = vi.fn()
+    await act(async () => {
+      result.current.form.setValue('client', '1')
+      result.current.form.setValue('items', [{ description: 'Service', quantity: 0, price: -1 }])
+      await result.current.form.handleSubmit(submit, invalid)()
+    })
+    expect(submit).not.toHaveBeenCalled()
+    expect(invalid.mock.calls[0][0].items[0].quantity.message).toBe('Quantity must be greater than 0')
+    expect(invalid.mock.calls[0][0].items[0].price.message).toBe('Price must be greater than 0')
   })
 })

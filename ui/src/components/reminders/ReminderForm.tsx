@@ -22,14 +22,14 @@ const reminderSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
   description: z.string().max(1000, 'Description must be less than 1000 characters').optional(),
   due_date: z.date({
-    required_error: 'Due date is required',
+    error: (issue) => issue.input === undefined ? 'Due date is required' : undefined,
   }),
   recurrence_pattern: z.enum(['none', 'daily', 'weekly', 'monthly', 'yearly']),
   recurrence_interval: z.number().min(1).max(365).default(1),
   recurrence_end_date: z.date().optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
   assigned_to_id: z.number({
-    required_error: 'Please select who to assign this reminder to',
+    error: (issue) => issue.input === undefined ? 'Please select who to assign this reminder to' : undefined,
   }),
   tags: z.array(z.string()).optional(),
   is_pinned: z.boolean().default(false),
@@ -70,7 +70,8 @@ export function ReminderForm({
   const [tags, setTags] = useState<string[]>(reminder?.tags || []);
 
   const form = useForm<ReminderFormData>({
-    resolver: zodResolver(reminderSchema),
+    // Form state uses populated values; the schema also accepts omitted defaults.
+    resolver: (values, context, options) => zodResolver(reminderSchema)(values, context, options),
     defaultValues: {
       title: reminder?.title || '',
       description: reminder?.description || '',

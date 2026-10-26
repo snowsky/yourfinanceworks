@@ -194,7 +194,8 @@ export const InventoryInvoiceForm: React.FC<InventoryInvoiceFormProps> = ({
   }, [currentTenantId]);
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    // Form state uses populated values; the schema also accepts omitted defaults.
+    resolver: (values, context, options) => zodResolver(formSchema)(values, context, options),
     mode: "onTouched", // Only validate when fields are touched
     defaultValues: {
       client: "",
