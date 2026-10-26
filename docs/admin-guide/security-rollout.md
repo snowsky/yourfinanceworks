@@ -13,6 +13,49 @@ Production auth cookies are Secure and require an HTTPS browser origin. Set
 `https://finance.example.com`. Wildcard origins are rejected. Debugging never
 disables the cookie-authenticated CSRF origin checks or exposes portal login links.
 
+### Configure the demo browser origin
+
+On the demo server, set the following in `api/.env`:
+
+```dotenv
+ALLOWED_ORIGINS=https://demo.yourfinanceworks.com
+```
+
+If the same API intentionally serves other browser origins, include each one in
+the comma-separated list. Origins include the scheme, hostname, and any
+non-default port, with no URL path. Only include localhost when that deployment
+intentionally supports it; the localhost-only value in `.env.example.full` does
+not authorize the hosted demo.
+
+From the deployment's repository root, recreate the API to load the new value:
+
+```sh
+docker compose up -d --no-deps --force-recreate api
+docker compose logs --tail=100 api
+```
+
+Use the same Compose files, project name, and replica count as the running
+deployment when recreating the service. Confirm the startup `Allowed origins`
+log includes `https://demo.yourfinanceworks.com` on every API replica, then retry
+the failed operation with a dummy invoice. Verify an untrusted origin still
+receives HTTP 403 for a request carrying a session cookie.
+
+### Troubleshoot `CSRF check failed: untrusted origin`
+
+This HTTP 403 comes from the API's browser-origin check before the invoice update
+handler runs. Compare the browser request's `Origin` header with the API startup
+`Allowed origins` log and the `CSRF check failed: untrusted Origin` warning.
+Configure the exact intended origin and recreate every API replica; restarting
+an existing container does not reload its environment. No `InvoiceForm.tsx`
+change is required for an origin configuration mismatch.
+
+CSRF protection was introduced on March 16, 2026, in PR #118 (`c508d1af`).
+PR #455 (`549aabf5`), merged October 26, 2026, removed the debug-mode bypass.
+Deployments that previously relied on that bypass now need explicit trusted
+origins. Keep the origin check enabled and avoid wildcard trust.
+
+### Local development and remaining rollout steps
+
 For intentional localhost HTTP development, use a separate Compose override with
 `ENVIRONMENT=development`; keep `DEBUG=false` unless diagnostic output is needed.
 Use explicit localhost origins. Avoid editing the maintained production defaults.
