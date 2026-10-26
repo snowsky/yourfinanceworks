@@ -74,6 +74,7 @@ class InvestmentAPIClient:
             self._owns_client = False
         self._token: str | None = profile.token
         self._token_expires: datetime | None = None
+        self._token_account: str | None = None
 
     def close(self) -> None:
         if self._owns_client:
@@ -134,7 +135,7 @@ class InvestmentAPIClient:
                     payload=_safe_json(response),
                 )
             token_payload = response.json()
-            self._save_token_payload(token_payload)
+            self._save_token_payload(token_payload, require_account=True)
             return {
                 "authenticated": True,
                 "token_path": str(self.profile.token_path),
@@ -155,7 +156,16 @@ class InvestmentAPIClient:
             )
         return response.json()
 
-    def _save_token_payload(self, payload: dict[str, Any]) -> None:
+    def _save_token_payload(self, payload: dict[str, Any], *, require_account: bool = False) -> None:
+        user = payload.get("user")
+        account = user.get("email") if isinstance(user, dict) else None
+        account = account.strip().casefold() if isinstance(account, str) else None
+        configured = self.profile.email.strip().casefold() if self.profile.email else None
+        if require_account and not account:
+            raise APIError("The server did not identify the approved account. Update the server before device login.")
+        if account and configured and account != configured:
+            raise APIError("The approved account does not match the configured profile email.")
+        self._token_account = account or configured
         self._token = payload["access_token"]
         expires_in = int(payload.get("expires_in", 25 * 60))
         self._token_expires = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
@@ -182,6 +192,7 @@ class InvestmentAPIClient:
             raise APIError(f"Failed to remove token file: {exc}") from exc
         self._token = None
         self._token_expires = None
+        self._token_account = None
         return {"logged_out": True, "token_removed": removed, "token_path": str(self.profile.token_path)}
 
     def _load_token_from_disk(self) -> bool:
@@ -192,6 +203,10 @@ class InvestmentAPIClient:
             data = json.loads(token_path.read_text())
             if not isinstance(data, dict) or data.get("scope") != self._token_cache_scope():
                 return False
+            configured = self.profile.email.strip().casefold() if self.profile.email else None
+            account = data.get("account_email")
+            if configured and account != configured:
+                return False
             token = data.get("token")
             expires = data.get("expires")
             if not token or not expires:
@@ -201,6 +216,7 @@ class InvestmentAPIClient:
                 return False
             self._token = str(token)
             self._token_expires = expiry
+            self._token_account = account
             return True
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             return False
@@ -228,6 +244,7 @@ class InvestmentAPIClient:
                     "token": self._token,
                     "expires": self._token_expires.isoformat(),
                     "scope": self._token_cache_scope(),
+                    "account_email": self._token_account,
                 },
                 indent=2,
                 sort_keys=True,

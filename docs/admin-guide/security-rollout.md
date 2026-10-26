@@ -29,7 +29,10 @@ cannot authenticate as staff. Public registration cannot select an existing tena
 or role; use invitations or approved membership workflows. MFA-enabled existing
 accounts must sign in normally before creating another organization. CLI token
 caches created before this change need one fresh login because they lack an API,
-profile and account binding. Existing API keys remain tied to their stored tenant
+profile and account binding. Update the backend before using the updated CLI's
+device login: the exchange must identify the browser-approved account, and a
+configured profile email must match it before any credential is cached.
+Existing API keys remain tied to their stored tenant
 and current owner permissions.
 
 ## Management listeners

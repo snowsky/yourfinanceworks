@@ -93,17 +93,36 @@ def test_tool_component_restriction_cannot_be_elevated(component):
     with pytest.raises(HTTPException):
         ns['require_write'](NS(permissions={'write'},is_admin=True,user=NS(role='admin')), 'tenant-db', component)
 
-def test_all_tool_mutations_supply_component_and_tenant_db():
+def test_all_tool_mutations_execute_permission_guard_with_tenant_db():
+    import inspect
     components = dict(clients='customers',invoices='invoices',expenses='expenses',payments='invoices',bank_statements='bank_statements')
+    checked = []
     for filename,component in components.items():
-        tree = ast.parse((ROOT / f'api/commercial/tools_api/{filename}.py').read_text())
+        path = f'api/commercial/tools_api/{filename}.py'
+        tree = ast.parse((ROOT / path).read_text())
         for node in tree.body:
             if not isinstance(node,ast.AsyncFunctionDef): continue
             mutations = any(isinstance(d,ast.Call) and isinstance(d.func,ast.Attribute) and d.func.attr in ('post','put','patch','delete') for d in node.decorator_list)
             if mutations:
-                calls = [c for c in ast.walk(node) if isinstance(c,ast.Call) and isinstance(c.func,ast.Name) and c.func.id == 'require_write']
-                assert len(calls) == 1, node.name
-                assert ast.unparse(calls[0]) == f"require_write(auth_context, db, '{component}')"
+                tenant_db = object()
+                context = object()
+                def deny(auth, db, actual_component):
+                    assert auth is context and db is tenant_db
+                    assert actual_component == component
+                    checked.append((filename, node.name))
+                    raise HTTPException(403, 'permission denied')
+                namespace = dict(
+                    Depends=lambda *_: None, get_tenant_db=None, get_api_auth_context=None,
+                    get_master_db=None, require_write=deny, HTTPException=HTTPException,
+                    _check_domain_access=lambda *args: None, DOMAIN='dummy',
+                )
+                handler = load_functions(path, [node.name], namespace)[node.name]
+                kwargs = {name: NS() for name in inspect.signature(handler).parameters}
+                kwargs.update(tenant_db=tenant_db, auth_context=context)
+                with pytest.raises(HTTPException) as exc:
+                    asyncio.run(handler(**kwargs))
+                assert exc.value.status_code == 403
+    assert len(checked) == 11
 
 def test_api_key_uses_persisted_tenant_not_primary():
     from datetime import datetime, timezone

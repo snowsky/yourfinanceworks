@@ -75,7 +75,7 @@
 
 ### Task 6: Integration, independent review, PR and merge
 
-- [ ] Run the combined isolated security and CLI suites, focused UI tests and applicable lint/build checks; distinguish baseline failures.
-- [ ] Request a fresh whole-branch review and resolve material findings.
+- [x] Run the combined isolated security and CLI suites, focused UI tests and applicable lint/build checks; distinguish baseline failures.
+- [x] Request a fresh whole-branch review and resolve material findings.
 - [ ] Commit only agreed changes, push, create PR, verify checks, merge, and synchronize local main.
 - [ ] Report merged PR, exact validation and deployment remaining.

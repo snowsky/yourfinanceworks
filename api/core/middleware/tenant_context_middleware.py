@@ -193,6 +193,13 @@ def get_client_ip(request: Request) -> str:
 async def tenant_context_middleware(request: Request, call_next):
     clear_tenant_context()
 
+    # Cookie removal must remain available after expiry, revocation or lockout.
+    # The global CSRF middleware still validates browser origins for this POST.
+    if request.method == "POST" and request.url.path in {
+        "/api/v1/auth/logout", "/api/v1/auth/logout/",
+    }:
+        return await call_next(request)
+
     # SECURITY IMPROVEMENT 6: Reduce sensitive logging
     client_ip = get_client_ip(request)
     logger.info(

@@ -108,7 +108,7 @@ async def create_client(
     auth_context: AuthContext = Depends(get_api_auth_context),
 ):
     """Create a new client. Requires write permission."""
-    require_write(auth_context, db, "customers")
+    require_write(auth_context, tenant_db, "customers")
 
     from core.models.models_per_tenant import Client
 
@@ -135,7 +135,7 @@ async def update_client(
     auth_context: AuthContext = Depends(get_api_auth_context),
 ):
     """Update a client. Requires write permission."""
-    require_write(auth_context, db, "customers")
+    require_write(auth_context, tenant_db, "customers")
 
     client = _get_or_404(tenant_db, client_id)
     for field, value in body.model_dump(exclude_unset=True).items():

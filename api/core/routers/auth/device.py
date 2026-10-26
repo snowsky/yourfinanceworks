@@ -227,4 +227,5 @@ async def exchange_device_token(
         "access_token": access_token,
         "token_type": "bearer",
         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "user": {"email": user.email},
     }

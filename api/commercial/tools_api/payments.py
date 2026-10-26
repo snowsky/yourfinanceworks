@@ -93,7 +93,7 @@ async def create_payment(
     Requires 'invoice' domain + write permission.
     """
     _check_domain_access(master_db, auth_context, DOMAIN)
-    require_write(auth_context, db, "invoices")
+    require_write(auth_context, tenant_db, "invoices")
 
     from core.models.models_per_tenant import Invoice, Payment
     from core.routers.payments import sync_invoice_status

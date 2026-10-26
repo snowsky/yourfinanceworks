@@ -106,7 +106,7 @@ async def create_expense(
 ):
     """Create a new expense. Requires 'expense' domain + write permission."""
     _check_domain_access(master_db, auth_context, DOMAIN)
-    require_write(auth_context, db, "expenses")
+    require_write(auth_context, tenant_db, "expenses")
 
     from core.models.models_per_tenant import Expense
 
@@ -149,7 +149,7 @@ async def update_expense(
 ):
     """Update an expense. Requires 'expense' domain + write permission."""
     _check_domain_access(master_db, auth_context, DOMAIN)
-    require_write(auth_context, db, "expenses")
+    require_write(auth_context, tenant_db, "expenses")
 
     expense = _get_or_404(tenant_db, expense_id)
     for field, value in body.model_dump(exclude_unset=True).items():
@@ -169,7 +169,7 @@ async def delete_expense(
 ):
     """Soft-delete an expense. Requires 'expense' domain + write permission."""
     _check_domain_access(master_db, auth_context, DOMAIN)
-    require_write(auth_context, db, "expenses")
+    require_write(auth_context, tenant_db, "expenses")
 
     expense = _get_or_404(tenant_db, expense_id)
     expense.is_deleted = True

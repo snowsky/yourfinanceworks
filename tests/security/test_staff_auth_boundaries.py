@@ -122,6 +122,23 @@ def test_device_post_approves_once():
         asyncio.run(ns['approve_device_login'](NS(form=form), DB(NS(is_active=True, is_enabled=True))))
 
 
+def test_device_exchange_identifies_the_same_account_as_the_issued_token():
+    from datetime import timedelta
+    user = NS(id=3, email='staff@example.test', is_active=True, tenant_id=1)
+    session = {'user_code': 'ABCD-1234', 'approved_email': user.email, 'approved_tenant_id': 1}
+    ns = device_namespace(session, user)
+    issued = []
+    def issue(**kwargs):
+        issued.append(kwargs['data']['sub'])
+        return 'dummy-device-token'
+    ns.update(timedelta=timedelta, ACCESS_TOKEN_EXPIRE_MINUTES=60, create_access_token=issue)
+    result = asyncio.run(ns['exchange_device_token'](
+        NS(device_code='device'), DB(user, NS(is_active=True, is_enabled=True)),
+    ))
+    assert issued == [result['user']['email']] == [user.email]
+    assert result['access_token'] == 'dummy-device-token'
+
+
 def test_mobile_login_returns_mfa_challenge_without_staff_token():
     user = NS(email='staff@example.test', hashed_password='hash', is_active=True)
     ns = load_functions('api/core/routers/mobile_expense.py', ['login_mobile_expense_user'], {

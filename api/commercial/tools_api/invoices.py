@@ -140,7 +140,7 @@ async def create_invoice(
 ):
     """Create a new invoice. Requires 'invoice' domain + write permission."""
     _check_domain_access(master_db, auth_context, DOMAIN)
-    require_write(auth_context, db, "invoices")
+    require_write(auth_context, tenant_db, "invoices")
 
     from core.models.models_per_tenant import Client, Invoice
 
@@ -187,7 +187,7 @@ async def update_invoice_status(
 ):
     """Update invoice status. Requires 'invoice' domain + write permission."""
     _check_domain_access(master_db, auth_context, DOMAIN)
-    require_write(auth_context, db, "invoices")
+    require_write(auth_context, tenant_db, "invoices")
 
     inv = _get_or_404(tenant_db, invoice_id)
     inv.status = body.status
