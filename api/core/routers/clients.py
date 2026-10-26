@@ -423,6 +423,7 @@ async def delete_client(
     db: Session = Depends(get_db),
     current_user: MasterUser = Depends(get_current_user)
 ):
+    require_component_permission(db, current_user, "customers", "user", "delete client")
     try:
         # Check if client exists
         # No tenant_id filtering needed since we're in the tenant's database

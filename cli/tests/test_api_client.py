@@ -95,14 +95,8 @@ def test_ai_chat_uses_web_assistant_endpoint(tmp_path):
 
 def test_cached_token_is_sent_when_auth_type_is_none(tmp_path):
     profile = _profile(tmp_path)
-    profile.token_path.write_text(
-        """
-        {
-          "token": "cached-token",
-          "expires": "2999-01-01T00:00:00+00:00"
-        }
-        """
-    )
+    cached_client = InvestmentAPIClient(profile, http_client=object())
+    cached_client._save_token_payload({"access_token": "cached-token", "expires_in": 3600})
     fake_http = FakeRequestHttpClient()
     client = InvestmentAPIClient(profile, http_client=fake_http)
 

@@ -2,6 +2,7 @@
 External API authentication service for managing API keys and OAuth tokens.
 """
 
+from types import SimpleNamespace
 import hashlib
 import hmac
 import secrets
@@ -13,7 +14,7 @@ from passlib.context import CryptContext
 import jwt
 import httpx
 
-from core.models.models import MasterUser, Tenant
+from core.models.models import MasterUser, Tenant, user_tenant_association
 from core.models.api_models import APIClient
 from core.routers.auth import SECRET_KEY, ALGORITHM
 
@@ -109,6 +110,29 @@ class ExternalAPIAuthService:
         """Get the first 8 characters of API key for identification."""
         return api_key[:8] + "..."
 
+    def _selected_tenant_user(self, db: Session, user: MasterUser, tenant_id: int):
+        """Resolve current tenant authority without changing the persisted master user."""
+        if not user or not user.is_active or not tenant_id:
+            return None
+        tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+        if not tenant or not tenant.is_active or not tenant.is_enabled or tenant.archived_at:
+            return None
+        membership = db.query(user_tenant_association).filter(
+            user_tenant_association.c.user_id == user.id,
+            user_tenant_association.c.tenant_id == tenant_id,
+        ).first()
+        if membership is not None and not membership.is_active:
+            return None
+        if tenant_id != user.tenant_id and membership is None:
+            return None
+        selected = SimpleNamespace(**{
+            column.key: getattr(user, column.key)
+            for column in MasterUser.__table__.columns
+        })
+        selected.tenant_id = tenant_id
+        selected.role = membership.role if membership is not None else user.role
+        return selected
+
     async def authenticate_api_key(
         self, db: Session, api_key: str, client_ip: str
     ) -> Optional[AuthContext]:
@@ -146,8 +170,14 @@ class ExternalAPIAuthService:
         if not user or not user.is_active:
             return None
 
+        user = self._selected_tenant_user(db, user, api_client.tenant_id)
+        if user is None:
+            return None
+
         # Create auth context
         permissions = self._get_api_client_permissions(api_client)
+        if user.role not in ("admin", "user") and not user.is_superuser:
+            permissions &= {Permission.READ, Permission.INVOICE_READ, Permission.EXPENSE_READ}
 
         return AuthContext(
             user_id=str(user.id),
@@ -159,7 +189,7 @@ class ExternalAPIAuthService:
             authentication_method=AuthenticationMethod.API_KEY,
             is_authenticated=True,
             is_admin=user.role == "admin" or user.is_superuser,
-            tenant_id=user.tenant_id,
+            tenant_id=api_client.tenant_id,
             is_sandbox=api_client.is_sandbox,
             allowed_document_types=api_client.allowed_document_types,
             custom_quotas=api_client.custom_quotas,
@@ -259,6 +289,11 @@ class ExternalAPIAuthService:
                  f"No tenant context found for trusted plugin '{plugin_id}'. "
                  f"User: {user_email or 'None'}, Header Tenant: {tenant_id or 'None'}"
              )
+
+        if user is not None:
+            user = self._selected_tenant_user(db, user, resolved_tenant_id)
+            if user is None:
+                return None
 
         # Create trusted auth context
         return AuthContext(
@@ -455,6 +490,12 @@ class ExternalAPIAuthService:
         api_client.last_used_at = datetime.now(timezone.utc)
         api_client.total_requests += 1
         db.commit()
+
+        if user.id != api_client.user_id:
+            return None
+        user = self._selected_tenant_user(db, user, api_client.tenant_id)
+        if user is None:
+            return None
 
         # Create auth context
         permissions = self._get_oauth_permissions(token_scopes)

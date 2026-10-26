@@ -130,25 +130,36 @@ class ClientContext:
     tenant_id: int
 
 
-def get_current_client(authorization: Optional[str] = Header(None)):
-    """FastAPI dependency. Resolves the client from the session JWT, opens its
-    tenant DB session, and yields a ClientContext (cleaned up after the request).
-    The client_portal paths bypass the staff tenant middleware, so this sets the
-    tenant context itself."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    claims = decode_client_session_token(authorization.split(" ", 1)[1])
-    tenant_id = int(claims["tenant_id"])
-    client_id = int(claims["client_id"])
-
-    set_tenant_context(tenant_id)
-    TenantSession = tenant_db_manager.get_tenant_session(tenant_id)
-    db = TenantSession()
+def get_current_client(
+    authorization: Optional[str] = Header(None),
+    master_db: Session = Depends(get_master_db),
+):
+    """Validate the live tenant before opening portal data, and clean up on failure."""
+    db = None
     try:
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        claims = decode_client_session_token(authorization.split(" ", 1)[1])
+        try:
+            tenant_id = int(claims["tenant_id"])
+            client_id = int(claims["client_id"])
+            if tenant_id <= 0 or client_id <= 0:
+                raise ValueError()
+        except (ValueError, TypeError, KeyError):
+            raise HTTPException(status_code=401, detail="Invalid session")
+        tenant = master_db.query(Tenant).filter(Tenant.id == tenant_id).first()
+        if (not tenant or not tenant.is_active or not tenant.is_enabled
+                or tenant.archived_at is not None):
+            raise HTTPException(status_code=401, detail="Invalid session")
+
+        set_tenant_context(tenant_id)
+        TenantSession = tenant_db_manager.get_tenant_session(tenant_id)
+        db = TenantSession()
         client = db.query(Client).filter(Client.id == client_id).first()
         if not client:
             raise HTTPException(status_code=401, detail="Invalid session")
         yield ClientContext(client=client, db=db, tenant_id=tenant_id)
     finally:
         clear_tenant_context()
-        db.close()
+        if db is not None:
+            db.close()

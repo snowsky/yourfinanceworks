@@ -11,6 +11,7 @@ import os
 import secrets
 import string
 from urllib.parse import quote
+from html import escape
 from datetime import datetime, timedelta, timezone
 from threading import Lock
 from typing import Any
@@ -24,7 +25,7 @@ from sqlalchemy.orm import Session
 from core.models.database import get_master_db
 from core.models.models import MasterUser, Tenant
 from core.routers.auth._shared import AUTH_COOKIE_NAME
-from core.utils.auth import ALGORITHM, SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token
+from core.utils.auth import ALGORITHM, SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token, validate_staff_claims
 
 router = APIRouter(prefix="/device")
 
@@ -77,12 +78,13 @@ def _current_browser_user(request: Request, db: Session) -> MasterUser | None:
         return None
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("sub")
+        email = validate_staff_claims(payload)
     except JWTError:
         return None
     if not email:
         return None
-    return db.query(MasterUser).filter(MasterUser.email == email).first()
+    user = db.query(MasterUser).filter(MasterUser.email == email).first()
+    return user if user and user.is_active else None
 
 
 @router.post("/start")
@@ -142,26 +144,54 @@ async def verify_device_login(
         return HTMLResponse(
             f"""
             <h1>Sign in to approve CLI access</h1>
-            <p>Device code: <strong>{normalized_code}</strong></p>
-            <p><a href="{login_url}">Continue to login</a>, then return to this page.</p>
+            <p>Device code: <strong>{escape(normalized_code)}</strong></p>
+            <p><a href="{escape(login_url, quote=True)}">Continue to login</a>, then return to this page.</p>
             """,
             status_code=401,
         )
 
     tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
-    if not user.is_active or not tenant or not tenant.is_active:
+    if not user.is_active or not tenant or not tenant.is_active or not tenant.is_enabled:
         return HTMLResponse("<h1>Device login denied</h1><p>Your account or organization is disabled.</p>", status_code=403)
 
+    csrf_token = secrets.token_urlsafe(32)
     with _device_lock:
-        session["approved_email"] = user.email
-        session["approved_at"] = datetime.now(timezone.utc)
-
+        session["approval_nonce"] = csrf_token
+        session["approval_user_id"] = user.id
     return HTMLResponse(
-        """
-        <h1>CLI login approved</h1>
-        <p>You can close this browser tab and return to the CLI.</p>
-        """
+        f'<h1>Approve CLI login?</h1><p>Device code: {escape(normalized_code)}</p>'
+        f'<p>Account: {escape(user.email)}</p>'
+        '<form method="post" action="/api/v1/auth/device/verify">'
+        f'<input type="hidden" name="user_code" value="{escape(normalized_code)}">'
+        f'<input type="hidden" name="csrf_token" value="{csrf_token}">'
+        '<button type="submit">Approve CLI access</button></form>',
+        headers={"Cache-Control": "no-store", "Content-Security-Policy": "frame-ancestors 'none'"},
     )
+
+
+@router.post("/verify", response_class=HTMLResponse)
+async def approve_device_login(request: Request, db: Session = Depends(get_master_db)):
+    form = await request.form()
+    code = str(form.get("user_code", "")).strip().upper()
+    nonce = str(form.get("csrf_token", ""))
+    user = _current_browser_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Sign in to approve CLI access.")
+    tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+    if not tenant or not tenant.is_active or not tenant.is_enabled:
+        raise HTTPException(status_code=403, detail="Organization disabled.")
+    with _device_lock:
+        _prune_expired_sessions()
+        session = next((item for item in _device_sessions.values() if item["user_code"] == code), None)
+        if (not session or session.get("approved_at") or not nonce
+                or session.get("approval_user_id") != user.id
+                or not secrets.compare_digest(session.get("approval_nonce", ""), nonce)):
+            raise HTTPException(status_code=403, detail="Invalid device approval.")
+        session.pop("approval_nonce", None)
+        session["approved_email"] = user.email
+        session["approved_tenant_id"] = user.tenant_id
+        session["approved_at"] = datetime.now(timezone.utc)
+    return HTMLResponse("<h1>CLI login approved</h1><p>Return to the CLI.</p>")
 
 
 @router.post("/token")
@@ -183,6 +213,11 @@ async def exchange_device_token(
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_user")
 
+    tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+    if (user.tenant_id != session.get("approved_tenant_id") or not tenant
+            or not tenant.is_active or not tenant.is_enabled):
+        raise HTTPException(status_code=403, detail="invalid_organization")
+
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.email},
@@ -192,4 +227,5 @@ async def exchange_device_token(
         "access_token": access_token,
         "token_type": "bearer",
         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "user": {"email": user.email},
     }

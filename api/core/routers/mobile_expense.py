@@ -13,7 +13,7 @@ from core.models.models import MasterUser, user_tenant_association
 from core.models.models_per_tenant import User as TenantUser
 from core.routers.auth import create_access_token, get_current_user
 from core.routers.auth._shared import get_user_organizations
-from core.routers.auth.login_register import register as register_user
+from core.routers.auth.login_register import _register_user as register_user, _maybe_require_mfa_for_user
 from core.schemas.user import Token, UserCreate, UserRead
 from core.services.tenant_database_manager import tenant_db_manager
 from core.services.expense_mobile_service import get_expense_mobile_config, resolve_expense_mobile_binding
@@ -234,6 +234,8 @@ async def signup_mobile_expense_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Your account has been disabled.",
             )
+        if getattr(existing_user, "mfa_chain_enabled", False):
+            raise HTTPException(status_code=403, detail="Sign in with MFA before joining this organization.")
         role = _get_user_role_for_tenant(db, existing_user, tenant.id) or config["default_role"]
         _ensure_existing_user_membership(
             db,
@@ -263,7 +265,7 @@ async def signup_mobile_expense_user(
         tenant_id=tenant.id,
         role=config["default_role"],
     )
-    return await register_user(user=user, db=db)
+    return await register_user(user=user, db=db, _mobile_signup=True)
 
 
 @router.post("/auth/login")
@@ -297,6 +299,15 @@ async def login_mobile_expense_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This account is not a member of the configured organization.",
         )
+
+    try:
+        mfa_prompt = _maybe_require_mfa_for_user(user)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    if mfa_prompt:
+        return {"mfa_required": True, "mfa_session_id": mfa_prompt["session_id"],
+                "current_factor_id": mfa_prompt["current_factor_id"],
+                "current_factor_label": mfa_prompt["current_factor_label"]}
 
     access_token = create_access_token(
         data={"sub": user.email},

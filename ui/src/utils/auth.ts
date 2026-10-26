@@ -1,3 +1,5 @@
+import { API_BASE_URL } from '@/lib/api/_base';
+
 /**
  * Authentication and Role-Based Access Control Utilities
  * Consolidates repetitive auth logic across the application
@@ -220,17 +222,26 @@ export const updateCurrentUser = (userData: Partial<User>): void => {
 };
 
 /**
- * Clear authentication data and redirect to login
+ * Ask the server to remove its authentication cookie, failing closed on errors.
  */
-export const logout = async () => {
-  try {
-    await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' });
-  } catch {
-    // proceed with local cleanup even if server call fails
+export const clearServerSession = async (): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL.replace(/\/+$/, '')}/auth/logout`, { method: 'POST', credentials: 'include' });
+  if (!response.ok) {
+    throw new Error('Unable to log out. Please try again.');
   }
+};
+
+/** Clear local identity only after the server confirms cookie removal. */
+export const clearAuthSession = async (): Promise<void> => {
+  await clearServerSession();
+  localStorage.removeItem('token');
   localStorage.removeItem('user');
   localStorage.removeItem('selected_tenant_id');
   window.dispatchEvent(new Event('auth-changed'));
+};
+
+export const logout = async (): Promise<void> => {
+  await clearAuthSession();
   window.location.href = '/login';
 };
 

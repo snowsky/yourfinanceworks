@@ -18,6 +18,7 @@ from core.models.models import MasterUser, user_tenant_association
 from core.services.tenant_database_manager import tenant_db_manager
 from core.services.analytics_service import analytics_service
 from jose import jwt, JWTError
+from core.utils.auth import validate_staff_claims
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -191,6 +192,13 @@ def get_client_ip(request: Request) -> str:
 
 async def tenant_context_middleware(request: Request, call_next):
     clear_tenant_context()
+
+    # Cookie removal must remain available after expiry, revocation or lockout.
+    # The global CSRF middleware still validates browser origins for this POST.
+    if request.method == "POST" and request.url.path in {
+        "/api/v1/auth/logout", "/api/v1/auth/logout/",
+    }:
+        return await call_next(request)
 
     # SECURITY IMPROVEMENT 6: Reduce sensitive logging
     client_ip = get_client_ip(request)
@@ -369,7 +377,7 @@ async def tenant_context_middleware(request: Request, call_next):
                 )
 
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            email = payload.get("sub")
+            email = validate_staff_claims(payload)
 
             # SECURITY IMPROVEMENT 12: Hash email in logs for privacy
             if email:
@@ -382,33 +390,6 @@ async def tenant_context_middleware(request: Request, call_next):
                 if mobile_expense_tenant_id:
                     header_tenant_id = str(mobile_expense_tenant_id)
 
-                # --- Fast path: serve from auth cache to skip 4-5 DB queries ---
-                cached = _get_auth_cache(token)
-                if cached:
-                    resolved_tenant_id = cached["tenant_id"]
-                    cached_tenant_ids = cached["user_tenant_ids"]
-                    if header_tenant_id:
-                        try:
-                            requested_tenant_id = int(header_tenant_id)
-                            if requested_tenant_id <= 0:
-                                raise ValueError("Invalid tenant ID")
-                        except (ValueError, TypeError):
-                            return JSONResponse(
-                                status_code=status.HTTP_400_BAD_REQUEST,
-                                content={"detail": "Invalid tenant ID format"},
-                            )
-                        if requested_tenant_id not in cached_tenant_ids:
-                            record_failed_auth(client_ip)
-                            return JSONResponse(
-                                status_code=status.HTTP_401_UNAUTHORIZED,
-                                content={"detail": "Access denied to requested organization."},
-                            )
-                        resolved_tenant_id = requested_tenant_id
-                    set_tenant_context(resolved_tenant_id)
-                    logger.debug(f"Auth context served from cache for {email_hash}")
-                    return await call_next(request)
-                # --- End fast path ---
-
                 master_db = next(get_master_db())
                 try:
                     from sqlalchemy.orm import joinedload
@@ -419,7 +400,7 @@ async def tenant_context_middleware(request: Request, call_next):
                         .filter(MasterUser.email == email)
                         .first()
                     )
-                    if user and user.tenant_id:
+                    if user and user.is_active and user.tenant_id:
                         # Use header tenant ID if provided and user has access, otherwise use default tenant
                         tenant_id = user.tenant_id
 
@@ -430,7 +411,7 @@ async def tenant_context_middleware(request: Request, call_next):
                             )
                         ).fetchall()
                         user_tenant_ids = [
-                            membership.tenant_id for membership in tenant_memberships
+                            membership.tenant_id for membership in tenant_memberships if membership.is_active
                         ] + [user.tenant_id]
 
                         logger.info(
@@ -495,7 +476,7 @@ async def tenant_context_middleware(request: Request, call_next):
                                     content={"detail": "Organization not found."},
                                 )
 
-                            if not tenant.is_enabled:
+                            if not tenant.is_enabled or not tenant.is_active:
                                 logger.warning(
                                     f"Tenant {tenant_id} is disabled for user {email_hash}"
                                 )

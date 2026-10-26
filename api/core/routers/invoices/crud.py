@@ -2268,6 +2268,7 @@ async def delete_invoice(
     current_user: MasterUser = Depends(get_current_user)
 ):
     """Move an invoice to the recycle bin (soft delete)"""
+    require_component_permission(db, current_user, "invoices", "user", "delete invoice")
     try:
         # Find the invoice (exclude already deleted ones)
         db_invoice = db.query(Invoice).filter(

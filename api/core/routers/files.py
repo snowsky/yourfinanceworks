@@ -28,6 +28,49 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/files", tags=["files"])
 
 
+def _resolve_tenant_file(encoded_file_key: str):
+    """Resolve every storage candidate inside the authenticated tenant root."""
+    from core.models.database import get_tenant_context
+
+    current_tenant_id = get_tenant_context()
+    try:
+        if isinstance(current_tenant_id, bool) or current_tenant_id is None:
+            raise ValueError()
+        tenant_id = int(str(current_tenant_id))
+        if tenant_id <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=403, detail="Tenant context required")
+
+    file_key = urllib.parse.unquote(encoded_file_key)
+    parts = file_key.split('/')
+    if (len(parts) < 2 or not parts[0].startswith('tenant_')
+            or any(part in ('', '.', '..') for part in parts)
+            or '\\' in file_key or '\x00' in file_key):
+        raise HTTPException(status_code=400, detail="Invalid file key format")
+    raw_tenant_id = parts[0][len('tenant_'):]
+    if not raw_tenant_id.isascii() or not raw_tenant_id.isdecimal():
+        raise HTTPException(status_code=400, detail="Invalid file key format")
+    if int(raw_tenant_id) != tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied to file from different tenant")
+
+    base_path = Path(app_config.UPLOAD_PATH).resolve()
+    tenant_root = base_path / f"tenant_{tenant_id}"
+    try:
+        # A tenant directory itself must not redirect to another tenant or outside storage.
+        if tenant_root.is_symlink():
+            raise ValueError()
+        tenant_root = tenant_root.resolve()
+        candidates = [tenant_root.joinpath(*parts[1:]), tenant_root / parts[-1]]
+        for candidate in candidates:
+            validated = validate_file_path(str(candidate), must_exist=False, base_dir=str(tenant_root))
+            if Path(validated).is_file():
+                return file_key, Path(validated)
+    except (ValueError, OSError, RuntimeError):
+        raise HTTPException(status_code=400, detail="Invalid file path")
+    raise HTTPException(status_code=404, detail="File not found")
+
+
 @router.get("/serve/{encoded_file_key}")
 async def serve_file(
     encoded_file_key: str,
@@ -51,83 +94,9 @@ async def serve_file(
         FileResponse with the requested file
     """
     try:
-        # Decode the file key
-        file_key = urllib.parse.unquote(encoded_file_key)
-        logger.info(f"Serving file: {file_key} for user {current_user.id}")
-        
-        # Validate file key format and extract tenant info
-        if not file_key.startswith('tenant_'):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid file key format"
-            )
-        
-        # Extract tenant ID from file key
-        parts = file_key.split('/')
-        if len(parts) < 2:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid file key format"
-            )
-        
-        tenant_part = parts[0]  # e.g., "tenant_1"
-        tenant_id = tenant_part.replace('tenant_', '')
-        
-        # Verify user has access to this tenant
-        # This is a simplified check - in a real implementation, you'd want
-        # more sophisticated tenant access validation
-        from core.models.database import get_tenant_context
-        current_tenant_id = get_tenant_context()
-        
-        if current_tenant_id and str(current_tenant_id) != tenant_id:
-            logger.warning(f"User {current_user.id} attempted to access file from different tenant: {tenant_id}")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied to file from different tenant"
-            )
-        
-        # Construct full file path
-        base_path = Path(app_config.UPLOAD_PATH)
-        file_path = base_path / file_key
-        
-        # Validate and secure the file path
-        try:
-            validated_path = validate_file_path(str(file_path))
-        except ValueError as e:
-            logger.error(f"Invalid file path: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid file path"
-            )
-        
-        # Check if file exists with fallback paths for backward compatibility
-        file_path_obj = Path(validated_path)
-        if not file_path_obj.exists():
-            # Try alternative paths for backward compatibility
-            base_path = Path(app_config.UPLOAD_PATH)
-            
-            # Try different possible locations
-            alternative_paths = [
-                base_path / file_key,  # Direct relative path
-                base_path / f"tenant_{tenant_id}" / Path(file_key).name,  # Flat structure fallback
-            ]
-            
-            found_path = None
-            for alt_path in alternative_paths:
-                if alt_path.exists():
-                    found_path = alt_path
-                    break
-            
-            if found_path:
-                validated_path = str(found_path)
-                logger.info(f"File found at alternative path: {validated_path}")
-            else:
-                logger.warning(f"File not found: {file_key}")
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="File not found"
-                )
-        
+        file_key, path_obj = _resolve_tenant_file(encoded_file_key)
+        validated_path = str(path_obj)
+
         # Determine content type
         content_type, _ = mimetypes.guess_type(validated_path)
         if not content_type:
@@ -157,7 +126,7 @@ async def serve_file(
         logger.error(f"Error serving file {encoded_file_key}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to serve file: {str(e)}"
+            detail="Failed to serve file"
         )
 
 
@@ -179,58 +148,9 @@ async def get_file_info(
         Dictionary with file information
     """
     try:
-        # Decode the file key
-        file_key = urllib.parse.unquote(encoded_file_key)
-        
-        # Validate file key format and extract tenant info
-        if not file_key.startswith('tenant_'):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid file key format"
-            )
-        
-        # Extract tenant ID from file key
-        parts = file_key.split('/')
-        if len(parts) < 2:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid file key format"
-            )
-        
-        tenant_part = parts[0]
-        tenant_id = tenant_part.replace('tenant_', '')
-        
-        # Verify user has access to this tenant
-        from core.models.database import get_tenant_context
-        current_tenant_id = get_tenant_context()
-        
-        if current_tenant_id != tenant_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied to file from different tenant"
-            )
-        
-        # Construct full file path
-        base_path = Path(app_config.UPLOAD_PATH)
-        file_path = base_path / file_key
-        
-        # Validate file path
-        try:
-            validated_path = validate_file_path(str(file_path))
-        except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid file path"
-            )
-        
-        # Check if file exists
-        path_obj = Path(validated_path)
-        if not path_obj.exists():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="File not found"
-            )
-        
+        file_key, path_obj = _resolve_tenant_file(encoded_file_key)
+        validated_path = str(path_obj)
+
         # Get file information
         stat = path_obj.stat()
         content_type, _ = mimetypes.guess_type(validated_path)
@@ -251,7 +171,7 @@ async def get_file_info(
         logger.error(f"Error getting file info for {encoded_file_key}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get file info: {str(e)}"
+            detail="Failed to get file info"
         )
 
 

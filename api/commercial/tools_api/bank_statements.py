@@ -96,7 +96,7 @@ async def update_statement_meta(
 ):
     """Update statement metadata (notes, status). Requires 'statement' domain + write permission."""
     _check_domain_access(master_db, auth_context, DOMAIN)
-    require_write(auth_context)
+    require_write(auth_context, tenant_db, "bank_statements")
 
     stmt = _get_or_404(tenant_db, statement_id)
     if body.notes is not None:
@@ -119,7 +119,7 @@ async def delete_statement(
 ):
     """Soft-delete a statement. Requires confirm_deletion=true, 'statement' domain + write permission."""
     _check_domain_access(master_db, auth_context, DOMAIN)
-    require_write(auth_context)
+    require_write(auth_context, tenant_db, "bank_statements")
 
     if not body.confirm_deletion:
         raise HTTPException(status_code=422, detail="Set confirm_deletion=true to delete")
@@ -140,7 +140,7 @@ async def restore_statement(
 ):
     """Restore a soft-deleted statement. Requires 'statement' domain + write permission."""
     _check_domain_access(master_db, auth_context, DOMAIN)
-    require_write(auth_context)
+    require_write(auth_context, tenant_db, "bank_statements")
 
     from core.models.models_per_tenant import BankStatement
     stmt = tenant_db.query(BankStatement).filter(

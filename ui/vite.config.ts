@@ -2,6 +2,16 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import path from "path"
 
+const manualChunkPackages = {
+  vendor: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query', 'react-i18next', 'i18next'],
+  radix_ui: ['@radix-ui/react-accordion', '@radix-ui/react-alert-dialog', '@radix-ui/react-avatar', '@radix-ui/react-checkbox', '@radix-ui/react-slot', 'class-variance-authority', 'cmdk', 'sonner'],
+  forms: ['react-hook-form', '@hookform/resolvers', 'zod'],
+  charts: ['recharts'],
+  pdf: ['@react-pdf/renderer', 'react-pdf', 'pdfjs-dist'],
+  icons: ['lucide-react'],
+  utils: ['date-fns', 'date-fns-tz', 'clsx', 'tailwind-merge'],
+}
+
 export default defineConfig({
   plugins: [react()],
   cacheDir: '/app/.vite-cache',
@@ -19,14 +29,11 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query', 'react-i18next', 'i18next'],
-          radix_ui: ['@radix-ui/react-accordion', '@radix-ui/react-alert-dialog', '@radix-ui/react-avatar', '@radix-ui/react-checkbox', '@radix-ui/react-slot', 'class-variance-authority', 'cmdk', 'sonner'],
-          forms: ['react-hook-form', '@hookform/resolvers', 'zod'],
-          charts: ['recharts'],
-          pdf: ['@react-pdf/renderer', 'react-pdf', 'pdfjs-dist'],
-          icons: ['lucide-react'],
-          utils: ['date-fns', 'date-fns-tz', 'clsx', 'tailwind-merge']
+        manualChunks(id) {
+          const normalizedId = id.replaceAll('\\', '/')
+          return Object.entries(manualChunkPackages).find(([, packages]) =>
+            packages.some(name => normalizedId.includes(`/node_modules/${name}/`))
+          )?.[0]
         }
       }
     },
