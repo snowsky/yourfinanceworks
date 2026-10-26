@@ -212,7 +212,8 @@ export function useInvoiceForm({
   };
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    // Form state uses populated values; the schema also accepts omitted defaults.
+    resolver: (values, context, options) => zodResolver(formSchema)(values, context, options),
     defaultValues: formDefaultValues,
     mode: "onChange"
   });
