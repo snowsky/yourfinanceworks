@@ -8,7 +8,7 @@ import pytest
 from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
-from jose import JWTError
+from jwt import InvalidTokenError as JWTError
 
 from handler_loader import load_functions
 

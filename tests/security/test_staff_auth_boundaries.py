@@ -4,7 +4,7 @@ from types import SimpleNamespace as NS
 
 import pytest
 from fastapi import HTTPException, Depends, status
-from jose import JWTError
+from jwt import InvalidTokenError as JWTError
 from handler_loader import load_functions
 
 

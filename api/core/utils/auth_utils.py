@@ -1,7 +1,8 @@
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError as JWTError
 from typing import Optional
 import logging
 

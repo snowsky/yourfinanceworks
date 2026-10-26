@@ -85,7 +85,8 @@ def _validate_plugin_user_token(
     from the request body are entirely caller-controlled and any anonymous
     request can read or modify another user's usage counter and subscription.
     """
-    from jose import jwt, JWTError
+    import jwt
+    from jwt import InvalidTokenError as JWTError
     from core.routers.auth import SECRET_KEY, ALGORITHM
 
     if not access_token:
@@ -115,7 +116,7 @@ async def generate_plugin_sidecar_token(
     This token is signed with the YFW_SECRET_KEY shared with trusted sidecars.
     Dashboard-only, requires valid user session.
     """
-    from jose import jwt
+    import jwt
     from core.utils.auth import ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
     
     plugin_id = _validate_plugin_id(plugin_id)
