@@ -1,7 +1,7 @@
 fastapi==0.116.1
 uvicorn==0.35.0
 pydantic==2.12.5
-pydantic-settings==2.10.1
+pydantic-settings==2.16.2
 python-dotenv>=1.0.0
 sqlalchemy==2.0.42
 alembic==1.13.0
@@ -24,7 +24,7 @@ mfa-chain-orchestrator
 psycopg2-binary==2.9.10
 
 # Email service dependencies
-boto3==1.42.51  # AWS SES
+boto3==1.43.127  # AWS SES
 azure-communication-email==1.0.0  # Azure Email Services
 requests>=2.33.0  # For Mailgun HTTP API
 jinja2==3.1.6  # Email templating
@@ -32,7 +32,7 @@ reportlab==4.4.3  # PDF generation for email attachments
 
 # AI/LLM dependencies
 openai>=2.24.0  # OpenAI client (compatible with litellm)
-litellm==1.95.0  # Unified interface for multiple LLM providers
+litellm==1.108.4  # Unified interface for multiple LLM providers
 langchain==1.3.9  # LangChain main package
 langchain-community==0.4.1  # LangChain community components
 langchain-core==1.4.8  # LangChain core components
