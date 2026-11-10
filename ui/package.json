@@ -121,6 +121,9 @@
     "sharp": "^0.35.5",
     "@tailwindcss/typography": {
       "postcss-selector-parser": "^6.1.5"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
     }
   }
 }
