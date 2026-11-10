@@ -4,32 +4,11 @@ import { ProfessionalInput } from "@/components/ui/professional-input";
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
-import {
-  TrendingUp, BarChart3, Shield, AlertCircle, CheckCircle2,
-} from "lucide-react";
+import { TrendingUp, AlertCircle } from "lucide-react";
+import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
 import { authApi, API_BASE_URL, getErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-
-const BRAND_FEATURES = [
-  {
-    icon: TrendingUp,
-    title: "Real-time Financial Insights",
-    desc: "Live cash flow, revenue, and expense tracking across all accounts.",
-  },
-  {
-    icon: BarChart3,
-    title: "AI-Powered Analytics",
-    desc: "Intelligent forecasting and anomaly detection, built in.",
-  },
-  {
-    icon: Shield,
-    title: "Enterprise Security",
-    desc: "Bank-grade encryption with multi-tenant data isolation.",
-  },
-];
-
-const TRUST_BADGES = ["256-bit SSL", "ISO 27001", "SOC 2 Type II"];
 
 // Real Microsoft 4-square logo
 const MicrosoftIcon = () => (
@@ -194,66 +173,17 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex bg-background">
-      {/* ── Left brand panel (desktop only) ── */}
-      <div className="hidden lg:flex lg:w-[44%] xl:w-2/5 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex-col justify-between p-12 relative overflow-hidden flex-shrink-0">
-        {/* Subtle dot-grid overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage: `radial-gradient(circle, #ffffff 1px, transparent 1px)`,
-            backgroundSize: "28px 28px",
-          }}
-        />
-        {/* Accent glow */}
-        <div className="absolute -top-32 -left-32 w-96 h-96 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Logo */}
-        <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/30">
-              <TrendingUp className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <span className="text-white text-lg font-bold tracking-tight leading-none">YourFinanceWORKS</span>
-              <p className="text-slate-400 text-xs mt-0.5">Financial Management Platform</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Feature list */}
-        <div className="relative z-10 space-y-8">
-          <h2 className="text-white text-2xl font-semibold leading-snug">
-            The smarter way to manage your business finances.
-          </h2>
-          <div className="space-y-5">
-            {BRAND_FEATURES.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="flex gap-4">
-                <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Icon className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <p className="text-white font-medium text-sm">{title}</p>
-                  <p className="text-slate-400 text-sm mt-0.5">{desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Trust badges */}
-        <div className="relative z-10 flex items-center gap-2 flex-wrap">
-          {TRUST_BADGES.map((badge) => (
-            <div key={badge} className="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1">
-              <CheckCircle2 className="h-3 w-3 text-emerald-400 flex-shrink-0" />
-              <span className="text-slate-300 text-xs font-medium">{badge}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <AuthBrandPanel />
 
       {/* ── Right form panel ── */}
-      <div className="flex-1 flex flex-col items-center justify-center py-12 px-6 sm:px-10 overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        {/* Locale / theme controls */}
+        <div className="flex items-center justify-end gap-3 px-6 pt-4">
+          <LanguageSwitcher />
+          <ThemeSwitcher />
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center py-10 px-6 sm:px-10">
         {/* Mobile-only logo */}
         <div className="lg:hidden mb-8 text-center">
           <div className="flex items-center justify-center gap-2 mb-1">
@@ -288,6 +218,52 @@ const Login = () => {
             </div>
           )}
 
+          {/* SSO section */}
+          {!mfaRequired && ssoStatus?.has_sso && (
+            <>
+              <div className="space-y-3">
+                {ssoStatus.google && (
+                  <ProfessionalButton
+                    type="button"
+                    variant="outline"
+                    className="w-full gap-3"
+                    onClick={() => {
+                      const redirectTo = new URLSearchParams(window.location.search).get("redirect") || "/dashboard";
+                      window.location.href = `${API_BASE_URL}/auth/google/login?next=${encodeURIComponent(redirectTo)}`;
+                    }}
+                  >
+                    <GoogleIcon />
+                    {t("auth.sign_in_with_google")}
+                  </ProfessionalButton>
+                )}
+                {ssoStatus.microsoft && (
+                  <ProfessionalButton
+                    type="button"
+                    variant="outline"
+                    className="w-full gap-3"
+                    onClick={() => {
+                      const redirectTo = new URLSearchParams(window.location.search).get("redirect") || "/dashboard";
+                      window.location.href = `${API_BASE_URL}/auth/azure/login?next=${encodeURIComponent(redirectTo)}`;
+                    }}
+                  >
+                    <MicrosoftIcon />
+                    {t("auth.sign_in_with_microsoft")}
+                  </ProfessionalButton>
+                )}
+              </div>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-3 text-muted-foreground tracking-wide">
+                    {t("auth.or_sign_in_with_email")}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+
           {!mfaRequired && (
           <form onSubmit={handleLogin} className="space-y-4">
             <ProfessionalInput
@@ -302,7 +278,7 @@ const Login = () => {
               inputSize="lg"
             />
 
-            <div className="space-y-1">
+            <div className="relative">
               <ProfessionalInput
                 id="password"
                 type="password"
@@ -314,14 +290,13 @@ const Login = () => {
                 required
                 inputSize="lg"
               />
-              <div className="flex justify-end pt-1">
-                <Link
-                  to="/forgot-password"
-                  className="text-xs text-primary hover:text-primary/80 transition-colors"
-                >
-                  {t("auth.forgot_password")}
-                </Link>
-              </div>
+              {/* After the input in the DOM so Tab goes email → password → here */}
+              <Link
+                to="/forgot-password"
+                className="absolute right-0 top-0 text-sm leading-none text-primary hover:text-primary/80 transition-colors"
+              >
+                {t("auth.forgot_password")}
+              </Link>
             </div>
 
             <ProfessionalButton
@@ -365,53 +340,6 @@ const Login = () => {
             </form>
           )}
 
-          {/* SSO section */}
-          {!mfaRequired && ssoStatus?.has_sso && (
-            <>
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-3 text-muted-foreground tracking-wide">
-                    {t("auth.or_continue_with")}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {ssoStatus.google && (
-                  <ProfessionalButton
-                    type="button"
-                    variant="outline"
-                    className="w-full gap-3"
-                    onClick={() => {
-                      const redirectTo = new URLSearchParams(window.location.search).get("redirect") || "/dashboard";
-                      window.location.href = `${API_BASE_URL}/auth/google/login?next=${encodeURIComponent(redirectTo)}`;
-                    }}
-                  >
-                    <GoogleIcon />
-                    {t("auth.sign_in_with_google")}
-                  </ProfessionalButton>
-                )}
-                {ssoStatus.microsoft && (
-                  <ProfessionalButton
-                    type="button"
-                    variant="outline"
-                    className="w-full gap-3"
-                    onClick={() => {
-                      const redirectTo = new URLSearchParams(window.location.search).get("redirect") || "/dashboard";
-                      window.location.href = `${API_BASE_URL}/auth/azure/login?next=${encodeURIComponent(redirectTo)}`;
-                    }}
-                  >
-                    <MicrosoftIcon />
-                    {t("auth.sign_in_with_microsoft")}
-                  </ProfessionalButton>
-                )}
-              </div>
-            </>
-          )}
-
           {/* Sign-up link */}
           {!mfaRequired && (
           <p className="mt-8 text-center text-sm text-muted-foreground">
@@ -425,11 +353,6 @@ const Login = () => {
           </p>
           )}
         </div>
-
-        {/* Locale / theme controls */}
-        <div className="mt-10 flex items-center gap-4">
-          <LanguageSwitcher />
-          <ThemeSwitcher />
         </div>
       </div>
     </div>

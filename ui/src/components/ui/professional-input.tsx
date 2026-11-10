@@ -32,6 +32,7 @@ const ProfessionalInput = React.forwardRef<HTMLInputElement, ProfessionalInputPr
     value,
     ...props
   }, ref) => {
+    const { t } = useTranslation();
     const [showPassword, setShowPassword] = React.useState(false);
     const [internalValue, setInternalValue] = React.useState((value ?? '') || '');
     
@@ -85,7 +86,10 @@ const ProfessionalInput = React.forwardRef<HTMLInputElement, ProfessionalInputPr
     return (
       <div className="space-y-2">
         {label && (
-          <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+          <label
+            htmlFor={props.id}
+            className="block text-sm font-medium leading-none text-foreground peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
             {label}
           </label>
         )}
@@ -131,6 +135,8 @@ const ProfessionalInput = React.forwardRef<HTMLInputElement, ProfessionalInputPr
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? t("auth.hide_password") : t("auth.show_password")}
+                aria-pressed={showPassword}
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 {showPassword ? (
