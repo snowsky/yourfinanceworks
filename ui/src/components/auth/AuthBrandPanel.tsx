@@ -18,7 +18,9 @@ export function AuthBrandPanel() {
   const { t } = useTranslation();
 
   return (
-    <aside className="hidden lg:flex lg:w-[44%] xl:w-2/5 flex-shrink-0 flex-col p-12 bg-muted/40 border-r border-border">
+    <aside className="hidden lg:flex lg:w-[44%] xl:w-2/5 max-w-3xl flex-shrink-0 flex-col p-12 bg-muted/40 border-r border-border lg:sticky lg:top-0 lg:h-screen lg:self-start overflow-hidden">
+      {/* One centred column, so the logo and preview stay together on wide screens */}
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col min-h-0">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
           <TrendingUp className="h-5 w-5 text-primary-foreground" aria-hidden="true" />
@@ -28,7 +30,7 @@ export function AuthBrandPanel() {
         </span>
       </div>
 
-      <div className="my-auto w-full max-w-md py-10">
+      <div className="flex flex-1 flex-col justify-center py-10 min-h-0">
         <h2 className="text-foreground text-3xl font-semibold tracking-tight leading-tight">
           {t("auth.brand.headline")}
         </h2>
@@ -80,6 +82,7 @@ export function AuthBrandPanel() {
             ))}
           </div>
         </div>
+      </div>
       </div>
     </aside>
   );
