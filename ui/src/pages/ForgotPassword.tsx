@@ -1,14 +1,22 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Mail, CheckCircle } from 'lucide-react';
-import { authApi } from '@/lib/api';
+import { Link } from 'react-router-dom';
+import { ArrowLeft, CheckCircle } from 'lucide-react';
+import { AuthLayout, AuthHeading, AuthErrorBanner } from '@/components/auth/AuthLayout';
+import { ProfessionalInput } from '@/components/ui/professional-input';
+import { ProfessionalButton } from '@/components/ui/professional-button';
+import { authApi, getErrorMessage } from '@/lib/api';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { getErrorMessage } from '@/lib/api';
+
+const BackToLogin = ({ label }: { label: string }) => (
+  <Link
+    to="/login"
+    className="mt-6 flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+  >
+    <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+    {label}
+  </Link>
+);
 
 const ForgotPassword: React.FC = () => {
   const { t } = useTranslation();
@@ -16,7 +24,6 @@ const ForgotPassword: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +32,7 @@ const ForgotPassword: React.FC = () => {
 
     try {
       const response = await authApi.requestPasswordReset(email);
-      
+
       if (response.success) {
         setIsSubmitted(true);
         toast.success(t('forgotPassword.toastSuccess'));
@@ -43,129 +50,73 @@ const ForgotPassword: React.FC = () => {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
-          <Card>
-            <CardHeader className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-success/10">
-                <CheckCircle className="h-6 w-6 text-success" />
-              </div>
-              <CardTitle className="mt-4 text-2xl font-bold text-foreground">
-                {t('forgotPassword.checkEmailTitle')}
-              </CardTitle>
-              <CardDescription className="mt-2">
-                {t('forgotPassword.checkEmailDescription')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">
-                  {t('forgotPassword.checkSpam')}
-                </p>
-              </div>
-              
-              <div className="space-y-4">
-                <Button
-                  onClick={() => {
-                    setIsSubmitted(false);
-                    setEmail('');
-                  }}
-                  variant="outline"
-                  className="w-full"
-                >
-                  {t('forgotPassword.sendAnother')}
-                </Button>
-                
-                <Button
-                  onClick={() => navigate('/login')}
-                  variant="ghost"
-                  className="w-full"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  {t('forgotPassword.backToLogin')}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      <AuthLayout>
+        <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
+          <CheckCircle className="h-6 w-6 text-success" aria-hidden="true" />
         </div>
-      </div>
+        <AuthHeading
+          title={t('forgotPassword.checkEmailTitle')}
+          description={t('forgotPassword.checkEmailDescription')}
+        />
+        <p className="text-sm text-muted-foreground">{t('forgotPassword.checkSpam')}</p>
+
+        <ProfessionalButton
+          type="button"
+          variant="outline"
+          size="xl"
+          className="w-full mt-8"
+          onClick={() => {
+            setIsSubmitted(false);
+            setEmail('');
+          }}
+        >
+          {t('forgotPassword.sendAnother')}
+        </ProfessionalButton>
+        <BackToLogin label={t('forgotPassword.backToLogin')} />
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <Card>
-          <CardHeader className="text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-primary/10">
-              <Mail className="h-6 w-6 text-primary" />
-            </div>
-            <CardTitle className="mt-4 text-2xl font-bold text-foreground">
-              {t('forgotPassword.title')}
-            </CardTitle>
-            <CardDescription className="mt-2">
-              {t('forgotPassword.description')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
-                <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-md">
-                  {error}
-                </div>
-              )}
-              
-              <div>
-                <Label htmlFor="email" className="block text-sm font-medium text-foreground">
-                  {t('forgotPassword.emailLabel')}
-                </Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className="mt-1"
-                  placeholder={t('forgotPassword.emailPlaceholder')}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
+    <AuthLayout>
+      <AuthHeading title={t('forgotPassword.title')} description={t('forgotPassword.description')} />
+      <AuthErrorBanner message={error} />
 
-              <div className="space-y-4">
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full"
-                >
-                  {isLoading ? t('forgotPassword.sending') : t('forgotPassword.sendResetLink')}
-                </Button>
-                
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => navigate('/login')}
-                  className="w-full"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  {t('forgotPassword.backToLogin')}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-        
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">
-            {t('forgotPassword.noAccount')}{' '}
-            <Link to="/signup" className="font-medium text-primary hover:text-primary/80">
-              {t('forgotPassword.signUp')}
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <ProfessionalInput
+          id="email"
+          name="email"
+          type="email"
+          label={t('forgotPassword.emailLabel')}
+          placeholder={t('forgotPassword.emailPlaceholder')}
+          value={email}
+          onChange={(e) => { setEmail(e.target.value); setError(null); }}
+          autoComplete="email"
+          required
+          inputSize="lg"
+        />
+
+        <ProfessionalButton
+          type="submit"
+          variant="gradient"
+          size="xl"
+          className="w-full mt-2"
+          loading={isLoading}
+        >
+          {isLoading ? t('forgotPassword.sending') : t('forgotPassword.sendResetLink')}
+        </ProfessionalButton>
+      </form>
+
+      <BackToLogin label={t('forgotPassword.backToLogin')} />
+
+      <p className="mt-8 text-center text-sm text-muted-foreground">
+        {t('forgotPassword.noAccount')}{' '}
+        <Link to="/signup" className="text-primary hover:text-primary/80 font-semibold transition-colors">
+          {t('forgotPassword.signUp')}
+        </Link>
+      </p>
+    </AuthLayout>
   );
 };
 
-export default ForgotPassword; 
+export default ForgotPassword;

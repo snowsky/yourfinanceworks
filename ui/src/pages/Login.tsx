@@ -2,10 +2,8 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ProfessionalInput } from "@/components/ui/professional-input";
 import { ProfessionalButton } from "@/components/ui/professional-button";
-import { ThemeSwitcher } from "@/components/ui/theme-switcher";
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
-import { TrendingUp, AlertCircle } from "lucide-react";
-import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
+import { ArrowLeft } from "lucide-react";
+import { AuthLayout, AuthHeading, AuthErrorBanner } from "@/components/auth/AuthLayout";
 import { authApi, API_BASE_URL, getErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -39,7 +37,7 @@ const Login = () => {
   const [mfaRequired, setMfaRequired] = useState(false);
   const [mfaSessionId, setMfaSessionId] = useState<string | null>(null);
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
-  const [mfaFactorLabel, setMfaFactorLabel] = useState<string>("Authenticator");
+  const [mfaFactorLabel, setMfaFactorLabel] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState("");
   const [mfaLoading, setMfaLoading] = useState(false);
   const navigate = useNavigate();
@@ -56,9 +54,9 @@ const Login = () => {
         setMfaRequired(true);
         setMfaSessionId(data.mfa_session_id);
         setMfaFactorId(data.current_factor_id || null);
-        setMfaFactorLabel(data.current_factor_label || 'Authenticator');
+        setMfaFactorLabel(data.current_factor_label || null);
         setMfaCode('');
-        toast.info(`MFA required: ${data.current_factor_label || 'Authenticator'}`);
+        toast.info(t("auth.mfa.required"));
         return;
       }
 
@@ -79,7 +77,7 @@ const Login = () => {
   const handleMFAVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mfaSessionId || !mfaFactorId) {
-      setError('Missing MFA session. Please sign in again.');
+      setError(t("auth.mfa.missing_session"));
       return;
     }
 
@@ -95,10 +93,10 @@ const Login = () => {
 
       if (!result?.is_complete) {
         if (result?.reset) {
-          toast.error('Invalid code. MFA chain restarted from step 1.');
+          toast.error(t("auth.mfa.chain_restarted"));
         }
         setMfaFactorId(result.next_factor_id || null);
-        setMfaFactorLabel(result.next_factor_label || 'Authenticator');
+        setMfaFactorLabel(result.next_factor_label || null);
         setMfaCode('');
         return;
       }
@@ -116,6 +114,22 @@ const Login = () => {
       setError(getErrorMessage(err, t));
     } finally {
       setMfaLoading(false);
+    }
+  };
+
+  const handleBackToSignIn = () => {
+    setMfaRequired(false);
+    setMfaSessionId(null);
+    setMfaFactorId(null);
+    setMfaFactorLabel(null);
+    setMfaCode("");
+    setPassword("");
+    setError(null);
+    // Drop a stale ?mfa_session so a reload does not reopen the code prompt
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("mfa_session")) {
+      url.searchParams.delete("mfa_session");
+      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
     }
   };
 
@@ -151,7 +165,7 @@ const Login = () => {
     if (errorParam === "sso_license_required") setError(t("auth.sso_license_required_recovery"));
     else if (errorParam === "sso_registration_disabled") setError(t("auth.sso_registration_disabled"));
     else if (errorParam === "tenant_limit_reached") setError(t("auth.tenant_limit_reached"));
-    else if (errorParam === "mfa_setup_incomplete") setError('MFA is enabled but not fully configured. Please contact your administrator.');
+    else if (errorParam === "mfa_setup_incomplete") setError(t("auth.mfa.setup_incomplete"));
 
     const params = new URLSearchParams(window.location.search);
     const mfaSession = params.get('mfa_session');
@@ -161,10 +175,10 @@ const Login = () => {
       authApi.getMFAAttempt(mfaSession)
         .then((session) => {
           setMfaFactorId(session.current_factor_id);
-          setMfaFactorLabel(session.current_factor_label);
+          setMfaFactorLabel(session.current_factor_label || null);
         })
         .catch(() => {
-          setError('MFA session expired. Please sign in again.');
+          setError(t("auth.mfa.session_expired"));
           setMfaRequired(false);
           setMfaSessionId(null);
         });
@@ -172,51 +186,13 @@ const Login = () => {
   }, [t]);
 
   return (
-    <div className="min-h-screen flex bg-background">
-      <AuthBrandPanel />
+    <AuthLayout>
+          <AuthHeading
+            title={mfaRequired ? t("auth.mfa.title") : t("auth.login")}
+            description={mfaRequired ? t("auth.mfa.description") : t("auth.login_description")}
+          />
 
-      {/* ── Right form panel ── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        {/* Locale / theme controls */}
-        <div className="flex items-center justify-end gap-3 px-6 pt-4">
-          <LanguageSwitcher />
-          <ThemeSwitcher />
-        </div>
-
-        <div className="flex-1 flex flex-col items-center justify-center py-10 px-6 sm:px-10">
-        {/* Mobile-only logo */}
-        <div className="lg:hidden mb-8 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow">
-              <TrendingUp className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-foreground text-lg font-bold tracking-tight">YourFinanceWORKS</span>
-          </div>
-          <p className="text-muted-foreground text-xs">Financial Management Platform</p>
-        </div>
-
-        <div className="w-full max-w-sm">
-          {/* Heading */}
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">
-              {t("auth.login")}
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              {t("auth.login_description")}
-            </p>
-          </div>
-
-          {/* Error banner */}
-          {error && (
-            <div
-              role="alert"
-              aria-live="assertive"
-              className="mb-5 flex items-start gap-3 bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-xl"
-            >
-              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-              <p className="text-sm">{error}</p>
-            </div>
-          )}
+          <AuthErrorBanner message={error} />
 
           {/* SSO section */}
           {!mfaRequired && ssoStatus?.has_sso && (
@@ -313,20 +289,27 @@ const Login = () => {
 
           {mfaRequired && (
             <form onSubmit={handleMFAVerify} className="space-y-4">
-              <div className="rounded-xl border border-border bg-muted/50 p-3">
-                <p className="text-sm font-medium text-foreground">MFA Chain Challenge</p>
-                <p className="text-xs text-muted-foreground mt-1">Current step: {mfaFactorLabel}</p>
-              </div>
+              <p className="rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+                {t("auth.mfa.current_step")}{" "}
+                <span className="font-medium text-foreground">
+                  {mfaFactorLabel || t("auth.mfa.default_factor")}
+                </span>
+              </p>
               <ProfessionalInput
                 id="mfa_code"
                 type="text"
-                label="Authenticator Code"
-                placeholder="Enter 6-digit code"
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                label={t("auth.mfa.code_label")}
+                placeholder={t("auth.mfa.code_placeholder")}
                 value={mfaCode}
                 onChange={(e) => { setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6)); clearError(); }}
                 autoComplete="one-time-code"
+                autoFocus
                 required
                 inputSize="lg"
+                className="font-mono tracking-[0.3em] placeholder:font-sans placeholder:tracking-normal"
               />
               <ProfessionalButton
                 type="submit"
@@ -335,8 +318,16 @@ const Login = () => {
                 className="w-full mt-2"
                 loading={mfaLoading}
               >
-                {!mfaLoading && 'Verify and Continue'}
+                {!mfaLoading && t("auth.mfa.verify")}
               </ProfessionalButton>
+              <button
+                type="button"
+                onClick={handleBackToSignIn}
+                className="mx-auto flex items-center justify-center gap-2 pt-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                {t("auth.mfa.back_to_sign_in")}
+              </button>
             </form>
           )}
 
@@ -352,10 +343,7 @@ const Login = () => {
             </Link>
           </p>
           )}
-        </div>
-        </div>
-      </div>
-    </div>
+    </AuthLayout>
   );
 };
 

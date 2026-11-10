@@ -250,7 +250,23 @@
       "cash_position": "Cash position",
       "trend": "+6.2% this month",
       "status_paid": "Paid",
-      "status_due": "Due in 5 days"
+      "status_due": "Due in 5 days",
+      "product_line": "Financial Management Platform"
+    },
+    "mfa": {
+      "title": "Verify it's you",
+      "description": "Enter the 6-digit code from your authenticator app to finish signing in.",
+      "current_step": "Verifying with",
+      "code_label": "Verification code",
+      "code_placeholder": "6-digit code",
+      "verify": "Verify and continue",
+      "back_to_sign_in": "Back to sign in",
+      "required": "Enter your verification code to continue.",
+      "missing_session": "Your verification session is missing. Please sign in again.",
+      "session_expired": "Your verification session expired. Please sign in again.",
+      "chain_restarted": "That code was not right. Verification starts again from the first step.",
+      "setup_incomplete": "Two-step verification is on but not fully set up. Please contact your administrator.",
+      "default_factor": "Authenticator app"
     },
     "sign_in_with_google": "Sign in with Google",
     "sign_in_with_microsoft": "Sign in with Microsoft",
@@ -3165,6 +3181,11 @@
     "resetting": "Resetting...",
     "resetPasswordButton": "Reset Password",
     "backToLogin": "Back to Login",
+    "requirementsNotLoaded": "Password requirements could not be loaded. Please try again.",
+    "requireUppercase": "Password must contain at least one uppercase letter",
+    "requireLowercase": "Password must contain at least one lowercase letter",
+    "requireNumber": "Password must contain at least one number",
+    "requireSpecialChar": "Password must contain at least one special character",
     "rememberPassword": "Remember your password?",
     "signIn": "Sign in"
   },
