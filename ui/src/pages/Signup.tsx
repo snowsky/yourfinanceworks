@@ -2,15 +2,13 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Building2, UserPlus, CheckCircle, XCircle, Loader2,
-  AlertCircle, TrendingUp,
+  AlertCircle,
 } from "lucide-react";
 import { authApi, API_BASE_URL, getErrorMessage } from "@/lib/api";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ThemeSwitcher } from "@/components/ui/theme-switcher";
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { ProfessionalInput } from "@/components/ui/professional-input";
-import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
+import { AuthLayout, AuthHeading } from "@/components/auth/AuthLayout";
 import { ProfessionalTextarea } from "@/components/ui/professional-textarea";
 import { ProfessionalButton } from "@/components/ui/professional-button";
 import {
@@ -357,32 +355,8 @@ const Signup: React.FC = () => {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex bg-background">
-      <AuthBrandPanel />
-
-      {/* ── Right form panel ── */}
-      <div className="flex-1 flex flex-col items-center justify-start py-12 px-6 sm:px-10 overflow-y-auto">
-        {/* Mobile-only logo */}
-        <div className="lg:hidden mb-8 text-center w-full">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow">
-              <TrendingUp className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-foreground text-lg font-bold tracking-tight">YourFinanceWORKS</span>
-          </div>
-          <p className="text-muted-foreground text-xs">Financial Management Platform</p>
-        </div>
-
-        <div className="w-full max-w-sm">
-          {/* Heading */}
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">
-              {t("auth.signup.title")}
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              {t("auth.signup.subtitle")}
-            </p>
-          </div>
+    <AuthLayout align="top">
+          <AuthHeading title={t("auth.signup.title")} description={t("auth.signup.subtitle")} />
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             {/* Error banner */}
@@ -392,7 +366,7 @@ const Signup: React.FC = () => {
                 aria-live="assertive"
                 className="flex items-start gap-3 bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-xl"
               >
-                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
                 <p className="text-sm">{error}</p>
               </div>
             )}
@@ -707,14 +681,6 @@ const Signup: React.FC = () => {
               {t("auth.signup.sign_in")}
             </Link>
           </p>
-        </div>
-
-        {/* Locale / theme controls */}
-        <div className="mt-10 flex items-center gap-4">
-          <LanguageSwitcher />
-          <ThemeSwitcher />
-        </div>
-      </div>
 
       {/* Join-request success modal */}
       <Dialog
@@ -738,7 +704,7 @@ const Signup: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AuthLayout>
   );
 };
 

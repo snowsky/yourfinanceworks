@@ -1,28 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Eye, EyeOff, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
-import { authApi } from '@/lib/api';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, CheckCircle } from 'lucide-react';
+import { AuthLayout, AuthHeading, AuthErrorBanner } from '@/components/auth/AuthLayout';
+import { ProfessionalInput } from '@/components/ui/professional-input';
+import { ProfessionalButton } from '@/components/ui/professional-button';
+import { authApi, getErrorMessage } from '@/lib/api';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { getErrorMessage } from '@/lib/api';
 
 const ResetPassword: React.FC = () => {
   const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [passwordRequirements, setPasswordRequirements] = useState<any>(null);
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   useEffect(() => {
     const urlToken = searchParams.get('token');
@@ -70,7 +65,7 @@ const ResetPassword: React.FC = () => {
 
     // Validate password strength
     if (!passwordRequirements) {
-      setError('Password requirements not loaded. Please try again.');
+      setError(t('resetPassword.requirementsNotLoaded'));
       setIsLoading(false);
       return;
     }
@@ -87,16 +82,16 @@ const ResetPassword: React.FC = () => {
       passwordErrors.push(t('resetPassword.passwordMinLength', { min_length: passwordRequirements.min_length }));
     }
     if (passwordRequirements.complexity.require_uppercase && !passwordValidation.hasUppercase) {
-      passwordErrors.push('Password must contain at least one uppercase letter');
+      passwordErrors.push(t('resetPassword.requireUppercase'));
     }
     if (passwordRequirements.complexity.require_lowercase && !passwordValidation.hasLowercase) {
-      passwordErrors.push('Password must contain at least one lowercase letter');
+      passwordErrors.push(t('resetPassword.requireLowercase'));
     }
     if (passwordRequirements.complexity.require_numbers && !passwordValidation.hasNumbers) {
-      passwordErrors.push('Password must contain at least one number');
+      passwordErrors.push(t('resetPassword.requireNumber'));
     }
     if (passwordRequirements.complexity.require_special_chars && !passwordValidation.hasSpecialChars) {
-      passwordErrors.push('Password must contain at least one special character');
+      passwordErrors.push(t('resetPassword.requireSpecialChar'));
     }
 
     if (passwordErrors.length > 0) {
@@ -131,149 +126,74 @@ const ResetPassword: React.FC = () => {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
-          <Card>
-            <CardHeader className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-success/10">
-                <CheckCircle className="h-6 w-6 text-success" />
-              </div>
-              <CardTitle className="mt-4 text-2xl font-bold text-foreground">
-                {t('resetPassword.successTitle')}
-              </CardTitle>
-              <CardDescription className="mt-2">
-                {t('resetPassword.successDescription')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <Button
-                onClick={() => navigate('/login')}
-                className="w-full"
-              >
-                {t('resetPassword.goToLogin')}
-              </Button>
-            </CardContent>
-          </Card>
+      <AuthLayout>
+        <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
+          <CheckCircle className="h-6 w-6 text-success" aria-hidden="true" />
         </div>
-      </div>
+        <AuthHeading
+          title={t('resetPassword.successTitle')}
+          description={t('resetPassword.successDescription')}
+        />
+        <ProfessionalButton asChild variant="gradient" size="xl" className="w-full">
+          <Link to="/login">{t('resetPassword.goToLogin')}</Link>
+        </ProfessionalButton>
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <Card>
-          <CardHeader className="text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-primary/10">
-              <AlertCircle className="h-6 w-6 text-primary" />
-            </div>
-            <CardTitle className="mt-4 text-2xl font-bold text-foreground">
-              {t('resetPassword.title')}
-            </CardTitle>
-            <CardDescription className="mt-2">
-              {t('resetPassword.description')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
-                <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-md">
-                  {error}
-                </div>
-              )}
-              
-              <div>
-                <Label htmlFor="password" className="block text-sm font-medium text-foreground">
-                  {t('resetPassword.newPasswordLabel')}
-                </Label>
-                <div className="mt-1 relative">
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    required
-                    placeholder={t('resetPassword.newPasswordPlaceholder')}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-5 w-5 text-muted-foreground" />
-                    )}
-                  </button>
-                </div>
-              </div>
+    <AuthLayout>
+      <AuthHeading title={t('resetPassword.title')} description={t('resetPassword.description')} />
+      <AuthErrorBanner message={error} />
 
-              <div>
-                <Label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground">
-                  {t('resetPassword.confirmPasswordLabel')}
-                </Label>
-                <div className="mt-1 relative">
-                  <Input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    required
-                    placeholder={t('resetPassword.confirmPasswordPlaceholder')}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-5 w-5 text-muted-foreground" />
-                    )}
-                  </button>
-                </div>
-              </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <ProfessionalInput
+          id="password"
+          name="password"
+          type="password"
+          label={t('resetPassword.newPasswordLabel')}
+          placeholder={t('resetPassword.newPasswordPlaceholder')}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="new-password"
+          required
+          inputSize="lg"
+        />
 
-              <div className="space-y-4">
-                <Button
-                  type="submit"
-                  disabled={isLoading || !token}
-                  className="w-full"
-                >
-                  {isLoading ? t('resetPassword.resetting') : t('resetPassword.resetPasswordButton')}
-                </Button>
-                
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => navigate('/login')}
-                  className="w-full"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  {t('resetPassword.backToLogin')}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-        
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">
-            {t('resetPassword.rememberPassword')}{' '}
-            <Link to="/login" className="font-medium text-primary hover:text-primary/80">
-              {t('resetPassword.signIn')}
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+        <ProfessionalInput
+          id="confirmPassword"
+          name="confirmPassword"
+          type="password"
+          label={t('resetPassword.confirmPasswordLabel')}
+          placeholder={t('resetPassword.confirmPasswordPlaceholder')}
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          autoComplete="new-password"
+          required
+          inputSize="lg"
+        />
+
+        <ProfessionalButton
+          type="submit"
+          variant="gradient"
+          size="xl"
+          className="w-full mt-2"
+          loading={isLoading}
+          disabled={!token}
+        >
+          {isLoading ? t('resetPassword.resetting') : t('resetPassword.resetPasswordButton')}
+        </ProfessionalButton>
+      </form>
+
+      <Link
+        to="/login"
+        className="mt-6 flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        {t('resetPassword.backToLogin')}
+      </Link>
+    </AuthLayout>
   );
 };
 
-export default ResetPassword; 
+export default ResetPassword;
