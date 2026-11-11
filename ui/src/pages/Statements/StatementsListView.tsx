@@ -140,7 +140,7 @@ export function StatementsListView({
               />
               {searchQuery && (
                 <button
-                  aria-label="Clear search"
+                  aria-label={t('statements.clearSearch')}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   onClick={() => setSearchQuery('')}
                 >
@@ -178,7 +178,7 @@ export function StatementsListView({
               />
               {labelFilter && (
                 <button
-                  aria-label="Clear label filter"
+                  aria-label={t('statements.clearLabelFilter')}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   onClick={() => setLabelFilter('')}
                 >

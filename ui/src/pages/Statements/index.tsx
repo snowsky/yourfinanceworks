@@ -280,7 +280,7 @@ export default function Statements() {
     try {
       setLoading(true);
       await Promise.all(selectedIds.map(id => bankStatementApi.reReview(id)));
-      toast.success(`Review triggered for ${selectedIds.length} statements.`);
+      toast.success(t(selectedIds.length === 1 ? 'statements.reviewTriggeredOne' : 'statements.reviewTriggeredMany', { count: selectedIds.length }));
       setSelectedIds([]);
       loadList();
     } catch (error: any) {
@@ -407,18 +407,20 @@ export default function Statements() {
         .filter((s: any) => s.duplicate_of)
         .forEach((s: any) => {
           toast.warning(
-            `"${s.original_filename}" may be a duplicate of statement #${s.duplicate_of.id} uploaded on ${
-              s.duplicate_of.created_at ? new Date(s.duplicate_of.created_at).toLocaleDateString() : 'a previous date'
-            }.`,
+            t('statements.possibleDuplicate', {
+              name: s.original_filename,
+              id: s.duplicate_of.id,
+              date: s.duplicate_of.created_at ? new Date(s.duplicate_of.created_at).toLocaleDateString() : t('statements.previousDate'),
+            }),
             { duration: 8000 }
           );
         });
-      toast.success(`Uploaded ${files.length} ${t('statements.statements').toLowerCase()}`);
+      toast.success(t(files.length === 1 ? 'statements.uploadedOne' : 'statements.uploadedMany', { count: files.length }));
       setFiles([]);
       setUploadModalOpen(false);
       await loadList();
     } catch (e: any) {
-      addNotification?.('error', t('statements.failed_to_delete'), `Failed to process statements: ${e?.message || 'Unknown error'}`);
+      addNotification?.('error', t('statements.failed_to_delete'), t('statements.processFailed', { message: e?.message || t('errors.unknown_error') }));
       toast.error(e?.message || t('statements.extract_failed', { defaultValue: 'Failed to extract transactions' }));
     } finally { setLoading(false); }
   };
@@ -741,8 +743,8 @@ export default function Statements() {
       link.download = `statements-export-${new Date().toISOString().slice(0, 10)}.zip`;
       document.body.appendChild(link); link.click(); document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
-      toast.success(`${selectedIds.length} CSV file${selectedIds.length !== 1 ? 's' : ''} exported as ZIP`);
-    } catch (e: any) { toast.error(e?.message || 'Failed to export ZIP'); }
+      toast.success(t(selectedIds.length === 1 ? 'statements.exportedZipOne' : 'statements.exportedZipMany', { count: selectedIds.length }));
+    } catch (e: any) { toast.error(e?.message || t('statements.exportZipFailed')); }
     finally { setLoading(false); }
   };
 
@@ -809,10 +811,10 @@ export default function Statements() {
     if (!linkId) return;
     try {
       await bankStatementApi.deleteTransactionLink(linkId);
-      toast.success('Transfer link removed');
+      toast.success(t('statements.transferLinkRemoved'));
       queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] });
       if (selected) await openStatement(selected);
-    } catch (e: any) { toast.error(e?.message || 'Failed to remove transfer link'); }
+    } catch (e: any) { toast.error(e?.message || t('statements.removeTransferFailed')); }
     finally { setUnlinkModalOpen(false); setRowToUnlink(null); }
   };
 
@@ -1036,9 +1038,9 @@ export default function Statements() {
                   <Button variant="ghost" size="icon" onClick={() => { setShowInvoiceForm(false); setInvoiceInitialData(null); }}>
                     <ArrowLeft className="w-5 h-5" />
                   </Button>
-                  <CardTitle>Create Invoice from Transaction</CardTitle>
+                  <CardTitle>{t('statements.createInvoiceTitle')}</CardTitle>
                 </div>
-                <p className="text-muted-foreground text-sm">Create invoice from bank statement transaction</p>
+                <p className="text-muted-foreground text-sm">{t('statements.createInvoiceSubtitle')}</p>
               </div>
             </CardHeader>
             <CardContent>
@@ -1106,8 +1108,8 @@ export default function Statements() {
         <AlertDialog open={deleteTransactionModalOpen} onOpenChange={setDeleteTransactionModalOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
-              <AlertDialogDescription>Are you sure you want to delete this transaction? This action cannot be undone.</AlertDialogDescription>
+              <AlertDialogTitle>{t('statements.deleteTransactionTitle')}</AlertDialogTitle>
+              <AlertDialogDescription>{t('statements.deleteTransactionDescription')}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setTransactionToDelete(null)}>{t('common.cancel')}</AlertDialogCancel>
@@ -1118,13 +1120,13 @@ export default function Statements() {
                   try {
                     await bankStatementApi.deleteTransaction(selected!, transactionToDelete.backendId);
                     setRows((prev: BankTransactionEntry[]) => prev.filter((_, i) => i !== transactionToDelete.idx));
-                    toast.success('Transaction deleted');
-                  } catch (e: any) { toast.error(e?.message || 'Failed to delete transaction'); }
+                    toast.success(t('statements.transactionDeleted'));
+                  } catch (e: any) { toast.error(e?.message || t('statements.deleteTransactionFailed')); }
                   finally { setTransactionToDelete(null); setDeleteTransactionModalOpen(false); }
                 }}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete
+                {t('statements.delete')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -1168,14 +1170,14 @@ export default function Statements() {
         <AlertDialog open={unlinkModalOpen} onOpenChange={setUnlinkModalOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Remove Transfer Link</AlertDialogTitle>
-              <AlertDialogDescription>Are you sure you want to remove this transfer link? This will unlink the transaction from the other statement, but will not delete the transaction itself.</AlertDialogDescription>
+              <AlertDialogTitle>{t('statements.removeLinkTitle')}</AlertDialogTitle>
+              <AlertDialogDescription>{t('statements.removeLinkDescription')}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setRowToUnlink(null)}>{t('common.cancel')}</AlertDialogCancel>
               <AlertDialogAction onClick={confirmUnlinkTransfer} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 <X className="mr-2 h-4 w-4" />
-                Unlink
+                {t('statements.unlink')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -125,7 +125,7 @@ export function RecycleBinSection({
                               variant="ghost"
                               size="icon-sm"
                               onClick={() => onRestore(statement.id)}
-                              title="Restore statement"
+                              title={t('statements.restoreTitle')}
                               className="hover:bg-success/10 hover:text-success"
                             >
                               <RotateCcw className="h-4 w-4" />
@@ -136,7 +136,7 @@ export function RecycleBinSection({
                                   variant="ghost"
                                   size="icon-sm"
                                   className="hover:bg-destructive/10 hover:text-destructive"
-                                  title="Permanently delete"
+                                  title={t('statements.deletePermanently')}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </ProfessionalButton>

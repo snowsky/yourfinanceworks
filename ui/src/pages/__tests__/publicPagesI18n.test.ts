@@ -20,7 +20,13 @@ const FILES = [
   'pages/portal/PortalDashboard.tsx',
   'pages/EditClient.tsx',
   'components/clients/ClientActivityFeed.tsx',
+  'pages/Statements/DuplicateStatementPanel.tsx',
+  'pages/Statements/DuplicateTransactionPanel.tsx',
+  'pages/Statements/UploadModal.tsx',
 ];
+
+// Files using `plural('base', n)`, which resolves to `baseOne` / `baseMany`.
+const PLURAL_FILES = ['pages/Statements/DuplicateStatementPanel.tsx', 'pages/Statements/DuplicateTransactionPanel.tsx'];
 
 const lookup = (key: string) =>
   key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], en);
@@ -32,6 +38,16 @@ describe('public page translation keys', () => {
     expect(keys.length).toBeGreaterThan(0);
     const missing = keys.filter((k) => typeof lookup(k) !== 'string');
     expect(missing).toEqual([]);
+  });
+
+  it.each(PLURAL_FILES)('%s has both plural forms for every plural() key', (file) => {
+    const source = readFileSync(resolve(__dirname, '../..', file), 'utf8');
+    const bases = [...source.matchAll(/\bplural\(\s*['"]([A-Za-z0-9_.]+)['"]/g)].map((m) => m[1]);
+    expect(bases.length).toBeGreaterThan(0);
+    for (const base of bases) {
+      expect(typeof lookup(`${base}One`)).toBe('string');
+      expect(typeof lookup(`${base}Many`)).toBe('string');
+    }
   });
 
   it('has a label for every shared record type', () => {

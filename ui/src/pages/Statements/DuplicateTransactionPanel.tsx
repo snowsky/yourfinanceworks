@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ChevronDown, ChevronUp, ExternalLink, Trash2, Archive, FileText } from 'lucide-react';
 import { toast } from 'sonner';
@@ -33,6 +34,11 @@ function formatAmount(amount: number | string) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Math.abs(n));
 }
 
+type TFn = (key: string, options?: Record<string, unknown>) => string;
+// Explicit `<key>One` / `<key>Many` pairs, as elsewhere in the app.
+const pluralizer = (t: TFn) => (base: string, count: number) =>
+  t(count === 1 ? `${base}One` : `${base}Many`, { count });
+
 // ── Single-group Review Modal (statement-level) ───────────────────────────────
 
 interface ReviewModalProps {
@@ -43,9 +49,11 @@ interface ReviewModalProps {
 }
 
 function ReviewModal({ group, groupIndex, onClose, onDeleted }: ReviewModalProps) {
+  const { t } = useTranslation();
+  const plural = pluralizer(t);
   // Derive unique statements from the transaction group
   const statements = Array.from(
-    new Map(group.map(t => [t.statement_id, t])).values()
+    new Map(group.map(row => [row.statement_id, row])).values()
   );
   const [keepStatementId, setKeepStatementId] = useState<number>(statements[0]?.statement_id);
   const [confirmed, setConfirmed] = useState(false);
@@ -53,8 +61,8 @@ function ReviewModal({ group, groupIndex, onClose, onDeleted }: ReviewModalProps
 
   const toDeleteStatements = statements.filter(s => s.statement_id !== keepStatementId);
   // Count transactions per statement for display
-  const txnCountByStatement = group.reduce<Record<number, number>>((acc, t) => {
-    acc[t.statement_id] = (acc[t.statement_id] ?? 0) + 1;
+  const txnCountByStatement = group.reduce<Record<number, number>>((acc, row) => {
+    acc[row.statement_id] = (acc[row.statement_id] ?? 0) + 1;
     return acc;
   }, {});
 
@@ -68,14 +76,12 @@ function ReviewModal({ group, groupIndex, onClose, onDeleted }: ReviewModalProps
       queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] });
       queryClient.invalidateQueries({ queryKey: ['statements'] });
       toast.success(
-        toDeleteStatements.length === 1
-          ? 'Statement moved to recycle bin.'
-          : `${toDeleteStatements.length} statements moved to recycle bin.`
+        plural('statements.duplicateTransactions.moved', toDeleteStatements.length)
       );
       onDeleted();
     },
     onError: (err: any) => {
-      toast.error(err?.message || 'Failed to delete statement.');
+      toast.error(err?.message || t('statements.duplicateTransactions.deleteFailedOne'));
     },
   });
 
@@ -84,13 +90,13 @@ function ReviewModal({ group, groupIndex, onClose, onDeleted }: ReviewModalProps
       <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Review Duplicate Group {groupIndex + 1}</DialogTitle>
+            <DialogTitle>{t('statements.duplicateTransactions.reviewGroup', { group: groupIndex + 1 })}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground py-4">
-            All duplicate transactions belong to the same statement — no statement to delete.
+            {t('statements.duplicateTransactions.sameStatement')}
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={onClose}>Close</Button>
+            <Button variant="outline" onClick={onClose}>{t('common.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -101,15 +107,13 @@ function ReviewModal({ group, groupIndex, onClose, onDeleted }: ReviewModalProps
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Review Duplicate Group {groupIndex + 1}</DialogTitle>
+          <DialogTitle>{t('statements.duplicateTransactions.reviewGroup', { group: groupIndex + 1 })}</DialogTitle>
         </DialogHeader>
 
         {!confirmed ? (
           <>
             <p className="text-sm text-muted-foreground mb-3">
-              These duplicate transactions appear across multiple statements.
-              Select the <span className="font-semibold text-foreground">statement to keep</span>;
-              the others will be moved to the recycle bin.
+              {t('statements.duplicateTransactions.reviewIntro')}
             </p>
             <p className="text-xs text-muted-foreground mb-3 font-mono bg-muted/30 rounded px-2 py-1 truncate">
               {group[0]?.description} · {group[0]?.date} · {formatAmount(group[0]?.amount)}
@@ -141,11 +145,11 @@ function ReviewModal({ group, groupIndex, onClose, onDeleted }: ReviewModalProps
                         {s.statement_filename}
                       </p>
                       <p className="text-muted-foreground text-xs mt-0.5">
-                        {txnCountByStatement[s.statement_id]} duplicate transaction{txnCountByStatement[s.statement_id] !== 1 ? 's' : ''} in this group
+                        {plural('statements.duplicateTransactions.inGroup', txnCountByStatement[s.statement_id])}
                       </p>
                     </div>
                     {isKept && (
-                      <span className="text-xs font-medium text-primary mt-0.5 flex-shrink-0">Keep</span>
+                      <span className="text-xs font-medium text-primary mt-0.5 flex-shrink-0">{t('statements.duplicateFiles.keep')}</span>
                     )}
                   </label>
                 );
@@ -153,23 +157,23 @@ function ReviewModal({ group, groupIndex, onClose, onDeleted }: ReviewModalProps
             </div>
 
             <DialogFooter className="mt-4 gap-2">
-              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
               <Button
                 variant="destructive"
                 onClick={() => setConfirmed(true)}
                 disabled={toDeleteStatements.length === 0}
               >
                 <Trash2 className="h-4 w-4 mr-1.5" />
-                Delete {toDeleteStatements.length} statement{toDeleteStatements.length !== 1 ? 's' : ''}
+                {plural('statements.duplicateTransactions.deleteCount', toDeleteStatements.length)}
               </Button>
             </DialogFooter>
           </>
         ) : (
           <>
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive mb-4">
-              <p className="font-semibold mb-1">Move to recycle bin</p>
+              <p className="font-semibold mb-1">{t('statements.duplicateFiles.moveToBin')}</p>
               <p>
-                The following {toDeleteStatements.length} statement{toDeleteStatements.length !== 1 ? 's' : ''} will be moved to the recycle bin:
+                {plural('statements.duplicateTransactions.moveToBinBody', toDeleteStatements.length)}
               </p>
               <ul className="mt-2 space-y-1 list-disc list-inside text-xs">
                 {toDeleteStatements.map(s => (
@@ -180,14 +184,14 @@ function ReviewModal({ group, groupIndex, onClose, onDeleted }: ReviewModalProps
 
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setConfirmed(false)} disabled={mutation.isPending}>
-                Back
+                {t('statements.duplicateFiles.back')}
               </Button>
               <Button
                 variant="destructive"
                 onClick={() => mutation.mutate()}
                 disabled={mutation.isPending}
               >
-                {mutation.isPending ? 'Moving to recycle bin…' : 'Confirm'}
+                {mutation.isPending ? t('statements.duplicateFiles.moving') : t('statements.duplicateFiles.confirm')}
               </Button>
             </DialogFooter>
           </>
@@ -206,9 +210,11 @@ interface BulkReviewModalProps {
 }
 
 function BulkReviewModal({ groups, onClose, onDone }: BulkReviewModalProps) {
+  const { t } = useTranslation();
+  const plural = pluralizer(t);
   // For each group, derive unique statements and track which statement to keep
   const groupStatements = groups.map(g =>
-    Array.from(new Map(g.map(t => [t.statement_id, t])).values())
+    Array.from(new Map(g.map(row => [row.statement_id, row])).values())
   );
   const [keepStatementIds, setKeepStatementIds] = useState<Record<number, number>>(
     Object.fromEntries(groupStatements.map((stmts, i) => [i, stmts[0]?.statement_id]))
@@ -235,12 +241,12 @@ function BulkReviewModal({ groups, onClose, onDone }: BulkReviewModalProps) {
       queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] });
       queryClient.invalidateQueries({ queryKey: ['statements'] });
       toast.success(
-        `${allToDelete.length} statement${allToDelete.length !== 1 ? 's' : ''} moved to recycle bin.`
+        plural('statements.duplicateTransactions.moved', allToDelete.length)
       );
       onDone();
     },
     onError: (err: any) => {
-      toast.error(err?.message || 'Failed to delete statements.');
+      toast.error(err?.message || t('statements.duplicateTransactions.deleteFailedMany'));
     },
   });
 
@@ -251,33 +257,32 @@ function BulkReviewModal({ groups, onClose, onDone }: BulkReviewModalProps) {
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Review All {groups.length} Duplicate Groups</DialogTitle>
+          <DialogTitle>{t('statements.duplicateTransactions.reviewAll', { count: groups.length })}</DialogTitle>
         </DialogHeader>
 
         {step === 'select' ? (
           <>
             <p className="text-sm text-muted-foreground mb-3">
-              For each group, select the <span className="font-semibold text-foreground">statement to keep</span>.
-              The others will be moved to the recycle bin.
+              {t('statements.duplicateTransactions.bulkIntro')}
             </p>
 
             {multiStatementGroups.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
-                All duplicate transactions belong to the same statement in every group — nothing to delete.
+                {t('statements.duplicateTransactions.bulkNothing')}
               </p>
             ) : (
               <div className="flex-1 overflow-y-auto space-y-4 pr-1">
                 {groups.map((group, gi) => {
                   const stmts = groupStatements[gi];
                   if (stmts.length < 2) return null;
-                  const txnCountByStatement = group.reduce<Record<number, number>>((acc, t) => {
-                    acc[t.statement_id] = (acc[t.statement_id] ?? 0) + 1;
+                  const txnCountByStatement = group.reduce<Record<number, number>>((acc, row) => {
+                    acc[row.statement_id] = (acc[row.statement_id] ?? 0) + 1;
                     return acc;
                   }, {});
                   return (
                     <div key={gi} className="rounded-lg border border-border p-3">
                       <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                        Group {gi + 1}
+                        {t('statements.duplicateFiles.group', { group: gi + 1 })}
                       </p>
                       <p className="text-xs text-muted-foreground font-mono mb-2 truncate">
                         {group[0]?.description} · {group[0]?.date} · {formatAmount(group[0]?.amount)}
@@ -308,11 +313,11 @@ function BulkReviewModal({ groups, onClose, onDone }: BulkReviewModalProps) {
                                   {s.statement_filename}
                                 </p>
                                 <p className="text-muted-foreground mt-0.5">
-                                  {txnCountByStatement[s.statement_id]} duplicate transaction{txnCountByStatement[s.statement_id] !== 1 ? 's' : ''} in this group
+                                  {plural('statements.duplicateTransactions.inGroup', txnCountByStatement[s.statement_id])}
                                 </p>
                               </div>
                               {isKept && (
-                                <span className="text-xs font-medium text-primary mt-0.5 flex-shrink-0">Keep</span>
+                                <span className="text-xs font-medium text-primary mt-0.5 flex-shrink-0">{t('statements.duplicateFiles.keep')}</span>
                               )}
                             </label>
                           );
@@ -325,23 +330,23 @@ function BulkReviewModal({ groups, onClose, onDone }: BulkReviewModalProps) {
             )}
 
             <DialogFooter className="mt-4 gap-2 border-t pt-4">
-              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
               <Button
                 variant="destructive"
                 onClick={() => setStep('confirm')}
                 disabled={allToDelete.length === 0}
               >
                 <Trash2 className="h-4 w-4 mr-1.5" />
-                Delete {allToDelete.length} statement{allToDelete.length !== 1 ? 's' : ''}
+                {plural('statements.duplicateTransactions.deleteCount', allToDelete.length)}
               </Button>
             </DialogFooter>
           </>
         ) : (
           <>
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive mb-4 max-h-72 overflow-y-auto">
-              <p className="font-semibold mb-1">Move to recycle bin</p>
+              <p className="font-semibold mb-1">{t('statements.duplicateFiles.moveToBin')}</p>
               <p>
-                The following {allToDelete.length} statement{allToDelete.length !== 1 ? 's' : ''} will be moved to the recycle bin:
+                {plural('statements.duplicateTransactions.moveToBinBody', allToDelete.length)}
               </p>
               <ul className="mt-2 space-y-1 list-disc list-inside text-xs">
                 {allToDelete.map(s => (
@@ -352,14 +357,14 @@ function BulkReviewModal({ groups, onClose, onDone }: BulkReviewModalProps) {
 
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setStep('select')} disabled={mutation.isPending}>
-                Back
+                {t('statements.duplicateFiles.back')}
               </Button>
               <Button
                 variant="destructive"
                 onClick={() => mutation.mutate()}
                 disabled={mutation.isPending}
               >
-                {mutation.isPending ? 'Moving to recycle bin…' : 'Confirm'}
+                {mutation.isPending ? t('statements.duplicateFiles.moving') : t('statements.duplicateFiles.confirm')}
               </Button>
             </DialogFooter>
           </>
@@ -372,6 +377,8 @@ function BulkReviewModal({ groups, onClose, onDone }: BulkReviewModalProps) {
 // ── Main Panel ────────────────────────────────────────────────────────────────
 
 export function DuplicateTransactionPanel({ groups, onViewTransaction }: DuplicateTransactionPanelProps) {
+  const { t } = useTranslation();
+  const plural = pluralizer(t);
   const [expanded, setExpanded] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set([0]));
   const [reviewGroupIndex, setReviewGroupIndex] = useState<number | null>(null);
@@ -400,9 +407,10 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
           >
             <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0" />
             <span className="flex-1 text-sm font-medium text-warning">
-              <span className="font-bold">{count}</span>{' '}
-              potential duplicate transaction {count !== 1 ? 'groups' : 'group'} detected across statements.{' '}
-              <span className="font-normal opacity-80">Click to {expanded ? 'hide' : 'review'}.</span>
+              {plural('statements.duplicateTransactions.detected', count)}{' '}
+              <span className="font-normal opacity-80">
+                {expanded ? t('statements.duplicateFiles.clickToHide') : t('statements.duplicateFiles.clickToReview')}
+              </span>
             </span>
             {expanded
               ? <ChevronUp className="h-4 w-4 text-warning flex-shrink-0" />
@@ -414,10 +422,10 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
           <button
             onClick={e => { e.stopPropagation(); setShowBulkReview(true); }}
             className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-warning/10 text-warning hover:bg-warning/20 transition-colors flex-shrink-0 whitespace-nowrap"
-            title="Review all duplicate groups at once"
+            title={t('statements.duplicateTransactions.reviewAllTitle')}
           >
             <Archive className="h-3 w-3" />
-            Review All
+            {t('statements.duplicateTransactions.reviewAllButton')}
           </button>
         </div>
 
@@ -433,7 +441,7 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
                     onClick={() => toggleGroup(gi)}
                   >
                     <span className="text-xs font-bold uppercase tracking-wider text-warning min-w-[60px]">
-                      Group {gi + 1}
+                      {t('statements.duplicateFiles.group', { group: gi + 1 })}
                     </span>
                     <span className="flex-1 text-xs text-muted-foreground truncate">
                       {group[0]?.description && (
@@ -446,7 +454,7 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
                         <span className="font-mono">{formatAmount(group[0].amount)}</span>
                       )}
                       <span className="ml-2 text-warning">
-                        · {group.length} occurrences across {new Set(group.map(t => t.statement_id)).size} statements
+                        · {t('statements.duplicateTransactions.occurrences', { count: group.length, statements: new Set(group.map(row => row.statement_id)).size })}
                       </span>
                     </span>
                     {expandedGroups.has(gi)
@@ -459,10 +467,10 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
                   <button
                     onClick={e => { e.stopPropagation(); setReviewGroupIndex(gi); }}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors flex-shrink-0 whitespace-nowrap"
-                    title="Review and delete duplicates in this group"
+                    title={t('statements.duplicateTransactions.reviewDeleteTitle')}
                   >
                     <Trash2 className="h-3 w-3" />
-                    Review &amp; Delete
+                    {t('statements.duplicateTransactions.reviewDelete')}
                   </button>
                 </div>
 
@@ -487,10 +495,10 @@ export function DuplicateTransactionPanel({ groups, onViewTransaction }: Duplica
                         <button
                           onClick={() => onViewTransaction(txn.statement_id, txn.id)}
                           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-warning/20 text-warning hover:bg-warning/30 transition-colors flex-shrink-0 whitespace-nowrap"
-                          title={`Open statement: ${txn.statement_filename}`}
+                          title={t('statements.duplicateTransactions.openStatement', { name: txn.statement_filename })}
                         >
                           <ExternalLink className="h-3 w-3" />
-                          View
+                          {t('statements.duplicateFiles.view')}
                         </button>
                       </div>
                     ))}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Copy, ChevronDown, ChevronUp, Trash2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
@@ -17,6 +18,11 @@ interface DuplicateStatementPanelProps {
   onViewStatement: (id: number) => void;
 }
 
+type TFn = (key: string, options?: Record<string, unknown>) => string;
+// Explicit `<key>One` / `<key>Many` pairs, as elsewhere in the app.
+const pluralizer = (t: TFn) => (base: string, count: number) =>
+  t(count === 1 ? `${base}One` : `${base}Many`, { count });
+
 // ── Per-group Delete Modal ────────────────────────────────────────────────────
 
 interface DeleteModalProps {
@@ -27,6 +33,8 @@ interface DeleteModalProps {
 }
 
 function DeleteModal({ group, groupIndex, onClose, onDeleted }: DeleteModalProps) {
+  const { t } = useTranslation();
+  const plural = pluralizer(t);
   // Default: keep the oldest (first uploaded), delete the rest
   const [keepId, setKeepId] = useState<number>(group[0].id);
   const [confirmed, setConfirmed] = useState(false);
@@ -44,14 +52,12 @@ function DeleteModal({ group, groupIndex, onClose, onDeleted }: DeleteModalProps
       queryClient.invalidateQueries({ queryKey: ['file-duplicate-statements'] });
       queryClient.invalidateQueries({ queryKey: ['statements'] });
       toast.success(
-        toDelete.length === 1
-          ? 'Duplicate statement moved to recycle bin.'
-          : `${toDelete.length} duplicate statements moved to recycle bin.`
+        plural('statements.duplicateFiles.moved', toDelete.length)
       );
       onDeleted();
     },
     onError: (err: any) => {
-      toast.error(err?.message || 'Failed to delete statement.');
+      toast.error(err?.message || t('statements.duplicateFiles.deleteFailed'));
     },
   });
 
@@ -59,14 +65,13 @@ function DeleteModal({ group, groupIndex, onClose, onDeleted }: DeleteModalProps
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Remove Duplicate Statement — Group {groupIndex + 1}</DialogTitle>
+          <DialogTitle>{t('statements.duplicateFiles.removeTitle', { group: groupIndex + 1 })}</DialogTitle>
         </DialogHeader>
 
         {!confirmed ? (
           <>
             <p className="text-sm text-muted-foreground mb-3">
-              These statements are <span className="font-semibold text-foreground">identical files</span> (same checksum).
-              Select the one to <span className="font-semibold text-foreground">keep</span>; the others will be moved to the recycle bin.
+              {t('statements.duplicateFiles.removeIntro')}
             </p>
 
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
@@ -95,16 +100,16 @@ function DeleteModal({ group, groupIndex, onClose, onDeleted }: DeleteModalProps
                         {s.original_filename}
                       </p>
                       <p className="text-muted-foreground text-xs mt-0.5">
-                        {s.extracted_count} transactions
+                        {plural('statements.duplicateFiles.transactionCount', s.extracted_count)}
                         {s.created_at && (
-                          <> · uploaded {new Date(s.created_at).toLocaleDateString()}</>
+                          <> · {t('statements.duplicateFiles.uploadedOn', { date: new Date(s.created_at).toLocaleDateString() })}</>
                         )}
                         {' · '}
                         <span className="capitalize">{s.status}</span>
                       </p>
                     </div>
                     {isKept && (
-                      <span className="text-xs font-medium text-primary mt-0.5 flex-shrink-0">Keep</span>
+                      <span className="text-xs font-medium text-primary mt-0.5 flex-shrink-0">{t('statements.duplicateFiles.keep')}</span>
                     )}
                   </label>
                 );
@@ -112,24 +117,23 @@ function DeleteModal({ group, groupIndex, onClose, onDeleted }: DeleteModalProps
             </div>
 
             <DialogFooter className="mt-4 gap-2">
-              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
               <Button
                 variant="destructive"
                 onClick={() => setConfirmed(true)}
                 disabled={toDelete.length === 0}
               >
                 <Trash2 className="h-4 w-4 mr-1.5" />
-                Delete {toDelete.length} duplicate{toDelete.length !== 1 ? 's' : ''}
+                {plural('statements.duplicateFiles.deleteCount', toDelete.length)}
               </Button>
             </DialogFooter>
           </>
         ) : (
           <>
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive mb-4">
-              <p className="font-semibold mb-1">Move to recycle bin</p>
+              <p className="font-semibold mb-1">{t('statements.duplicateFiles.moveToBin')}</p>
               <p>
-                The following {toDelete.length} statement{toDelete.length !== 1 ? 's' : ''} will be
-                moved to the recycle bin (can be restored later):
+                {plural('statements.duplicateFiles.moveToBinBody', toDelete.length)}
               </p>
               <ul className="mt-2 space-y-1 list-disc list-inside text-xs">
                 {toDelete.map(s => (
@@ -140,14 +144,14 @@ function DeleteModal({ group, groupIndex, onClose, onDeleted }: DeleteModalProps
 
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setConfirmed(false)} disabled={mutation.isPending}>
-                Back
+                {t('statements.duplicateFiles.back')}
               </Button>
               <Button
                 variant="destructive"
                 onClick={() => mutation.mutate()}
                 disabled={mutation.isPending}
               >
-                {mutation.isPending ? 'Moving to recycle bin…' : 'Confirm'}
+                {mutation.isPending ? t('statements.duplicateFiles.moving') : t('statements.duplicateFiles.confirm')}
               </Button>
             </DialogFooter>
           </>
@@ -160,6 +164,8 @@ function DeleteModal({ group, groupIndex, onClose, onDeleted }: DeleteModalProps
 // ── Main Panel ────────────────────────────────────────────────────────────────
 
 export function DuplicateStatementPanel({ groups, onViewStatement }: DuplicateStatementPanelProps) {
+  const { t } = useTranslation();
+  const plural = pluralizer(t);
   const [expanded, setExpanded] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set([0]));
   const [deleteGroupIndex, setDeleteGroupIndex] = useState<number | null>(null);
@@ -186,9 +192,10 @@ export function DuplicateStatementPanel({ groups, onViewStatement }: DuplicateSt
         >
           <Copy className="h-4 w-4 text-warning flex-shrink-0" />
           <span className="flex-1 text-sm font-medium text-warning">
-            <span className="font-bold">{count}</span>{' '}
-            duplicate statement {count !== 1 ? 'files' : 'file'} detected (identical checksums).{' '}
-            <span className="font-normal opacity-80">Click to {expanded ? 'hide' : 'review'}.</span>
+            {plural('statements.duplicateFiles.detected', count)}{' '}
+            <span className="font-normal opacity-80">
+              {expanded ? t('statements.duplicateFiles.clickToHide') : t('statements.duplicateFiles.clickToReview')}
+            </span>
           </span>
           {expanded
             ? <ChevronUp className="h-4 w-4 text-warning flex-shrink-0" />
@@ -208,12 +215,12 @@ export function DuplicateStatementPanel({ groups, onViewStatement }: DuplicateSt
                     onClick={() => toggleGroup(gi)}
                   >
                     <span className="text-xs font-bold uppercase tracking-wider text-warning min-w-[60px]">
-                      Group {gi + 1}
+                      {t('statements.duplicateFiles.group', { group: gi + 1 })}
                     </span>
                     <span className="flex-1 text-xs text-muted-foreground truncate">
                       <span className="font-medium text-foreground mr-2">{group[0].original_filename}</span>
                       <span className="text-warning">
-                        · {group.length} identical copies
+                        · {plural('statements.duplicateFiles.identicalCopies', group.length)}
                       </span>
                     </span>
                     {expandedGroups.has(gi)
@@ -227,7 +234,7 @@ export function DuplicateStatementPanel({ groups, onViewStatement }: DuplicateSt
                     className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors flex-shrink-0 whitespace-nowrap"
                   >
                     <Trash2 className="h-3 w-3" />
-                    Delete Duplicate
+                    {t('statements.duplicateFiles.deleteDuplicate')}
                   </button>
                 </div>
 
@@ -243,7 +250,7 @@ export function DuplicateStatementPanel({ groups, onViewStatement }: DuplicateSt
                         <div className="flex-1 min-w-0">
                           <span className="font-medium text-foreground truncate block">{s.original_filename}</span>
                           <span className="text-muted-foreground">
-                            {s.extracted_count} transactions
+                            {plural('statements.duplicateFiles.transactionCount', s.extracted_count)}
                             {s.created_at && <> · {new Date(s.created_at).toLocaleDateString()}</>}
                             {' · '}
                             <span className="capitalize">{s.status}</span>
@@ -253,7 +260,7 @@ export function DuplicateStatementPanel({ groups, onViewStatement }: DuplicateSt
                           onClick={() => onViewStatement(s.id)}
                           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-warning/20 text-warning hover:bg-warning/30 transition-colors flex-shrink-0 whitespace-nowrap"
                         >
-                          View
+                          {t('statements.duplicateFiles.view')}
                         </button>
                       </div>
                     ))}
