@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
-import { AlertCircle, TrendingUp } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { cn } from "@/lib/utils";
 import { AuthBrandPanel } from "./AuthBrandPanel";
+import { BrandMark } from "./BrandMark";
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -38,12 +39,7 @@ export function AuthLayout({ children, align = "center" }: AuthLayoutProps) {
         >
           {/* Small-screen logo; the brand panel carries it on desktop */}
           <div className="lg:hidden mb-8 text-center w-full">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow">
-                <TrendingUp className="h-5 w-5 text-primary-foreground" aria-hidden="true" />
-              </div>
-              <span className="text-foreground text-lg font-bold tracking-tight">YourFinanceWORKS</span>
-            </div>
+            <BrandMark size="sm" className="justify-center mb-1" />
             <p className="text-muted-foreground text-xs">{t("auth.brand.product_line")}</p>
           </div>
 
