@@ -3314,6 +3314,69 @@
       "saveRecord": "Save record",
       "noOpenTasks": "No open client tasks yet."
     },
+    "tasks": {
+      "createTitle": "Create Follow-Up Task",
+      "title": "Title",
+      "titlePlaceholder": "Call about overdue invoice",
+      "dueDate": "Due Date",
+      "description": "Description",
+      "descriptionPlaceholder": "Confirm payment timing and document the conversation.",
+      "priority": "Priority",
+      "assignTo": "Assign To",
+      "selectUser": "Select user",
+      "createTask": "Create task",
+      "currentTitle": "Current Client Tasks",
+      "none": "No client-linked tasks yet.",
+      "noDescription": "No description",
+      "due": "Due {{date}}",
+      "priorities": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "urgent": "Urgent"
+      }
+    },
+    "followUp": {
+      "overdueTitle": "Follow up on {{title}}",
+      "overdueDescription": "Contact {{name}} about the overdue balance and confirm the payment timeline.",
+      "paymentTitle": "Follow up after payment from {{name}}",
+      "paymentDescription": "Send a thank-you note, confirm receipt details, or schedule the next step.",
+      "noteTitle": "Continue follow-up for {{name}}",
+      "noteDescription": "Review the latest note and decide on the next client action."
+    },
+    "toasts": {
+      "recordUpdated": "Client record updated",
+      "taskCreated": "Client task created",
+      "noteAdded": "Note added",
+      "contacted": "Client marked as contacted",
+      "noteEmpty": "Note cannot be empty."
+    },
+    "activity": {
+      "title": "Client Activity",
+      "subtitle": "Track notes, tasks, invoices, and payments in one contact record.",
+      "lastContacted": "Last contacted: {{date}}",
+      "markContacted": "Mark Contacted",
+      "notePlaceholder": "Add a note to this client record...",
+      "addNote": "Add Note",
+      "createFollowUp": "Create Follow-Up",
+      "empty": "No activity matches this filter yet.",
+      "contactLogged": "Contact logged",
+      "recordUpdated": "Client record updated",
+      "lastContactUpdated": "Last contact updated to {{date}}",
+      "change": "{{field}}: {{from}} -> {{to}}",
+      "justNow": "Just now",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago",
+      "filters": {
+        "all": "All",
+        "notes": "Notes",
+        "tasks": "Tasks",
+        "invoices": "Invoices",
+        "payments": "Payments",
+        "clientRecord": "Client Record"
+      }
+    },
     "loadingClientData": "Loading client data...",
     "clientNotFound": "Client Not Found",
     "clientNotFoundDescription": "The client you're looking for doesn't exist or couldn't be loaded.",
