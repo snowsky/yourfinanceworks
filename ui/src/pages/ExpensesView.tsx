@@ -135,15 +135,15 @@ export default function ExpensesView() {
     try {
       if (action === 'approve') {
         await approvalApi.approveExpense(approvalId, data?.notes || '');
-        toast.success('Expense approved successfully');
+        toast.success(t('expenses.view.approved'));
       } else {
         await approvalApi.rejectExpense(approvalId, data?.rejection_reason || '', data?.notes || '');
-        toast.success('Expense rejected successfully');
+        toast.success(t('expenses.view.rejected'));
       }
       // Refresh the page to show updated status
       navigate(0);
     } catch (error: any) {
-      toast.error(error?.message || `Failed to ${action} expense`);
+      toast.error(error?.message || t(action === 'approve' ? 'expenses.view.approveFailed' : 'expenses.view.rejectFailed'));
       throw error;
     }
   };
@@ -156,11 +156,11 @@ export default function ExpensesView() {
     try {
       setUnsubmitLoading(true);
       await approvalApi.unsubmitExpenseApproval(Number(id));
-      toast.success('Approval request unsubmitted successfully');
+      toast.success(t('expenses.view.unsubmitted'));
       // Refresh the page
       navigate(0);
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to unsubmit approval request');
+      toast.error(error?.message || t('expenses.view.unsubmitFailed'));
     } finally {
       setUnsubmitLoading(false);
     }
@@ -230,7 +230,7 @@ export default function ExpensesView() {
           description={t('expenses.view_description', { defaultValue: 'Review expense details and take approval actions.' })}
           breadcrumbs={[
             { label: t('expenses.title'), href: '/expenses' },
-            { label: (form as any)?.description || `Expense #${id}`, href: '#' }
+            { label: (form as any)?.description || t('expenses.view.breadcrumb', { id }), href: '#' }
           ]}
           actions={
             <div className="flex flex-wrap gap-2">
@@ -423,7 +423,7 @@ export default function ExpensesView() {
                         setForm(exp);
                       } catch (e: any) {
                         const addNotification = (window as any).addAINotification;
-                        addNotification?.('error', 'Expense Reprocessing Failed', `Failed to reprocess expense: ${e?.message || 'Unknown error'}`);
+                        addNotification?.('error', t('expenses.view.reprocessFailedTitle'), t('expenses.view.reprocessFailedBody', { message: e?.message || t('errors.unknown_error') }));
                         toast.error(e?.message || t('expenses.failed_to_reprocess'));
                       }
                     }}
@@ -443,9 +443,9 @@ export default function ExpensesView() {
                         {form.analysis_status === 'processing' ? t('expenses.status_processing') : t('expenses.status_queued')}
                       </Badge>
                     ) : form.analysis_status === 'failed' ? (
-                      <Badge variant="destructive" className="h-6">Failed</Badge>
+                      <Badge variant="destructive" className="h-6">{t('common.failed')}</Badge>
                     ) : form.analysis_status === 'cancelled' ? (
-                      <Badge variant="secondary" className="h-6">Cancelled</Badge>
+                      <Badge variant="secondary" className="h-6">{t('expenses.view.cancelled')}</Badge>
                     ) : (form as any)?.imported_from_attachment ? (
                       <Badge variant="outline" className="h-6 border-primary/30 text-primary bg-primary/10">
                         Not Started
@@ -642,7 +642,7 @@ export default function ExpensesView() {
                   {form.notes ? (
                     <MarkdownView source={form.notes} />
                   ) : (
-                    <span className="text-sm text-muted-foreground italic">No notes</span>
+                    <span className="text-sm text-muted-foreground italic">{t('expenses.view.noNotes')}</span>
                   )}
                 </div>
               </div>
@@ -681,7 +681,7 @@ export default function ExpensesView() {
                           <div className="flex items-center justify-between text-xs text-muted-foreground border-t pt-2 mt-1">
                             <div className="flex items-center gap-3">
                               <div className="flex items-center gap-1">
-                                <span className="font-semibold uppercase text-[10px] text-muted-foreground/70 tracking-wider">Status:</span>
+                                <span className="font-semibold uppercase text-[10px] text-muted-foreground/70 tracking-wider">{t('expenses.view.attachmentStatus')}</span>
                                 <Badge
                                   variant={
                                     att.analysis_status === 'done' ? 'default' :
@@ -695,7 +695,7 @@ export default function ExpensesView() {
                               </div>
                               {att.extracted_amount !== undefined && att.extracted_amount !== null && (
                                 <div className="flex items-center gap-1">
-                                  <span className="font-semibold uppercase text-[10px] text-muted-foreground/70 tracking-wider">Amount:</span>
+                                  <span className="font-semibold uppercase text-[10px] text-muted-foreground/70 tracking-wider">{t('expenses.view.attachmentAmount')}</span>
                                   <span className="font-bold text-foreground">
                                     {new Intl.NumberFormat(undefined, { style: 'currency', currency: form.currency || 'USD' }).format(att.extracted_amount)}
                                   </span>

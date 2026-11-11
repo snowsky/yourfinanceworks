@@ -2835,6 +2835,21 @@
     "items": "items"
   },
   "expenses": {
+    "view": {
+      "approved": "Expense approved successfully",
+      "rejected": "Expense rejected successfully",
+      "approveFailed": "Failed to approve expense",
+      "rejectFailed": "Failed to reject expense",
+      "unsubmitted": "Approval request unsubmitted successfully",
+      "unsubmitFailed": "Failed to unsubmit approval request",
+      "breadcrumb": "Expense #{{id}}",
+      "reprocessFailedTitle": "Expense Reprocessing Failed",
+      "reprocessFailedBody": "Failed to reprocess expense: {{message}}",
+      "cancelled": "Cancelled",
+      "noNotes": "No notes",
+      "attachmentStatus": "Status:",
+      "attachmentAmount": "Amount:"
+    },
     "title": "Expenses",
     "description": "Track and manage your business expenses",
     "new": "New Expense",

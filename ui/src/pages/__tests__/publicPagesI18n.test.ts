@@ -50,6 +50,13 @@ describe('public page translation keys', () => {
     }
   });
 
+  it('ExpensesView only uses expenses.view.* keys that exist (older keys rely on inline fallbacks)', () => {
+    const source = readFileSync(resolve(__dirname, '../ExpensesView.tsx'), 'utf8');
+    const keys = [...source.matchAll(/['"](expenses\.view\.[A-Za-z]+)['"]/g)].map((m) => m[1]);
+    expect(keys.length).toBeGreaterThan(8);
+    expect(keys.filter((k) => typeof lookup(k) !== 'string')).toEqual([]);
+  });
+
   it('has a label for every shared record type', () => {
     const source = readFileSync(resolve(__dirname, '../SharedRecord.tsx'), 'utf8');
     const list = source.match(/const RECORD_TYPES = \[([^\]]+)\]/)?.[1] ?? '';
