@@ -139,15 +139,6 @@ export function InvoiceCreationChoice({ onManualCreate, onPdfImport, onInventory
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-8 animate-fade-in-up">
-      <div className="text-center space-y-3">
-        <h2 className="text-3xl font-bold tracking-tight text-gradient-primary">
-          {t('invoices.create_new_invoice')}
-        </h2>
-        <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-          {t('invoices.choose_creation_method')}
-        </p>
-      </div>
-
       {/* Flex, not a fixed 3-column grid: one option is licence-gated and another is optional, and whatever shows should sit centred */}
       <div className="flex flex-wrap items-stretch justify-center gap-8 [&>*]:!h-auto [&>*]:w-full [&>*]:max-w-xs">
         {/* PDF Import Option */}

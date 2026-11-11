@@ -1,6 +1,7 @@
 import React from "react";
 import { InvoiceFormWithApproval } from "@/components/invoices/InvoiceFormWithApproval";
 import { useTranslation } from "react-i18next";
+import { PageHeader } from '@/components/ui/professional-layout';
 
 const NewInvoiceManual = () => {
   const { t } = useTranslation();
@@ -8,10 +9,7 @@ const NewInvoiceManual = () => {
   return (
     <>
       <div className="h-full space-y-6 fade-in">
-        <div>
-          <h1 className="text-3xl font-bold">{t("invoices.new_invoice")}</h1>
-          <p className="text-muted-foreground">Enter invoice details manually</p>
-        </div>
+        <PageHeader title={t("invoices.new_invoice")} description={t("invoices.enter_invoice_details_manually")} />
 
         <div className="slide-in">
           <InvoiceFormWithApproval />
