@@ -277,7 +277,7 @@ const Payments = () => {
               </Badge>
               <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20">
                 <DollarSign className="h-3 w-3 mr-1" />
-                {t('payments.table.amount')}: ${filteredTotalAmount.toFixed(2)}
+                {t('payments.table.amount')}: <CurrencyDisplay amount={filteredTotalAmount} currency="USD" />
               </Badge>
               <Badge variant="secondary" className="bg-blue-500/10 text-blue-700 border-blue-500/20">
                 <CreditCard className="h-3 w-3 mr-1" />

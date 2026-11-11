@@ -27,6 +27,24 @@ import { ProfessionalButton } from '@/components/ui/professional-button';
 import { ShareButton } from '@/components/sharing/ShareButton';
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 
+// This card only displays the invoice, so its controls are disabled. Keep the
+// text at full strength (the default disabled style halves the opacity and
+// leaves grey on grey).
+const READ_ONLY_FIELD = "disabled:opacity-100 disabled:cursor-default disabled:text-foreground disabled:bg-muted/40";
+
+// CurrencySelector puts its className on a wrapper div, so reach the trigger button.
+const READ_ONLY_WRAPPER = "[&_button:disabled]:opacity-100 [&_button:disabled]:cursor-default [&_button:disabled]:text-foreground [&_button:disabled]:bg-muted/40";
+
+// "$7,425.00": symbol, grouping and the currency's own decimals.
+function formatMoney(amount: number | string | null | undefined, currency?: string | null) {
+  const value = Number(amount || 0);
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(value);
+  } catch {
+    return `${currency || ''} ${value.toFixed(2)}`.trim();
+  }
+}
+
 async function fetchInvoicePreviewHtml(id: number): Promise<string> {
   const tenantId = getTenantId();
   const headers: Record<string, string> = {};
@@ -362,29 +380,29 @@ export default function ViewInvoice() {
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium">{t('invoices.invoice_number')}</label>
-              <Input value={invoice.number || ''} disabled={true} />
+              <Input value={invoice.number || ''} disabled={true} className={READ_ONLY_FIELD} />
             </div>
             <div>
               <label className="text-sm font-medium">{t('invoices.client')}</label>
-              <Input value={invoice.client_name || ''} disabled={true} />
+              <Input value={invoice.client_name || ''} disabled={true} className={READ_ONLY_FIELD} />
             </div>
             <div>
               <label className="text-sm font-medium">{t('invoices.amount')}</label>
               <Input
-                type="number"
-                value={Number(invoice.amount || 0)}
+                value={formatMoney(invoice.amount, invoice.currency)}
                 disabled={true}
+                className={READ_ONLY_FIELD}
               />
             </div>
             <div>
               <label className="text-sm font-medium">{t('invoices.currency')}</label>
-              <CurrencySelector value={invoice.currency || 'USD'} disabled={true} onValueChange={() => { }} />
+              <CurrencySelector value={invoice.currency || 'USD'} disabled={true} onValueChange={() => { }} className={READ_ONLY_WRAPPER} />
             </div>
             <div>
               <label className="text-sm font-medium">{t('invoices.date')}</label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal" disabled={true}>
+                  <Button variant="outline" className={`w-full justify-start text-left font-normal ${READ_ONLY_FIELD}`} disabled={true}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {invoice.created_at ? format(new Date(invoice.created_at), 'PPP') : t('invoices.pick_date')}
                   </Button>
@@ -402,7 +420,7 @@ export default function ViewInvoice() {
               <label className="text-sm font-medium">{t('invoices.due_date')}</label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal" disabled={true}>
+                  <Button variant="outline" className={`w-full justify-start text-left font-normal ${READ_ONLY_FIELD}`} disabled={true}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {invoice.due_date ? format(new Date(invoice.due_date), 'PPP') : t('invoices.pick_date')}
                   </Button>
@@ -419,7 +437,7 @@ export default function ViewInvoice() {
             <div>
               <label className="text-sm font-medium">{t('invoices.status_label')}</label>
               <Select value={invoice.status || 'draft'} disabled={true}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className={`w-full ${READ_ONLY_FIELD}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -434,19 +452,19 @@ export default function ViewInvoice() {
             <div>
               <label className="text-sm font-medium">{t('invoices.paid_amount')}</label>
               <Input
-                type="number"
-                value={Number(invoice.paid_amount || 0)}
+                value={formatMoney(invoice.paid_amount, invoice.currency)}
                 disabled={true}
+                className={READ_ONLY_FIELD}
               />
             </div>
             <div>
               <label className="text-sm font-medium">{t('common.created_by')}</label>
-              <Input value={invoice.created_by_username || invoice.created_by_email || t('common.unknown')} disabled={true} />
+              <Input value={invoice.created_by_username || invoice.created_by_email || t('common.unknown')} disabled={true} className={READ_ONLY_FIELD} />
             </div>
             {invoice.notes && (
               <div className="sm:col-span-2">
                 <label className="text-sm font-medium">{t('invoices.notes')}</label>
-                <Textarea value={invoice.notes || ''} disabled={true} className="min-h-[100px] resize-none" />
+                <Textarea value={invoice.notes || ''} disabled={true} className={`min-h-[100px] resize-none ${READ_ONLY_FIELD}`} />
               </div>
             )}
           </CardContent>
