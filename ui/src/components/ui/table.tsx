@@ -8,7 +8,7 @@ const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-auto rounded-xl">
+  <div className="relative w-full overflow-auto rounded-xl [container-type:inline-size]">
     <table
       ref={ref}
       className={cn(
@@ -157,6 +157,38 @@ const TableCaption = React.forwardRef<
 ))
 TableCaption.displayName = "TableCaption"
 
+/**
+ * Empty-state block for a full-width table row. It stays centred in the
+ * visible part of the table even when the columns scroll sideways: the Table
+ * wrapper is a size container, so 100cqw is the visible width.
+ */
+const TableEmptyState = ({
+  icon,
+  title,
+  description,
+  className,
+}: {
+  icon?: React.ReactNode
+  title: React.ReactNode
+  description?: React.ReactNode
+  className?: string
+}) => (
+  <div
+    className={cn(
+      "sticky left-0 m-4 w-[calc(100cqw-2rem)] rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/5 px-4 py-16 text-center",
+      className
+    )}
+  >
+    {icon && (
+      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary [&_svg]:h-8 [&_svg]:w-8">
+        {icon}
+      </div>
+    )}
+    <h3 className="mb-2 text-xl font-bold">{title}</h3>
+    {description && <p className="mx-auto max-w-sm text-muted-foreground">{description}</p>}
+  </div>
+)
+
 export {
   Table,
   TableHeader,
@@ -166,4 +198,5 @@ export {
   TableRow,
   TableCell,
   TableCaption,
+  TableEmptyState,
 }

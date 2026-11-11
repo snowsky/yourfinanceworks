@@ -27,9 +27,14 @@ import {
   ChevronLeft,
   ChevronUp,
   ChevronDown,
-  DollarSign,
+  CreditCard,
   FileText,
-  FolderKanban,
+  Landmark,
+  LayoutDashboard,
+  LineChart,
+  Receipt,
+  ScrollText,
+  Workflow,
   LogOut,
   Settings,
   Users,
@@ -321,7 +326,7 @@ export function AppSidebar() {
     {
       path: '/',
       label: t('navigation.dashboard'),
-      icon: <BarChart className="w-5 h-5" />,
+      icon: <LayoutDashboard className="w-5 h-5" />,
       tourId: 'nav-dashboard'
     },
     {
@@ -339,13 +344,13 @@ export function AppSidebar() {
     {
       path: '/payments',
       label: t('navigation.payments'),
-      icon: <DollarSign className="w-5 h-5" />,
+      icon: <CreditCard className="w-5 h-5" />,
       tourId: 'nav-payments'
     },
     {
       path: '/expenses',
       label: t('navigation.expenses'),
-      icon: <DollarSign className="w-5 h-5" />,
+      icon: <Receipt className="w-5 h-5" />,
       tourId: 'nav-expenses'
     },
     {
@@ -363,7 +368,7 @@ export function AppSidebar() {
     {
       path: '/statements',
       label: t('navigation.bank_statements'),
-      icon: <FileText className="w-5 h-5" />,
+      icon: <Landmark className="w-5 h-5" />,
       tourId: 'nav-statements'
     },
     {
@@ -375,7 +380,7 @@ export function AppSidebar() {
     ...((!roleLoading && isAdminInCurrentOrg && isFeatureEnabled('workflow_automation')) ? [{
       path: '/workflows',
       label: t('navigation.workflows', { defaultValue: 'Workflows' }),
-      icon: <FolderKanban className="w-5 h-5" />,
+      icon: <Workflow className="w-5 h-5" />,
       tourId: 'nav-workflows'
     }] : []),
     {
@@ -426,14 +431,14 @@ export function AppSidebar() {
     ...((!roleLoading && (isSuperUser || isAdminInCurrentOrg)) ? [{
       path: '/audit-log',
       label: t('navigation.audit_log'),
-      icon: <ListChecks className="w-5 h-5" />,
+      icon: <ScrollText className="w-5 h-5" />,
       tourId: 'nav-audit-log'
     }] : []),
     // Only show Analytics for admin or superuser if user has enabled it
     ...((!roleLoading && (isSuperUser || isAdminInCurrentOrg) && showAnalytics) ? [{
       path: '/analytics',
       label: t('navigation.analytics', { defaultValue: 'Analytics' }),
-      icon: <BarChart className="w-5 h-5" />,
+      icon: <LineChart className="w-5 h-5" />,
       tourId: 'nav-analytics'
     }] : []),
     // Only show Super Admin for super users in their primary tenant
@@ -486,10 +491,8 @@ export function AppSidebar() {
           >
             <button
               onClick={() => scrollToDirection('up')}
-              className={`rounded-full p-1.5 shadow-lg border transition-all pointer-events-auto cursor-pointer ${
-                canScrollUp
-                  ? "bg-sidebar-primary/90 border-sidebar-primary/60 text-sidebar-primary-foreground hover:bg-sidebar-primary ring-2 ring-sidebar-ring/40"
-                  : "bg-sidebar-accent/80 border-sidebar-border text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent"
+              className={`rounded-full p-1 shadow-sm border border-sidebar-border bg-sidebar text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
+                canScrollUp ? "pointer-events-auto cursor-pointer" : "pointer-events-none"
               }`}
               tabIndex={canScrollUp ? 0 : -1}
               aria-label="Scroll up"
@@ -642,10 +645,8 @@ export function AppSidebar() {
           >
             <button
               onClick={() => scrollToDirection('down')}
-              className={`rounded-full p-1.5 shadow-lg border transition-all pointer-events-auto cursor-pointer ${
-                canScrollDown
-                  ? "bg-sidebar-primary/90 border-sidebar-primary/60 text-sidebar-primary-foreground hover:bg-sidebar-primary ring-2 ring-sidebar-ring/40"
-                  : "bg-sidebar-accent/80 border-sidebar-border text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent"
+              className={`rounded-full p-1 shadow-sm border border-sidebar-border bg-sidebar text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
+                canScrollDown ? "pointer-events-auto cursor-pointer" : "pointer-events-none"
               }`}
               tabIndex={canScrollDown ? 0 : -1}
               aria-label="Scroll down"

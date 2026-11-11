@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Search, Filter, Loader2, CreditCard, ChevronLeft, ChevronRight, MoreHorizontal, Share2, Settings, Sparkles, ExternalLink, DollarSign, Activity } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableEmptyState, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { paymentApi, Payment, settingsApi, type PaymentSettings } from "@/lib/api";
@@ -422,15 +422,11 @@ const Payments = () => {
                       ) : (
                         <TableRow>
                           <TableCell colSpan={6 + (isVisible('id') ? 1 : 0) + (isVisible('currency') ? 1 : 0) + (isVisible('method') ? 1 : 0) + (isVisible('reference') ? 1 : 0) + (isVisible('notes') ? 1 : 0)} className="h-auto p-0 border-none">
-                            <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
-                              <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <CreditCard className="h-8 w-8 text-primary" />
-                              </div>
-                              <h3 className="text-xl font-bold mb-2">{t('payments.no_payments')}</h3>
-                              <p className="text-muted-foreground max-w-sm mx-auto">
-                                {t('payments.no_payments_description')}
-                              </p>
-                            </div>
+                            <TableEmptyState
+                              icon={<CreditCard />}
+                              title={t('payments.no_payments')}
+                              description={t('payments.no_payments_description')}
+                            />
                           </TableCell>
                         </TableRow>
                       )}
