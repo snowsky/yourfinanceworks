@@ -148,7 +148,8 @@ export function InvoiceCreationChoice({ onManualCreate, onPdfImport, onInventory
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      {/* Flex, not a fixed 3-column grid: one option is licence-gated and another is optional, and whatever shows should sit centred */}
+      <div className="flex flex-wrap items-stretch justify-center gap-8 [&>*]:!h-auto [&>*]:w-full [&>*]:max-w-xs">
         {/* PDF Import Option */}
         <FeatureGate feature="ai_invoice">
           <div

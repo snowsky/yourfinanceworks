@@ -408,7 +408,7 @@ const Inventory = () => {
                                 </TableCell>
                               )}
                               <TableCell>
-                                <Badge variant={stockStatus.color || 'default'}>
+                                <Badge variant={stockStatus.color || 'default'} className="whitespace-nowrap">
                                   {stockStatus.label}
                                 </Badge>
                               </TableCell>
@@ -782,7 +782,7 @@ const Inventory = () => {
                             </div>
                           </div>
                           <div className="text-right">
-                            <Badge variant={
+                            <Badge className="whitespace-nowrap" variant={
                               item.stock_status === 'critical' ? 'destructive' :
                                 item.stock_status === 'overstocked' ? 'secondary' : 'default'
                             }>

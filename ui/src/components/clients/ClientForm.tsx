@@ -123,7 +123,7 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
                         {...field}
                         label={t('clientForm.name')}
                         placeholder={t('clientForm.namePlaceholder')}
-                        variant="filled"
+                        variant="default"
                       />
                     </FormControl>
                     <FormMessage />
@@ -142,7 +142,7 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
                         label={t('clientForm.email')}
                         placeholder={t('clientForm.emailPlaceholder')}
                         type="email"
-                        variant="filled"
+                        variant="default"
                       />
                     </FormControl>
                     <FormMessage />
@@ -160,7 +160,7 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
                         {...field}
                         label={t('clientForm.phone')}
                         placeholder={t('clientForm.phonePlaceholder')}
-                        variant="filled"
+                        variant="default"
                       />
                     </FormControl>
                     <FormMessage />
@@ -178,7 +178,7 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
                         {...field}
                         label={t('clientForm.company')}
                         placeholder={t('clientForm.companyPlaceholder')}
-                        variant="filled"
+                        variant="default"
                       />
                     </FormControl>
                     <FormMessage />
@@ -197,7 +197,7 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
                           {...field}
                           label={t('clientForm.address')}
                           placeholder={t('clientForm.addressPlaceholder')}
-                          variant="filled"
+                          variant="default"
                         />
                       </FormControl>
                       <FormMessage />
