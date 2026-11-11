@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Clock, CreditCard, FileText, Filter, ListChecks, Loader2, StickyNote } from "lucide-react";
 
 import { type ClientActivityItem } from "@/lib/api";
@@ -12,39 +13,34 @@ import { ProfessionalButton } from "@/components/ui/professional-button";
 import { ProfessionalTextarea } from "@/components/ui/professional-textarea";
 import { Badge } from "@/components/ui/badge";
 
+// `label` is a key under editClient.activity.filters
 const ACTIVITY_TYPE_META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  note_created: { label: "Notes", icon: StickyNote, color: "text-yellow-500" },
-  task_created: { label: "Tasks", icon: ListChecks, color: "text-blue-500" },
-  task_completed: { label: "Tasks", icon: ListChecks, color: "text-green-500" },
-  invoice_created: { label: "Invoices", icon: FileText, color: "text-sky-500" },
-  invoice_overdue: { label: "Invoices", icon: FileText, color: "text-red-500" },
-  payment_received: { label: "Payments", icon: CreditCard, color: "text-emerald-500" },
-  client_updated: { label: "Client Record", icon: Clock, color: "text-violet-500" },
+  note_created: { label: "notes", icon: StickyNote, color: "text-yellow-500" },
+  task_created: { label: "tasks", icon: ListChecks, color: "text-blue-500" },
+  task_completed: { label: "tasks", icon: ListChecks, color: "text-green-500" },
+  invoice_created: { label: "invoices", icon: FileText, color: "text-sky-500" },
+  invoice_overdue: { label: "invoices", icon: FileText, color: "text-red-500" },
+  payment_received: { label: "payments", icon: CreditCard, color: "text-emerald-500" },
+  client_updated: { label: "clientRecord", icon: Clock, color: "text-violet-500" },
 };
 
-const FILTERS = [
-  { id: "all", label: "All" },
-  { id: "notes", label: "Notes" },
-  { id: "tasks", label: "Tasks" },
-  { id: "invoices", label: "Invoices" },
-  { id: "payments", label: "Payments" },
-];
+const FILTERS = ["all", "notes", "tasks", "invoices", "payments"] as const;
 
 function formatWhen(value: string) {
   return new Date(value).toLocaleString();
 }
 
-function formatRelative(value: string) {
+function formatRelative(value: string, t: (key: string, options?: Record<string, unknown>) => string) {
   const date = new Date(value);
   const diffMs = Date.now() - date.getTime();
   const diffMinutes = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMinutes / 60);
   const diffDays = Math.floor(diffHours / 24);
 
-  if (diffDays > 0) return `${diffDays}d ago`;
-  if (diffHours > 0) return `${diffHours}h ago`;
-  if (diffMinutes > 0) return `${diffMinutes}m ago`;
-  return "Just now";
+  if (diffDays > 0) return t('editClient.activity.daysAgo', { count: diffDays });
+  if (diffHours > 0) return t('editClient.activity.hoursAgo', { count: diffHours });
+  if (diffMinutes > 0) return t('editClient.activity.minutesAgo', { count: diffMinutes });
+  return t('editClient.activity.justNow');
 }
 
 function matchesFilter(item: ClientActivityItem, filter: string) {
@@ -79,7 +75,8 @@ export function ClientActivityFeed({
   submittingNote = false,
   markingContacted = false,
 }: ClientActivityFeedProps) {
-  const [activeFilter, setActiveFilter] = useState("all");
+  const { t } = useTranslation();
+  const [activeFilter, setActiveFilter] = useState<string>("all");
 
   const filtered = useMemo(
     () => activity.filter((item) => matchesFilter(item, activeFilter)),
@@ -91,17 +88,17 @@ export function ClientActivityFeed({
       <ProfessionalCardHeader className="pb-4 border-b border-border/50">
         <ProfessionalCardTitle className="text-xl font-bold flex items-center gap-2">
           <Clock className="h-5 w-5 text-primary" />
-          Client Activity
+          {t('editClient.activity.title')}
         </ProfessionalCardTitle>
 
         <div className="mt-4 space-y-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">
-                Track notes, tasks, invoices, and payments in one contact record.
+                {t('editClient.activity.subtitle')}
               </p>
               <p className="text-xs text-muted-foreground">
-                Last contacted: {lastContactAt ? formatWhen(lastContactAt) : "Not set"}
+                {t('editClient.activity.lastContacted', { date: lastContactAt ? formatWhen(lastContactAt) : t('editClient.overview.notSet') })}
               </p>
             </div>
             {onMarkContacted && (
@@ -112,7 +109,7 @@ export function ClientActivityFeed({
                 loading={markingContacted}
                 leftIcon={<Clock className="h-4 w-4" />}
               >
-                Mark Contacted
+                {t('editClient.activity.markContacted')}
               </ProfessionalButton>
             )}
           </div>
@@ -120,15 +117,17 @@ export function ClientActivityFeed({
             <Filter className="h-3.5 w-3.5 text-muted-foreground" />
             {FILTERS.map((filter) => (
               <button
-                key={filter.id}
-                onClick={() => setActiveFilter(filter.id)}
+                key={filter}
+                type="button"
+                aria-pressed={activeFilter === filter}
+                onClick={() => setActiveFilter(filter)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
-                  activeFilter === filter.id
+                  activeFilter === filter
                     ? "bg-primary text-primary-foreground border-primary shadow-sm"
                     : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:border-primary/30"
                 }`}
               >
-                {filter.label}
+                {t(`editClient.activity.filters.${filter}`)}
               </button>
             ))}
           </div>
@@ -138,7 +137,7 @@ export function ClientActivityFeed({
       <ProfessionalCardContent className="pt-6 space-y-6">
         <div className="space-y-3 p-4 bg-muted/20 rounded-xl border border-border/50">
           <ProfessionalTextarea
-            placeholder="Add a note to this client record..."
+            placeholder={t('editClient.activity.notePlaceholder')}
             value={newNote}
             onChange={(e) => onNoteChange(e.target.value)}
             rows={2}
@@ -151,7 +150,7 @@ export function ClientActivityFeed({
               size="sm"
               leftIcon={submittingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <StickyNote className="h-4 w-4" />}
             >
-              Add Note
+              {t('editClient.activity.addNote')}
             </ProfessionalButton>
           </div>
         </div>
@@ -159,11 +158,12 @@ export function ClientActivityFeed({
         <div className="space-y-4">
           {filtered.length === 0 ? (
             <div className="rounded-xl border border-border/50 bg-muted/20 p-6 text-sm text-muted-foreground">
-              No activity matches this filter yet.
+              {t('editClient.activity.empty')}
             </div>
           ) : (
             filtered.map((item) => {
-              const meta = ACTIVITY_TYPE_META[item.type] || {
+              const known = ACTIVITY_TYPE_META[item.type];
+              const meta = known || {
                 label: item.type,
                 icon: Clock,
                 color: "text-muted-foreground",
@@ -183,12 +183,12 @@ export function ClientActivityFeed({
                           <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">{item.description}</p>
                         )}
                       </div>
-                      <Badge variant="outline">{meta.label}</Badge>
+                      <Badge variant="outline">{known ? t(`editClient.activity.filters.${meta.label}`) : meta.label}</Badge>
                     </div>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       {item.actor_name && <span>{item.actor_name}</span>}
-                      <span>{formatRelative(item.timestamp)}</span>
+                      <span>{formatRelative(item.timestamp, t)}</span>
                       <span>{formatWhen(item.timestamp)}</span>
                     </div>
 
@@ -200,7 +200,7 @@ export function ClientActivityFeed({
                             variant="outline"
                             onClick={() => onCreateTaskFromActivity(item)}
                           >
-                            Create Follow-Up
+                            {t('editClient.activity.createFollowUp')}
                           </ProfessionalButton>
                         </div>
                       )}

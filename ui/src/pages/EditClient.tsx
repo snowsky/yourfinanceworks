@@ -37,15 +37,10 @@ const RELATIONSHIP_OPTIONS = [
   { value: "inactive", label: "Inactive" },
 ];
 
-const TASK_PRIORITY_OPTIONS = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-  { value: "urgent", label: "Urgent" },
-];
+const TASK_PRIORITY_OPTIONS = ["low", "medium", "high", "urgent"] as const;
 
 function formatDateTime(value?: string | null) {
-  if (!value) return "Not set";
+  if (!value) return "—";
   return new Date(value).toLocaleString();
 }
 
@@ -61,7 +56,7 @@ function toLocalDateTimeInputValue(date: Date) {
 }
 
 function formatActivityDateTime(value?: string | null) {
-  if (!value) return "Not set";
+  if (!value) return "—";
   return new Date(value).toLocaleString();
 }
 
@@ -193,30 +188,37 @@ const EditClient = () => {
       queryClient.setQueryData<ClientRecordResponse | undefined>(['client-record', clientId], (current) => {
         const changed: string[] = [];
         const details: string[] = [];
+        const notSet = t('editClient.overview.notSet');
+        const change = (field: string, from?: string | number | null, to?: string | number | null) =>
+          t('editClient.activity.change', {
+            field: t(`editClient.overview.${field}`),
+            from: from ?? notSet,
+            to: to ?? notSet,
+          });
 
         if (current?.client.owner_user_id !== updatedClient.owner_user_id) {
-          changed.push("Owner");
-          details.push(`Owner: ${current?.client.owner_user_id ?? "Not set"} -> ${updatedClient.owner_user_id ?? "Not set"}`);
+          changed.push("owner");
+          details.push(change("owner", current?.client.owner_user_id, updatedClient.owner_user_id));
         }
         if (current?.client.stage !== updatedClient.stage) {
-          changed.push("Stage");
-          details.push(`Stage: ${current?.client.stage ?? "Not set"} -> ${updatedClient.stage ?? "Not set"}`);
+          changed.push("stage");
+          details.push(change("stage", current?.client.stage, updatedClient.stage));
         }
         if (current?.client.relationship_status !== updatedClient.relationship_status) {
-          changed.push("Relationship status");
-          details.push(`Relationship status: ${current?.client.relationship_status ?? "Not set"} -> ${updatedClient.relationship_status ?? "Not set"}`);
+          changed.push("relationshipStatus");
+          details.push(change("relationshipStatus", current?.client.relationship_status, updatedClient.relationship_status));
         }
         if (current?.client.source !== updatedClient.source) {
-          changed.push("Source");
-          details.push(`Source: ${current?.client.source ?? "Not set"} -> ${updatedClient.source ?? "Not set"}`);
+          changed.push("source");
+          details.push(change("source", current?.client.source, updatedClient.source));
         }
         if (current?.client.last_contact_at !== updatedClient.last_contact_at) {
-          changed.push("Last contact");
-          details.push(`Last contact: ${formatActivityDateTime(current?.client.last_contact_at)} -> ${formatActivityDateTime(updatedClient.last_contact_at)}`);
+          changed.push("lastContact");
+          details.push(change("lastContact", formatActivityDateTime(current?.client.last_contact_at), formatActivityDateTime(updatedClient.last_contact_at)));
         }
         if (current?.client.next_follow_up_at !== updatedClient.next_follow_up_at) {
-          changed.push("Next follow-up");
-          details.push(`Next follow-up: ${formatActivityDateTime(current?.client.next_follow_up_at)} -> ${formatActivityDateTime(updatedClient.next_follow_up_at)}`);
+          changed.push("nextFollowUp");
+          details.push(change("nextFollowUp", formatActivityDateTime(current?.client.next_follow_up_at), formatActivityDateTime(updatedClient.next_follow_up_at)));
         }
 
         if (changed.length === 0) {
@@ -231,9 +233,9 @@ const EditClient = () => {
             : current;
         }
 
-        const title = changed.length === 1 && changed[0] === "Last contact"
-          ? "Contact logged"
-          : "Client record updated";
+        const title = changed.length === 1 && changed[0] === "lastContact"
+          ? t('editClient.activity.contactLogged')
+          : t('editClient.activity.recordUpdated');
 
         return prependActivityItem(
           current,
@@ -250,7 +252,7 @@ const EditClient = () => {
           updatedClient
         );
       });
-      toast.success("Client record updated");
+      toast.success(t('editClient.toasts.recordUpdated'));
       queryClient.invalidateQueries({ queryKey: ['client-record', clientId] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
     },
@@ -268,7 +270,7 @@ const EditClient = () => {
       assigned_to_id: Number(taskForm.assigned_to_id),
     }),
     onSuccess: () => {
-      toast.success("Client task created");
+      toast.success(t('editClient.toasts.taskCreated'));
       setTaskForm({
         title: "",
         description: "",
@@ -289,7 +291,7 @@ const EditClient = () => {
       return crmApi.createNoteForClient(clientId!, { note });
     },
     onSuccess: () => {
-      toast.success("Note added");
+      toast.success(t('editClient.toasts.noteAdded'));
       setActivityNote("");
       queryClient.invalidateQueries({ queryKey: ['client-record', clientId] });
     },
@@ -316,8 +318,8 @@ const EditClient = () => {
           {
             type: "client_updated",
             timestamp: new Date().toISOString(),
-            title: "Contact logged",
-            description: `Last contact updated to ${formatActivityDateTime(updatedClient.last_contact_at)}`,
+            title: t('editClient.activity.contactLogged'),
+            description: t('editClient.activity.lastContactUpdated', { date: formatActivityDateTime(updatedClient.last_contact_at) }),
             actor_name: null,
             entity_type: "client",
             entity_id: String(updatedClient.id),
@@ -326,7 +328,7 @@ const EditClient = () => {
           updatedClient
         )
       );
-      toast.success("Client marked as contacted");
+      toast.success(t('editClient.toasts.contacted'));
       queryClient.invalidateQueries({ queryKey: ['client-record', clientId] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
     },
@@ -360,7 +362,7 @@ const EditClient = () => {
 
   const addActivityNote = async () => {
     if (!clientId || !activityNote.trim()) {
-      toast.error("Note cannot be empty.");
+      toast.error(t('editClient.toasts.noteEmpty'));
       return;
     }
 
@@ -392,8 +394,8 @@ const EditClient = () => {
 
     if (item.type === "invoice_overdue") {
       openFollowUpTask({
-        title: `Follow up on ${item.title.replace(" is overdue", "")}`,
-        description: item.description || `Contact ${client.name} about the overdue balance and confirm the payment timeline.`,
+        title: t('editClient.followUp.overdueTitle', { title: item.title.replace(" is overdue", "") }),
+        description: item.description || t('editClient.followUp.overdueDescription', { name: client.name }),
         priority: "high",
       });
       return;
@@ -401,8 +403,8 @@ const EditClient = () => {
 
     if (item.type === "payment_received") {
       openFollowUpTask({
-        title: `Follow up after payment from ${client.name}`,
-        description: "Send a thank-you note, confirm receipt details, or schedule the next step.",
+        title: t('editClient.followUp.paymentTitle', { name: client.name }),
+        description: t('editClient.followUp.paymentDescription'),
         priority: "medium",
       });
       return;
@@ -410,8 +412,8 @@ const EditClient = () => {
 
     if (item.type === "note_created") {
       openFollowUpTask({
-        title: `Continue follow-up for ${client.name}`,
-        description: item.description || "Review the latest note and decide on the next client action.",
+        title: t('editClient.followUp.noteTitle', { name: client.name }),
+        description: item.description || t('editClient.followUp.noteDescription'),
         priority: "medium",
       });
     }
@@ -633,14 +635,14 @@ const EditClient = () => {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-semibold text-foreground">{task.title}</p>
-                            <p className="mt-1 text-sm text-muted-foreground">{task.description || "No description"}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">{task.description || t('editClient.tasks.noDescription')}</p>
                           </div>
                           <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-                            {task.priority}
+                            {t(`editClient.tasks.priorities.${task.priority}`, { defaultValue: task.priority })}
                           </span>
                         </div>
                         <p className="mt-3 text-xs text-muted-foreground">
-                          Due {formatDateTime(task.due_date)} {task.task_origin ? `• ${task.task_origin}` : ""}
+                          {t('editClient.tasks.due', { date: formatDateTime(task.due_date) })} {task.task_origin ? `• ${task.task_origin}` : ""}
                         </p>
                       </div>
                     ))
@@ -676,18 +678,18 @@ const EditClient = () => {
           <div className="space-y-6">
             <ProfessionalCard variant="elevated">
               <ProfessionalCardHeader>
-                <ProfessionalCardTitle>Create Follow-Up Task</ProfessionalCardTitle>
+                <ProfessionalCardTitle>{t('editClient.tasks.createTitle')}</ProfessionalCardTitle>
               </ProfessionalCardHeader>
               <ProfessionalCardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <ProfessionalInput
-                    label="Title"
+                    label={t('editClient.tasks.title')}
                     value={taskForm.title}
                     onChange={(event) => setTaskForm((current) => ({ ...current, title: event.target.value }))}
-                    placeholder="Call about overdue invoice"
+                    placeholder={t('editClient.tasks.titlePlaceholder')}
                   />
                   <ProfessionalInput
-                    label="Due Date"
+                    label={t('editClient.tasks.dueDate')}
                     type="datetime-local"
                     value={taskForm.due_date}
                     onChange={(event) => setTaskForm((current) => ({ ...current, due_date: event.target.value }))}
@@ -695,23 +697,23 @@ const EditClient = () => {
                 </div>
 
                 <ProfessionalTextarea
-                  label="Description"
+                  label={t('editClient.tasks.description')}
                   value={taskForm.description}
                   onChange={(event) => setTaskForm((current) => ({ ...current, description: event.target.value }))}
-                  placeholder="Confirm payment timing and document the conversation."
+                  placeholder={t('editClient.tasks.descriptionPlaceholder')}
                 />
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Priority</label>
+                    <label className="text-sm font-medium">{t('editClient.tasks.priority')}</label>
                     <Select value={taskForm.priority} onValueChange={(value) => setTaskForm((current) => ({ ...current, priority: value }))}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {TASK_PRIORITY_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
+                          <SelectItem key={option} value={option}>
+                            {t(`editClient.tasks.priorities.${option}`)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -719,13 +721,13 @@ const EditClient = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Assign To</label>
+                    <label className="text-sm font-medium">{t('editClient.tasks.assignTo')}</label>
                     <Select value={taskForm.assigned_to_id || "unassigned"} onValueChange={(value) => setTaskForm((current) => ({ ...current, assigned_to_id: value === "unassigned" ? "" : value }))}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="unassigned">Select user</SelectItem>
+                        <SelectItem value="unassigned">{t('editClient.tasks.selectUser')}</SelectItem>
                         {users.map((user) => (
                           <SelectItem key={user.id} value={String(user.id)}>
                             {user.name || user.email}
@@ -744,7 +746,7 @@ const EditClient = () => {
                     loading={createTaskMutation.isPending}
                     disabled={!taskForm.title || !taskForm.due_date || !taskForm.assigned_to_id}
                   >
-                    Create task
+                    {t('editClient.tasks.createTask')}
                   </ProfessionalButton>
                 </div>
               </ProfessionalCardContent>
@@ -752,7 +754,7 @@ const EditClient = () => {
 
             <ProfessionalCard variant="elevated">
               <ProfessionalCardHeader>
-                <ProfessionalCardTitle>Current Client Tasks</ProfessionalCardTitle>
+                <ProfessionalCardTitle>{t('editClient.tasks.currentTitle')}</ProfessionalCardTitle>
               </ProfessionalCardHeader>
               <ProfessionalCardContent className="space-y-4">
                 {recordLoading ? (
@@ -765,17 +767,17 @@ const EditClient = () => {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold">{task.title}</p>
-                          <p className="mt-1 text-sm text-muted-foreground">{task.description || "No description"}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">{task.description || t('editClient.tasks.noDescription')}</p>
                         </div>
                         <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-                          {task.priority}
+                          {t(`editClient.tasks.priorities.${task.priority}`, { defaultValue: task.priority })}
                         </span>
                       </div>
-                      <p className="mt-3 text-xs text-muted-foreground">Due {formatDateTime(task.due_date)}</p>
+                      <p className="mt-3 text-xs text-muted-foreground">{t('editClient.tasks.due', { date: formatDateTime(task.due_date) })}</p>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">No client-linked tasks yet.</p>
+                  <p className="text-sm text-muted-foreground">{t('editClient.tasks.none')}</p>
                 )}
               </ProfessionalCardContent>
             </ProfessionalCard>

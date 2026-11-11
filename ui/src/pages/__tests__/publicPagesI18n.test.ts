@@ -19,6 +19,7 @@ const FILES = [
   'pages/portal/PortalVerify.tsx',
   'pages/portal/PortalDashboard.tsx',
   'pages/EditClient.tsx',
+  'components/clients/ClientActivityFeed.tsx',
 ];
 
 const lookup = (key: string) =>
@@ -57,6 +58,13 @@ describe('edit client option labels', () => {
     expect(statuses.length).toBeGreaterThan(0);
     for (const v of stages) expect(typeof lookup(`editClient.stages.${v}`)).toBe('string');
     for (const v of statuses) expect(typeof lookup(`editClient.relationshipStatuses.${v}`)).toBe('string');
+    const priorities = source.match(/TASK_PRIORITY_OPTIONS = \[([^\]]+)\]/)?.[1] ?? '';
+    for (const p of [...priorities.matchAll(/"([a-z]+)"/g)].map((m) => m[1])) {
+      expect(typeof lookup(`editClient.tasks.priorities.${p}`)).toBe('string');
+    }
+    for (const f of ['owner', 'stage', 'relationshipStatus', 'source', 'lastContact', 'nextFollowUp']) {
+      expect(typeof lookup(`editClient.overview.${f}`)).toBe('string');
+    }
     for (const tab of ['overview', 'details', 'activity', 'tasks', 'contacts']) {
       expect(typeof lookup(`editClient.tabs.${tab}`)).toBe('string');
     }
