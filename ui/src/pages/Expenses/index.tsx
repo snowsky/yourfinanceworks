@@ -783,7 +783,7 @@ const Expenses = () => {
             {/* Header with filters */}
             <div className="flex min-w-0 flex-col justify-between gap-6 border-b border-border/50 pb-6 lg:flex-row">
               <div className="min-w-0">
-                <h2 className="text-2xl font-bold text-foreground">{t('expenses.list_title')}</h2>
+                <h2 className="text-2xl font-bold text-foreground whitespace-nowrap">{t('expenses.list_title')}</h2>
               </div>
               <ExpenseFilters
                 searchQuery={searchQuery}

@@ -8,7 +8,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
   onClose,
   onSave,
   currentPreferences,
-  primaryColor = '#007bff',
+  primaryColor,
   darkMode = false
 }) => {
   const { t } = useTranslation();
@@ -122,7 +122,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
       <div 
         ref={modalRef}
         className="cookie-preferences-modal"
-        style={{ '--cookie-primary-color': primaryColor } as React.CSSProperties}
+        style={primaryColor ? ({ '--cookie-primary-color': primaryColor } as React.CSSProperties) : undefined}
       >
         <div className="cookie-preferences-header">
           <h2 id="cookie-preferences-title" className="cookie-preferences-title">

@@ -158,8 +158,10 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
         ref={ref}
       >
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+          {/* min-h matches the icon box and leading-4 fits two lines in it, so a
+              wrapped title does not push its value below the neighbouring cards */}
+          <div className="flex min-h-8 items-center justify-between gap-2">
+            <h3 className="text-sm font-medium leading-4 text-muted-foreground group-hover:text-foreground transition-colors">
               {title}
             </h3>
             {Icon && (

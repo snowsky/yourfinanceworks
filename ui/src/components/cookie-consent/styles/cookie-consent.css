@@ -1,26 +1,31 @@
 /* Cookie Consent Banner - CSS Custom Properties and Base Styles */
 
 :root {
-  /* Primary Colors */
-  --cookie-primary-color: #007bff;
-  --cookie-primary-hover: #0056b3;
-  --cookie-primary-active: #004085;
+  /*
+   * Colours follow the app theme tokens (index.css), so the banner matches
+   * whichever theme is active. The app switches themes with a class on <html>,
+   * not [data-theme], so the light/dark pairs below resolve to the same tokens.
+   */
+  --cookie-primary-color: hsl(var(--primary));
+  --cookie-primary-hover: hsl(var(--primary) / 0.9);
+  --cookie-primary-active: hsl(var(--primary) / 0.8);
+  --cookie-primary-text: hsl(var(--primary-foreground));
 
   /* Background Colors */
-  --cookie-bg-light: rgba(255, 255, 255, 0.85);
-  --cookie-bg-dark: rgba(26, 26, 26, 0.85);
+  --cookie-bg-light: hsl(var(--background) / 0.92);
+  --cookie-bg-dark: hsl(var(--background) / 0.92);
   --cookie-overlay-light: rgba(0, 0, 0, 0.3);
   --cookie-overlay-dark: rgba(0, 0, 0, 0.5);
 
   /* Text Colors */
-  --cookie-text-light: #333333;
-  --cookie-text-dark: #ffffff;
-  --cookie-text-muted-light: #666666;
-  --cookie-text-muted-dark: #cccccc;
+  --cookie-text-light: hsl(var(--foreground));
+  --cookie-text-dark: hsl(var(--foreground));
+  --cookie-text-muted-light: hsl(var(--muted-foreground));
+  --cookie-text-muted-dark: hsl(var(--muted-foreground));
 
   /* Border and Shadow */
-  --cookie-border-light: #e0e0e0;
-  --cookie-border-dark: #404040;
+  --cookie-border-light: hsl(var(--border));
+  --cookie-border-dark: hsl(var(--border));
   --cookie-border-radius: 8px;
   --cookie-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   --cookie-shadow-dark: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -355,7 +360,7 @@
 
 .cookie-banner__button--primary {
   background-color: var(--cookie-primary-color);
-  color: white;
+  color: var(--cookie-primary-text);
   border: 2px solid var(--cookie-primary-color);
 }
 
@@ -507,7 +512,7 @@ anced Accessibility Styles */
 .cookie-banner__button--primary {
   /* Ensure 4.5:1 contrast ratio */
   background-color: var(--cookie-primary-color);
-  color: white;
+  color: var(--cookie-primary-text);
 }
 
 .cookie-banner__button--secondary {
@@ -585,19 +590,6 @@ anced Accessibility Styles */
     min-width: 48px;
     padding: var(--cookie-spacing-md) var(--cookie-spacing-lg);
   }
-}
-
-/* Color Blind Accessibility - Pattern/Shape Indicators */
-.cookie-banner__button--primary::before {
-  content: '';
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 6px;
-  height: 6px;
-  background-color: currentColor;
-  border-radius: 50%;
-  opacity: 0.7;
 }
 
 /* Ensure text remains readable at all zoom levels */
@@ -751,7 +743,7 @@ erencesModal Component Styles */
 
 .cookie-preferences-button--primary {
   background-color: var(--cookie-primary-color);
-  color: white;
+  color: var(--cookie-primary-text);
   border: 2px solid var(--cookie-primary-color);
 }
 
