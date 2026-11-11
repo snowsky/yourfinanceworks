@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableEmptyState, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { Input } from '@/components/ui/input';
@@ -459,15 +459,11 @@ export function ExpenseTable({
           ) : (
             <TableRow>
               <TableCell colSpan={15} className="h-auto p-0 border-none">
-                <div className="text-center py-20 bg-muted/5 rounded-xl border-2 border-dashed border-muted-foreground/20 m-4">
-                  <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Receipt className="h-8 w-8 text-primary" />
-                  </div>
-                  <h3 className="text-xl font-bold mb-2">{t('expenses.no_expenses_yet')}</h3>
-                  <p className="text-muted-foreground max-w-sm mx-auto">
-                    {t('expenses.no_expenses_description')}
-                  </p>
-                </div>
+                <TableEmptyState
+                  icon={<Receipt />}
+                  title={t('expenses.no_expenses_yet')}
+                  description={t('expenses.no_expenses_description')}
+                />
               </TableCell>
             </TableRow>
           )}
