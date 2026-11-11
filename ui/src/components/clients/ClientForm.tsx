@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { ProfessionalInput } from "@/components/ui/professional-input";
 import { ProfessionalButton } from "@/components/ui/professional-button";
-import { ProfessionalCard, ProfessionalCardHeader, ProfessionalCardTitle, ProfessionalCardContent, ProfessionalCardFooter } from "@/components/ui/professional-card";
+import { ProfessionalCard, ProfessionalCardContent, ProfessionalCardFooter } from "@/components/ui/professional-card";
 import { toast } from "sonner";
 import { clientApi, Client, getErrorMessage } from "@/lib/api";
 import { CurrencySelector } from "@/components/ui/currency-selector";
@@ -104,12 +104,8 @@ export function ClientForm({ client, isEdit = false }: ClientFormProps) {
 
   return (
     <ProfessionalCard className="w-full max-w-4xl mx-auto backdrop-blur-sm bg-card/95 shadow-xl border-primary/10">
-      <ProfessionalCardHeader className="pb-6 border-b border-border/50">
-        <ProfessionalCardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-          {isEdit ? t('clientForm.editClient') : t('clientForm.createNewClient')}
-        </ProfessionalCardTitle>
-      </ProfessionalCardHeader>
-      <ProfessionalCardContent className="pt-8">
+      {/* No card title: the page header above already names the form */}
+      <ProfessionalCardContent className="pt-2">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

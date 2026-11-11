@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { PageHeader } from '@/components/ui/professional-layout';
 import { InvoiceFormWithApproval } from "@/components/invoices/InvoiceFormWithApproval";
 import { InvoiceCreationChoice } from "@/components/invoices/InvoiceCreationChoice";
 import { InventoryInvoiceForm } from "@/components/inventory/InventoryInvoiceForm";
@@ -126,12 +127,10 @@ const NewInvoice = () => {
     return (
       <>
         <div className="h-full space-y-6 fade-in">
-          <div>
-            <h1 className="text-3xl font-bold">{t("invoices.new_invoice")}</h1>
-            <p className="text-muted-foreground">
-              {fromBankStatement ? t('invoices.create_invoice_from_bank_statement') : t('invoices.quick_create_guided_create_description')}
-            </p>
-          </div>
+          <PageHeader
+            title={t("invoices.new_invoice")}
+            description={fromBankStatement ? t('invoices.create_invoice_from_bank_statement') : t('invoices.quick_create_guided_create_description')}
+          />
 
           <div className="slide-in">
             <InvoiceFormWithApproval
@@ -149,10 +148,7 @@ const NewInvoice = () => {
   return (
     <>
       <div className="h-full space-y-6 fade-in">
-        <div>
-          <h1 className="text-3xl font-bold">{t("invoices.new_invoice")}</h1>
-          <p className="text-muted-foreground">{t('invoices.create_invoice_different_ways')}</p>
-        </div>
+        <PageHeader title={t("invoices.new_invoice")} description={t('invoices.choose_creation_method')} />
 
         <div className="slide-in">
           <InvoiceCreationChoice
