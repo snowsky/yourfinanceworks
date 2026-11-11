@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { PoweredBy } from '@/components/sharing/PoweredBy';
 import { ShareAccessRequiredError, shareTokenApi, type ShareAccessRequirement } from '@/lib/api/share-tokens';
-import { AlertCircle, FileText, Receipt, CreditCard, Users, Landmark, TrendingUp, Download, LockKeyhole } from 'lucide-react';
+import { AlertCircle, Loader2, FileText, Receipt, CreditCard, Users, Landmark, TrendingUp, Download, LockKeyhole } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +32,7 @@ function formatDate(d: string | null | undefined) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function InvoiceView({ data }: { data: any }) {
+  const { t } = useTranslation();
   const b = data.branding || null;
   const brandColor = b && isHexColor(b.brand_color) ? b.brand_color : DEFAULT_BRANDING.brand_color;
   const accentColor = b && isHexColor(b.accent_color) ? b.accent_color : DEFAULT_BRANDING.accent_color;
@@ -55,7 +58,7 @@ function InvoiceView({ data }: { data: any }) {
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-xs uppercase tracking-wide opacity-80">Invoice</p>
+            <p className="text-xs uppercase tracking-wide opacity-80">{t('sharedRecord.types.invoice')}</p>
             <p className="font-mono font-bold">{data.number}</p>
             <p className="text-xs capitalize opacity-80">{data.status}</p>
           </div>
@@ -63,19 +66,19 @@ function InvoiceView({ data }: { data: any }) {
       )}
 
       <div className="grid grid-cols-2 gap-4 text-sm">
-        {!b && <div><span className="text-muted-foreground">Invoice #</span><p className="font-medium">{data.number}</p></div>}
-        {!b && <div><span className="text-muted-foreground">Status</span><p className="font-medium capitalize">{data.status}</p></div>}
-        <div><span className="text-muted-foreground">Due date</span><p className="font-medium">{formatDate(data.due_date)}</p></div>
-        <div><span className="text-muted-foreground">Bill to</span><p className="font-medium">{data.client_name || '—'}{data.client_company ? ` · ${data.client_company}` : ''}</p></div>
-        {data.description && <div className="col-span-2"><span className="text-muted-foreground">Description</span><p className="font-medium">{data.description}</p></div>}
+        {!b && <div><span className="text-muted-foreground">{t('sharedRecord.fields.invoice_number')}</span><p className="font-medium">{data.number}</p></div>}
+        {!b && <div><span className="text-muted-foreground">{t('sharedRecord.fields.status')}</span><p className="font-medium capitalize">{data.status}</p></div>}
+        <div><span className="text-muted-foreground">{t('sharedRecord.fields.due_date')}</span><p className="font-medium">{formatDate(data.due_date)}</p></div>
+        <div><span className="text-muted-foreground">{t('sharedRecord.fields.bill_to')}</span><p className="font-medium">{data.client_name || '—'}{data.client_company ? ` · ${data.client_company}` : ''}</p></div>
+        {data.description && <div className="col-span-2"><span className="text-muted-foreground">{t('sharedRecord.fields.description')}</span><p className="font-medium">{data.description}</p></div>}
       </div>
       {data.items?.length > 0 && (
         <div>
-          <p className="text-sm font-semibold mb-2">Line items</p>
+          <p className="text-sm font-semibold mb-2">{t('sharedRecord.lineItems')}</p>
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="text-muted-foreground" style={{ borderBottom: `2px solid ${accentColor}` }}>
-                <th className="text-left py-1">Description</th><th className="text-right py-1">Qty</th><th className="text-right py-1">Price</th><th className="text-right py-1">Amount</th>
+                <th className="text-left py-1">{t('sharedRecord.fields.description')}</th><th className="text-right py-1">{t('sharedRecord.fields.qty')}</th><th className="text-right py-1">{t('sharedRecord.fields.price')}</th><th className="text-right py-1">{t('sharedRecord.fields.amount')}</th>
               </tr>
             </thead>
             <tbody>
@@ -93,9 +96,9 @@ function InvoiceView({ data }: { data: any }) {
         </div>
       )}
       <div className="text-right space-y-1 text-sm">
-        <p>Subtotal: {formatCurrency(data.subtotal, data.currency)}</p>
-        {data.discount_value > 0 && <p>Discount ({data.discount_type}): {data.discount_type === 'percentage' ? `${data.discount_value}%` : formatCurrency(data.discount_value, data.currency)}</p>}
-        <p className="text-base font-bold" style={b ? { color: brandColor } : undefined}>Total: {formatCurrency(data.amount, data.currency)}</p>
+        <p>{t('sharedRecord.subtotal')}: {formatCurrency(data.subtotal, data.currency)}</p>
+        {data.discount_value > 0 && <p>{t('sharedRecord.discount')} ({data.discount_type}): {data.discount_type === 'percentage' ? `${data.discount_value}%` : formatCurrency(data.discount_value, data.currency)}</p>}
+        <p className="text-base font-bold" style={b ? { color: brandColor } : undefined}>{t('sharedRecord.total')}: {formatCurrency(data.amount, data.currency)}</p>
       </div>
       {b?.footer_text && (
         <p className="pt-3 border-t text-xs text-muted-foreground text-center">{b.footer_text}</p>
@@ -106,67 +109,71 @@ function InvoiceView({ data }: { data: any }) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ExpenseView({ data }: { data: any }) {
+  const { t } = useTranslation();
   return (
     <div className="grid grid-cols-2 gap-4 text-sm">
-      <div><span className="text-muted-foreground">Amount</span><p className="font-medium">{formatCurrency(data.total_amount ?? data.amount, data.currency)}</p></div>
-      <div><span className="text-muted-foreground">Category</span><p className="font-medium">{data.category}</p></div>
-      <div><span className="text-muted-foreground">Date</span><p className="font-medium">{formatDate(data.expense_date)}</p></div>
-      <div><span className="text-muted-foreground">Status</span><p className="font-medium capitalize">{data.status}</p></div>
-      {data.vendor && <div><span className="text-muted-foreground">Vendor</span><p className="font-medium">{data.vendor}</p></div>}
-      {data.payment_method && <div><span className="text-muted-foreground">Payment method</span><p className="font-medium">{data.payment_method}</p></div>}
+      <div><span className="text-muted-foreground">{t('sharedRecord.fields.amount')}</span><p className="font-medium">{formatCurrency(data.total_amount ?? data.amount, data.currency)}</p></div>
+      <div><span className="text-muted-foreground">{t('sharedRecord.fields.category')}</span><p className="font-medium">{data.category}</p></div>
+      <div><span className="text-muted-foreground">{t('sharedRecord.fields.date')}</span><p className="font-medium">{formatDate(data.expense_date)}</p></div>
+      <div><span className="text-muted-foreground">{t('sharedRecord.fields.status')}</span><p className="font-medium capitalize">{data.status}</p></div>
+      {data.vendor && <div><span className="text-muted-foreground">{t('sharedRecord.fields.vendor')}</span><p className="font-medium">{data.vendor}</p></div>}
+      {data.payment_method && <div><span className="text-muted-foreground">{t('sharedRecord.fields.payment_method')}</span><p className="font-medium">{data.payment_method}</p></div>}
     </div>
   );
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function PaymentView({ data }: { data: any }) {
+  const { t } = useTranslation();
   return (
     <div className="grid grid-cols-2 gap-4 text-sm">
-      <div><span className="text-muted-foreground">Amount</span><p className="font-medium">{formatCurrency(data.amount, data.currency)}</p></div>
-      <div><span className="text-muted-foreground">Date</span><p className="font-medium">{formatDate(data.payment_date)}</p></div>
-      <div><span className="text-muted-foreground">Method</span><p className="font-medium">{data.payment_method}</p></div>
-      {data.invoice_number && <div><span className="text-muted-foreground">Invoice #</span><p className="font-medium">{data.invoice_number}</p></div>}
+      <div><span className="text-muted-foreground">{t('sharedRecord.fields.amount')}</span><p className="font-medium">{formatCurrency(data.amount, data.currency)}</p></div>
+      <div><span className="text-muted-foreground">{t('sharedRecord.fields.date')}</span><p className="font-medium">{formatDate(data.payment_date)}</p></div>
+      <div><span className="text-muted-foreground">{t('sharedRecord.fields.method')}</span><p className="font-medium">{data.payment_method}</p></div>
+      {data.invoice_number && <div><span className="text-muted-foreground">{t('sharedRecord.fields.invoice_number')}</span><p className="font-medium">{data.invoice_number}</p></div>}
     </div>
   );
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ClientView({ data }: { data: any }) {
+  const { t } = useTranslation();
   return (
     <div className="grid grid-cols-2 gap-4 text-sm">
-      <div><span className="text-muted-foreground">Name</span><p className="font-medium">{data.name || '—'}</p></div>
-      {data.company && <div><span className="text-muted-foreground">Company</span><p className="font-medium">{data.company}</p></div>}
-      <div><span className="text-muted-foreground">Member since</span><p className="font-medium">{formatDate(data.created_at)}</p></div>
+      <div><span className="text-muted-foreground">{t('sharedRecord.fields.name')}</span><p className="font-medium">{data.name || '—'}</p></div>
+      {data.company && <div><span className="text-muted-foreground">{t('sharedRecord.fields.company')}</span><p className="font-medium">{data.company}</p></div>}
+      <div><span className="text-muted-foreground">{t('sharedRecord.fields.member_since')}</span><p className="font-medium">{formatDate(data.created_at)}</p></div>
     </div>
   );
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function BankStatementView({ data }: { data: any }) {
+  const { t } = useTranslation();
   const transactions = (data.transactions || []) as Array<Record<string, unknown>>;
   const hasBalance = transactions.some((tx) => tx.balance != null);
   const hasCategory = transactions.some((tx) => tx.category);
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 text-sm">
-        {data.bank_name && <div className="col-span-2"><span className="text-muted-foreground">Bank</span><p className="font-medium">{data.bank_name}</p></div>}
-        <div><span className="text-muted-foreground">File</span><p className="font-medium">{data.original_filename}</p></div>
-        <div><span className="text-muted-foreground">Card type</span><p className="font-medium capitalize">{data.card_type}</p></div>
-        <div><span className="text-muted-foreground">Status</span><p className="font-medium capitalize">{data.status}</p></div>
-        <div><span className="text-muted-foreground">Transactions</span><p className="font-medium">{data.extracted_count}</p></div>
+        {data.bank_name && <div className="col-span-2"><span className="text-muted-foreground">{t('sharedRecord.fields.bank')}</span><p className="font-medium">{data.bank_name}</p></div>}
+        <div><span className="text-muted-foreground">{t('sharedRecord.fields.file')}</span><p className="font-medium">{data.original_filename}</p></div>
+        <div><span className="text-muted-foreground">{t('sharedRecord.fields.card_type')}</span><p className="font-medium capitalize">{data.card_type}</p></div>
+        <div><span className="text-muted-foreground">{t('sharedRecord.fields.status')}</span><p className="font-medium capitalize">{data.status}</p></div>
+        <div><span className="text-muted-foreground">{t('sharedRecord.fields.transactions')}</span><p className="font-medium">{data.extracted_count}</p></div>
       </div>
       {data.transactions?.length > 0 ? (
         <div>
-          <p className="text-sm font-semibold mb-2">Transactions ({data.transactions.length})</p>
+          <p className="text-sm font-semibold mb-2">{t('sharedRecord.fields.transactions')} ({data.transactions.length})</p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse min-w-[480px]">
               <thead>
                 <tr className="border-b text-muted-foreground">
-                  <th className="text-left py-1.5 pr-3">Date</th>
-                  <th className="text-left py-1.5 pr-3">Description</th>
-                  {hasCategory && <th className="text-left py-1.5 pr-3">Category</th>}
-                  <th className="text-right py-1.5 pr-3">Amount</th>
-                  {hasBalance && <th className="text-right py-1.5">Balance</th>}
+                  <th className="text-left py-1.5 pr-3">{t('sharedRecord.fields.date')}</th>
+                  <th className="text-left py-1.5 pr-3">{t('sharedRecord.fields.description')}</th>
+                  {hasCategory && <th className="text-left py-1.5 pr-3">{t('sharedRecord.fields.category')}</th>}
+                  <th className="text-right py-1.5 pr-3">{t('sharedRecord.fields.amount')}</th>
+                  {hasBalance && <th className="text-right py-1.5">{t('sharedRecord.fields.balance')}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -187,7 +194,7 @@ function BankStatementView({ data }: { data: any }) {
           </div>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground italic">No transactions available.</p>
+        <p className="text-sm text-muted-foreground italic">{t('sharedRecord.noTransactions')}</p>
       )}
     </div>
   );
@@ -195,19 +202,20 @@ function BankStatementView({ data }: { data: any }) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function PortfolioView({ data }: { data: any }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 text-sm">
-        <div><span className="text-muted-foreground">Name</span><p className="font-medium">{data.name}</p></div>
-        <div><span className="text-muted-foreground">Type</span><p className="font-medium capitalize">{data.portfolio_type}</p></div>
-        <div><span className="text-muted-foreground">Currency</span><p className="font-medium">{data.currency}</p></div>
-        <div><span className="text-muted-foreground">Created</span><p className="font-medium">{formatDate(data.created_at)}</p></div>
+        <div><span className="text-muted-foreground">{t('sharedRecord.fields.name')}</span><p className="font-medium">{data.name}</p></div>
+        <div><span className="text-muted-foreground">{t('sharedRecord.fields.type')}</span><p className="font-medium capitalize">{data.portfolio_type}</p></div>
+        <div><span className="text-muted-foreground">{t('sharedRecord.fields.currency')}</span><p className="font-medium">{data.currency}</p></div>
+        <div><span className="text-muted-foreground">{t('sharedRecord.fields.created')}</span><p className="font-medium">{formatDate(data.created_at)}</p></div>
       </div>
       {data.holdings?.length > 0 && (
         <div>
-          <p className="text-sm font-semibold mb-2">Holdings</p>
+          <p className="text-sm font-semibold mb-2">{t('sharedRecord.holdings')}</p>
           <table className="w-full text-sm border-collapse">
-            <thead><tr className="border-b text-muted-foreground"><th className="text-left py-1">Symbol</th><th className="text-left py-1">Name</th><th className="text-left py-1">Type</th><th className="text-right py-1">Quantity</th></tr></thead>
+            <thead><tr className="border-b text-muted-foreground"><th className="text-left py-1">{t('sharedRecord.fields.symbol')}</th><th className="text-left py-1">{t('sharedRecord.fields.name')}</th><th className="text-left py-1">{t('sharedRecord.fields.type')}</th><th className="text-right py-1">{t('sharedRecord.fields.quantity')}</th></tr></thead>
             <tbody>
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {data.holdings.map((h: any, i: number) => (
@@ -228,6 +236,7 @@ function PortfolioView({ data }: { data: any }) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function DocVaultItemView({ data }: { data: any }) {
+  const { t } = useTranslation();
   const metadata = data.public_metadata || {};
   const cloud = metadata.cloud_integration;
   const documentLabel = metadata.document_label;
@@ -235,21 +244,21 @@ function DocVaultItemView({ data }: { data: any }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 text-sm">
-        <div><span className="text-muted-foreground">Title</span><p className="font-medium">{data.title || '—'}</p></div>
-        <div><span className="text-muted-foreground">Type</span><p className="font-medium capitalize">{String(data.category || '').replace(/_/g, ' ')}</p></div>
-        {data.owner_name && <div><span className="text-muted-foreground">Owner</span><p className="font-medium">{data.owner_name}</p></div>}
-        {data.issuer && <div><span className="text-muted-foreground">Issuer</span><p className="font-medium">{data.issuer}</p></div>}
-        {data.issue_date && <div><span className="text-muted-foreground">Issue date</span><p className="font-medium">{formatDate(data.issue_date)}</p></div>}
-        {data.expiry_date && <div><span className="text-muted-foreground">Expiry date</span><p className="font-medium">{formatDate(data.expiry_date)}</p></div>}
-        {data.file_name && <div><span className="text-muted-foreground">File</span><p className="font-medium">{data.file_name}</p></div>}
-        {cloud?.provider_label && <div><span className="text-muted-foreground">Cloud source</span><p className="font-medium">{cloud.provider_label}</p></div>}
-        {documentLabel && <div><span className="text-muted-foreground">Label</span><p className="font-medium capitalize">{String(documentLabel).replace(/_/g, ' ')}</p></div>}
-        {approvalStatus && <div><span className="text-muted-foreground">Approval</span><p className="font-medium capitalize">{String(approvalStatus).replace(/_/g, ' ')}</p></div>}
-        <div><span className="text-muted-foreground">Created</span><p className="font-medium">{formatDate(data.created_at)}</p></div>
+        <div><span className="text-muted-foreground">{t('sharedRecord.fields.title')}</span><p className="font-medium">{data.title || '—'}</p></div>
+        <div><span className="text-muted-foreground">{t('sharedRecord.fields.type')}</span><p className="font-medium capitalize">{String(data.category || '').replace(/_/g, ' ')}</p></div>
+        {data.owner_name && <div><span className="text-muted-foreground">{t('sharedRecord.fields.owner')}</span><p className="font-medium">{data.owner_name}</p></div>}
+        {data.issuer && <div><span className="text-muted-foreground">{t('sharedRecord.fields.issuer')}</span><p className="font-medium">{data.issuer}</p></div>}
+        {data.issue_date && <div><span className="text-muted-foreground">{t('sharedRecord.fields.issue_date')}</span><p className="font-medium">{formatDate(data.issue_date)}</p></div>}
+        {data.expiry_date && <div><span className="text-muted-foreground">{t('sharedRecord.fields.expiry_date')}</span><p className="font-medium">{formatDate(data.expiry_date)}</p></div>}
+        {data.file_name && <div><span className="text-muted-foreground">{t('sharedRecord.fields.file')}</span><p className="font-medium">{data.file_name}</p></div>}
+        {cloud?.provider_label && <div><span className="text-muted-foreground">{t('sharedRecord.fields.cloud_source')}</span><p className="font-medium">{cloud.provider_label}</p></div>}
+        {documentLabel && <div><span className="text-muted-foreground">{t('sharedRecord.fields.label')}</span><p className="font-medium capitalize">{String(documentLabel).replace(/_/g, ' ')}</p></div>}
+        {approvalStatus && <div><span className="text-muted-foreground">{t('sharedRecord.fields.approval')}</span><p className="font-medium capitalize">{String(approvalStatus).replace(/_/g, ' ')}</p></div>}
+        <div><span className="text-muted-foreground">{t('sharedRecord.fields.created')}</span><p className="font-medium">{formatDate(data.created_at)}</p></div>
       </div>
       {data.tags?.length > 0 && (
         <div>
-          <span className="text-sm text-muted-foreground">Tags</span>
+          <span className="text-sm text-muted-foreground">{t('sharedRecord.fields.tags')}</span>
           <div className="mt-2 flex flex-wrap gap-2">
             {data.tags.map((tag: string) => (
               <span key={tag} className="rounded-md border px-2 py-1 text-xs">{tag}</span>
@@ -258,7 +267,7 @@ function DocVaultItemView({ data }: { data: any }) {
         </div>
       )}
       <p className="text-sm text-muted-foreground">
-        Sensitive vault details and file contents are not included in shared DocVault item views.
+        {t('sharedRecord.docvaultNotice')}
       </p>
     </div>
   );
@@ -320,17 +329,10 @@ function buildRecordCsv(recordType: string, data: any): { csv: string; filename:
   return null;
 }
 
-const RECORD_LABELS: Record<string, string> = {
-  invoice: 'Invoice',
-  expense: 'Expense',
-  payment: 'Payment',
-  client: 'Client',
-  bank_statement: 'Bank Statement',
-  portfolio: 'Investment Portfolio',
-  docvault_item: 'DocVault Item',
-};
+const RECORD_TYPES = ['invoice', 'expense', 'payment', 'client', 'bank_statement', 'portfolio', 'docvault_item'];
 
 export default function SharedRecord() {
+  const { t } = useTranslation();
   const { token } = useParams<{ token: string }>();
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -373,7 +375,7 @@ export default function SharedRecord() {
       setAccessRequirement(null);
       setVerificationValue('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to verify this shared link');
+      setError(e instanceof Error ? e.message : t('sharedRecord.verifyFailed'));
     } finally {
       setVerifying(false);
     }
@@ -381,26 +383,29 @@ export default function SharedRecord() {
 
   const recordType = (data?.record_type as string) ?? '';
   const Icon = RECORD_ICONS[recordType] ?? FileText;
-  const label = RECORD_LABELS[recordType] ?? 'Record';
+  const label = RECORD_TYPES.includes(recordType) ? t(`sharedRecord.types.${recordType}`) : t('sharedRecord.types.record');
 
   const isBankStatement = recordType === 'bank_statement';
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-start p-6">
+    <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-start p-6">
       <div className={`w-full ${isBankStatement ? 'max-w-4xl' : 'max-w-2xl'} space-y-6 mt-8`}>
         {loading && (
           <Card>
-            <CardContent className="py-12 text-center text-muted-foreground text-sm">Loading…</CardContent>
+            <CardContent role="status" className="py-12 flex items-center justify-center gap-3 text-muted-foreground text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              {t('common.loading')}
+            </CardContent>
           </Card>
         )}
 
         {error && (
           <Card>
             <CardContent className="py-12">
-              <div className="flex flex-col items-center gap-3 text-center">
-                <AlertCircle className="h-8 w-8 text-destructive" />
+              <div role="alert" className="flex flex-col items-center gap-3 text-center">
+                <AlertCircle className="h-8 w-8 text-destructive" aria-hidden="true" />
                 <p className="font-medium">{error}</p>
-                <p className="text-sm text-muted-foreground">This link may have been revoked or may have expired.</p>
+                <p className="text-sm text-muted-foreground">{t('sharedRecord.linkHint')}</p>
               </div>
             </CardContent>
           </Card>
@@ -410,8 +415,8 @@ export default function SharedRecord() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
-                <LockKeyhole className="h-5 w-5" />
-                Verification Required
+                <LockKeyhole className="h-5 w-5" aria-hidden="true" />
+                {t('sharedRecord.verification.title')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -419,8 +424,8 @@ export default function SharedRecord() {
                 <div className="space-y-2">
                   <Label htmlFor="share-verification">
                     {accessRequirement.access_type === 'question'
-                      ? accessRequirement.security_question || 'Answer the security question'
-                      : 'Password'}
+                      ? accessRequirement.security_question || t('sharedRecord.verification.questionFallback')
+                      : t('sharedRecord.verification.password')}
                   </Label>
                   <Input
                     id="share-verification"
@@ -431,7 +436,7 @@ export default function SharedRecord() {
                   />
                 </div>
                 <Button type="submit" disabled={verifying || !verificationValue.trim()}>
-                  {verifying ? 'Verifying...' : 'View Record'}
+                  {verifying ? t('sharedRecord.verification.verifying') : t('sharedRecord.verification.submit')}
                 </Button>
               </form>
             </CardContent>
@@ -456,7 +461,7 @@ export default function SharedRecord() {
                       onClick={() => downloadCsv(exportable.csv, exportable.filename)}
                     >
                       <Download className="h-4 w-4 mr-1" />
-                      Export CSV
+                      {t('sharedRecord.exportCsv')}
                     </Button>
                   );
                 })()}
@@ -464,7 +469,7 @@ export default function SharedRecord() {
             </CardHeader>
             <CardContent>
               {recordType === 'invoice' && typeof data.__html === 'string'
-                ? <iframe title="Invoice" sandbox="" srcDoc={data.__html as string} className="w-full min-h-[1000px] border rounded" />
+                ? <iframe title={t('sharedRecord.types.invoice')} sandbox="" srcDoc={data.__html as string} className="w-full min-h-[1000px] border rounded" />
                 : recordType === 'invoice' && <InvoiceView data={data} />}
               {recordType === 'expense' && <ExpenseView data={data} />}
               {recordType === 'payment' && <PaymentView data={data} />}
@@ -476,9 +481,7 @@ export default function SharedRecord() {
           </Card>
         )}
 
-        <p className="text-center text-xs text-muted-foreground">
-          Powered by <a href="/" className="underline hover:text-foreground">YourFinanceWORKS</a>
-        </p>
+        <PoweredBy />
       </div>
     </div>
   );

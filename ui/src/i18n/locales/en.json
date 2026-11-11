@@ -1,6 +1,7 @@
 {
   "language": "en",
   "common": {
+    "powered_by": "Powered by",
     "loading": "Loading...",
     "save": "Save",
     "cancel": "Cancel",
@@ -211,6 +212,94 @@
   },
   "roles": {
     "administrator": "Administrator"
+  },
+  "portal": {
+    "defaultName": "Invoice portal",
+    "genericError": "Something went wrong. Please try again.",
+    "notFound": {
+      "title": "Portal not found",
+      "description": "This link may be incorrect or no longer active."
+    },
+    "login": {
+      "subtitle": "Sign in to view your invoices",
+      "emailLabel": "Email address",
+      "emailPlaceholder": "you@example.com",
+      "submit": "Email me a sign-in link",
+      "sending": "Sending…",
+      "sentTitle": "Check your email",
+      "sentBody": "If {{email}} matches an account, a secure sign-in link is on its way. It expires in 60 minutes."
+    },
+    "verify": {
+      "signingIn": "Signing you in…",
+      "failedTitle": "Sign-in failed",
+      "requestNew": "Request a new link"
+    }
+  },
+  "sharedRecord": {
+    "types": {
+      "invoice": "Invoice",
+      "expense": "Expense",
+      "payment": "Payment",
+      "client": "Client",
+      "bank_statement": "Bank Statement",
+      "portfolio": "Investment Portfolio",
+      "docvault_item": "DocVault Item",
+      "record": "Record"
+    },
+    "fields": {
+      "amount": "Amount",
+      "approval": "Approval",
+      "balance": "Balance",
+      "bank": "Bank",
+      "bill_to": "Bill to",
+      "card_type": "Card type",
+      "category": "Category",
+      "cloud_source": "Cloud source",
+      "company": "Company",
+      "created": "Created",
+      "currency": "Currency",
+      "date": "Date",
+      "description": "Description",
+      "due_date": "Due date",
+      "expiry_date": "Expiry date",
+      "file": "File",
+      "invoice_number": "Invoice #",
+      "issue_date": "Issue date",
+      "issuer": "Issuer",
+      "label": "Label",
+      "member_since": "Member since",
+      "method": "Method",
+      "name": "Name",
+      "owner": "Owner",
+      "payment_method": "Payment method",
+      "price": "Price",
+      "qty": "Qty",
+      "quantity": "Quantity",
+      "status": "Status",
+      "symbol": "Symbol",
+      "tags": "Tags",
+      "title": "Title",
+      "transactions": "Transactions",
+      "type": "Type",
+      "vendor": "Vendor"
+    },
+    "lineItems": "Line items",
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "total": "Total",
+    "holdings": "Holdings",
+    "noTransactions": "No transactions available.",
+    "docvaultNotice": "Sensitive vault details and file contents are not included in shared DocVault item views.",
+    "exportCsv": "Export CSV",
+    "linkHint": "This link may have been revoked or may have expired.",
+    "verifyFailed": "Failed to verify this shared link",
+    "verification": {
+      "title": "Verification Required",
+      "questionFallback": "Answer the security question",
+      "password": "Password",
+      "verifying": "Verifying...",
+      "submit": "View Record"
+    }
   },
   "notFound": {
     "title": "We can't find that page",
@@ -2300,6 +2389,7 @@
   },
   "errors": {
     "Field required": "This field is required",
+    "unknown_error": "An unknown error occurred.",
     "USER_NOT_FOUND": "User does not exist. Please sign up first.",
     "INCORRECT_PASSWORD": "Incorrect password.",
     "INACTIVE_USER": "Your account is inactive.",
