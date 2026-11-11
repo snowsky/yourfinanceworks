@@ -1,5 +1,5 @@
-import { TrendingUp } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { BrandMark } from "./BrandMark";
 
 // Decorative sample figures for the product preview. Not real data.
 const SAMPLE_BALANCE = "$84,210.55";
@@ -21,14 +21,7 @@ export function AuthBrandPanel() {
     <aside className="hidden lg:flex lg:w-[44%] xl:w-2/5 max-w-3xl flex-shrink-0 flex-col p-12 bg-muted/40 border-r border-border lg:sticky lg:top-0 lg:h-screen lg:self-start overflow-hidden">
       {/* One centred column, so the logo and preview stay together on wide screens */}
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col min-h-0">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-          <TrendingUp className="h-5 w-5 text-primary-foreground" aria-hidden="true" />
-        </div>
-        <span className="text-foreground text-lg font-bold tracking-tight leading-none">
-          YourFinanceWORKS
-        </span>
-      </div>
+      <BrandMark />
 
       <div className="flex flex-1 flex-col justify-center py-10 min-h-0">
         <h2 className="text-foreground text-3xl font-semibold tracking-tight leading-tight">

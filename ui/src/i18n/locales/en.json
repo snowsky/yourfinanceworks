@@ -212,6 +212,12 @@
   "roles": {
     "administrator": "Administrator"
   },
+  "notFound": {
+    "title": "We can't find that page",
+    "description": "The link may be out of date, or the page may have moved.",
+    "home": "Back to home",
+    "back": "Go back"
+  },
   "auth": {
     "login": "Login",
     "logout": "Logout",
@@ -242,6 +248,8 @@
     "signing_in": "Signing in...",
     "or_continue_with": "Or continue with",
     "or_sign_in_with_email": "or sign in with email",
+    "oauth_failed": "We couldn't finish signing you in. Please try again.",
+    "oauth_invalid": "That sign-in link is not valid. Please try again.",
     "show_password": "Show password",
     "hide_password": "Hide password",
     "brand": {
