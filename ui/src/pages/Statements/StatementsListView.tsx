@@ -126,9 +126,9 @@ export function StatementsListView({
         {/* Header with filters */}
         <div className="flex flex-col lg:flex-row justify-between gap-6 pb-6 border-b border-border/50">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">{t('statements.list_title')}</h2>
+            <h2 className="text-2xl font-bold text-foreground whitespace-nowrap">{t('statements.list_title')}</h2>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          <div className="flex min-w-0 flex-col sm:flex-row sm:flex-wrap lg:justify-end gap-3 items-start sm:items-center">
             {/* Search */}
             <div className="relative w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -189,7 +189,7 @@ export function StatementsListView({
 
             {/* Page Size */}
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
+              <span className="text-sm text-muted-foreground whitespace-nowrap">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
               <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(() => 1); }}>
                 <SelectTrigger className="w-[100px] h-10 rounded-lg border-border/50 bg-muted/30">
                   <SelectValue />

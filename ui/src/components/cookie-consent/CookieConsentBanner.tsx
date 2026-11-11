@@ -19,7 +19,7 @@ export interface CookieConsentRef {
 import './styles/cookie-consent.css';
 
 export const CookieConsentBanner = forwardRef<CookieConsentRef, CookieConsentProps>(({
-  primaryColor = '#007bff',
+  primaryColor,
   darkMode,
   position = 'bottom',
   message,
@@ -77,11 +77,16 @@ export const CookieConsentBanner = forwardRef<CookieConsentRef, CookieConsentPro
       containerRef.current.setAttribute('data-theme', currentTheme);
       
       // Apply custom CSS properties for theming
-      const customProperties = {
-        '--cookie-primary-color': primaryColor,
-        '--cookie-primary-hover': `${primaryColor}dd`,
-        '--cookie-primary-active': `${primaryColor}bb`,
-        '--cookie-position': position
+      // Without an explicit primaryColor the stylesheet's theme tokens apply
+      const customProperties: Record<string, string> = {
+        '--cookie-position': position,
+        ...(primaryColor
+          ? {
+              '--cookie-primary-color': primaryColor,
+              '--cookie-primary-hover': `${primaryColor}dd`,
+              '--cookie-primary-active': `${primaryColor}bb`,
+            }
+          : {}),
       };
 
       Object.entries(customProperties).forEach(([property, value]) => {

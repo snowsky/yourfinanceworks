@@ -119,7 +119,7 @@ export function ExpenseFilters({
 
       {/* Page Size */}
       <div className="flex w-full items-center gap-2 sm:w-auto">
-        <span className="text-sm text-muted-foreground">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
+        <span className="text-sm text-muted-foreground whitespace-nowrap">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
         <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
           <SelectTrigger className="w-[100px] h-10 rounded-lg border-border/50 bg-muted/30">
             <SelectValue />
