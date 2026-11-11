@@ -1085,7 +1085,7 @@ const Invoices = () => {
                                       invoiceApi.updateInvoice(invoice.id, { labels: next }).then(() => {
                                         invalidateInvoices();
                                       }).catch((err: any) => {
-                                        toast.error(err?.message || t('invoices.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
+                                        toast.error(err?.message || t('invoices.labelRemoveFailed', { defaultValue: 'Failed to remove label' }));
                                       });
                                     }}
                                   >
@@ -1111,7 +1111,7 @@ const Invoices = () => {
                                       invalidateInvoices();
                                       setNewLabelValueById((prev) => ({ ...prev, [invoice.id]: '' }));
                                     }).catch((err: any) => {
-                                      toast.error(err?.message || t('invoices.labels.add_failed', { defaultValue: 'Failed to add label' }));
+                                      toast.error(err?.message || t('invoices.labelAddFailed', { defaultValue: 'Failed to add label' }));
                                     });
                                   }
                                 }}

@@ -252,9 +252,9 @@ export function StatementsListView({
                       loadList();
                       setSelectedIds(() => []);
                       setBulkLabel('');
-                      toast.success(t('statements.labels.added', { defaultValue: 'Labels added' }));
+                      toast.success(t('statements.labelAdded', { defaultValue: 'Labels added' }));
                     } catch (e: any) {
-                      toast.error(e?.message || t('statements.labels.add_failed', { defaultValue: 'Failed to add label' }));
+                      toast.error(e?.message || t('statements.labelAddFailed', { defaultValue: 'Failed to add label' }));
                     }
                   }}
                   className="h-9 px-3 gap-1.5"
@@ -273,9 +273,9 @@ export function StatementsListView({
                       await loadList();
                       setSelectedIds(() => []);
                       setBulkLabel('');
-                      toast.success(t('statements.labels.removed', { defaultValue: 'Labels removed' }));
+                      toast.success(t('statements.labelRemoved', { defaultValue: 'Labels removed' }));
                     } catch (e: any) {
-                      toast.error(e?.message || t('statements.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
+                      toast.error(e?.message || t('statements.labelRemoveFailed', { defaultValue: 'Failed to remove label' }));
                     }
                   }}
                   className="h-9 px-3 gap-1.5"
@@ -397,7 +397,7 @@ export function StatementsListView({
                                 bankStatementApi.updateMeta(s.id, { labels: next }).then(() => {
                                   setStatements((prev) => prev.map((x) => (x.id === s.id ? { ...x, labels: next } : x)));
                                 }).catch((err: any) => {
-                                  toast.error(err?.message || t('statements.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
+                                  toast.error(err?.message || t('statements.labelRemoveFailed', { defaultValue: 'Failed to remove label' }));
                                 });
                               }}
                             >
@@ -423,7 +423,7 @@ export function StatementsListView({
                                 setStatements((prev) => prev.map((x) => (x.id === s.id ? { ...x, labels: next } : x)));
                                 setNewLabelValueById((prev) => ({ ...prev, [s.id]: '' }));
                               }).catch((err: any) => {
-                                toast.error(err?.message || t('statements.labels.add_failed', { defaultValue: 'Failed to add label' }));
+                                toast.error(err?.message || t('statements.labelAddFailed', { defaultValue: 'Failed to add label' }));
                               });
                             }
                           }}
@@ -530,19 +530,19 @@ export function StatementsListView({
                                   await bankStatementApi.reprocess(s.id);
                                   const startPolling = (window as any).startStatementPolling;
                                   if (typeof startPolling === 'function') startPolling([s.id]);
-                                  toast.success(t('statements.reprocess.started', { defaultValue: 'Reprocessing started' }));
+                                  toast.success(t('statements.reprocessStarted', { defaultValue: 'Reprocessing started' }));
                                   await loadList();
                                   setTimeout(() => {
                                     setReprocessingLocks(prev => { const next = new Set(prev); next.delete(s.id); return next; });
                                   }, 30000);
                                 } catch (err: any) {
                                   setReprocessingLocks(prev => { const next = new Set(prev); next.delete(s.id); return next; });
-                                  toast.error(err?.message || t('statements.reprocess.failed', { defaultValue: 'Failed to reprocess' }));
+                                  toast.error(err?.message || t('statements.reprocessFailedShort', { defaultValue: 'Failed to reprocess' }));
                                 }
                               }}
                             >
                               {reprocessingLocks.has(s.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
-                              {t('statements.reprocess.label', 'Reprocess')}
+                              {t('statements.reprocessLabel', 'Reprocess')}
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem
