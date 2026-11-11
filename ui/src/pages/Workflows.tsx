@@ -638,7 +638,8 @@ const WorkflowCard: React.FC<{
     onSuccess: (clone) => {
       toast.success(
         t('workflows.duplicate_success', {
-          defaultValue: `Duplicated as "${clone.name}"`,
+          name: clone.name,
+          defaultValue: 'Duplicated as "{{name}}"',
         }),
       );
       queryClient.invalidateQueries({ queryKey: ['workflows'] });

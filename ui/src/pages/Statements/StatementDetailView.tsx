@@ -190,14 +190,14 @@ export function StatementDetailView({
                     addNotification?.('processing', 'Reprocessing', `Re-analyzing ${detail?.original_filename}...`);
                     await bankStatementApi.reprocess(selected);
                     addNotification?.('success', 'Started', `Reprocessing ${detail?.original_filename}`);
-                    toast.success(t('statements.reprocess.started', { defaultValue: 'Reprocessing started' }));
+                    toast.success(t('statements.reprocessStarted', { defaultValue: 'Reprocessing started' }));
                     await openStatement(selected);
                     setTimeout(() => {
                       setReprocessingLocks(prev => { const next = new Set(prev); next.delete(selected); return next; });
                     }, 30000);
                   } catch (e: any) {
                     setReprocessingLocks(prev => { const next = new Set(prev); next.delete(selected); return next; });
-                    toast.error(e?.message || t('statements.reprocess.failed', { defaultValue: 'Failed to reprocess' }));
+                    toast.error(e?.message || t('statements.reprocessFailedShort', { defaultValue: 'Failed to reprocess' }));
                   }
                 }}
                 disabled={reprocessingLocks.has(selected) || loading}
@@ -474,7 +474,7 @@ export function StatementDetailView({
                                   const resp = await bankStatementApi.updateMeta(selected, { labels: next });
                                   setStatementLabels((resp.statement as any).labels || []);
                                 } catch (err: any) {
-                                  toast.error(err?.message || t('statements.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
+                                  toast.error(err?.message || t('statements.labelRemoveFailed', { defaultValue: 'Failed to remove label' }));
                                 }
                               }}
                             >
@@ -510,7 +510,7 @@ export function StatementDetailView({
                             setNewStatementLabel('');
                             toast.success(t('common.label_added', { defaultValue: 'Label added' }));
                           } catch (err: any) {
-                            toast.error(err?.message || t('statements.labels.add_failed', { defaultValue: 'Failed to add label' }));
+                            toast.error(err?.message || t('statements.labelAddFailed', { defaultValue: 'Failed to add label' }));
                           }
                         }
                       }}

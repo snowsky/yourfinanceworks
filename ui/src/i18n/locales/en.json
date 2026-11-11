@@ -97,7 +97,22 @@
     "analysis_error": "Analysis Error",
     "uploaded": "Uploaded",
     "download": "Download",
-    "merged": "Merged"
+    "merged": "Merged",
+    "feature_not_licensed": "Approval workflows require a commercial license. Please upgrade your license to use this feature.",
+    "select_all": "Select all",
+    "unknown_error": "Unknown error",
+    "cancelled": "Cancelled",
+    "not_started": "Not Started",
+    "not_available": "N/A",
+    "all": "All",
+    "note": "Note:",
+    "api_connecting": "Connecting to server, please wait…",
+    "copy_failed": "Failed to copy",
+    "max_labels_reached": "Maximum of 10 labels reached",
+    "label_added": "Label added",
+    "confirm_delete": "Are you sure?",
+    "delete_failed": "Failed to delete",
+    "showing_results": "Showing {{shown}} of {{total}} results"
   },
   "taxIntegration": {
     "title": "Tax Service Integration",
@@ -208,10 +223,14 @@
       "core": "Core",
       "administration": "Administration",
       "plugins": "Plugins"
-    }
+    },
+    "finances": "Finances",
+    "anomalies": "Fraud Checks",
+    "subscriptions": "Subscriptions"
   },
   "roles": {
-    "administrator": "Administrator"
+    "administrator": "Administrator",
+    "user": "User"
   },
   "portal": {
     "defaultName": "Invoice portal",
@@ -472,7 +491,8 @@
       "terms": "Terms of Service",
       "and": "and",
       "privacy_policy": "Privacy Policy"
-    }
+    },
+    "logout_failed": "Unable to log out. Please try again."
   },
   "search": {
     "placeholder": "Search invoices, clients, payments, expenses, inventory, reminders...",
@@ -785,7 +805,9 @@
       "total_paid": "Total Paid",
       "outstanding_balance": "Outstanding Balance",
       "status": "Status",
-      "actions": "Actions"
+      "actions": "Actions",
+      "statement": "Statement",
+      "created_at_by": "Created at / by"
     },
     "errors": {
       "not_found": "Invoice not found",
@@ -1032,7 +1054,56 @@
     "preview_not_supported_desc": "This file type cannot be previewed. Please download it to view.",
     "clone": "Clone",
     "move_to_recycle_bin": "Move to Recycle Bin",
-    "send_blocked_pending_approval": "This invoice must be approved before it can be sent."
+    "send_blocked_pending_approval": "This invoice must be approved before it can be sent.",
+    "client_help_content": "Select an existing client or create a new one. Client information will be used for billing and contact details.",
+    "client_help_title": "Client Selection",
+    "invoice_number_placeholder": "Leave empty to auto-generate",
+    "payer": "Payer",
+    "payer_you": "You",
+    "payer_client": "Client",
+    "preview_failed": "Preview failed",
+    "attachments_uploaded": "Attachments uploaded successfully",
+    "review_triggered_success": "Review triggered successfully",
+    "trigger_review": "Trigger Review",
+    "view_title": "View Invoice",
+    "view_description": "Review invoice details.",
+    "unsubmit": "Unsubmit",
+    "approval_request_message": "Approval Request Message",
+    "review": {
+      "accepted_success": "Review accepted successfully",
+      "accept_failed": "Failed to accept review",
+      "dismissed_success": "Review dismissed",
+      "dismiss_failed": "Failed to dismiss review",
+      "retriggered_success": "Review re-triggered",
+      "retrigger_failed": "Failed to re-trigger review",
+      "triggered": "Review triggered. The agent will process it shortly.",
+      "trigger_failed": "Failed to trigger review",
+      "cancelled": "Review cancelled.",
+      "cancel_failed": "Failed to cancel review",
+      "bulk_trigger_failed": "Failed to trigger bulk review",
+      "title": "Review",
+      "view_report": "View review report",
+      "trigger": "Run review",
+      "cancel": "Cancel review",
+      "clear_status": "Clear review status",
+      "bulk_triggered": "Review triggered for {{count}} invoices."
+    },
+    "bulk_delete_failed": "Failed to delete invoices",
+    "restore_success": "Invoice restored successfully",
+    "restore_failed": "Failed to restore invoice",
+    "permanent_delete_failed": "Failed to permanently delete invoice",
+    "clone_failed": "Failed to clone invoice",
+    "create_manually_hint": "Create manually",
+    "import_from_pdf_hint": "Upload and extract from PDF",
+    "create_with_inventory_hint": "From inventory catalog",
+    "bulk_label_placeholder": "Add or remove label",
+    "remove_label": "Remove label",
+    "labelRemoveFailed": "Failed to remove label",
+    "labelAddFailed": "Failed to add label",
+    "create_success": "Invoice created successfully!",
+    "delete_failed": "Failed to delete invoice",
+    "bulk_delete_success": "Successfully deleted {{count}} invoice",
+    "clone_success": "Cloned as {{number}}"
   },
   "clients": {
     "title": "Clients",
@@ -1091,7 +1162,17 @@
     "errors": {
       "load_failed": "Failed to load clients",
       "delete_failed": "Failed to delete client"
-    }
+    },
+    "bulk_delete_success": "Clients deleted successfully",
+    "bulk_label_placeholder": "Add or remove label",
+    "labels": {
+      "added": "Labels added",
+      "add_failed": "Failed to add label",
+      "removed": "Labels removed",
+      "remove_failed": "Failed to remove label"
+    },
+    "select_client": "Select client",
+    "remove_label": "Remove label"
   },
   "payments": {
     "title": "Payments",
@@ -1131,7 +1212,11 @@
       "date": "Date",
       "amount": "Amount",
       "method": "Method",
-      "status": "Status"
+      "status": "Status",
+      "currency": "Currency",
+      "reference": "Reference",
+      "notes": "Notes",
+      "actions": "Actions"
     },
     "stripe_sidebar": {
       "title": "Stripe",
@@ -1147,7 +1232,8 @@
     "errors": {
       "load_failed": "Failed to load payments"
     },
-    "record_payment": "Record Payment"
+    "record_payment": "Record Payment",
+    "completed": "Completed"
   },
   "settings": {
     "title": "Settings",
@@ -2493,7 +2579,8 @@
     "operation_failed": "Operation failed",
     "network_error": "Network error occurred",
     "session_expired": "Your session has expired. Please login again.",
-    "permission_denied": "You don't have permission to perform this action"
+    "permission_denied": "You don't have permission to perform this action",
+    "show_ai_notifications": "Show AI notifications"
   },
   "filters": {
     "all": "All",
@@ -2580,7 +2667,8 @@
       "summary_error": "Tax summary export failed."
     },
     "date_from": "Date From",
-    "date_to": "Date To"
+    "date_to": "Date To",
+    "search_placeholder": "Search reports..."
   },
   "analytics": {
     "title": "Analytics",
@@ -2757,7 +2845,8 @@
     "deletion_completed": "Successfully deleted {{count}} invoice(s) from the recycle bin.",
     "deletion_title": "Recycle Bin Deletion",
     "deletion_completed_title": "Recycle Bin Emptied",
-    "items": "items"
+    "items": "items",
+    "load_failed": "Failed to load recycle bin"
   },
   "expenseRecycleBin": {
     "title": "Recycle Bin",
@@ -2832,7 +2921,10 @@
     "deletion_completed": "Successfully deleted {{count}} statement(s) from the recycle bin.",
     "deletion_title": "Statement Recycle Bin Deletion",
     "deletion_completed_title": "Statement Recycle Bin Emptied",
-    "items": "items"
+    "items": "items",
+    "loading": "Loading...",
+    "permanently_delete_confirm_title": "Permanently Delete Statement",
+    "permanently_delete_confirm_description": "Are you sure you want to permanently delete this statement? This action cannot be undone."
   },
   "expenses": {
     "view": {
@@ -2873,7 +2965,8 @@
       "labels": "Labels",
       "approval_status": "Status",
       "id": "ID",
-      "created_at_by": "Created at / by"
+      "created_at_by": "Created at / by",
+      "statement": "Statement"
     },
     "loading": "Loading expenses...",
     "status_done": "Done",
@@ -2983,7 +3076,11 @@
       "notes": "Notes",
       "receipt": "Receipt (PDF, JPG, PNG)",
       "pick_date": "Pick a date",
-      "label_placeholder": "Add label"
+      "label_placeholder": "Add label",
+      "remove_failed": "Failed to remove label",
+      "add_failed": "Failed to add label",
+      "added": "Labels added",
+      "removed": "Labels removed"
     },
     "receipt_attachments": "Receipt Attachments",
     "receipt_attachments_max_10": "Receipt Attachments (max 10)",
@@ -3104,7 +3201,71 @@
     "scan_save": "Save expense",
     "scan_saved": "Expense created from the scanned bill.",
     "scan_save_failed": "Could not create the expense.",
-    "scan_failed": "Could not scan the receipt."
+    "scan_failed": "Could not scan the receipt.",
+    "loading_expense_charts": "Loading expense charts...",
+    "try_again": "Try Again",
+    "failed_to_download_attachment": "Failed to download attachment",
+    "to_delete": "DELETE",
+    "loading_attachment": "Loading attachment...",
+    "unsubmit": "Unsubmit",
+    "export": "Export",
+    "export_pdf": "PDF",
+    "export_csv": "CSV",
+    "export_zip_tooltip": "PDF + JSON + attachment files bundled in one ZIP",
+    "export_zip": "ZIP bundle",
+    "delete_success": "Expense deleted successfully",
+    "delete_failed": "Failed to delete expense",
+    "preview_not_supported": "Preview not supported for this file type",
+    "review": {
+      "accepted": "Review accepted",
+      "accept_failed": "Failed to accept review",
+      "dismissed": "Review dismissed",
+      "dismiss_failed": "Failed to dismiss review",
+      "retriggered": "Review re-triggered",
+      "retrigger_failed": "Failed to re-trigger review",
+      "triggered": "Review triggered. The agent will process it shortly.",
+      "trigger_failed": "Failed to trigger review",
+      "cancelled": "Review cancelled.",
+      "cancel_failed": "Failed to cancel review",
+      "bulk_trigger_failed": "Failed to trigger bulk review",
+      "title": "Review",
+      "view_report": "View review report",
+      "trigger": "Run review",
+      "cancel": "Cancel review",
+      "clear_status": "Clear review status",
+      "bulk_triggered": "Review triggered for {{count}} expenses."
+    },
+    "load_failed": "Failed to load expenses",
+    "receipt": {
+      "uploaded": "Receipt uploaded",
+      "failed_title": "Expense Receipt Failed",
+      "upload_failed": "Failed to upload receipt",
+      "failed_message": "Failed to upload receipt: {{error}}"
+    },
+    "reprocess": {
+      "started": "Expense reprocessing started",
+      "failed": "Failed to reprocess expense"
+    },
+    "processing_locked": "This expense is currently being processed by another operation. Please try again in a few minutes.",
+    "validation": {
+      "amount_category_required": "Amount and category are required",
+      "inventory_item_required": "Inventory consumption must include at least one item"
+    },
+    "update_success": "Expense updated",
+    "update_failed": "Failed to update expense",
+    "restore_success": "Expense restored successfully",
+    "restore_failed": "Failed to restore expense",
+    "permanent_delete_success": "Expense permanently deleted",
+    "permanent_delete_failed": "Failed to permanently delete expense",
+    "imported_receipt": "Imported receipt",
+    "no_receipt": "No receipt",
+    "selected": "selected",
+    "merge_tooltip": "Combine selected expenses into one (sources go to recycle bin)",
+    "merge_disabled_tooltip": "Select at least 2 expenses to merge",
+    "merge": "Merge",
+    "export_disabled_tooltip": "Select exactly one expense to export",
+    "bulk_delete_failed": "Failed to delete expenses",
+    "ai_receipt_unavailable": "AI-powered receipt analysis is not available."
   },
   "email": {
     "subject": "Subject",
@@ -3850,7 +4011,11 @@
       "not_started": "Not Started",
       "pending": "Pending",
       "failed": "Failed",
-      "diff_found": "Diff Found"
+      "diff_found": "Diff Found",
+      "view_report": "View review report",
+      "trigger": "Run review",
+      "cancel": "Cancel review",
+      "clear_status": "Clear review status"
     },
     "link_transfer": {
       "title": "Link Transfer",
@@ -3955,7 +4120,66 @@
     "merge": "Merge",
     "standard_view": "Standard View",
     "original_pdf": "Original PDF",
-    "split_view_hint": "Hover a transaction to highlight it in the PDF"
+    "split_view_hint": "Hover a transaction to highlight it in the PDF",
+    "review": {
+      "accepted_success": "Review accepted successfully",
+      "accept_failed": "Failed to accept review",
+      "dismissed": "Review dismissed",
+      "dismiss_failed": "Failed to dismiss review",
+      "retriggered": "Review re-triggered",
+      "retrigger_failed": "Failed to re-trigger review",
+      "triggered": "Review triggered. The agent will process it shortly.",
+      "trigger_failed": "Failed to trigger review",
+      "cancelled": "Review cancelled.",
+      "cancel_failed": "Failed to cancel review",
+      "bulk_trigger_failed": "Failed to trigger bulk review"
+    },
+    "load_failed": "Failed to load statements",
+    "detail_load_failed": "Failed to load statement",
+    "max_files_warning": "Maximum 12 files allowed. Some files were ignored.",
+    "extract_failed": "Failed to extract transactions",
+    "save_transactions_failed": "Failed to save transactions",
+    "save_success": "Changes saved successfully",
+    "save_failed": "Failed to save changes",
+    "update_success": "Statement updated",
+    "update_failed": "Failed to update statement",
+    "bulk_delete_success": "Statements deleted successfully",
+    "delete_failed": "Failed to delete statements",
+    "merge_success": "Statements merged successfully",
+    "merge_failed": "Failed to merge statements",
+    "restore_success": "Statement restored successfully",
+    "restore_failed": "Failed to restore statement",
+    "permanent_delete_success": "Statement permanently deleted",
+    "permanent_delete_failed": "Failed to permanently delete statement",
+    "export": {
+      "no_transactions": "No transactions to export",
+      "csv_success": "CSV exported successfully"
+    },
+    "expense": {
+      "create_only_debit": "Can only create expenses from debit transactions",
+      "already_created": "An expense has already been created for this transaction",
+      "create_success": "Expense created successfully",
+      "create_failed": "Failed to create expense"
+    },
+    "invoice": {
+      "create_only_credit": "Can only create invoices from credit transactions",
+      "already_created": "An invoice has already been created for this transaction"
+    },
+    "reprocessStarted": "Reprocessing started",
+    "reprocessFailedShort": "Failed to reprocess",
+    "transaction_edit_note": "Transaction information should match the uploaded bank statement file. Only edit if corrections are needed.",
+    "receipt_converted_title": "Converted to expense",
+    "receipt_detected_title": "Looks like a receipt",
+    "receipt_converted_message": "This receipt has been saved as an expense.",
+    "receipt_detected_message": "AI detected this file may be a receipt, not a bank statement. Would you like to convert the transaction(s) to expenses?",
+    "receipt_convert_all": "Convert to Expense",
+    "labelRemoveFailed": "Failed to remove label",
+    "labelAddFailed": "Failed to add label",
+    "rollup_expense_tooltip": "Create one bookkeeping expense summing all debit transactions on this statement",
+    "rollup_expense": "Create rollup expense",
+    "delete_invoice": "Delete Invoice",
+    "labelAdded": "Labels added",
+    "labelRemoved": "Labels removed"
   },
   "auditLog": {
     "title": "Audit Log",
@@ -4864,7 +5088,12 @@
     "send_success": "Invoice sent.",
     "send_failed": "Failed to send invoice.",
     "send_copy": "Send me a copy",
-    "send_confirm": "Send invoice"
+    "send_confirm": "Send invoice",
+    "livePreview": "Live Preview",
+    "livePreviewTitle": "Live Invoice Preview",
+    "generatingPreview": "Generating live preview...",
+    "previewError": "Failed to load preview",
+    "downloadPDF": "Download PDF"
   },
   "onboarding": {
     "sample_title": "New here?",
@@ -4884,5 +5113,30 @@
     "checklist_step_send_invoice": "Send an invoice to a client",
     "checklist_dismiss": "Dismiss",
     "checklist_dismiss_failed": "Could not dismiss the checklist."
-  }
+  },
+  "workflows": {
+    "create_success": "Workflow created",
+    "builder_title": "Create Workflow",
+    "name": "Workflow name",
+    "trigger": "Trigger",
+    "description_label": "Description",
+    "actions": "Actions",
+    "actions_help": "Each selected action will run when the trigger fires.",
+    "assigned_user": "Assigned teammate",
+    "assigned_user_help": "When this user is inactive at execution time, the workflow falls back to the default owner resolver.",
+    "update_success": "Workflow updated successfully",
+    "edit_title": "Edit Workflow",
+    "edit_description": "Update workflow details and enabled actions.",
+    "delete_success": "Workflow deleted successfully",
+    "delete_title": "Delete Workflow",
+    "delete_confirm_desc": "Are you sure you want to delete this workflow? This action is permanent and will cascade-delete all execution logs associated with it.",
+    "toggle_success": "Workflow updated",
+    "builder_description": "Choose from supported triggers and actions. Only executable workflow options are shown here.",
+    "duplicate_success": "Duplicated as \"{{name}}\"",
+    "description": "Automate follow-up actions across finance operations. Customise and trigger business rules based on overdue invoices, client activity, and more."
+  },
+  "finances": {
+    "subtitle": "Cash flow forecasting and your net worth in one place"
+  },
+  "max_labels_reached": "Maximum of 10 labels reached"
 }
