@@ -17,6 +17,7 @@ const FILES = [
   'pages/SharedRecord.tsx',
   'pages/portal/PortalLogin.tsx',
   'pages/portal/PortalVerify.tsx',
+  'pages/portal/PortalDashboard.tsx',
   'pages/EditClient.tsx',
 ];
 
