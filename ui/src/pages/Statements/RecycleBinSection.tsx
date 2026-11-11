@@ -52,7 +52,7 @@ export function RecycleBinSection({
                   <Trash2 className="h-6 w-6 text-destructive" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-xl text-foreground">{t('statementRecycleBin.title', { defaultValue: 'Recycle Bin' })}</h3>
+                  <h3 className="font-bold text-xl text-foreground">{t('statementRecycleBin.title')}</h3>
                   <p className="text-sm text-muted-foreground">
                     {recycleBinTotalCount} {t('statementRecycleBin.items')} • Recover or permanently delete statements
                   </p>
@@ -65,7 +65,7 @@ export function RecycleBinSection({
                   onClick={onEmptyRecycleBin}
                 >
                   <Trash2 className="h-4 w-4" />
-                  {t('statementRecycleBin.empty_recycle_bin', { defaultValue: 'Empty Recycle Bin' })}
+                  {t('statementRecycleBin.empty_recycle_bin')}
                 </ProfessionalButton>
               )}
             </div>
@@ -87,7 +87,7 @@ export function RecycleBinSection({
                       <TableCell colSpan={6} className="h-24 text-center">
                         <div className="flex justify-center items-center gap-2">
                           <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                          <span className="text-muted-foreground">{t('statementRecycleBin.loading', { defaultValue: 'Loading...' })}</span>
+                          <span className="text-muted-foreground">{t('statementRecycleBin.loading')}</span>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -98,7 +98,7 @@ export function RecycleBinSection({
                           <div className="p-4 rounded-full bg-muted/50">
                             <Trash2 className="h-8 w-8 text-muted-foreground/50" />
                           </div>
-                          <p className="text-muted-foreground font-medium">{t('statementRecycleBin.recycle_bin_empty', { defaultValue: 'Recycle bin is empty' })}</p>
+                          <p className="text-muted-foreground font-medium">{t('statementRecycleBin.recycle_bin_empty')}</p>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -143,16 +143,16 @@ export function RecycleBinSection({
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>{t('statementRecycleBin.permanently_delete_confirm_title', { defaultValue: 'Permanently Delete Statement' })}</AlertDialogTitle>
+                                  <AlertDialogTitle>{t('statementRecycleBin.permanently_delete_confirm_title')}</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    {t('statementRecycleBin.permanently_delete_confirm_description', { defaultValue: 'Are you sure you want to permanently delete this statement? This action cannot be undone.' })}
+                                    {t('statementRecycleBin.permanently_delete_confirm_description')}
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                                   <AlertDialogAction onClick={() => onPermanentlyDelete(statement.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                                     <Trash2 className="mr-2 h-4 w-4" />
-                                    {t('statementRecycleBin.permanently_delete', { defaultValue: 'Permanently Delete' })}
+                                    {t('statementRecycleBin.permanently_delete')}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>

@@ -107,13 +107,13 @@ export function InvoiceHistoryDetailsModal({ open, onClose, historyEntry, client
   const getTranslatedAction = (action: string) => {
     switch (action) {
       case 'update':
-        return t('invoices.update', { defaultValue: 'Update' });
+        return t('invoices.update');
       case 'creation':
-        return t('invoices.invoice_created', { defaultValue: 'Invoice Created' });
+        return t('invoices.invoice_created');
       case 'attachment_uploaded':
-        return t('invoices.attachment_uploaded', { defaultValue: 'Attachment Uploaded' });
+        return t('invoices.attachment_uploaded');
       case 'attachment_deleted':
-        return t('invoices.attachment_deleted_history', { defaultValue: 'Attachment Deleted' });
+        return t('invoices.attachment_deleted_history');
       default:
         return action;
     }

@@ -40,13 +40,13 @@ export function SendInvoiceDialog({ invoice, settings, onSent }: SendInvoiceDial
         body: JSON.stringify({ invoice_id: invoice.id, include_pdf: true, send_copy: sendCopy }),
       });
       if (res && res.success === false) {
-        throw new Error(res.message || t('viewInvoice.send_failed', { defaultValue: 'Failed to send invoice.' }));
+        throw new Error(res.message || t('viewInvoice.send_failed'));
       }
-      toast.success(t('viewInvoice.send_success', { defaultValue: 'Invoice sent.' }));
+      toast.success(t('viewInvoice.send_success'));
       setOpen(false);
       onSent?.();
     } catch (error: any) {
-      toast.error(error?.message || t('viewInvoice.send_failed', { defaultValue: 'Failed to send invoice.' }));
+      toast.error(error?.message || t('viewInvoice.send_failed'));
     } finally {
       setSending(false);
     }
@@ -57,39 +57,33 @@ export function SendInvoiceDialog({ invoice, settings, onSent }: SendInvoiceDial
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2">
           <Mail className="h-4 w-4" />
-          {t('viewInvoice.send', { defaultValue: 'Send' })}
+          {t('viewInvoice.send')}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('viewInvoice.send_title', { defaultValue: 'Send invoice' })}</DialogTitle>
+          <DialogTitle>{t('viewInvoice.send_title')}</DialogTitle>
           <DialogDescription>
-            {t('viewInvoice.send_body', {
-              defaultValue: 'Email invoice {{number}} to {{recipient}}?',
-              number: invoice.number,
-              recipient,
-            })}
+            {t('viewInvoice.send_body', { number: invoice.number, recipient })}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 text-sm">
           {blocked && (
             <p className="text-warning">
-              {t('invoices.send_blocked_pending_approval', {
-                defaultValue: 'This invoice must be approved before it can be sent.',
-              })}
+              {t('invoices.send_blocked_pending_approval')}
             </p>
           )}
           <label className="flex items-center gap-2">
             <Checkbox checked={sendCopy} onCheckedChange={(v) => setSendCopy(!!v)} />
-            {t('viewInvoice.send_copy', { defaultValue: 'Send me a copy' })}
+            {t('viewInvoice.send_copy')}
           </label>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={sending}>
-            {t('common.cancel', { defaultValue: 'Cancel' })}
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleSend} disabled={blocked || sending}>
-            {t('viewInvoice.send_confirm', { defaultValue: 'Send invoice' })}
+            {t('viewInvoice.send_confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

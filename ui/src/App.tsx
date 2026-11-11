@@ -380,8 +380,8 @@ const AppContent = () => {
                     type="button"
                     className="fixed top-4 right-4 z-50 cursor-pointer"
                     onClick={() => setBellHidden(false)}
-                    title={t('notifications.show_ai_notifications', { defaultValue: 'Show AI notifications' })}
-                    aria-label={t('notifications.show_ai_notifications', { defaultValue: 'Show AI notifications' })}
+                    title={t('notifications.show_ai_notifications')}
+                    aria-label={t('notifications.show_ai_notifications')}
                   >
                     <div className="w-3 h-3 bg-primary rounded-full animate-pulse"></div>
                   </button>

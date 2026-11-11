@@ -124,7 +124,7 @@ describe('ReportHistory', () => {
       expect(screen.getByText('Client Reports')).toBeInTheDocument();
     });
 
-    const searchInput = screen.getByPlaceholderText('Search reports...');
+    const searchInput = screen.getByPlaceholderText('reports.search_placeholder');
     fireEvent.change(searchInput, { target: { value: 'client' } });
 
     // Should show only client reports

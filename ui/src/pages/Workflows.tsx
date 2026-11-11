@@ -124,7 +124,7 @@ const WorkflowBuilder: React.FC = () => {
         assigned_user_id: assignToSpecificUserChecked ? assignedUserId : null,
       }),
     onSuccess: () => {
-      toast.success(t('workflows.create_success', { defaultValue: 'Workflow created' }));
+      toast.success(t('workflows.create_success'));
       setName('');
       setDescription('');
       setSelectedActions(['send_internal_notification', 'create_internal_task']);
@@ -159,26 +159,23 @@ const WorkflowBuilder: React.FC = () => {
       <ProfessionalCardHeader>
         <ProfessionalCardTitle className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-primary" />
-          {t('workflows.builder_title', { defaultValue: 'Create Workflow' })}
+          {t('workflows.builder_title')}
         </ProfessionalCardTitle>
         <p className="text-sm text-muted-foreground">
-          {t(
-            'workflows.builder_description',
-            { defaultValue: 'Choose from supported triggers and actions. Only executable workflow options are shown here.' },
-          )}
+          {t('workflows.builder_description')}
         </p>
       </ProfessionalCardHeader>
       <ProfessionalCardContent className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2">
           <ProfessionalInput
-            label={t('workflows.name', { defaultValue: 'Workflow name' })}
+            label={t('workflows.name')}
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Overdue invoice escalation"
           />
           <div className="space-y-2">
             <label className="text-sm font-medium">
-              {t('workflows.trigger', { defaultValue: 'Trigger' })}
+              {t('workflows.trigger')}
             </label>
             <Select value={triggerType} onValueChange={setTriggerType}>
               <SelectTrigger>
@@ -196,7 +193,7 @@ const WorkflowBuilder: React.FC = () => {
         </div>
 
         <ProfessionalInput
-          label={t('workflows.description_label', { defaultValue: 'Description' })}
+          label={t('workflows.description_label')}
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           placeholder="Follow up with overdue customers and make sure an owner is assigned."
@@ -205,10 +202,10 @@ const WorkflowBuilder: React.FC = () => {
         <div className="space-y-3">
           <div>
             <p className="text-sm font-medium text-foreground">
-              {t('workflows.actions', { defaultValue: 'Actions' })}
+              {t('workflows.actions')}
             </p>
             <p className="text-xs text-muted-foreground">
-              {t('workflows.actions_help', { defaultValue: 'Each selected action will run when the trigger fires.' })}
+              {t('workflows.actions_help')}
             </p>
           </div>
 
@@ -237,7 +234,7 @@ const WorkflowBuilder: React.FC = () => {
           {assignToSpecificUserChecked && (
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                {t('workflows.assigned_user', { defaultValue: 'Assigned teammate' })}
+                {t('workflows.assigned_user')}
               </label>
               <Select
                 value={assignedUserId !== null ? String(assignedUserId) : ''}
@@ -255,10 +252,7 @@ const WorkflowBuilder: React.FC = () => {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {t('workflows.assigned_user_help', {
-                  defaultValue:
-                    'When this user is inactive at execution time, the workflow falls back to the default owner resolver.',
-                })}
+                {t('workflows.assigned_user_help')}
               </p>
             </div>
           )}
@@ -332,7 +326,7 @@ const EditWorkflowDialog: React.FC<EditWorkflowDialogProps> = ({ workflow, isOpe
         assigned_user_id: assignToSpecificUserChecked ? assignedUserId : null,
       }),
     onSuccess: () => {
-      toast.success(t('workflows.update_success', { defaultValue: 'Workflow updated successfully' }));
+      toast.success(t('workflows.update_success'));
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
       onOpenChange(false);
     },
@@ -352,24 +346,24 @@ const EditWorkflowDialog: React.FC<EditWorkflowDialogProps> = ({ workflow, isOpe
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold tracking-tight">
             <Sparkles className="h-5 w-5 text-primary" />
-            {t('workflows.edit_title', { defaultValue: 'Edit Workflow' })}
+            {t('workflows.edit_title')}
           </DialogTitle>
           <DialogDescription>
-            {t('workflows.edit_description', { defaultValue: 'Update workflow details and enabled actions.' })}
+            {t('workflows.edit_description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
           <div className="space-y-4">
             <ProfessionalInput
-              label={t('workflows.name', { defaultValue: 'Workflow name' })}
+              label={t('workflows.name')}
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="Overdue invoice escalation"
             />
 
             <ProfessionalInput
-              label={t('workflows.description_label', { defaultValue: 'Description' })}
+              label={t('workflows.description_label')}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder="Follow up with overdue customers and make sure an owner is assigned."
@@ -378,10 +372,10 @@ const EditWorkflowDialog: React.FC<EditWorkflowDialogProps> = ({ workflow, isOpe
             <div className="space-y-3">
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  {t('workflows.actions', { defaultValue: 'Actions' })}
+                  {t('workflows.actions')}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {t('workflows.actions_help', { defaultValue: 'Each selected action will run when the trigger fires.' })}
+                  {t('workflows.actions_help')}
                 </p>
               </div>
 
@@ -410,7 +404,7 @@ const EditWorkflowDialog: React.FC<EditWorkflowDialogProps> = ({ workflow, isOpe
               {assignToSpecificUserChecked && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
-                    {t('workflows.assigned_user', { defaultValue: 'Assigned teammate' })}
+                    {t('workflows.assigned_user')}
                   </label>
                   <Select
                     value={assignedUserId !== null ? String(assignedUserId) : ''}
@@ -428,10 +422,7 @@ const EditWorkflowDialog: React.FC<EditWorkflowDialogProps> = ({ workflow, isOpe
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    {t('workflows.assigned_user_help', {
-                      defaultValue:
-                        'When this user is inactive at execution time, the workflow falls back to the default owner resolver.',
-                    })}
+                    {t('workflows.assigned_user_help')}
                   </p>
                 </div>
               )}
@@ -469,7 +460,7 @@ const DeleteWorkflowDialog: React.FC<DeleteWorkflowDialogProps> = ({ workflow, i
   const deleteMutation = useMutation({
     mutationFn: () => workflowsApi.delete(workflow.id),
     onSuccess: () => {
-      toast.success(t('workflows.delete_success', { defaultValue: 'Workflow deleted successfully' }));
+      toast.success(t('workflows.delete_success'));
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
       onOpenChange(false);
     },
@@ -484,12 +475,10 @@ const DeleteWorkflowDialog: React.FC<DeleteWorkflowDialogProps> = ({ workflow, i
         <AlertDialogHeader>
           <AlertDialogTitle className="text-destructive flex items-center gap-2 text-lg font-bold">
             <Trash2 className="h-5 w-5" />
-            {t('workflows.delete_title', { defaultValue: 'Delete Workflow' })}
+            {t('workflows.delete_title')}
           </AlertDialogTitle>
           <AlertDialogDescription className="text-sm text-muted-foreground mt-2">
-            {t('workflows.delete_confirm_desc', {
-              defaultValue: 'Are you sure you want to delete this workflow? This action is permanent and will cascade-delete all execution logs associated with it.',
-            })}
+            {t('workflows.delete_confirm_desc')}
             <div className="mt-3 p-3 rounded-lg bg-muted/40 border border-border/50 font-medium text-foreground">
               {workflow.name}
             </div>
@@ -612,7 +601,7 @@ const WorkflowCard: React.FC<{
   const toggleMutation = useMutation({
     mutationFn: (isEnabled: boolean) => workflowsApi.toggle(workflow.id, isEnabled),
     onSuccess: () => {
-      toast.success(t('workflows.toggle_success', { defaultValue: 'Workflow updated' }));
+      toast.success(t('workflows.toggle_success'));
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
     },
     onError: (error) => {
@@ -637,10 +626,7 @@ const WorkflowCard: React.FC<{
     mutationFn: () => workflowsApi.duplicate(workflow.id),
     onSuccess: (clone) => {
       toast.success(
-        t('workflows.duplicate_success', {
-          name: clone.name,
-          defaultValue: 'Duplicated as "{{name}}"',
-        }),
+        t('workflows.duplicate_success', { name: clone.name }),
       );
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
     },
@@ -1064,13 +1050,8 @@ const Workflows: React.FC = () => {
     >
       <div className="h-full space-y-6 fade-in">
         <PageHeader
-          title={t('navigation.workflows', { defaultValue: 'Workflows' })}
-          description={t(
-            'workflows.description',
-            {
-              defaultValue: 'Automate follow-up actions across finance operations. Customise and trigger business rules based on overdue invoices, client activity, and more.',
-            },
-          )}
+          title={t('navigation.workflows')}
+          description={t('workflows.description')}
         />
 
         <ContentSection className="space-y-6 slide-in">

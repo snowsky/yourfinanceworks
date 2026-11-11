@@ -47,10 +47,8 @@ const Finances: React.FC = () => {
   return (
     <div className="space-y-6 p-6">
       <PageHeader
-        title={t('navigation.finances', { defaultValue: 'Finances' })}
-        description={t('finances.subtitle', {
-          defaultValue: 'Cash flow forecasting and your net worth in one place',
-        })}
+        title={t('navigation.finances')}
+        description={t('finances.subtitle')}
       />
       <Tabs value={active} onValueChange={onTabChange}>
         <TabsList>

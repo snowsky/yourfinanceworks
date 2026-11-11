@@ -114,7 +114,7 @@ export default function ExpensesView() {
           setApproval(null);
         }
       } catch (e: any) {
-        toast.error(e?.message || t('expenses.failed_to_load', { defaultValue: 'Failed to load expense' }));
+        toast.error(e?.message || t('expenses.failed_to_load'));
       } finally {
         setLoading(false);
       }
@@ -204,7 +204,7 @@ export default function ExpensesView() {
     } catch (e: unknown) {
       if (previewRequestRef.current === requestId) {
         const message = e instanceof Error ? e.message : null;
-        toast.error(message || t('expenses.failed_to_download_attachment', { defaultValue: 'Failed to download attachment' }));
+        toast.error(message || t('expenses.failed_to_download_attachment'));
         setPreview(prev => ({ ...prev, loading: false }));
       }
     } finally {
@@ -226,8 +226,8 @@ export default function ExpensesView() {
     <>
       <div className="h-full space-y-6 fade-in">
         <PageHeader
-          title={t('expenses.view_title', { defaultValue: 'View Expense' })}
-          description={t('expenses.view_description', { defaultValue: 'Review expense details and take approval actions.' })}
+          title={t('expenses.view_title')}
+          description={t('expenses.view_description')}
           breadcrumbs={[
             { label: t('expenses.title'), href: '/expenses' },
             { label: (form as any)?.description || t('expenses.view.breadcrumb', { id }), href: '#' }
@@ -249,7 +249,7 @@ export default function ExpensesView() {
                   className="border-warning/30 text-warning hover:bg-warning/10"
                 >
                   <AlertCircle className="mr-2 h-4 w-4" />
-                  {t('expenses.unsubmit', { defaultValue: 'Unsubmit' })}
+                  {t('expenses.unsubmit')}
                 </Button>
               )}
               {(!approval || approval.status !== 'pending') && (
@@ -259,24 +259,22 @@ export default function ExpensesView() {
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline">
                           <Download className="mr-2 h-4 w-4" />
-                          {t('expenses.export', { defaultValue: 'Export' })}
+                          {t('expenses.export')}
                           <ChevronDown className="ml-1 h-3 w-3 opacity-60" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-40">
                         <DropdownMenuItem onClick={() => downloadExpenseExport(form.id as number, 'pdf')}>
-                          {t('expenses.export_pdf', { defaultValue: 'PDF' })}
+                          {t('expenses.export_pdf')}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => downloadExpenseExport(form.id as number, 'csv')}>
-                          {t('expenses.export_csv', { defaultValue: 'CSV' })}
+                          {t('expenses.export_csv')}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           disabled
-                          title={t('expenses.export_zip_tooltip', {
-                            defaultValue: 'PDF + JSON + attachment files bundled in one ZIP',
-                          })}
+                          title={t('expenses.export_zip_tooltip')}
                         >
-                          {t('expenses.export_zip', { defaultValue: 'ZIP bundle' })}
+                          {t('expenses.export_zip')}
                           <span className="ml-auto text-[10px] text-muted-foreground">soon</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -293,31 +291,31 @@ export default function ExpensesView() {
                     <AlertDialogTrigger asChild>
                       <Button variant="destructive" className="flex items-center gap-2">
                         <Trash2 className="w-4 h-4" />
-                        {t('common.delete', { defaultValue: 'Delete' })}
+                        {t('common.delete')}
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>{t('expenses.delete_single_title', { defaultValue: 'Delete Expense' })}</AlertDialogTitle>
+                        <AlertDialogTitle>{t('expenses.delete_single_title')}</AlertDialogTitle>
                         <AlertDialogDescription>
-                          {t('expenses.delete_single_description', { defaultValue: 'Are you sure you want to delete this expense? This will move it to the recycle bin.' })}
+                          {t('expenses.delete_single_description')}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>{t('common.cancel', { defaultValue: 'Cancel' })}</AlertDialogCancel>
+                        <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                         <AlertDialogAction
                           className="bg-destructive text-white hover:bg-destructive/90"
                           onClick={async () => {
                             try {
                               await expenseApi.deleteExpense(Number(id));
-                              toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted successfully' }));
+                              toast.success(t('expenses.delete_success'));
                               navigate('/expenses');
                             } catch (e: any) {
-                              toast.error(e?.message || t('expenses.delete_failed', { defaultValue: 'Failed to delete expense' }));
+                              toast.error(e?.message || t('expenses.delete_failed'));
                             }
                           }}
                         >
-                          {t('common.delete', { defaultValue: 'Delete' })}
+                          {t('common.delete')}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -332,7 +330,7 @@ export default function ExpensesView() {
         {approval && approval.notes && (
           <Card className="slide-in border-primary/30 bg-primary/10">
             <CardHeader>
-              <CardTitle className="text-primary">{t('expenses.approval_request_message', { defaultValue: 'Approval Request Message' })}</CardTitle>
+              <CardTitle className="text-primary">{t('expenses.approval_request_message')}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-primary">{approval.notes}</p>
@@ -344,22 +342,22 @@ export default function ExpensesView() {
         {approval && approval.status === 'approved' && approval.approved_by_username && (
           <Card className="slide-in border-success/30 bg-success/10">
             <CardHeader>
-              <CardTitle className="text-success">{t('expenses.approval_information', { defaultValue: 'Approval Information' })}</CardTitle>
+              <CardTitle className="text-success">{t('expenses.approval_information')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div>
-                <span className="text-sm font-medium text-success">{t('expenses.approved_by', { defaultValue: 'Approved by' })}: </span>
+                <span className="text-sm font-medium text-success">{t('expenses.approved_by')}: </span>
                 <span className="text-sm text-success">{approval.approved_by_username}</span>
               </div>
               {approval.decided_at && (
                 <div>
-                  <span className="text-sm font-medium text-success">{t('expenses.approved_at', { defaultValue: 'Approved at' })}: </span>
+                  <span className="text-sm font-medium text-success">{t('expenses.approved_at')}: </span>
                   <span className="text-sm text-success">{new Date(approval.decided_at).toLocaleString()}</span>
                 </div>
               )}
               {approval.notes && (
                 <div>
-                  <span className="text-sm font-medium text-success">{t('expenses.approval_notes', { defaultValue: 'Notes' })}: </span>
+                  <span className="text-sm font-medium text-success">{t('expenses.approval_notes')}: </span>
                   <span className="text-sm text-success">{approval.notes}</span>
                 </div>
               )}
@@ -370,28 +368,28 @@ export default function ExpensesView() {
         {approval && approval.status === 'rejected' && approval.rejected_by_username && (
           <Card className="slide-in border-destructive/30 bg-destructive/10">
             <CardHeader>
-              <CardTitle className="text-destructive">{t('expenses.rejection_information', { defaultValue: 'Rejection Information' })}</CardTitle>
+              <CardTitle className="text-destructive">{t('expenses.rejection_information')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div>
-                <span className="text-sm font-medium text-destructive">{t('expenses.rejected_by', { defaultValue: 'Rejected by' })}: </span>
+                <span className="text-sm font-medium text-destructive">{t('expenses.rejected_by')}: </span>
                 <span className="text-sm text-destructive">{approval.rejected_by_username}</span>
               </div>
               {approval.decided_at && (
                 <div>
-                  <span className="text-sm font-medium text-destructive">{t('expenses.rejected_at', { defaultValue: 'Rejected at' })}: </span>
+                  <span className="text-sm font-medium text-destructive">{t('expenses.rejected_at')}: </span>
                   <span className="text-sm text-destructive">{new Date(approval.decided_at).toLocaleString()}</span>
                 </div>
               )}
               {approval.rejection_reason && (
                 <div>
-                  <span className="text-sm font-medium text-destructive">{t('expenses.rejection_reason', { defaultValue: 'Reason' })}: </span>
+                  <span className="text-sm font-medium text-destructive">{t('expenses.rejection_reason')}: </span>
                   <span className="text-sm text-destructive">{approval.rejection_reason}</span>
                 </div>
               )}
               {approval.notes && (
                 <div>
-                  <span className="text-sm font-medium text-destructive">{t('expenses.rejection_notes', { defaultValue: 'Notes' })}: </span>
+                  <span className="text-sm font-medium text-destructive">{t('expenses.rejection_notes')}: </span>
                   <span className="text-sm text-destructive">{approval.notes}</span>
                 </div>
               )}
@@ -435,7 +433,7 @@ export default function ExpensesView() {
               {(form as any)?.analysis_status && (
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{t('expenses.analysis_status', { defaultValue: 'Analysis Status' })}:</span>
+                    <span className="text-sm font-medium">{t('expenses.analysis_status')}:</span>
                     {form.analysis_status === 'done' ? (
                       <Badge variant="success" className="h-6">{t('expenses.status_done')}</Badge>
                     ) : form.analysis_status === 'processing' || form.analysis_status === 'queued' ? (
@@ -457,7 +455,7 @@ export default function ExpensesView() {
                       <AlertCircle className="h-4 w-4 text-destructive" />
                       <AlertDescription className="text-destructive">
                         <details className="cursor-pointer">
-                          <summary className="font-medium mb-1">{t('expenses.analysis_failed_click_details', { defaultValue: 'Analysis failed (click for details)' })}</summary>
+                          <summary className="font-medium mb-1">{t('expenses.analysis_failed_click_details')}</summary>
                           <div className="mt-2 text-xs font-mono bg-destructive/10 p-2 rounded border border-destructive/20 overflow-x-auto">
                             {(form as any).analysis_error}
                           </div>
@@ -611,7 +609,7 @@ export default function ExpensesView() {
                           <span className="text-sm font-medium">{t('expenses.inventory_consumption_details')}</span>
                         </div>
                         <p className="text-sm text-warning mb-4">
-                          {t('expenses.viewing_inventory_consumption', { defaultValue: 'This expense consumed the following inventory items:' })}
+                          {t('expenses.viewing_inventory_consumption')}
                         </p>
 
                         <InventoryConsumptionForm
@@ -649,10 +647,10 @@ export default function ExpensesView() {
               <div className="sm:col-span-2">
                 <label className="text-sm">{t('expenses.max_attachments')}</label>
                 {(form as any)?.analysis_status === 'done' && (
-                  <div className="text-xs text-muted-foreground mt-1">{t('expenses.attachments_cannot_delete', { defaultValue: 'Attachments cannot be deleted after analysis is completed.' })}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{t('expenses.attachments_cannot_delete')}</div>
                 )}
                 <div className="mt-3">
-                  <div className="text-sm font-medium mb-2">{t('expenses.existing_attachments', { defaultValue: 'Existing attachments' })}</div>
+                  <div className="text-sm font-medium mb-2">{t('expenses.existing_attachments')}</div>
                   {attachments.length === 0 ? (
                     <div className="text-sm text-muted-foreground">{t('expenses.none')}</div>
                   ) : (
@@ -723,14 +721,14 @@ export default function ExpensesView() {
         </ContentSection>
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => navigate(-1)}>{t('common.back', { defaultValue: 'Back' })}</Button>
+          <Button variant="outline" onClick={() => navigate(-1)}>{t('common.back')}</Button>
           <Button
             variant="default"
             onClick={() => navigate(`/expenses/edit/${id}`)}
             className="flex items-center gap-2"
           >
             <Pencil className="w-4 h-4" />
-            {t('common.edit', { defaultValue: 'Edit' })}
+            {t('common.edit')}
           </Button>
         </div>
 
@@ -742,25 +740,25 @@ export default function ExpensesView() {
         }}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>{preview.filename || t('expenses.preview', { defaultValue: 'Preview' })}</DialogTitle>
+              <DialogTitle>{preview.filename || t('expenses.preview')}</DialogTitle>
             </DialogHeader>
             <div className="max-h-[70vh] overflow-auto">
               {preview.loading && (
                 <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
                   <Loader2 className="h-8 w-8 animate-spin" />
-                  <span>{t('expenses.loading_attachment', { defaultValue: 'Loading attachment...' })}</span>
+                  <span>{t('expenses.loading_attachment')}</span>
                 </div>
               )}
               {preview.url && (preview.contentType || '').startsWith('image/') && (
-                <img src={preview.url} alt={preview.filename || t('expenses.attachment', { defaultValue: 'attachment' })} className="max-w-full h-auto" />
+                <img src={preview.url} alt={preview.filename || t('expenses.attachment')} className="max-w-full h-auto" />
               )}
               {preview.url && (preview.contentType || '').startsWith('application/pdf') && (
-                <iframe src={preview.url} className="w-full h-[60vh]" title={preview.filename || t('expenses.attachment', { defaultValue: 'attachment' })} />
+                <iframe src={preview.url} className="w-full h-[60vh]" title={preview.filename || t('expenses.attachment')} />
               )}
               {preview.url && !(preview.contentType || '').startsWith('image/') && !(preview.contentType || '').startsWith('application/pdf') && (
                 <div className="text-center p-8">
                   <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">{t('expenses.preview_not_supported', { defaultValue: 'Preview not supported for this file type' })}</p>
+                  <p className="text-muted-foreground">{t('expenses.preview_not_supported')}</p>
                 </div>
               )}
               {preview.url && (

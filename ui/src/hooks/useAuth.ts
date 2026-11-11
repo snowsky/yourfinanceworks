@@ -104,7 +104,7 @@ export const useAuth = (): UseAuthReturn => {
     try {
       await clearAuthSession();
     } catch {
-      toast.error(t('auth.logout_failed', { defaultValue: 'Unable to log out. Please try again.' }));
+      toast.error(t('auth.logout_failed'));
       return;
     }
     setUser(null);

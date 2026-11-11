@@ -78,8 +78,8 @@ export function InvoiceClientSection({
               <div className="flex items-center gap-2 mb-2">
                 <FormLabel className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{t('invoices.client')}</FormLabel>
                 <HelpTooltip
-                  content={t('invoices.client_help_content', { defaultValue: 'Select an existing client or create a new one. Client information will be used for billing and contact details.' })}
-                  title={t('invoices.client_help_title', { defaultValue: 'Client Selection' })}
+                  content={t('invoices.client_help_content')}
+                  title={t('invoices.client_help_title')}
                 />
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
@@ -125,14 +125,14 @@ export function InvoiceClientSection({
                 <div className="flex items-center gap-2 mb-2">
                   <FormLabel className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{t('invoices.invoice_number')}</FormLabel>
                   <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest bg-muted/50">
-                    {t('common.optional', { defaultValue: 'Optional' })}
+                    {t('common.optional')}
                   </Badge>
                 </div>
                 <FormControl>
                   <Input
                     {...field}
                     className="h-11 rounded-xl bg-muted/30 border-border/50 focus:bg-background transition-all"
-                    placeholder={t('invoices.invoice_number_placeholder', { defaultValue: 'Leave empty to auto-generate' })}
+                    placeholder={t('invoices.invoice_number_placeholder')}
                     disabled={isInvoicePaid}
                   />
                 </FormControl>
@@ -172,7 +172,7 @@ export function InvoiceClientSection({
               <FormItem>
                 <div className="flex items-center gap-2 mb-2">
                   <FormLabel className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
-                    {t('invoices.payer', { defaultValue: 'Payer' })}
+                    {t('invoices.payer')}
                   </FormLabel>
                 </div>
                 <Select value={field.value || "Client"} onValueChange={field.onChange} disabled={isInvoicePaid}>
@@ -182,8 +182,8 @@ export function InvoiceClientSection({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent className="rounded-xl">
-                    <SelectItem value="You" className="rounded-lg">{t('invoices.payer_you', { defaultValue: 'You' })}</SelectItem>
-                    <SelectItem value="Client" className="rounded-lg">{t('invoices.payer_client', { defaultValue: 'Client' })}</SelectItem>
+                    <SelectItem value="You" className="rounded-lg">{t('invoices.payer_you')}</SelectItem>
+                    <SelectItem value="Client" className="rounded-lg">{t('invoices.payer_client')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />

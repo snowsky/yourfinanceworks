@@ -147,7 +147,7 @@ export default function Statements() {
   const fileDuplicateCount = fileDuplicateData?.count ?? 0;
 
   const getLocale = useMemo(() => {
-    const language = t('language', { defaultValue: 'en' });
+    const language = t('language');
     switch (language) {
       case 'es': return 'es-ES';
       case 'fr': return 'fr-FR';
@@ -196,11 +196,11 @@ export default function Statements() {
 
   useEffect(() => {
     if (!selected || !detail) {
-      setPageContext({ title: t('navigation.bank_statements', { defaultValue: 'Statements' }), entity: undefined, metadata: undefined });
+      setPageContext({ title: t('navigation.bank_statements'), entity: undefined, metadata: undefined });
       return;
     }
     setPageContext({
-      title: t('navigation.bank_statements', { defaultValue: 'Statements' }),
+      title: t('navigation.bank_statements'),
       entity: { type: 'bank_statement', id: selected },
       metadata: { status: detail.status, labels: detail.labels || [], extracted_count: detail.extracted_count, original_filename: detail.original_filename }
     });
@@ -224,10 +224,10 @@ export default function Statements() {
     try {
       setIsAcceptingReview(true);
       await bankStatementApi.acceptReview(selectedReviewStatement.id);
-      toast.success(t('statements.review.accepted_success', { defaultValue: 'Review accepted successfully' }));
+      toast.success(t('statements.review.accepted_success'));
       setReviewModalOpen(false);
       loadList();
-    } catch { toast.error(t('statements.review.accept_failed', { defaultValue: 'Failed to accept review' })); }
+    } catch { toast.error(t('statements.review.accept_failed')); }
     finally { setIsAcceptingReview(false); }
   };
 
@@ -236,10 +236,10 @@ export default function Statements() {
     try {
       setIsRejectingReview(true);
       await bankStatementApi.rejectReview(selectedReviewStatement.id);
-      toast.success(t('statements.review.dismissed', { defaultValue: 'Review dismissed' }));
+      toast.success(t('statements.review.dismissed'));
       setReviewModalOpen(false);
       loadList();
-    } catch { toast.error(t('statements.review.dismiss_failed', { defaultValue: 'Failed to dismiss review' })); }
+    } catch { toast.error(t('statements.review.dismiss_failed')); }
     finally { setIsRejectingReview(false); }
   };
 
@@ -248,30 +248,30 @@ export default function Statements() {
     try {
       setIsRetriggeringReview(true);
       await bankStatementApi.reReview(selectedReviewStatement.id);
-      toast.success(t('statements.review.retriggered', { defaultValue: 'Review re-triggered' }));
+      toast.success(t('statements.review.retriggered'));
       setReviewModalOpen(false);
       loadList();
-    } catch { toast.error(t('statements.review.retrigger_failed', { defaultValue: 'Failed to re-trigger review' })); }
+    } catch { toast.error(t('statements.review.retrigger_failed')); }
     finally { setIsRetriggeringReview(false); }
   };
 
   const handleRunReview = async (statementId: number) => {
     try {
       await bankStatementApi.reReview(statementId);
-      toast.success(t('statements.review.triggered', { defaultValue: 'Review triggered. The agent will process it shortly.' }));
+      toast.success(t('statements.review.triggered'));
       loadList();
     } catch (error: any) {
-      toast.error(error?.message || t('statements.review.trigger_failed', { defaultValue: 'Failed to trigger review' }));
+      toast.error(error?.message || t('statements.review.trigger_failed'));
     }
   };
 
   const handleCancelReview = async (statementId: number) => {
     try {
       await bankStatementApi.cancelReview(statementId);
-      toast.success(t('statements.review.cancelled', { defaultValue: 'Review cancelled.' }));
+      toast.success(t('statements.review.cancelled'));
       loadList();
     } catch (error: any) {
-      toast.error(error?.message || t('statements.review.cancel_failed', { defaultValue: 'Failed to cancel review' }));
+      toast.error(error?.message || t('statements.review.cancel_failed'));
     }
   };
 
@@ -284,7 +284,7 @@ export default function Statements() {
       setSelectedIds([]);
       loadList();
     } catch (error: any) {
-      toast.error(error?.message || t('statements.review.bulk_trigger_failed', { defaultValue: 'Failed to trigger bulk review' }));
+      toast.error(error?.message || t('statements.review.bulk_trigger_failed'));
     } finally { setLoading(false); }
   };
 
@@ -302,7 +302,7 @@ export default function Statements() {
         if (typeof startPolling === 'function') startPolling(processingIds);
       }
     } catch (e: any) {
-      toast.error(e?.message || t('statements.load_failed', { defaultValue: 'Failed to load statements' }));
+      toast.error(e?.message || t('statements.load_failed'));
     }
   }, [statusFilter, labelFilter, searchQuery, page, pageSize]);
 
@@ -375,7 +375,7 @@ export default function Statements() {
         highlightTimerRef.current = setTimeout(() => setHighlightedBackendId(null), 3000);
       }
     } catch (e: any) {
-      toast.error(e?.message || t('statements.detail_load_failed', { defaultValue: 'Failed to load statement' }));
+      toast.error(e?.message || t('statements.detail_load_failed'));
       setSelected(null);
     } finally { setDetailLoading(false); }
   };
@@ -384,7 +384,7 @@ export default function Statements() {
     setFiles((prev: File[]) => {
       const combined = [...prev, ...newFiles];
       if (combined.length > 12) {
-        toast.warning(t('statements.max_files_warning', { defaultValue: 'Maximum 12 files allowed. Some files were ignored.' }));
+        toast.warning(t('statements.max_files_warning'));
         return combined.slice(0, 12);
       }
       return combined;
@@ -421,7 +421,7 @@ export default function Statements() {
       await loadList();
     } catch (e: any) {
       addNotification?.('error', t('statements.failed_to_delete'), t('statements.processFailed', { message: e?.message || t('errors.unknown_error') }));
-      toast.error(e?.message || t('statements.extract_failed', { defaultValue: 'Failed to extract transactions' }));
+      toast.error(e?.message || t('statements.extract_failed'));
     } finally { setLoading(false); }
   };
 
@@ -450,11 +450,11 @@ export default function Statements() {
         expense_id: r.expense_id ?? null,
       }));
       await bankStatementApi.replaceTransactions(selected, cleaned);
-      toast.success(t('statements.transactions_saved', { defaultValue: 'Transactions saved' }));
+      toast.success(t('statements.transactions_saved'));
       await openStatement(selected);
       await loadList();
     } catch (e: any) {
-      toast.error(e?.message || t('statements.save_transactions_failed', { defaultValue: 'Failed to save transactions' }));
+      toast.error(e?.message || t('statements.save_transactions_failed'));
     } finally { setDetailLoading(false); }
   };
 
@@ -488,11 +488,11 @@ export default function Statements() {
       setBankNameValueById((prev: Record<number, string>) => ({ ...prev, [selected]: newBankName }));
       setDetail((prev: BankStatementDetail | null) => prev ? { ...prev, notes: resp.statement.notes || null, labels: (resp.statement as any).labels || [], bank_name: newBankName || null } : prev);
       
-      toast.success(t('statements.save_success', { defaultValue: 'Changes saved successfully' }));
+      toast.success(t('statements.save_success'));
       await openStatement(selected);
       await loadList();
     } catch (e: any) {
-      toast.error(e?.message || t('statements.save_failed', { defaultValue: 'Failed to save changes' }));
+      toast.error(e?.message || t('statements.save_failed'));
     } finally {
       setDetailLoading(false);
     }
@@ -515,9 +515,9 @@ export default function Statements() {
       
       setDetail((prev: BankStatementDetail | null) => prev ? { ...prev, notes: resp.statement.notes || null, labels: (resp.statement as any).labels || [], bank_name: newBankName || null } : prev);
       await loadList();
-      toast.success(t('statements.update_success', { defaultValue: 'Statement updated' }));
+      toast.success(t('statements.update_success'));
     } catch (e: any) {
-      toast.error(e?.message || t('statements.update_failed', { defaultValue: 'Failed to update statement' }));
+      toast.error(e?.message || t('statements.update_failed'));
     } finally { setDetailLoading(false); }
   };
 
@@ -542,13 +542,13 @@ export default function Statements() {
     setLoading(true);
     try {
       for (const id of selectedIds) await bankStatementApi.delete(id);
-      toast.success(t('statements.bulk_delete_success', { count: selectedIds.length, defaultValue: 'Statements deleted successfully' }));
+      toast.success(t('statements.bulk_delete_success', { count: selectedIds.length }));
       await loadList();
       queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] });
       if (showRecycleBin) { setRecycleBinCurrentPage(1); await fetchDeletedStatements(); }
       setSelectedIds([]); setBulkDeleteModalOpen(false);
     } catch (e: any) {
-      toast.error(e?.message || t('statements.delete_failed', { defaultValue: 'Failed to delete statements' }));
+      toast.error(e?.message || t('statements.delete_failed'));
     } finally { setLoading(false); }
   };
 
@@ -556,13 +556,13 @@ export default function Statements() {
     setLoading(true);
     try {
       const resp = await bankStatementApi.merge(selectedIds);
-      toast.success(resp.message || t('statements.merge_success', { defaultValue: 'Statements merged successfully' }));
+      toast.success(resp.message || t('statements.merge_success'));
       await loadList();
       queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] });
       setSelectedIds([]); setBulkMergeModalOpen(false);
       if (resp.id) openStatement(resp.id);
     } catch (e: any) {
-      toast.error(e?.message || t('statements.merge_failed', { defaultValue: 'Failed to merge statements' }));
+      toast.error(e?.message || t('statements.merge_failed'));
     } finally { setLoading(false); }
   };
 
@@ -573,27 +573,27 @@ export default function Statements() {
       const response = await bankStatementApi.getDeletedStatements(skip, recycleBinPageSize);
       setDeletedStatements(response.items);
       setRecycleBinTotalCount(response.total);
-    } catch { toast.error(t('recycleBin.load_failed', { defaultValue: 'Failed to load recycle bin' })); }
+    } catch { toast.error(t('recycleBin.load_failed')); }
     finally { setRecycleBinLoading(false); }
   };
 
   const handleRestoreStatement = async (statementId: number) => {
     try {
       await bankStatementApi.restoreStatement(statementId, 'processed');
-      toast.success(t('statements.restore_success', { defaultValue: 'Statement restored successfully' }));
+      toast.success(t('statements.restore_success'));
       fetchDeletedStatements(); loadList();
     } catch (error: any) {
-      toast.error(error?.message || t('statements.restore_failed', { defaultValue: 'Failed to restore statement' }));
+      toast.error(error?.message || t('statements.restore_failed'));
     }
   };
 
   const handlePermanentlyDeleteStatement = async (statementId: number) => {
     try {
       await bankStatementApi.permanentlyDeleteStatement(statementId);
-      toast.success(t('statements.permanent_delete_success', { defaultValue: 'Statement permanently deleted' }));
+      toast.success(t('statements.permanent_delete_success'));
       fetchDeletedStatements();
     } catch (error: any) {
-      toast.error(error?.message || t('statements.permanent_delete_failed', { defaultValue: 'Failed to permanently delete statement' }));
+      toast.error(error?.message || t('statements.permanent_delete_failed'));
     }
   };
 
@@ -675,7 +675,7 @@ export default function Statements() {
   };
 
   const exportToCSV = () => {
-    if (rows.length === 0) { toast.error(t('statements.export.no_transactions', { defaultValue: 'No transactions to export' })); return; }
+    if (rows.length === 0) { toast.error(t('statements.export.no_transactions')); return; }
     const headers = ['Date', 'Description', 'Amount', 'Type', 'Balance', 'Category', 'Notes', 'Reference'];
     let csvContent = [
       csvRow(headers),
@@ -704,7 +704,7 @@ export default function Statements() {
     link.style.visibility = 'hidden';
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    toast.success(t('statements.export.csv_success', { defaultValue: 'CSV exported successfully' }));
+    toast.success(t('statements.export.csv_success'));
   };
 
   const exportSelectedAsZip = async () => {
@@ -750,14 +750,14 @@ export default function Statements() {
 
   const createExpenseFromTransaction = async (rowIndex: number) => {
     const transaction = rows[rowIndex];
-    if (transaction.transaction_type !== 'debit') { toast.error(t('statements.expense.create_only_debit', { defaultValue: 'Can only create expenses from debit transactions' })); return; }
-    if ((transaction as any).expense_id) { toast.error(t('statements.expense.already_created', { defaultValue: 'An expense has already been created for this transaction' })); return; }
+    if (transaction.transaction_type !== 'debit') { toast.error(t('statements.expense.create_only_debit')); return; }
+    if ((transaction as any).expense_id) { toast.error(t('statements.expense.already_created')); return; }
     try {
       const categoryMap: Record<string, string> = { 'Transportation': 'Transportation', 'Food': 'Meals', 'Travel': 'Travel', 'Other': 'General' };
       const expenseCategory = categoryMap[transaction.category || 'Other'] || 'General';
       const expenseData = { amount: Math.abs(transaction.amount), expense_date: transaction.date, category: expenseCategory, vendor: transaction.description, notes: `Created from bank statement: ${detail?.original_filename}`, payment_method: 'Bank Transfer', status: 'recorded', analysis_status: 'done' };
       const created = await expenseApi.createExpense(expenseData as any);
-      toast.success(t('statements.expense.create_success', { defaultValue: 'Expense created successfully' }));
+      toast.success(t('statements.expense.create_success'));
       setRows((prev: BankTransactionEntry[]) => prev.map((r, i) => i === rowIndex ? { ...r, expense_id: created.id } : r));
       const backendId = (transaction as any).backend_id;
       if (selected && backendId) {
@@ -766,7 +766,7 @@ export default function Statements() {
           await openStatement(selected);
         } catch (linkErr: any) { console.error('Failed to persist expense link:', linkErr); }
       }
-    } catch (e: any) { toast.error(e?.message || t('statements.expense.create_failed', { defaultValue: 'Failed to create expense' })); }
+    } catch (e: any) { toast.error(e?.message || t('statements.expense.create_failed')); }
   };
 
   const openRollupExpenseModal = () => {
@@ -776,8 +776,8 @@ export default function Statements() {
 
   const createInvoiceFromTransaction = (rowIndex: number) => {
     const transaction = rows[rowIndex];
-    if (transaction.transaction_type !== 'credit') { toast.error(t('statements.invoice.create_only_credit', { defaultValue: 'Can only create invoices from credit transactions' })); return; }
-    if ((transaction as any).invoice_id) { toast.error(t('statements.invoice.already_created', { defaultValue: 'An invoice has already been created for this transaction' })); return; }
+    if (transaction.transaction_type !== 'credit') { toast.error(t('statements.invoice.create_only_credit')); return; }
+    if ((transaction as any).invoice_id) { toast.error(t('statements.invoice.already_created')); return; }
     const [y, m, d] = transaction.date.split('-').map(n => parseInt(n, 10));
     const utcMidnightMs = Date.UTC(y, (m || 1) - 1, d || 1);
     const transactionDate = new Date(utcMidnightMs);
@@ -834,14 +834,14 @@ export default function Statements() {
         {!apiAvailable && (
           <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
             <span className="inline-block h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-warning" />
-            {t('common.api_connecting', { defaultValue: 'Connecting to server, please wait…' })}
+            {t('common.api_connecting')}
           </div>
         )}
 
         {/* License Alert — only show when API is reachable and feature is genuinely disabled */}
         {apiAvailable && !isFeatureEnabled('ai_bank_statement') && (
           <LicenseAlert
-            message={t('settings.bank_statement_license_required', { defaultValue: 'Bank statement processing requires the AI Bank Statement feature. Please upgrade your license to enable this functionality.' })}
+            message={t('settings.bank_statement_license_required')}
             feature="ai_bank_statement"
             compact={true}
           />
@@ -856,21 +856,21 @@ export default function Statements() {
                 <p className="text-muted-foreground text-sm md:text-base max-w-2xl">{t('statements.description')}</p>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <span className="inline-flex items-center rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                    {t('common.total', { defaultValue: 'Total' })}: {totalStatements}
+                    {t('common.total')}: {totalStatements}
                   </span>
                   <span className="inline-flex items-center rounded-md border border-warning/20 bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning">
-                    {t('common.processing', { defaultValue: 'Processing' })}: {processingCount}
+                    {t('common.processing')}: {processingCount}
                   </span>
                 </div>
               </div>
               <div className="flex gap-3 items-center flex-wrap justify-end">
                 <ProfessionalButton variant="outline" size="default" onClick={() => { loadList(); queryClient.invalidateQueries({ queryKey: ['duplicate-transactions'] }); }} className="whitespace-nowrap" disabled={loading}>
                   <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                  {t('common.refresh', { defaultValue: 'Refresh' })}
+                  {t('common.refresh')}
                 </ProfessionalButton>
                 <ProfessionalButton variant="outline" size="default" onClick={handleToggleRecycleBin} className="whitespace-nowrap">
                   <Trash2 className="h-4 w-4" />
-                  {t('statementRecycleBin.title', { defaultValue: 'Recycle Bin' })}
+                  {t('statementRecycleBin.title')}
                   {showRecycleBin ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </ProfessionalButton>
                 <div className="flex gap-1">
@@ -1048,7 +1048,7 @@ export default function Statements() {
                 initialData={invoiceInitialData}
                 onInvoiceUpdate={async () => {
                   setShowInvoiceForm(false); setInvoiceInitialData(null);
-                  toast.success(t('invoices.create_success', { defaultValue: 'Invoice created successfully!' }));
+                  toast.success(t('invoices.create_success'));
                   if (selected) await openStatement(selected);
                 }}
               />
@@ -1074,14 +1074,14 @@ export default function Statements() {
         <AlertDialog open={emptyRecycleBinModalOpen} onOpenChange={setEmptyRecycleBinModalOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>{t('statementRecycleBin.empty_recycle_bin_confirm_title', { defaultValue: 'Empty Recycle Bin' })}</AlertDialogTitle>
-              <AlertDialogDescription>{t('statementRecycleBin.empty_recycle_bin_confirm_description', { defaultValue: 'Are you sure you want to permanently delete all statements in the recycle bin? This action cannot be undone.' })}</AlertDialogDescription>
+              <AlertDialogTitle>{t('statementRecycleBin.empty_recycle_bin_confirm_title')}</AlertDialogTitle>
+              <AlertDialogDescription>{t('statementRecycleBin.empty_recycle_bin_confirm_description')}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
               <AlertDialogAction onClick={confirmEmptyRecycleBin} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 <Trash2 className="mr-2 h-4 w-4" />
-                {t('statementRecycleBin.empty_recycle_bin', { defaultValue: 'Empty Recycle Bin' })}
+                {t('statementRecycleBin.empty_recycle_bin')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -1136,7 +1136,7 @@ export default function Statements() {
         <AlertDialog open={bulkDeleteModalOpen} onOpenChange={setBulkDeleteModalOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>{t('statements.bulk_delete_confirm_title', { count: selectedIds.length, defaultValue: 'Delete Selected Statements' })}</AlertDialogTitle>
+              <AlertDialogTitle>{t('statements.bulk_delete_confirm_title', { count: selectedIds.length })}</AlertDialogTitle>
               <AlertDialogDescription>{t('statements.bulk_delete_confirm_description', { count: selectedIds.length, defaultValue: `Are you sure you want to delete ${selectedIds.length} statements? This action will move them to the recycle bin.` })}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -1153,14 +1153,14 @@ export default function Statements() {
         <AlertDialog open={bulkMergeModalOpen} onOpenChange={setBulkMergeModalOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>{t('statements.bulk_merge_confirm_title', { count: selectedIds.length, defaultValue: 'Merge Selected Statements' })}</AlertDialogTitle>
+              <AlertDialogTitle>{t('statements.bulk_merge_confirm_title', { count: selectedIds.length })}</AlertDialogTitle>
               <AlertDialogDescription>{t('statements.bulk_merge_confirm_description', { count: selectedIds.length, defaultValue: `Are you sure you want to merge ${selectedIds.length} statements?` })}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
               <AlertDialogAction onClick={handleBulkMerge} className="bg-primary text-primary-foreground hover:bg-primary/90">
                 <Plus className="mr-2 h-4 w-4" />
-                {t('statements.merge', { defaultValue: 'Merge' })}
+                {t('statements.merge')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

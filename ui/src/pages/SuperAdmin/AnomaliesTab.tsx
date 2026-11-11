@@ -262,7 +262,7 @@ export const AnomaliesTab: React.FC<AnomaliesTabProps> = ({ onTotalChange }) => 
                       </Button>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
+                      <span className="text-sm text-muted-foreground">{t('common.page_size')}</span>
                       <Select value={String(anomaliesPageSize)} onValueChange={(v) => { setAnomaliesPageSize(Number(v)); setAnomaliesPage(1); }}>
                         <SelectTrigger className="w-[100px] h-10 rounded-lg border-border/50 bg-muted/30">
                           <SelectValue />

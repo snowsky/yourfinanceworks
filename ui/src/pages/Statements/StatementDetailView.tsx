@@ -120,7 +120,7 @@ export function StatementDetailView({
       await navigator.clipboard.writeText(value);
       toast.success(successMsg);
     } catch {
-      toast.error(t('common.copy_failed', { defaultValue: 'Failed to copy' }));
+      toast.error(t('common.copy_failed'));
     }
   };
 
@@ -145,7 +145,7 @@ export function StatementDetailView({
               <CardTypeBadge type={(detail as any)?.card_type} />
             </div>
             <h1 className="text-4xl font-bold tracking-tight">
-              {detail?.original_filename || t('statements.statement_detail', { defaultValue: 'Statement Detail' })}
+              {detail?.original_filename || t('statements.statement_detail')}
             </h1>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-sm">
               {((detail as any)?.created_by_username || (detail as any)?.created_by_email) && (
@@ -190,14 +190,14 @@ export function StatementDetailView({
                     addNotification?.('processing', 'Reprocessing', `Re-analyzing ${detail?.original_filename}...`);
                     await bankStatementApi.reprocess(selected);
                     addNotification?.('success', 'Started', `Reprocessing ${detail?.original_filename}`);
-                    toast.success(t('statements.reprocessStarted', { defaultValue: 'Reprocessing started' }));
+                    toast.success(t('statements.reprocessStarted'));
                     await openStatement(selected);
                     setTimeout(() => {
                       setReprocessingLocks(prev => { const next = new Set(prev); next.delete(selected); return next; });
                     }, 30000);
                   } catch (e: any) {
                     setReprocessingLocks(prev => { const next = new Set(prev); next.delete(selected); return next; });
-                    toast.error(e?.message || t('statements.reprocessFailedShort', { defaultValue: 'Failed to reprocess' }));
+                    toast.error(e?.message || t('statements.reprocessFailedShort'));
                   }
                 }}
                 disabled={reprocessingLocks.has(selected) || loading}
@@ -281,7 +281,7 @@ export function StatementDetailView({
                 <div className="bg-warning/10 border border-warning/20 rounded-xl p-4 flex items-center gap-3 text-warning slide-in">
                   <Loader2 className="h-5 w-5 animate-spin" />
                   <div className="text-sm">
-                    <span className="font-bold">{t('common.processing')}:</span> {t('statements.processing_message', { defaultValue: 'Statement is being analyzed by AI. Editing is disabled until completion.' })}
+                    <span className="font-bold">{t('common.processing')}:</span> {t('statements.processing_message')}
                   </div>
                 </div>
               )}
@@ -297,7 +297,7 @@ export function StatementDetailView({
                 <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center gap-3 text-primary slide-in">
                   <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                   <div className="text-sm">
-                    <strong>{t('common.note', { defaultValue: 'Note:' })}</strong> {t('statements.transaction_edit_note', { defaultValue: 'Transaction information should match the uploaded bank statement file. Only edit if corrections are needed.' })}
+                    <strong>{t('common.note')}</strong> {t('statements.transaction_edit_note')}
                   </div>
                 </div>
               )}
@@ -313,13 +313,13 @@ export function StatementDetailView({
                 <div className="flex-1 text-sm">
                   <span className="font-bold">
                     {allConverted
-                      ? t('statements.receipt_converted_title', { defaultValue: 'Converted to expense' })
-                      : t('statements.receipt_detected_title', { defaultValue: 'Looks like a receipt' })}
+                      ? t('statements.receipt_converted_title')
+                      : t('statements.receipt_detected_title')}
                   </span>
                   <span className="ml-1">
                     {allConverted
-                      ? t('statements.receipt_converted_message', { defaultValue: 'This receipt has been saved as an expense.' })
-                      : t('statements.receipt_detected_message', { defaultValue: 'AI detected this file may be a receipt, not a bank statement. Would you like to convert the transaction(s) to expenses?' })}
+                      ? t('statements.receipt_converted_message')
+                      : t('statements.receipt_detected_message')}
                   </span>
                 </div>
                 {!allConverted && (
@@ -338,7 +338,7 @@ export function StatementDetailView({
                     }}
                   >
                     <Plus className="h-4 w-4 mr-1" />
-                    {t('statements.receipt_convert_all', { defaultValue: 'Convert to Expense' })}
+                    {t('statements.receipt_convert_all')}
                   </ProfessionalButton>
                 )}
               </div>
@@ -349,7 +349,7 @@ export function StatementDetailView({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <ProfessionalCard variant="elevated" className="p-0 overflow-hidden border-none shadow-sm">
               <div className="p-5 flex flex-col items-center justify-center bg-background border-b-4 border-primary/20">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('statements.transactions', { defaultValue: 'Transactions' })}</span>
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('statements.transactions')}</span>
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-black text-foreground">{rows.length}</span>
                   <FileText className="h-4 w-4 text-primary opacity-50" />
@@ -358,19 +358,19 @@ export function StatementDetailView({
             </ProfessionalCard>
             <ProfessionalCard variant="elevated" className="p-0 overflow-hidden border-none shadow-sm">
               <div className="p-5 flex flex-col items-center justify-center bg-background border-b-4 border-success/20">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('statements.total_income', { defaultValue: 'Total Income' })}</span>
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('statements.total_income')}</span>
                 <div className="text-2xl font-black text-success"><CurrencyDisplay amount={totalIncome} currency="USD" /></div>
               </div>
             </ProfessionalCard>
             <ProfessionalCard variant="elevated" className="p-0 overflow-hidden border-none shadow-sm">
               <div className="p-5 flex flex-col items-center justify-center bg-background border-b-4 border-destructive/20">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('statements.total_expenses', { defaultValue: 'Total Expenses' })}</span>
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('statements.total_expenses')}</span>
                 <div className="text-2xl font-black text-destructive"><CurrencyDisplay amount={totalExpense} currency="USD" /></div>
               </div>
             </ProfessionalCard>
             <ProfessionalCard variant="elevated" className="p-0 overflow-hidden border-none shadow-sm">
               <div className="p-5 flex flex-col items-center justify-center bg-background border-b-4 border-primary/20">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('statements.net_amount', { defaultValue: 'Net Amount' })}</span>
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{t('statements.net_amount')}</span>
                 <div className={`text-2xl font-black ${netAmount >= 0 ? 'text-success' : 'text-destructive'}`}><CurrencyDisplay amount={netAmount} currency="USD" /></div>
               </div>
             </ProfessionalCard>
@@ -379,11 +379,11 @@ export function StatementDetailView({
           {/* Details Card */}
           <ProfessionalCard>
             <CardHeader>
-              <CardTitle>{t('statements.details', { defaultValue: 'Details' })}</CardTitle>
+              <CardTitle>{t('statements.details')}</CardTitle>
               {detail && (
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{t('statements.analysis_status', { defaultValue: 'Analysis Status' })}:</span>
+                    <span className="text-sm font-medium">{t('statements.analysis_status')}:</span>
                     {(detail.status === 'processed' || detail.status === 'done') ? (
                       <Badge variant="success" className="h-6">{t('common.done')}</Badge>
                     ) : detail.status === 'processing' ? (
@@ -403,7 +403,7 @@ export function StatementDetailView({
                       <AlertCircle className="h-4 w-4 text-destructive" />
                       <AlertDescription className="text-destructive">
                         <details className="cursor-pointer">
-                          <summary className="font-medium mb-1">{t('statements.analysis_failed_click_details', { defaultValue: 'Analysis failed (click for details)' })}</summary>
+                          <summary className="font-medium mb-1">{t('statements.analysis_failed_click_details')}</summary>
                           <div className="mt-2 text-xs font-mono bg-destructive/10 p-2 rounded border border-destructive/30 overflow-x-auto">
                             {detail.analysis_error}
                           </div>
@@ -416,11 +416,11 @@ export function StatementDetailView({
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm">{t('statements.original_filename', { defaultValue: 'Original Filename' })}</label>
+                <label className="text-sm">{t('statements.original_filename')}</label>
                 <Input value={detail?.original_filename || ''} disabled={true} />
               </div>
               <div>
-                <label className="text-sm">{t('statements.uploaded_at', { defaultValue: 'Uploaded At' })}</label>
+                <label className="text-sm">{t('statements.uploaded_at')}</label>
                 <Input value={detail?.created_at ? new Date(detail.created_at).toLocaleString(getLocale, {
                   timeZone: timezone, year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                 }) : ''} disabled={true} />
@@ -432,13 +432,13 @@ export function StatementDetailView({
                 </div>
               )}
               <div>
-                <label className="text-sm">{t('statements.extracted_count', { defaultValue: 'Extracted Transactions' })}</label>
+                <label className="text-sm">{t('statements.extracted_count')}</label>
                 <Input value={detail?.extracted_count || 0} disabled={true} />
               </div>
               <div>
-                <label className="text-sm">{t('statements.bank_name', { defaultValue: 'Bank Name' })}</label>
+                <label className="text-sm">{t('statements.bank_name')}</label>
                 <Input
-                  placeholder={t('statements.bank_name_placeholder', { defaultValue: 'Bank Name...' })}
+                  placeholder={t('statements.bank_name_placeholder')}
                   value={statementBankName}
                   onChange={(e) => setStatementBankName(e.target.value)}
                   onBlur={saveMeta}
@@ -474,7 +474,7 @@ export function StatementDetailView({
                                   const resp = await bankStatementApi.updateMeta(selected, { labels: next });
                                   setStatementLabels((resp.statement as any).labels || []);
                                 } catch (err: any) {
-                                  toast.error(err?.message || t('statements.labelRemoveFailed', { defaultValue: 'Failed to remove label' }));
+                                  toast.error(err?.message || t('statements.labelRemoveFailed'));
                                 }
                               }}
                             >
@@ -485,14 +485,14 @@ export function StatementDetailView({
                       </div>
                     ))
                   ) : (
-                    <span className="text-xs text-muted-foreground italic px-1">{t('statements.no_labels', { defaultValue: 'No labels' })}</span>
+                    <span className="text-xs text-muted-foreground italic px-1">{t('statements.no_labels')}</span>
                   )}
                 </div>
                 {!readOnly && (
                   <div className="relative group">
                     <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input
-                      placeholder={t('statements.add_label_placeholder', { defaultValue: 'Add label (Enter)' })}
+                      placeholder={t('statements.add_label_placeholder')}
                       value={newStatementLabel}
                       className="pl-9 h-10 border-border/50 bg-muted/20 focus:bg-background rounded-lg transition-all"
                       onChange={(ev) => setNewStatementLabel(ev.target.value)}
@@ -502,15 +502,15 @@ export function StatementDetailView({
                           if (!raw) return;
                           const existing = statementLabels || [];
                           if (existing.includes(raw)) { setNewStatementLabel(''); return; }
-                          if (existing.length >= 10) { toast.error(t('common.max_labels_reached', { defaultValue: 'Maximum of 10 labels reached' })); return; }
+                          if (existing.length >= 10) { toast.error(t('common.max_labels_reached')); return; }
                           try {
                             const next = [...existing, raw];
                             const resp = await bankStatementApi.updateMeta(selected, { labels: next });
                             setStatementLabels((resp.statement as any).labels || []);
                             setNewStatementLabel('');
-                            toast.success(t('common.label_added', { defaultValue: 'Label added' }));
+                            toast.success(t('common.label_added'));
                           } catch (err: any) {
-                            toast.error(err?.message || t('statements.labelAddFailed', { defaultValue: 'Failed to add label' }));
+                            toast.error(err?.message || t('statements.labelAddFailed'));
                           }
                         }
                       }}
@@ -535,7 +535,7 @@ export function StatementDetailView({
                   className="h-8 text-xs font-bold text-primary hover:text-primary hover:bg-primary/5"
                 >
                   {detailLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
-                  {t('common.save_notes', { defaultValue: 'Save Notes' })}
+                  {t('common.save_notes')}
                 </ProfessionalButton>
               </CardHeader>
               <div className="flex-1">
@@ -543,7 +543,7 @@ export function StatementDetailView({
                   value={statementNotes}
                   onChange={(e) => setStatementNotes(e.target.value)}
                   onBlur={saveMeta}
-                  placeholder={t('statements.notes_placeholder', { defaultValue: 'Add any notes about this statement...' })}
+                  placeholder={t('statements.notes_placeholder')}
                   className="min-h-[100px] border-border/50 bg-muted/20 focus:bg-background rounded-lg transition-all resize-none p-4"
                   disabled={readOnly}
                 />
@@ -555,8 +555,8 @@ export function StatementDetailView({
           <ProfessionalCard variant="elevated" className="overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-border/50 mb-6 px-0">
               <div>
-                <CardTitle className="text-xl font-bold">{t('statements.transactions_list', { defaultValue: 'Transactions List' })}</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">{t('statements.edit_transactions_instruction', { defaultValue: 'Review and edit transaction details if needed' })}</p>
+                <CardTitle className="text-xl font-bold">{t('statements.transactions_list')}</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">{t('statements.edit_transactions_instruction')}</p>
               </div>
               <div className="flex items-center gap-2">
                 <ProfessionalButton
@@ -567,7 +567,7 @@ export function StatementDetailView({
                   className="h-9 px-3 border-border/50"
                 >
                   <FileText className="w-4 h-4 mr-2 text-primary" />
-                  {t('statements.export_csv', { defaultValue: 'Export CSV' })}
+                  {t('statements.export_csv')}
                 </ProfessionalButton>
                 <ProfessionalButton
                   variant="outline"
@@ -575,12 +575,10 @@ export function StatementDetailView({
                   onClick={openRollupExpenseModal}
                   disabled={readOnly || rows.filter((r) => r.transaction_type === 'debit').length === 0}
                   className="h-9 px-3 border-border/50"
-                  title={t('statements.rollup_expense_tooltip', {
-                    defaultValue: 'Create one bookkeeping expense summing all debit transactions on this statement',
-                  })}
+                  title={t('statements.rollup_expense_tooltip')}
                 >
                   <Receipt className="w-4 h-4 mr-2 text-primary" />
-                  {t('statements.rollup_expense', { defaultValue: 'Create rollup expense' })}
+                  {t('statements.rollup_expense')}
                 </ProfessionalButton>
                 <ProfessionalButton
                   variant="outline"
@@ -590,7 +588,7 @@ export function StatementDetailView({
                   className="h-9 px-3 border-border/50"
                 >
                   <Plus className="w-4 h-4 mr-2 text-primary" />
-                  {t('statements.add_row', { defaultValue: 'Add Row' })}
+                  {t('statements.add_row')}
                 </ProfessionalButton>
               </div>
             </CardHeader>
@@ -599,16 +597,16 @@ export function StatementDetailView({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30 border-b border-border/50">
-                    <TableHead className="w-[60px] font-bold text-foreground text-center">{t('common.id', { defaultValue: 'ID' })}</TableHead>
-                    <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_date', { defaultValue: 'Date' })}</TableHead>
-                    <TableHead className="min-w-[250px] font-bold text-foreground">{t('statements.table_description', { defaultValue: 'Description' })}</TableHead>
-                    <TableHead className="w-[120px] font-bold text-foreground text-right">{t('statements.table_amount', { defaultValue: 'Amount' })}</TableHead>
-                    <TableHead className="w-[120px] font-bold text-foreground text-right">{t('statements.table_balance', { defaultValue: 'Balance' })}</TableHead>
-                    <TableHead className="w-[140px] font-bold text-foreground">{t('statements.table_type', { defaultValue: 'Type' })}</TableHead>
-                    <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_category', { defaultValue: 'Category' })}</TableHead>
-                    <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_notes', { defaultValue: 'Notes' })}</TableHead>
-                    <TableHead className="w-[120px] font-bold text-foreground text-center">{t('common.reference', { defaultValue: 'Reference' })}</TableHead>
-                    <TableHead className="w-[80px] text-right font-bold text-foreground sticky right-0 bg-muted/30 z-10 shadow-[-4px_0_8px_-2px_hsl(var(--border)/0.5)]">{t('statements.table_actions', { defaultValue: 'Actions' })}</TableHead>
+                    <TableHead className="w-[60px] font-bold text-foreground text-center">{t('common.id')}</TableHead>
+                    <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_date')}</TableHead>
+                    <TableHead className="min-w-[250px] font-bold text-foreground">{t('statements.table_description')}</TableHead>
+                    <TableHead className="w-[120px] font-bold text-foreground text-right">{t('statements.table_amount')}</TableHead>
+                    <TableHead className="w-[120px] font-bold text-foreground text-right">{t('statements.table_balance')}</TableHead>
+                    <TableHead className="w-[140px] font-bold text-foreground">{t('statements.table_type')}</TableHead>
+                    <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_category')}</TableHead>
+                    <TableHead className="w-[180px] font-bold text-foreground">{t('statements.table_notes')}</TableHead>
+                    <TableHead className="w-[120px] font-bold text-foreground text-center">{t('common.reference')}</TableHead>
+                    <TableHead className="w-[80px] text-right font-bold text-foreground sticky right-0 bg-muted/30 z-10 shadow-[-4px_0_8px_-2px_hsl(var(--border)/0.5)]">{t('statements.table_actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -701,8 +699,8 @@ export function StatementDetailView({
                               >
                                 <SelectTrigger className="h-9 border-border/50 bg-muted/20 w-full"><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="debit">{t('statements.type_debit', { defaultValue: 'Debit' })}</SelectItem>
-                                  <SelectItem value="credit">{t('statements.type_credit', { defaultValue: 'Credit' })}</SelectItem>
+                                  <SelectItem value="debit">{t('statements.type_debit')}</SelectItem>
+                                  <SelectItem value="credit">{t('statements.type_credit')}</SelectItem>
                                 </SelectContent>
                               </Select>
                             ) : (
@@ -731,7 +729,7 @@ export function StatementDetailView({
                                 value={(r as any).notes || ''}
                                 onChange={(e) => setRows(prev => prev.map((x, i) => i === idx ? { ...x, notes: e.target.value } : x))}
                                 className="h-9 border-border/50 bg-muted/20 w-full"
-                                placeholder={t('statements.notes_placeholder', { defaultValue: 'Notes...' })}
+                                placeholder={t('statements.notes_placeholder')}
                               />
                             ) : (
                               <span className="text-sm truncate max-w-[150px] inline-block" title={(r as any).notes || ''}>
@@ -782,7 +780,7 @@ export function StatementDetailView({
                                   disabled={readOnly}
                                   className="h-8 px-3"
                                 >
-                                  {t('common.done', { defaultValue: 'Done' })}
+                                  {t('common.done')}
                                 </ProfessionalButton>
                               ) : (
                                 <DropdownMenu>
@@ -794,7 +792,7 @@ export function StatementDetailView({
                                   <DropdownMenuContent align="end" className="w-48">
                                     <DropdownMenuItem onClick={() => setEditingRow(idx)} disabled={readOnly}>
                                       <Edit className="w-4 h-4 mr-2 text-primary" />
-                                      {t('common.edit', { defaultValue: 'Edit' })}
+                                      {t('common.edit')}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
@@ -833,21 +831,21 @@ export function StatementDetailView({
                                           disabled={readOnly || Boolean((r as any).expense_id)}
                                         >
                                           <Plus className="w-4 h-4 mr-2 text-success" />
-                                          {Boolean((r as any).expense_id) ? `Expense linked` : t('statements.add_to_expense', { defaultValue: 'Add to Expense' })}
+                                          {Boolean((r as any).expense_id) ? `Expense linked` : t('statements.add_to_expense')}
                                         </DropdownMenuItem>
                                         {Boolean((r as any).expense_id) && (
                                           <>
                                             <DropdownMenuItem onClick={() => copyToClipboard(String((r as any).expense_id), `Copied Expense ID ${(r as any).expense_id}`)}>
                                               <Copy className="w-4 h-4 mr-2" />
-                                              {t('common.copy_id', { defaultValue: 'Copy ID' })}
+                                              {t('common.copy_id')}
                                             </DropdownMenuItem>
                                             <DropdownMenuItem
                                               onClick={async () => {
-                                                if (!confirm(t('common.confirm_delete', { defaultValue: 'Are you sure?' }))) return;
+                                                if (!confirm(t('common.confirm_delete'))) return;
                                                 try {
                                                   const expId = (r as any).expense_id;
                                                   await expenseApi.deleteExpense(expId);
-                                                  toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted' }));
+                                                  toast.success(t('expenses.delete_success'));
                                                   setRows(prev => prev.map((row, i) => i === idx ? { ...row, expense_id: null } : row));
                                                   const backendId = (r as any).backend_id;
                                                   if (backendId) {
@@ -855,13 +853,13 @@ export function StatementDetailView({
                                                     await openStatement(selected);
                                                   }
                                                 } catch (e: any) {
-                                                  toast.error(e?.message || t('common.delete_failed', { defaultValue: 'Failed to delete' }));
+                                                  toast.error(e?.message || t('common.delete_failed'));
                                                 }
                                               }}
                                               className="text-destructive focus:text-destructive"
                                             >
                                               <Trash2 className="w-4 h-4 mr-2" />
-                                              {t('statements.delete_expense', { defaultValue: 'Delete Expense' })}
+                                              {t('statements.delete_expense')}
                                             </DropdownMenuItem>
                                           </>
                                         )}
@@ -874,7 +872,7 @@ export function StatementDetailView({
                                           disabled={readOnly || Boolean((r as any).invoice_id)}
                                         >
                                           <Plus className="w-4 h-4 mr-2 text-success" />
-                                          {Boolean((r as any).invoice_id) ? 'Invoice linked' : t('statements.add_to_invoice', { defaultValue: 'Add to Invoice' })}
+                                          {Boolean((r as any).invoice_id) ? 'Invoice linked' : t('statements.add_to_invoice')}
                                         </DropdownMenuItem>
                                         {Boolean((r as any).invoice_id) && (
                                           <>
@@ -885,20 +883,20 @@ export function StatementDetailView({
                                                   const inv = await invoiceApi.getInvoice(invId);
                                                   await copyToClipboard(inv.number || String(invId), `Copied Invoice No ${inv.number || invId}`);
                                                 } catch {
-                                                  toast.error(t('common.copy_failed', { defaultValue: 'Failed to copy' }));
+                                                  toast.error(t('common.copy_failed'));
                                                 }
                                               }}
                                             >
                                               <Copy className="w-4 h-4 mr-2" />
-                                              {t('common.copy_id', { defaultValue: 'Copy ID' })}
+                                              {t('common.copy_id')}
                                             </DropdownMenuItem>
                                             <DropdownMenuItem
                                               onClick={async () => {
-                                                if (!confirm(t('common.confirm_delete', { defaultValue: 'Are you sure?' }))) return;
+                                                if (!confirm(t('common.confirm_delete'))) return;
                                                 try {
                                                   const invId = Number((r as any).invoice_id);
                                                   await invoiceApi.deleteInvoice(invId);
-                                                  toast.success(t('invoices.delete_success', { defaultValue: 'Invoice deleted' }));
+                                                  toast.success(t('invoices.delete_success'));
                                                   setRows(prev => prev.map((row, i) => i === idx ? { ...row, invoice_id: null } : row));
                                                   const backendId = (r as any).backend_id;
                                                   if (backendId) {
@@ -906,7 +904,7 @@ export function StatementDetailView({
                                                     await openStatement(selected);
                                                   }
                                                 } catch (e: any) {
-                                                  let errorMessage = e?.message || t('invoices.delete_failed', { defaultValue: 'Failed to delete invoice' });
+                                                  let errorMessage = e?.message || t('invoices.delete_failed');
                                                   if (errorMessage.includes('linked expenses')) errorMessage = t('invoices.delete_error_linked_expenses');
                                                   toast.error(errorMessage);
                                                 }
@@ -914,7 +912,7 @@ export function StatementDetailView({
                                               className="text-destructive focus:text-destructive"
                                             >
                                               <Trash2 className="w-4 h-4 mr-2" />
-                                              {t('statements.delete_invoice', { defaultValue: 'Delete Invoice' })}
+                                              {t('statements.delete_invoice')}
                                             </DropdownMenuItem>
                                           </>
                                         )}
@@ -944,7 +942,7 @@ export function StatementDetailView({
                       <ContextMenuContent className="w-56">
                         <ContextMenuItem onClick={() => setEditingRow(idx)} disabled={readOnly}>
                           <Edit className="w-4 h-4 mr-2 text-primary" />
-                          {t('common.edit', { defaultValue: 'Edit' })}
+                          {t('common.edit')}
                         </ContextMenuItem>
                         <ContextMenuSeparator />
                         <ContextMenuItem
@@ -980,21 +978,21 @@ export function StatementDetailView({
                           <>
                             <ContextMenuItem onClick={() => createExpenseFromTransaction(idx)} disabled={readOnly || Boolean((r as any).expense_id)}>
                               <Plus className="w-4 h-4 mr-2 text-success" />
-                              {Boolean((r as any).expense_id) ? `Expense linked` : t('statements.add_to_expense', { defaultValue: 'Add to Expense' })}
+                              {Boolean((r as any).expense_id) ? `Expense linked` : t('statements.add_to_expense')}
                             </ContextMenuItem>
                             {Boolean((r as any).expense_id) && (
                               <>
                                 <ContextMenuItem onClick={() => copyToClipboard(String((r as any).expense_id), `Copied Expense ID ${(r as any).expense_id}`)}>
                                   <Copy className="w-4 h-4 mr-2" />
-                                  {t('common.copy_id', { defaultValue: 'Copy ID' })}
+                                  {t('common.copy_id')}
                                 </ContextMenuItem>
                                 <ContextMenuItem
                                   onClick={async () => {
-                                    if (!confirm(t('common.confirm_delete', { defaultValue: 'Are you sure?' }))) return;
+                                    if (!confirm(t('common.confirm_delete'))) return;
                                     try {
                                       const expId = (r as any).expense_id;
                                       await expenseApi.deleteExpense(expId);
-                                      toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted' }));
+                                      toast.success(t('expenses.delete_success'));
                                       setRows(prev => prev.map((row, i) => i === idx ? { ...row, expense_id: null } : row));
                                       const backendId = (r as any).backend_id;
                                       if (backendId) {
@@ -1002,13 +1000,13 @@ export function StatementDetailView({
                                         await openStatement(selected);
                                       }
                                     } catch (e: any) {
-                                      toast.error(e?.message || t('common.delete_failed', { defaultValue: 'Failed to delete' }));
+                                      toast.error(e?.message || t('common.delete_failed'));
                                     }
                                   }}
                                   className="text-destructive focus:text-destructive"
                                 >
                                   <Trash2 className="w-4 h-4 mr-2" />
-                                  {t('statements.delete_expense', { defaultValue: 'Delete Expense' })}
+                                  {t('statements.delete_expense')}
                                 </ContextMenuItem>
                               </>
                             )}
@@ -1018,7 +1016,7 @@ export function StatementDetailView({
                           <>
                             <ContextMenuItem onClick={() => createInvoiceFromTransaction(idx)} disabled={readOnly || Boolean((r as any).invoice_id)}>
                               <Plus className="w-4 h-4 mr-2 text-success" />
-                              {Boolean((r as any).invoice_id) ? 'Invoice linked' : t('statements.add_to_invoice', { defaultValue: 'Add to Invoice' })}
+                              {Boolean((r as any).invoice_id) ? 'Invoice linked' : t('statements.add_to_invoice')}
                             </ContextMenuItem>
                             {Boolean((r as any).invoice_id) && (
                               <>
@@ -1029,20 +1027,20 @@ export function StatementDetailView({
                                       const inv = await invoiceApi.getInvoice(invId);
                                       await copyToClipboard(inv.number || String(invId), `Copied Invoice No ${inv.number || invId}`);
                                     } catch {
-                                      toast.error(t('common.copy_failed', { defaultValue: 'Failed to copy' }));
+                                      toast.error(t('common.copy_failed'));
                                     }
                                   }}
                                 >
                                   <Copy className="w-4 h-4 mr-2" />
-                                  {t('common.copy_id', { defaultValue: 'Copy ID' })}
+                                  {t('common.copy_id')}
                                 </ContextMenuItem>
                                 <ContextMenuItem
                                   onClick={async () => {
-                                    if (!confirm(t('common.confirm_delete', { defaultValue: 'Are you sure?' }))) return;
+                                    if (!confirm(t('common.confirm_delete'))) return;
                                     try {
                                       const invId = Number((r as any).invoice_id);
                                       await invoiceApi.deleteInvoice(invId);
-                                      toast.success(t('invoices.delete_success', { defaultValue: 'Invoice deleted' }));
+                                      toast.success(t('invoices.delete_success'));
                                       setRows(prev => prev.map((row, i) => i === idx ? { ...row, invoice_id: null } : row));
                                       const backendId = (r as any).backend_id;
                                       if (backendId) {
@@ -1050,7 +1048,7 @@ export function StatementDetailView({
                                         await openStatement(selected);
                                       }
                                     } catch (e: any) {
-                                      let errorMessage = e?.message || t('invoices.delete_failed', { defaultValue: 'Failed to delete invoice' });
+                                      let errorMessage = e?.message || t('invoices.delete_failed');
                                       if (errorMessage.includes('linked expenses')) errorMessage = t('invoices.delete_error_linked_expenses');
                                       toast.error(errorMessage);
                                     }
@@ -1058,7 +1056,7 @@ export function StatementDetailView({
                                   className="text-destructive focus:text-destructive"
                                 >
                                   <Trash2 className="w-4 h-4 mr-2" />
-                                  {t('statements.delete_invoice', { defaultValue: 'Delete Invoice' })}
+                                  {t('statements.delete_invoice')}
                                 </ContextMenuItem>
                               </>
                             )}
@@ -1086,7 +1084,7 @@ export function StatementDetailView({
                       <TableCell colSpan={10} className="h-32 text-center text-muted-foreground italic">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <FileText className="h-8 w-8 opacity-20" />
-                          {t('statements.no_transactions', { defaultValue: 'No transactions found' })}
+                          {t('statements.no_transactions')}
                         </div>
                       </TableCell>
                     </TableRow>

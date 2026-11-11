@@ -154,10 +154,10 @@ export function StatementsListView({
               <Filter className="h-4 w-4 text-muted-foreground" />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full sm:w-[170px] h-10 rounded-lg border-border/50 bg-muted/30">
-                  <SelectValue placeholder={t('statements.filter_by_status', { defaultValue: 'Filter by status' })} />
+                  <SelectValue placeholder={t('statements.filter_by_status')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t('statements.all_statuses', { defaultValue: 'All Statuses' })}</SelectItem>
+                  <SelectItem value="all">{t('statements.all_statuses')}</SelectItem>
                   {STATEMENT_STATUSES.map((status) => (
                     <SelectItem key={status} value={status}>
                       {t(`statements.status.${status}`, { defaultValue: formatStatus(status) })}
@@ -171,7 +171,7 @@ export function StatementsListView({
             <div className="relative">
               <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder={t('statements.filter_by_label', { defaultValue: 'Filter by label' })}
+                placeholder={t('statements.filter_by_label')}
                 className="pl-9 w-full sm:w-[150px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
                 value={labelFilter}
                 onChange={(e) => setLabelFilter(e.target.value)}
@@ -189,7 +189,7 @@ export function StatementsListView({
 
             {/* Page Size */}
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground whitespace-nowrap">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
+              <span className="text-sm text-muted-foreground whitespace-nowrap">{t('common.page_size')}</span>
               <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(() => 1); }}>
                 <SelectTrigger className="w-[100px] h-10 rounded-lg border-border/50 bg-muted/30">
                   <SelectValue />
@@ -218,7 +218,7 @@ export function StatementsListView({
             <div className="flex items-center gap-3">
               <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
               <span className="text-sm font-bold text-foreground">
-                {selectedIds.length} {t('statements.title', { defaultValue: 'statement' })}{selectedIds.length !== 1 ? 's' : ''} {t('common.selected', { defaultValue: 'selected' })}
+                {selectedIds.length} {t('statements.title')}{selectedIds.length !== 1 ? 's' : ''} {t('common.selected')}
               </span>
               <ProfessionalButton
                 variant="ghost"
@@ -234,7 +234,7 @@ export function StatementsListView({
               <div className="relative group flex-1 md:flex-initial min-w-[200px]">
                 <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder={t('statements.bulk_label_placeholder', { defaultValue: 'Add or remove label' })}
+                  placeholder={t('statements.bulk_label_placeholder')}
                   value={bulkLabel}
                   onChange={(e) => setBulkLabel(e.target.value)}
                   className="pl-8 h-9 text-sm border-primary/20 focus:border-primary/40 bg-background/50"
@@ -252,9 +252,9 @@ export function StatementsListView({
                       loadList();
                       setSelectedIds(() => []);
                       setBulkLabel('');
-                      toast.success(t('statements.labelAdded', { defaultValue: 'Labels added' }));
+                      toast.success(t('statements.labelAdded'));
                     } catch (e: any) {
-                      toast.error(e?.message || t('statements.labelAddFailed', { defaultValue: 'Failed to add label' }));
+                      toast.error(e?.message || t('statements.labelAddFailed'));
                     }
                   }}
                   className="h-9 px-3 gap-1.5"
@@ -273,9 +273,9 @@ export function StatementsListView({
                       await loadList();
                       setSelectedIds(() => []);
                       setBulkLabel('');
-                      toast.success(t('statements.labelRemoved', { defaultValue: 'Labels removed' }));
+                      toast.success(t('statements.labelRemoved'));
                     } catch (e: any) {
-                      toast.error(e?.message || t('statements.labelRemoveFailed', { defaultValue: 'Failed to remove label' }));
+                      toast.error(e?.message || t('statements.labelRemoveFailed'));
                     }
                   }}
                   className="h-9 px-3 gap-1.5"
@@ -351,7 +351,7 @@ export function StatementsListView({
                     }}
                   />
                 </TableHead>
-                {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>}
+                {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id')}</TableHead>}
                 <TableHead className="font-bold text-foreground">{t('statements.filename')}</TableHead>
                 {isVisible('labels') && <TableHead className="font-bold text-foreground">{t('statements.labels')}</TableHead>}
                 {isVisible('bank_name') && <TableHead className="font-bold text-foreground">{t('statements.bank_name')}</TableHead>}
@@ -359,8 +359,8 @@ export function StatementsListView({
                 <TableHead className="font-bold text-foreground">{t('statements.status.label')}</TableHead>
                 {isVisible('review_status') && <TableHead className="font-bold text-foreground">{t('statements.review_status.label')}</TableHead>}
                 {isVisible('transactions') && <TableHead className="font-bold text-foreground">{t('statements.transactions')}</TableHead>}
-                {isVisible('created_at_by') && <TableHead className="font-bold text-foreground">{t('statements.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>}
-                <TableHead className="sticky right-0 z-30 w-[88px] bg-muted/80 text-center font-bold text-foreground shadow-[-6px_0_10px_-6px_hsl(var(--foreground)/0.35)]">{t('statements.actions', { defaultValue: 'Actions' })}</TableHead>
+                {isVisible('created_at_by') && <TableHead className="font-bold text-foreground">{t('statements.created_at_by')}</TableHead>}
+                <TableHead className="sticky right-0 z-30 w-[88px] bg-muted/80 text-center font-bold text-foreground shadow-[-6px_0_10px_-6px_hsl(var(--foreground)/0.35)]">{t('statements.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -397,7 +397,7 @@ export function StatementsListView({
                                 bankStatementApi.updateMeta(s.id, { labels: next }).then(() => {
                                   setStatements((prev) => prev.map((x) => (x.id === s.id ? { ...x, labels: next } : x)));
                                 }).catch((err: any) => {
-                                  toast.error(err?.message || t('statements.labelRemoveFailed', { defaultValue: 'Failed to remove label' }));
+                                  toast.error(err?.message || t('statements.labelRemoveFailed'));
                                 });
                               }}
                             >
@@ -406,7 +406,7 @@ export function StatementsListView({
                           </Badge>
                         ))}
                         <Input
-                          placeholder={t('expenses.labels.label_placeholder', { defaultValue: 'Add label...' })}
+                          placeholder={t('expenses.labels.label_placeholder')}
                           className="w-[100px] h-7 text-[10px] px-2 bg-muted/20 border-border/40 focus:bg-background transition-all"
                           value={newLabelValueById[s.id] || ''}
                           onChange={(ev) => setNewLabelValueById((prev) => ({ ...prev, [s.id]: ev.target.value }))}
@@ -423,7 +423,7 @@ export function StatementsListView({
                                 setStatements((prev) => prev.map((x) => (x.id === s.id ? { ...x, labels: next } : x)));
                                 setNewLabelValueById((prev) => ({ ...prev, [s.id]: '' }));
                               }).catch((err: any) => {
-                                toast.error(err?.message || t('statements.labelAddFailed', { defaultValue: 'Failed to add label' }));
+                                toast.error(err?.message || t('statements.labelAddFailed'));
                               });
                             }
                           }}
@@ -478,10 +478,10 @@ export function StatementsListView({
                         onRun={() => handleRunReview(s.id)}
                         onCancel={() => handleCancelReview(s.id)}
                         labels={{
-                          view: t('statements.review_status.view_report', { defaultValue: 'View review report' }),
-                          run: t('statements.review_status.trigger', { defaultValue: 'Run review' }),
-                          cancel: t('statements.review_status.cancel', { defaultValue: 'Cancel review' }),
-                          clear: t('statements.review_status.clear_status', { defaultValue: 'Clear review status' }),
+                          view: t('statements.review_status.view_report'),
+                          run: t('statements.review_status.trigger'),
+                          cancel: t('statements.review_status.cancel'),
+                          clear: t('statements.review_status.clear_status'),
                         }}
                       />
                     </TableCell>
@@ -530,14 +530,14 @@ export function StatementsListView({
                                   await bankStatementApi.reprocess(s.id);
                                   const startPolling = (window as any).startStatementPolling;
                                   if (typeof startPolling === 'function') startPolling([s.id]);
-                                  toast.success(t('statements.reprocessStarted', { defaultValue: 'Reprocessing started' }));
+                                  toast.success(t('statements.reprocessStarted'));
                                   await loadList();
                                   setTimeout(() => {
                                     setReprocessingLocks(prev => { const next = new Set(prev); next.delete(s.id); return next; });
                                   }, 30000);
                                 } catch (err: any) {
                                   setReprocessingLocks(prev => { const next = new Set(prev); next.delete(s.id); return next; });
-                                  toast.error(err?.message || t('statements.reprocessFailedShort', { defaultValue: 'Failed to reprocess' }));
+                                  toast.error(err?.message || t('statements.reprocessFailedShort'));
                                 }
                               }}
                             >

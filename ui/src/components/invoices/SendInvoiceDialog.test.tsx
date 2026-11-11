@@ -1,17 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, opts?: Record<string, any>) => {
-      let s = (opts?.defaultValue as string) ?? key;
-      if (opts) for (const [k, v] of Object.entries(opts)) {
-        if (k !== 'defaultValue') s = s.replace(`{{${k}}}`, String(v));
-      }
-      return s;
-    },
-  }),
-}));
+vi.mock('react-i18next', async () => {
+  const { mockT } = await import('@/test/mockT');
+  return { useTranslation: () => ({ t: mockT }) };
+});
 const apiRequest = vi.fn();
 vi.mock('@/lib/api', () => ({ apiRequest: (...a: any[]) => apiRequest(...a) }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));

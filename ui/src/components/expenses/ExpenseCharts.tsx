@@ -113,7 +113,7 @@ const ExpenseCharts: React.FC<ExpenseChartsProps> = ({ className }) => {
       <Card className={className}>
         <CardContent className="flex items-center justify-center p-8">
           <Loader2 className="h-6 w-6 animate-spin mr-2" />
-          {t('expenses.loading_expense_charts', { defaultValue: 'Loading expense charts...'})}
+          {t('expenses.loading_expense_charts')}
         </CardContent>
       </Card>
     );
@@ -127,7 +127,7 @@ const ExpenseCharts: React.FC<ExpenseChartsProps> = ({ className }) => {
             <p className="text-destructive mb-4">{error}</p>
             <Button onClick={loadTrends} size="sm">
               <RefreshCw className="h-4 w-4 mr-2" />
-              {t('expenses.try_again', { defaultValue: 'Try Again'})}
+              {t('expenses.try_again')}
             </Button>
           </div>
         </CardContent>
@@ -144,7 +144,7 @@ const ExpenseCharts: React.FC<ExpenseChartsProps> = ({ className }) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5" />
-            {t('expenses.expense_trends', { defaultValue: 'Expense Trends' })}
+            {t('expenses.expense_trends')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -190,7 +190,7 @@ const ExpenseCharts: React.FC<ExpenseChartsProps> = ({ className }) => {
             </div>
             <Button onClick={loadTrends} size="sm" variant="outline">
               <RefreshCw className="h-4 w-4 mr-2" />
-              {t('expenses.refresh', { defaultValue: 'Refresh' })}
+              {t('expenses.refresh')}
             </Button>
           </div>
         </CardContent>
@@ -233,7 +233,7 @@ const ExpenseCharts: React.FC<ExpenseChartsProps> = ({ className }) => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-purple-600 dark:text-purple-400">{t('expenses.volatility', { defaultValue: 'Volatility' })}</p>
+                <p className="text-sm font-medium text-purple-600 dark:text-purple-400">{t('expenses.volatility')}</p>
                 <p className="text-lg font-bold text-purple-900 dark:text-purple-100">
                   {trendsData.analysis.volatility_percent.toFixed(1)}%
                 </p>
@@ -323,7 +323,7 @@ const ExpenseCharts: React.FC<ExpenseChartsProps> = ({ className }) => {
       {/* Trend Data Table */}
       <Card>
         <CardHeader>
-          <CardTitle>{t('expenses.detailed_trend_data', { defaultValue: 'Detailed Trend Data' })}</CardTitle>
+          <CardTitle>{t('expenses.detailed_trend_data')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">

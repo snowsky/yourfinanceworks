@@ -682,9 +682,7 @@ export default function ExpensesNew() {
                   <Alert className="border-warning/30 bg-warning/10">
                     <AlertCircle className="h-4 w-4 text-warning" />
                     <AlertDescription className="text-warning">
-                      {t('common.feature_not_licensed', {
-                        defaultValue: 'Approval workflows require a commercial license. Please upgrade your license to use this feature.'
-                      })}
+                      {t('common.feature_not_licensed')}
                     </AlertDescription>
                   </Alert>
                 ) : (

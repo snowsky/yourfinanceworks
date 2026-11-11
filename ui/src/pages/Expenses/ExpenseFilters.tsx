@@ -84,7 +84,7 @@ export function ExpenseFilters({
           <SelectValue placeholder={t('expenses.status_filter_label')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">{t('expenses.status_filter_label')}: {t('common.all', { defaultValue: 'All' })}</SelectItem>
+          <SelectItem value="all">{t('expenses.status_filter_label')}: {t('common.all')}</SelectItem>
           {EXPENSE_STATUS_OPTIONS.map(opt => (
             <SelectItem key={opt.value} value={opt.value}>{t(opt.labelKey)}</SelectItem>
           ))}
@@ -95,7 +95,7 @@ export function ExpenseFilters({
       <div className="relative w-full sm:w-auto">
         <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder={t('expenses.filter_by_label', { defaultValue: 'Filter by label' })}
+          placeholder={t('expenses.filter_by_label')}
           className="pl-9 w-full sm:w-[150px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
           value={labelFilter}
           onChange={(e) => { setLabelFilter(e.target.value); setPage(1); }}
@@ -114,12 +114,12 @@ export function ExpenseFilters({
       {/* Unlinked Only Checkbox */}
       <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
         <input type="checkbox" checked={unlinkedOnly} onChange={(e) => { setUnlinkedOnly(e.target.checked); setPage(1); }} />
-        {t('expenses.unlinked_only', { defaultValue: 'Unlinked only' })}
+        {t('expenses.unlinked_only')}
       </label>
 
       {/* Page Size */}
       <div className="flex w-full items-center gap-2 sm:w-auto">
-        <span className="text-sm text-muted-foreground whitespace-nowrap">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
+        <span className="text-sm text-muted-foreground whitespace-nowrap">{t('common.page_size')}</span>
         <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
           <SelectTrigger className="w-[100px] h-10 rounded-lg border-border/50 bg-muted/30">
             <SelectValue />

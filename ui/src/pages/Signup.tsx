@@ -266,13 +266,13 @@ const Signup: React.FC = () => {
     if (pw.length < passwordRequirements.min_length)
       errors.push(t("auth.signup.validation.password_min_length", { min_length: passwordRequirements.min_length }));
     if (c.require_uppercase && !/[A-Z]/.test(pw))
-      errors.push(t("auth.signup.req_uppercase", { defaultValue: "One uppercase letter required" }));
+      errors.push(t("auth.signup.req_uppercase"));
     if (c.require_lowercase && !/[a-z]/.test(pw))
-      errors.push(t("auth.signup.req_lowercase", { defaultValue: "One lowercase letter required" }));
+      errors.push(t("auth.signup.req_lowercase"));
     if (c.require_numbers && !/\d/.test(pw))
-      errors.push(t("auth.signup.req_number", { defaultValue: "One number required" }));
+      errors.push(t("auth.signup.req_number"));
     if (c.require_special_chars && specialCharRegex && !specialCharRegex.test(pw))
-      errors.push(t("auth.signup.req_special_char", { defaultValue: "One special character required" }));
+      errors.push(t("auth.signup.req_special_char"));
 
     if (errors.length > 0) {
       const msg = errors.join(". ");
@@ -517,7 +517,7 @@ const Signup: React.FC = () => {
               {formData.password && pwChecks && passwordRequirements && (
                 <div className="mt-2 p-3 bg-muted/50 rounded-lg border border-border">
                   <p className="text-xs font-semibold text-muted-foreground mb-2">
-                    {t("auth.signup.password_requirements_label", { defaultValue: "Password requirements" })}
+                    {t("auth.signup.password_requirements_label")}
                   </p>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                     <CheckItem
@@ -528,16 +528,16 @@ const Signup: React.FC = () => {
                       })}
                     />
                     {passwordRequirements.complexity.require_uppercase && (
-                      <CheckItem met={pwChecks.upper} label={t("auth.signup.req_uppercase", { defaultValue: "Uppercase letter" })} />
+                      <CheckItem met={pwChecks.upper} label={t("auth.signup.req_uppercase")} />
                     )}
                     {passwordRequirements.complexity.require_lowercase && (
-                      <CheckItem met={pwChecks.lower} label={t("auth.signup.req_lowercase", { defaultValue: "Lowercase letter" })} />
+                      <CheckItem met={pwChecks.lower} label={t("auth.signup.req_lowercase")} />
                     )}
                     {passwordRequirements.complexity.require_numbers && (
-                      <CheckItem met={pwChecks.number} label={t("auth.signup.req_number", { defaultValue: "Number" })} />
+                      <CheckItem met={pwChecks.number} label={t("auth.signup.req_number")} />
                     )}
                     {passwordRequirements.complexity.require_special_chars && (
-                      <CheckItem met={pwChecks.special} label={t("auth.signup.req_special_char", { defaultValue: "Special character" })} />
+                      <CheckItem met={pwChecks.special} label={t("auth.signup.req_special_char")} />
                     )}
                   </div>
                 </div>
@@ -568,7 +568,7 @@ const Signup: React.FC = () => {
                     htmlFor="requested_role"
                     className="text-sm font-medium leading-none text-foreground"
                   >
-                    {t("auth.signup.requested_role", { defaultValue: "Requested Role" })}
+                    {t("auth.signup.requested_role")}
                   </label>
                   <select
                     id="requested_role"
@@ -587,10 +587,8 @@ const Signup: React.FC = () => {
                 <ProfessionalTextarea
                   id="message"
                   name="message"
-                  label={t("auth.signup.message_to_admin", { defaultValue: "Message to Admin (Optional)" })}
-                  placeholder={t("auth.signup.message_to_admin_placeholder", {
-                    defaultValue: "Tell the admin why you want to join this organization...",
-                  })}
+                  label={t("auth.signup.message_to_admin")}
+                  placeholder={t("auth.signup.message_to_admin_placeholder")}
                   value={formData.message}
                   onChange={handleChange}
                   rows={3}
@@ -609,19 +607,19 @@ const Signup: React.FC = () => {
               {!loading && (
                 signupMode === "create"
                   ? t("auth.signup.create_account")
-                  : t("auth.signup.request_to_join", { defaultValue: "Request to Join" })
+                  : t("auth.signup.request_to_join")
               )}
             </ProfessionalButton>
 
             {/* Terms */}
             <p className="text-center text-xs text-muted-foreground leading-relaxed">
-              {t("auth.signup.terms_agreement", { defaultValue: "By creating an account, you agree to our" })}{" "}
+              {t("auth.signup.terms_agreement")}{" "}
               <a href="/terms" className="text-primary hover:text-primary/80 transition-colors font-medium">
-                {t("auth.signup.terms", { defaultValue: "Terms of Service" })}
+                {t("auth.signup.terms")}
               </a>{" "}
-              {t("auth.signup.and", { defaultValue: "and" })}{" "}
+              {t("auth.signup.and")}{" "}
               <a href="/privacy" className="text-primary hover:text-primary/80 transition-colors font-medium">
-                {t("auth.signup.privacy_policy", { defaultValue: "Privacy Policy" })}
+                {t("auth.signup.privacy_policy")}
               </a>
               .
             </p>
@@ -693,13 +691,13 @@ const Signup: React.FC = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {t("auth.signup.join_request_submitted", { defaultValue: "Join Request Submitted" })}
+              {t("auth.signup.join_request_submitted")}
             </DialogTitle>
             <DialogDescription>{successMessage}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button onClick={() => { setShowSuccessModal(false); navigate("/login"); }}>
-              {t("auth.signup.ok", { defaultValue: "OK" })}
+              {t("auth.signup.ok")}
             </Button>
           </DialogFooter>
         </DialogContent>

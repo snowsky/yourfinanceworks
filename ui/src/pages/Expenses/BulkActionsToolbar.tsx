@@ -78,7 +78,7 @@ export function BulkActionsToolbar({
       <div className="flex items-center gap-3">
         <div className="h-2 w-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
         <span className="text-sm font-bold text-foreground">
-          {selectedIds.length} {t('expenses.selected', { defaultValue: 'selected' })}
+          {selectedIds.length} {t('expenses.selected')}
         </span>
         <Button
           variant="ghost"
@@ -86,7 +86,7 @@ export function BulkActionsToolbar({
           onClick={() => setSelectedIds([])}
           className="h-8 text-xs hover:bg-primary/10 transition-colors"
         >
-          {t('common.clear', { defaultValue: 'Clear' })}
+          {t('common.clear')}
         </Button>
       </div>
 
@@ -94,7 +94,7 @@ export function BulkActionsToolbar({
         <div className="relative group flex-1 md:flex-initial min-w-[200px]">
           <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder={t('expenses.bulk_label_placeholder', { defaultValue: 'Add or remove label' })}
+            placeholder={t('expenses.bulk_label_placeholder')}
             value={bulkLabel}
             onChange={(e) => setBulkLabel(e.target.value)}
             className="pl-8 h-9 text-sm border-primary/20 focus:border-primary/40 bg-background/50"
@@ -114,9 +114,9 @@ export function BulkActionsToolbar({
                 onExpensesChange(result.expenses, result.total);
                 setSelectedIds([]);
                 setBulkLabel('');
-                toast.success(t('expenses.labels.added', { defaultValue: 'Labels added' }));
+                toast.success(t('expenses.labels.added'));
               } catch (e: any) {
-                toast.error(e?.message || t('expenses.labels.add_failed', { defaultValue: 'Failed to add label' }));
+                toast.error(e?.message || t('expenses.labels.add_failed'));
               }
             }}
             className="h-9 px-3 gap-1.5"
@@ -137,9 +137,9 @@ export function BulkActionsToolbar({
                 onExpensesChange(result.expenses, result.total);
                 setSelectedIds([]);
                 setBulkLabel('');
-                toast.success(t('expenses.labels.removed', { defaultValue: 'Labels removed' }));
+                toast.success(t('expenses.labels.removed'));
               } catch (e: any) {
-                toast.error(e?.message || t('expenses.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
+                toast.error(e?.message || t('expenses.labels.remove_failed'));
               }
             }}
             className="h-9 px-3 gap-1.5"
@@ -171,17 +171,13 @@ export function BulkActionsToolbar({
           disabled={!canMerge}
           title={
             canMerge
-              ? t('expenses.merge_tooltip', {
-                  defaultValue: 'Combine selected expenses into one (sources go to recycle bin)',
-                })
-              : t('expenses.merge_disabled_tooltip', {
-                  defaultValue: 'Select at least 2 expenses to merge',
-                })
+              ? t('expenses.merge_tooltip')
+              : t('expenses.merge_disabled_tooltip')
           }
           className="h-9 px-3 gap-1.5"
         >
           <GitMerge className="h-3.5 w-3.5" />
-          {t('expenses.merge', { defaultValue: 'Merge' })}
+          {t('expenses.merge')}
         </ProfessionalButton>
 
         <DropdownMenu>
@@ -193,31 +189,27 @@ export function BulkActionsToolbar({
               title={
                 canExportOne
                   ? undefined
-                  : t('expenses.export_disabled_tooltip', {
-                      defaultValue: 'Select exactly one expense to export',
-                    })
+                  : t('expenses.export_disabled_tooltip')
               }
               className="h-9 px-3 gap-1.5"
             >
               <Download className="h-3.5 w-3.5" />
-              {t('expenses.export', { defaultValue: 'Export' })}
+              {t('expenses.export')}
               <ChevronDown className="h-3 w-3 ml-0.5 opacity-60" />
             </ProfessionalButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
             <DropdownMenuItem onClick={() => downloadExpenseExport(selectedIds[0], 'pdf')}>
-              {t('expenses.export_pdf', { defaultValue: 'PDF' })}
+              {t('expenses.export_pdf')}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => downloadExpenseExport(selectedIds[0], 'csv')}>
-              {t('expenses.export_csv', { defaultValue: 'CSV' })}
+              {t('expenses.export_csv')}
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled
-              title={t('expenses.export_zip_tooltip', {
-                defaultValue: 'PDF + JSON + attachment files bundled in one ZIP',
-              })}
+              title={t('expenses.export_zip_tooltip')}
             >
-              {t('expenses.export_zip', { defaultValue: 'ZIP bundle' })}
+              {t('expenses.export_zip')}
               <span className="ml-auto text-[10px] text-muted-foreground">soon</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -259,7 +251,7 @@ export function BulkActionsToolbar({
               className="h-9 px-3 gap-1.5 shadow-sm"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              {t('expenses.delete_selected', { defaultValue: 'Delete' })}
+              {t('expenses.delete_selected')}
             </ProfessionalButton>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -296,11 +288,11 @@ export function BulkActionsToolbar({
                     onDuplicatesInvalidate?.();
                     toast.success(`Successfully deleted ${selectedIds.length} expense${selectedIds.length > 1 ? 's' : ''}`);
                   } catch (e: any) {
-                    toast.error(e?.message || t('expenses.bulk_delete_failed', { defaultValue: 'Failed to delete expenses' }));
+                    toast.error(e?.message || t('expenses.bulk_delete_failed'));
                   }
                 }}
               >
-                {t('common.delete', { defaultValue: 'Delete' })}
+                {t('common.delete')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

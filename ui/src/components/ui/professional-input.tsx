@@ -194,7 +194,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
         ref={ref}
         type="search"
         leftIcon={<Search />}
-        placeholder={t('common.search', { defaultValue: 'Search...' })}
+        placeholder={t('common.search')}
         clearable
         {...props}
         onKeyDown={handleKeyDown}

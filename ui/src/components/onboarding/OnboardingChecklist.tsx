@@ -73,9 +73,7 @@ export function OnboardingChecklist() {
     } catch (e: any) {
       toast.error(
         e?.message ||
-          t('onboarding.checklist_dismiss_failed', {
-            defaultValue: 'Could not dismiss the checklist.',
-          }),
+          t('onboarding.checklist_dismiss_failed'),
       );
     } finally {
       setBusy(false);
@@ -88,14 +86,10 @@ export function OnboardingChecklist() {
     <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
       <div className="flex items-center justify-between gap-4">
         <p className="font-semibold">
-          {t('onboarding.checklist_title', {
-            completed: status.completed,
-            total: status.total,
-            defaultValue: 'Get started — {{completed}} of {{total}} done',
-          })}
+          {t('onboarding.checklist_title', { completed: status.completed, total: status.total })}
         </p>
         <Button variant="ghost" size="sm" onClick={dismiss} disabled={busy}>
-          {t('onboarding.checklist_dismiss', { defaultValue: 'Dismiss' })}
+          {t('onboarding.checklist_dismiss')}
         </Button>
       </div>
 
@@ -104,11 +98,7 @@ export function OnboardingChecklist() {
         aria-valuenow={status.completed}
         aria-valuemin={0}
         aria-valuemax={status.total}
-        aria-label={t('onboarding.checklist_title', {
-          completed: status.completed,
-          total: status.total,
-          defaultValue: 'Get started — {{completed}} of {{total}} done',
-        })}
+        aria-label={t('onboarding.checklist_title', { completed: status.completed, total: status.total })}
         className="h-1.5 w-full rounded-full bg-muted"
       >
         <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />

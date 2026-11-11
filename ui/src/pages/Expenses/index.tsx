@@ -145,11 +145,11 @@ const Expenses = () => {
     setIsAcceptingReview(true);
     try {
       await expenseApi.acceptReview(selectedReviewExpense.id);
-      toast.success(t('expenses.review.accepted', { defaultValue: 'Review accepted' }));
+      toast.success(t('expenses.review.accepted'));
       setReviewModalOpen(false);
       fetchExpenses();
     } catch (error) {
-      toast.error(t('expenses.review.accept_failed', { defaultValue: 'Failed to accept review' }));
+      toast.error(t('expenses.review.accept_failed'));
     } finally {
       setIsAcceptingReview(false);
     }
@@ -160,11 +160,11 @@ const Expenses = () => {
     setIsRejectingReview(true);
     try {
       await expenseApi.rejectReview(selectedReviewExpense.id);
-      toast.success(t('expenses.review.dismissed', { defaultValue: 'Review dismissed' }));
+      toast.success(t('expenses.review.dismissed'));
       setReviewModalOpen(false);
       fetchExpenses();
     } catch (error) {
-      toast.error(t('expenses.review.dismiss_failed', { defaultValue: 'Failed to dismiss review' }));
+      toast.error(t('expenses.review.dismiss_failed'));
     } finally {
       setIsRejectingReview(false);
     }
@@ -175,11 +175,11 @@ const Expenses = () => {
     setIsRetriggeringReview(true);
     try {
       await expenseApi.reReview(selectedReviewExpense.id);
-      toast.success(t('expenses.review.retriggered', { defaultValue: 'Review re-triggered' }));
+      toast.success(t('expenses.review.retriggered'));
       setReviewModalOpen(false);
       fetchExpenses();
     } catch (error) {
-      toast.error(t('expenses.review.retrigger_failed', { defaultValue: 'Failed to re-trigger review' }));
+      toast.error(t('expenses.review.retrigger_failed'));
     } finally {
       setIsRetriggeringReview(false);
     }
@@ -188,22 +188,22 @@ const Expenses = () => {
   const handleRunReview = async (expenseId: number) => {
     try {
       await expenseApi.reReview(expenseId);
-      toast.success(t('expenses.review.triggered', { defaultValue: 'Review triggered. The agent will process it shortly.' }));
+      toast.success(t('expenses.review.triggered'));
       // Refresh list
       fetchExpenses();
     } catch (error: any) {
-      toast.error(error?.message || t('expenses.review.trigger_failed', { defaultValue: 'Failed to trigger review' }));
+      toast.error(error?.message || t('expenses.review.trigger_failed'));
     }
   };
 
   const handleCancelReview = async (expenseId: number) => {
     try {
       await expenseApi.cancelReview(expenseId);
-      toast.success(t('expenses.review.cancelled', { defaultValue: 'Review cancelled.' }));
+      toast.success(t('expenses.review.cancelled'));
       // Refresh list
       fetchExpenses();
     } catch (error: any) {
-      toast.error(error?.message || t('expenses.review.cancel_failed', { defaultValue: 'Failed to cancel review' }));
+      toast.error(error?.message || t('expenses.review.cancel_failed'));
     }
   };
 
@@ -213,14 +213,11 @@ const Expenses = () => {
     try {
       setLoading(true);
       await Promise.all(selectedIds.map(id => expenseApi.reReview(id)));
-      toast.success(t('expenses.review.bulk_triggered', {
-        count: selectedIds.length,
-        defaultValue: 'Review triggered for {{count}} expenses.'
-      }));
+      toast.success(t('expenses.review.bulk_triggered', { count: selectedIds.length }));
       setSelectedIds([]);
       fetchExpenses();
     } catch (error: any) {
-      toast.error(error?.message || t('expenses.review.bulk_trigger_failed', { defaultValue: 'Failed to trigger bulk review' }));
+      toast.error(error?.message || t('expenses.review.bulk_trigger_failed'));
     } finally {
       setLoading(false);
     }
@@ -338,7 +335,7 @@ const Expenses = () => {
       }
 
     } catch (e) {
-      toast.error(t('expenses.load_failed', { defaultValue: 'Failed to load expenses' }));
+      toast.error(t('expenses.load_failed'));
     } finally {
       setLoading(false);
     }
@@ -413,9 +410,9 @@ const Expenses = () => {
       }
       // Invalidate duplicate detection so banner updates immediately
       queryClient.invalidateQueries({ queryKey: ['expense-potential-duplicates'] });
-      toast.success(t('expenses.delete_success', { defaultValue: 'Expense deleted' }));
+      toast.success(t('expenses.delete_success'));
     } catch (e: any) {
-      toast.error(e?.message || t('expenses.delete_failed', { defaultValue: 'Failed to delete expense' }));
+      toast.error(e?.message || t('expenses.delete_failed'));
     }
   };
 
@@ -436,10 +433,10 @@ const Expenses = () => {
       } else {
         console.warn('startExpensePolling is not available globally');
       }
-      toast.success(t('expenses.receipt.uploaded', { defaultValue: 'Receipt uploaded' }));
+      toast.success(t('expenses.receipt.uploaded'));
     } catch (e: any) {
-      addNotification?.('error', t('expenses.receipt.failed_title', { defaultValue: 'Expense Receipt Failed' }), t('expenses.receipt.failed_message', { defaultValue: 'Failed to upload receipt: {{error}}', error: e?.message || t('common.unknown_error', { defaultValue: 'Unknown error' }) }));
-      toast.error(e?.message || t('expenses.receipt.upload_failed', { defaultValue: 'Failed to upload receipt' }));
+      addNotification?.('error', t('expenses.receipt.failed_title'), t('expenses.receipt.failed_message', { error: e?.message || t('common.unknown_error', { defaultValue: 'Unknown error' }) }));
+      toast.error(e?.message || t('expenses.receipt.upload_failed'));
     } finally {
       setUploadingId(null);
     }
@@ -462,7 +459,7 @@ const Expenses = () => {
       await expenseApi.reprocessExpense(expenseId);
 
       addNotification?.('success', 'Expense Reprocessing Started', `Successfully started reprocessing expense receipts.`);
-      toast.success(t('expenses.reprocess.started', { defaultValue: 'Expense reprocessing started' }));
+      toast.success(t('expenses.reprocess.started'));
 
       // Refresh the expense list
       await fetchExpenses();
@@ -491,9 +488,9 @@ const Expenses = () => {
       });
 
       // Handle specific lock error messages
-      const errorMessage = e?.message || t('expenses.reprocess.failed', { defaultValue: 'Failed to reprocess expense' });
+      const errorMessage = e?.message || t('expenses.reprocess.failed');
       if (errorMessage.includes('already being processed') || errorMessage.includes('processing lock')) {
-        toast.error(t('expenses.processing_locked', { defaultValue: 'This expense is currently being processed by another operation. Please try again in a few minutes.' }));
+        toast.error(t('expenses.processing_locked'));
         addNotification?.('warning', 'Processing Lock Active', 'This expense is already being processed. Please wait and try again.');
       } else {
         addNotification?.('error', 'Expense Reprocessing Failed', errorMessage);
@@ -506,11 +503,11 @@ const Expenses = () => {
     try {
       if (!editExpense.id) return;
       if (!editExpense.amount || !editExpense.category) {
-        toast.error(t('expenses.validation.amount_category_required', { defaultValue: 'Amount and category are required' }));
+        toast.error(t('expenses.validation.amount_category_required'));
         return;
       }
       if (isEditInventoryConsumption && (!editConsumptionItems || editConsumptionItems.length === 0)) {
-        toast.error(t('expenses.validation.inventory_item_required', { defaultValue: 'Inventory consumption must include at least one item' }));
+        toast.error(t('expenses.validation.inventory_item_required'));
         return;
       }
       const payload = {
@@ -550,7 +547,7 @@ const Expenses = () => {
         } catch (e) {
           console.error('Receipt upload failed on update:', e);
           addNotification?.('error', 'Expense Receipt Failed', `Failed to upload receipt: ${e instanceof Error ? e.message : 'Unknown error'}`);
-          toast.error(t('expenses.receipt.upload_failed', { defaultValue: 'Receipt upload failed' }));
+          toast.error(t('expenses.receipt.upload_failed'));
         } finally {
           setUploadingId(null);
           setEditReceiptFile(null);
@@ -560,9 +557,9 @@ const Expenses = () => {
       setIsEditOpen(false);
       // Invalidate duplicate detection — an edit may resolve or create a duplicate
       queryClient.invalidateQueries({ queryKey: ['expense-potential-duplicates'] });
-      toast.success(t('expenses.update_success', { defaultValue: 'Expense updated' }));
+      toast.success(t('expenses.update_success'));
     } catch (e: any) {
-      toast.error(e?.message || t('expenses.update_failed', { defaultValue: 'Failed to update expense' }));
+      toast.error(e?.message || t('expenses.update_failed'));
     }
   };
 
@@ -576,7 +573,7 @@ const Expenses = () => {
       setRecycleBinTotalCount(response.total);
     } catch (error) {
       console.error('Failed to fetch deleted expenses:', error);
-      toast.error(t('recycleBin.load_failed', { defaultValue: 'Failed to load recycle bin' }));
+      toast.error(t('recycleBin.load_failed'));
     } finally {
       setRecycleBinLoading(false);
     }
@@ -585,24 +582,24 @@ const Expenses = () => {
   const handleRestoreExpense = async (expenseId: number) => {
     try {
       await expenseApi.restoreExpense(expenseId, 'recorded');
-      toast.success(t('expenses.restore_success', { defaultValue: 'Expense restored successfully' }));
+      toast.success(t('expenses.restore_success'));
       fetchDeletedExpenses();
       fetchExpenses(); // Refresh main list
     } catch (error: any) {
       console.error('Failed to restore expense:', error);
-      toast.error(error?.message || t('expenses.restore_failed', { defaultValue: 'Failed to restore expense' }));
+      toast.error(error?.message || t('expenses.restore_failed'));
     }
   };
 
   const handlePermanentlyDeleteExpense = async (expenseId: number) => {
     try {
       await expenseApi.permanentlyDeleteExpense(expenseId);
-      toast.success(t('expenses.permanent_delete_success', { defaultValue: 'Expense permanently deleted' }));
+      toast.success(t('expenses.permanent_delete_success'));
       fetchDeletedExpenses();
       setExpenseToPermanentlyDelete(null);
     } catch (error: any) {
       console.error('Failed to permanently delete expense:', error);
-      toast.error(error?.message || t('expenses.permanent_delete_failed', { defaultValue: 'Failed to permanently delete expense' }));
+      toast.error(error?.message || t('expenses.permanent_delete_failed'));
     }
   };
 
@@ -668,10 +665,10 @@ const Expenses = () => {
               <p className="text-muted-foreground text-sm md:text-base max-w-2xl">{t('expenses.description')}</p>
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <span className="inline-flex items-center rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                  {t('common.total', { defaultValue: 'Total' })}: {totalExpenses}
+                  {t('common.total')}: {totalExpenses}
                 </span>
                 <span className="inline-flex items-center rounded-md border border-warning/30 bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning">
-                  {t('expenses.review.title', { defaultValue: 'Review' })}: {pendingReviewCount}
+                  {t('expenses.review.title')}: {pendingReviewCount}
                 </span>
               </div>
             </div>
@@ -685,7 +682,7 @@ const Expenses = () => {
                   disabled={loading}
                 >
                   <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                  {t('common.refresh', { defaultValue: 'Refresh' })}
+                  {t('common.refresh')}
                 </ProfessionalButton>
                 <ProfessionalButton
                   variant="outline"
@@ -694,7 +691,7 @@ const Expenses = () => {
                   className="whitespace-nowrap"
                 >
                   <Trash2 className="h-4 w-4" />
-                  {t('expenseRecycleBin.title', { defaultValue: 'Recycle Bin' })}
+                  {t('expenseRecycleBin.title')}
                   {showRecycleBin ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </ProfessionalButton>
                 <ProfessionalButton

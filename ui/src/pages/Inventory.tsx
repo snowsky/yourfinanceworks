@@ -215,7 +215,7 @@ const Inventory = () => {
               </p>
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <span className="inline-flex items-center rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                  {t('common.total', { defaultValue: 'Total' })}: {analytics?.total_items ?? items.length}
+                  {t('common.total')}: {analytics?.total_items ?? items.length}
                 </span>
                 <span className="inline-flex items-center rounded-md border border-warning/20 bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning">
                   {t('inventory.analytics.low_stock_items')}: {analytics?.low_stock_items ?? 0}
@@ -806,10 +806,7 @@ const Inventory = () => {
             <DialogTitle>{t('inventory.delete_item')}</DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <p>{t('inventory.delete_confirm', {
-              name: itemToDelete?.name,
-              defaultValue: 'Are you sure you want to delete "{{name}}"? This action cannot be undone.'
-            })}</p>
+            <p>{t('inventory.delete_confirm', { name: itemToDelete?.name })}</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setItemToDelete(null)}>

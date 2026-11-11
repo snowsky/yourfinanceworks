@@ -28,16 +28,19 @@ vi.mock('../contexts/FeatureContext', () => ({
   useFeatures: () => mockFeatureContext,
 }))
 
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, options?: any) => options?.defaultValue || key,
-    i18n: {
-      language: 'en',
-      changeLanguage: vi.fn(),
-    }
-  }),
-  I18nextProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
-}))
+vi.mock('react-i18next', async () => {
+  const { mockT } = await import('./mockT')
+  return {
+    useTranslation: () => ({
+      t: mockT,
+      i18n: {
+        language: 'en',
+        changeLanguage: vi.fn(),
+      }
+    }),
+    I18nextProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+  }
+})
 
 // Re-export everything
 export * from '@testing-library/react'

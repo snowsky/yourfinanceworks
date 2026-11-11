@@ -97,7 +97,7 @@ export function ExpenseEditDialog({
             </Popover>
           </div>
           <div>
-            <label className="text-sm">{t('expenses.receipt_time', { defaultValue: 'Receipt Time (HH:MM)' })}</label>
+            <label className="text-sm">{t('expenses.receipt_time')}</label>
             <Input
               type="time"
               value={editExpense.receipt_timestamp ? new Date(editExpense.receipt_timestamp as string).toISOString().substring(11, 16) : ''}
@@ -223,7 +223,7 @@ export function ExpenseEditDialog({
               <Alert className="mb-3 border-warning/30 bg-warning/10">
                 <AlertCircle className="h-4 w-4 text-warning" />
                 <AlertDescription className="text-warning text-sm">
-                  <strong>{t('common.note', { defaultValue: 'Note:' })}</strong> {t('expenses.ai_receipt_unavailable', { defaultValue: 'AI-powered receipt analysis is not available.' })}
+                  <strong>{t('common.note')}</strong> {t('expenses.ai_receipt_unavailable')}
                   Files will be uploaded as attachments only, without automatic data extraction.
                 </AlertDescription>
               </Alert>

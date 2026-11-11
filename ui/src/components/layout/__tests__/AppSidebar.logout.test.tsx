@@ -43,17 +43,16 @@ vi.mock('@/components/ui/language-switcher', () => ({
   LanguageSwitcher: () => <div data-testid="language-switcher">Language Switcher</div>
 }));
 
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    // Mirror i18next: return the provided defaultValue when present, else the key —
-    // the component renders section/nav labels via t(key, { defaultValue: 'Label' }).
-    t: (key: string, opts?: { defaultValue?: string }) =>
-      opts && typeof opts === 'object' && opts.defaultValue ? opts.defaultValue : key
-  }),
-  // i18n/index.ts (pulled in transitively) calls `.use(initReactI18next)` at import;
-  // the mock must provide it or collection fails before any test runs.
-  initReactI18next: { type: '3rdParty', init: () => {} }
-}));
+vi.mock('react-i18next', async () => {
+  // Resolves keys from the real en.json, like i18next would.
+  const { mockT } = await import('@/test/mockT');
+  return {
+    useTranslation: () => ({ t: mockT }),
+    // i18n/index.ts (pulled in transitively) calls `.use(initReactI18next)` at import;
+    // the mock must provide it or collection fails before any test runs.
+    initReactI18next: { type: '3rdParty', init: () => {} },
+  };
+});
 
 // AppSidebar reads useFeatures() to gate nav items; provide a stub that enables all.
 vi.mock('@/contexts/FeatureContext', () => ({
@@ -106,7 +105,7 @@ it('sidebar waits for cookie clearance before local cleanup and navigation', asy
  let finish!: (value: Response) => void;
  vi.mocked(fetch).mockImplementationOnce(() => new Promise(resolve => { finish = resolve }));
  render(<TestWrapper><AppSidebar /></TestWrapper>);
- await userEvent.click(screen.getByRole('button', { name: 'auth.logout' }));
+ await userEvent.click(screen.getByRole('button', { name: 'Logout' }));
  expect(fetch).toHaveBeenCalledWith('/api/v1/auth/logout', { method: 'POST', credentials: 'include' });
  expect(localStorage.removeItem).not.toHaveBeenCalled();
  expect(navigate).not.toHaveBeenCalled();
@@ -118,11 +117,11 @@ it.each(['server', 'network'])('sidebar preserves session and allows retry on %s
  if (kind === 'server') vi.mocked(fetch).mockResolvedValueOnce({ ok: false } as Response);
  else vi.mocked(fetch).mockRejectedValueOnce(new Error('offline'));
  render(<TestWrapper><AppSidebar /></TestWrapper>);
- await userEvent.click(screen.getByRole('button', { name: 'auth.logout' }));
+ await userEvent.click(screen.getByRole('button', { name: 'Logout' }));
  await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Unable to log out. Please try again.'));
  expect(localStorage.removeItem).not.toHaveBeenCalled();
  expect(navigate).not.toHaveBeenCalled();
  vi.mocked(fetch).mockResolvedValueOnce({ ok: true } as Response);
- await userEvent.click(screen.getByRole('button', { name: 'auth.logout' }));
+ await userEvent.click(screen.getByRole('button', { name: 'Logout' }));
  await waitFor(() => expect(navigate).toHaveBeenCalledWith('/login'));
 });

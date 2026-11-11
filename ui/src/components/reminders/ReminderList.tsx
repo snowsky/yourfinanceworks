@@ -561,7 +561,7 @@ export function ReminderList({ className }: ReminderListProps) {
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/25">
                 <List className="h-3 w-3 mr-1" />
-                {t('common.total', { defaultValue: 'Total' })}: {totalCount}
+                {t('common.total')}: {totalCount}
               </Badge>
               <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/30">
                 <AlertCircle className="h-3 w-3 mr-1" />
@@ -582,7 +582,7 @@ export function ReminderList({ className }: ReminderListProps) {
                 className="whitespace-nowrap"
               >
                 <Trash2 className="h-4 w-4" />
-                {t('common.delete', { defaultValue: 'Delete' })} ({selectedReminders.size})
+                {t('common.delete')} ({selectedReminders.size})
               </ProfessionalButton>
             )}
             <ProfessionalButton

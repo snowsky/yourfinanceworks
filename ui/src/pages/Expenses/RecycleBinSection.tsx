@@ -73,7 +73,7 @@ export function RecycleBinSection({
                     <Trash2 className="h-6 w-6 text-destructive" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-xl text-foreground">{t('expenseRecycleBin.title', { defaultValue: 'Recycle Bin' })}</h3>
+                    <h3 className="font-bold text-xl text-foreground">{t('expenseRecycleBin.title')}</h3>
                     <p className="text-sm text-muted-foreground">
                       {recycleBinTotalCount} {t('expenseRecycleBin.items')} • Recover or permanently delete expenses
                     </p>
@@ -86,7 +86,7 @@ export function RecycleBinSection({
                     onClick={onEmptyRecycleBin}
                   >
                     <Trash2 className="h-4 w-4" />
-                    {t('expenseRecycleBin.empty_recycle_bin', { defaultValue: 'Empty Recycle Bin' })}
+                    {t('expenseRecycleBin.empty_recycle_bin')}
                   </ProfessionalButton>
                 )}
               </div>
@@ -108,7 +108,7 @@ export function RecycleBinSection({
                         <TableCell colSpan={6} className="h-24 text-center">
                           <div className="flex justify-center items-center gap-2">
                             <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                            <span className="text-muted-foreground">{t('expenseRecycleBin.loading', { defaultValue: 'Loading...' })}</span>
+                            <span className="text-muted-foreground">{t('expenseRecycleBin.loading')}</span>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -160,7 +160,7 @@ export function RecycleBinSection({
                             <div className="p-4 rounded-full bg-muted/50">
                               <Trash2 className="h-8 w-8 text-muted-foreground/50" />
                             </div>
-                            <p className="text-muted-foreground font-medium">{t('expenseRecycleBin.recycle_bin_empty', { defaultValue: 'Recycle bin is empty' })}</p>
+                            <p className="text-muted-foreground font-medium">{t('expenseRecycleBin.recycle_bin_empty')}</p>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -217,9 +217,9 @@ export function RecycleBinSection({
       <AlertDialog open={!!expenseToPermanentlyDelete} onOpenChange={(open) => !open && onSetExpenseToPermanentlyDelete(null as any)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('expenseRecycleBin.permanent_delete_confirm_title', { defaultValue: 'Permanently Delete Expense?' })}</AlertDialogTitle>
+            <AlertDialogTitle>{t('expenseRecycleBin.permanent_delete_confirm_title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('expenseRecycleBin.permanent_delete_confirm_description', { defaultValue: 'This action cannot be undone. This will permanently delete the expense and remove it from our servers.' })}
+              {t('expenseRecycleBin.permanent_delete_confirm_description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -228,7 +228,7 @@ export function RecycleBinSection({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => expenseToPermanentlyDelete && onPermanentlyDelete(expenseToPermanentlyDelete)}
             >
-              {t('expenseRecycleBin.permanent_delete', { defaultValue: 'Permanently Delete' })}
+              {t('expenseRecycleBin.permanent_delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -238,16 +238,16 @@ export function RecycleBinSection({
       <AlertDialog open={emptyRecycleBinModalOpen} onOpenChange={setEmptyRecycleBinModalOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('expenseRecycleBin.empty_recycle_bin_confirm_title', { defaultValue: 'Empty Recycle Bin' })}</AlertDialogTitle>
+            <AlertDialogTitle>{t('expenseRecycleBin.empty_recycle_bin_confirm_title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('expenseRecycleBin.empty_recycle_bin_confirm_description', { defaultValue: 'Are you sure you want to permanently delete all expenses in the recycle bin? This action cannot be undone and all deleted expenses will be completely removed from the system.' })}
+              {t('expenseRecycleBin.empty_recycle_bin_confirm_description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={onConfirmEmptyRecycleBin} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               <Trash2 className="mr-2 h-4 w-4" />
-              {t('expenseRecycleBin.empty_recycle_bin', { defaultValue: 'Empty Recycle Bin' })}
+              {t('expenseRecycleBin.empty_recycle_bin')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

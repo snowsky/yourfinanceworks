@@ -169,7 +169,7 @@ export default function ViewInvoice() {
       await invoiceApi.reReview(invoice.id);
 
       addNotification?.('success', 'Review Triggered', `Review successfully triggered for invoice #${invoice.number}.`);
-      toast.success(t('invoices.review_triggered_success', { defaultValue: 'Review triggered successfully' }));
+      toast.success(t('invoices.review_triggered_success'));
 
       // Refresh data
       const inv = await invoiceApi.getInvoice(invoice.id);
@@ -236,8 +236,8 @@ export default function ViewInvoice() {
     <>
       <div className="h-full space-y-6 fade-in">
         <PageHeader
-          title={t('invoices.view_title', { defaultValue: 'View Invoice' })}
-          description={t('invoices.view_description', { defaultValue: 'Review invoice details.' })}
+          title={t('invoices.view_title')}
+          description={t('invoices.view_description')}
           breadcrumbs={[
             { label: t('invoices.title'), href: '/invoices' },
             { label: invoice.number || 'Invoice', href: '#' }
@@ -253,7 +253,7 @@ export default function ViewInvoice() {
                 loading={livePreviewLoading}
                 disabled={!invoice}
               >
-                {t('viewInvoice.livePreview', { defaultValue: 'Live Preview' })}
+                {t('viewInvoice.livePreview')}
               </ProfessionalButton>
               {invoice.status === 'pending_approval' && approval && (
                 <ApprovalActionButtons
@@ -269,7 +269,7 @@ export default function ViewInvoice() {
                   className="border-warning/40 text-warning hover:bg-warning/10"
                 >
                   <AlertCircle className="mr-2 h-4 w-4" />
-                  {t('invoices.unsubmit', { defaultValue: 'Unsubmit' })}
+                  {t('invoices.unsubmit')}
                 </Button>
               )}
               {(!invoice.review_status || invoice.review_status === 'not_started' || invoice.review_status === 'failed' || invoice.review_status === 'rejected') && (
@@ -278,7 +278,7 @@ export default function ViewInvoice() {
                   onClick={handleTriggerReview}
                   leftIcon={<RotateCcw className="h-4 w-4" />}
                 >
-                  {t('invoices.trigger_review', { defaultValue: 'Trigger Review' })}
+                  {t('invoices.trigger_review')}
                 </ProfessionalButton>
               )}
               {invoice.status !== 'pending_approval' && (
@@ -299,7 +299,7 @@ export default function ViewInvoice() {
         {approval && approval.notes && (
           <ProfessionalCard className="slide-in border-primary/30 bg-primary/10">
             <CardHeader>
-              <CardTitle className="text-primary">{t('invoices.approval_request_message', { defaultValue: 'Approval Request Message' })}</CardTitle>
+              <CardTitle className="text-primary">{t('invoices.approval_request_message')}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-foreground">{approval.notes}</p>
@@ -311,24 +311,24 @@ export default function ViewInvoice() {
         {approval && approval.status === 'approved' && (
           <ProfessionalCard className="slide-in border-success/30 bg-success/10">
             <CardHeader>
-              <CardTitle className="text-success">{t('invoices.approval_information', { defaultValue: 'Approval Information' })}</CardTitle>
+              <CardTitle className="text-success">{t('invoices.approval_information')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div>
-                <span className="text-sm font-medium text-foreground">{t('invoices.approved_by', { defaultValue: 'Approved by' })}: </span>
+                <span className="text-sm font-medium text-foreground">{t('invoices.approved_by')}: </span>
                 <span className="text-sm text-muted-foreground">
                   {approval.approved_by_username || approval.approver?.name || approval.approver?.email || 'Unknown'}
                 </span>
               </div>
               {approval.decided_at && (
                 <div>
-                  <span className="text-sm font-medium text-foreground">{t('invoices.approved_at', { defaultValue: 'Approved at' })}: </span>
+                  <span className="text-sm font-medium text-foreground">{t('invoices.approved_at')}: </span>
                   <span className="text-sm text-muted-foreground">{new Date(approval.decided_at).toLocaleString()}</span>
                 </div>
               )}
               {approval.notes && (
                 <div>
-                  <span className="text-sm font-medium text-foreground">{t('invoices.approval_notes', { defaultValue: 'Notes' })}: </span>
+                  <span className="text-sm font-medium text-foreground">{t('invoices.approval_notes')}: </span>
                   <span className="text-sm text-muted-foreground">{approval.notes}</span>
                 </div>
               )}
@@ -339,30 +339,30 @@ export default function ViewInvoice() {
         {approval && approval.status === 'rejected' && (
           <ProfessionalCard className="slide-in border-destructive/30 bg-destructive/10">
             <CardHeader>
-              <CardTitle className="text-destructive">{t('invoices.rejection_information', { defaultValue: 'Rejection Information' })}</CardTitle>
+              <CardTitle className="text-destructive">{t('invoices.rejection_information')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div>
-                <span className="text-sm font-medium text-foreground">{t('invoices.rejected_by', { defaultValue: 'Rejected by' })}: </span>
+                <span className="text-sm font-medium text-foreground">{t('invoices.rejected_by')}: </span>
                 <span className="text-sm text-muted-foreground">
                   {approval.rejected_by_username || approval.approver?.name || approval.approver?.email || 'Unknown'}
                 </span>
               </div>
               {approval.decided_at && (
                 <div>
-                  <span className="text-sm font-medium text-foreground">{t('invoices.rejected_at', { defaultValue: 'Rejected at' })}: </span>
+                  <span className="text-sm font-medium text-foreground">{t('invoices.rejected_at')}: </span>
                   <span className="text-sm text-muted-foreground">{new Date(approval.decided_at).toLocaleString()}</span>
                 </div>
               )}
               {approval.rejection_reason && (
                 <div>
-                  <span className="text-sm font-medium text-foreground">{t('invoices.rejection_reason', { defaultValue: 'Reason' })}: </span>
+                  <span className="text-sm font-medium text-foreground">{t('invoices.rejection_reason')}: </span>
                   <span className="text-sm text-muted-foreground">{approval.rejection_reason}</span>
                 </div>
               )}
               {approval.notes && (
                 <div>
-                  <span className="text-sm font-medium text-foreground">{t('invoices.rejection_notes', { defaultValue: 'Notes' })}: </span>
+                  <span className="text-sm font-medium text-foreground">{t('invoices.rejection_notes')}: </span>
                   <span className="text-sm text-muted-foreground">{approval.notes}</span>
                 </div>
               )}
@@ -538,13 +538,13 @@ export default function ViewInvoice() {
         >
           <DialogContent className="max-w-4xl max-h-[90vh]">
             <DialogHeader>
-              <DialogTitle>{t('viewInvoice.livePreviewTitle', { defaultValue: 'Live Invoice Preview' })}</DialogTitle>
+              <DialogTitle>{t('viewInvoice.livePreviewTitle')}</DialogTitle>
             </DialogHeader>
             <div className="max-h-[70vh] overflow-auto">
               {livePreviewLoading ? (
                 <div className="flex items-center justify-center h-64">
                   <Loader2 className="h-8 w-8 animate-spin mr-2" />
-                  <p>{t('viewInvoice.generatingPreview', { defaultValue: 'Generating live preview...' })}</p>
+                  <p>{t('viewInvoice.generatingPreview')}</p>
                 </div>
               ) : previewHtml ? (
                 <iframe
@@ -555,7 +555,7 @@ export default function ViewInvoice() {
                 />
               ) : (
                 <div className="flex items-center justify-center h-64">
-                  <p className="text-muted-foreground">{t('viewInvoice.previewError', { defaultValue: 'Failed to load preview' })}</p>
+                  <p className="text-muted-foreground">{t('viewInvoice.previewError')}</p>
                 </div>
               )}
             </div>
@@ -564,7 +564,7 @@ export default function ViewInvoice() {
                 <ProfessionalButton variant="outline" onClick={() => {
                   window.open(`${API_BASE_URL}/invoices/${invoice.id}/pdf`, '_blank');
                 }}>
-                  {t('viewInvoice.downloadPDF', { defaultValue: 'Download PDF' })}
+                  {t('viewInvoice.downloadPDF')}
                 </ProfessionalButton>
               </div>
             )}
