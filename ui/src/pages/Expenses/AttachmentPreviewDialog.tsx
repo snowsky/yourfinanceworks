@@ -86,17 +86,17 @@ export function AttachmentPreviewDialog({
       }}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{preview.filename || t('expenses.preview', { defaultValue: 'Preview' })}</DialogTitle>
+            <DialogTitle>{preview.filename || t('expenses.preview')}</DialogTitle>
           </DialogHeader>
           <div className="max-h-[70vh] overflow-auto">
             {preview.url && (preview.contentType || '').startsWith('image/') && (
               <img src={preview.url} alt={preview.filename || 'attachment'} className="max-w-full h-auto" />
             )}
             {preview.url && preview.contentType === 'application/pdf' && (
-              <iframe src={preview.url} className="w-full h-[70vh]" title={t('expenses.pdf_preview', { defaultValue: 'PDF Preview' })} />
+              <iframe src={preview.url} className="w-full h-[70vh]" title={t('expenses.pdf_preview')} />
             )}
             {preview.url && preview.contentType && !((preview.contentType || '').startsWith('image/') || preview.contentType === 'application/pdf') && (
-              <div className="text-sm text-muted-foreground">{t('expenses.cannot_preview', { defaultValue: 'This file type cannot be previewed. Please download instead.' })}</div>
+              <div className="text-sm text-muted-foreground">{t('expenses.cannot_preview')}</div>
             )}
           </div>
           <div className="flex gap-2">

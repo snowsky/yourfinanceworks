@@ -278,7 +278,7 @@ const PromptManagementContent = () => {
   const handleResetPrompt = (promptName: string) => {
     setConfirmModal({
       open: true,
-      title: t('settings.promptManagement.messages.confirmResetPromptTitle', { defaultValue: 'Reset Prompt' }),
+      title: t('settings.promptManagement.messages.confirmResetPromptTitle'),
       description: t('settings.promptManagement.messages.confirmResetPrompt'),
       onConfirm: () => resetMutation.mutate(promptName),
     });
@@ -287,7 +287,7 @@ const PromptManagementContent = () => {
   const handleRestoreVersion = (promptName: string, version: number) => {
     setConfirmModal({
       open: true,
-      title: t('settings.promptManagement.messages.confirmRestoreVersionTitle', { defaultValue: 'Restore Version' }),
+      title: t('settings.promptManagement.messages.confirmRestoreVersionTitle'),
       description: t('settings.promptManagement.messages.confirmRestoreVersion', { version }),
       onConfirm: () => restoreVersionMutation.mutate({ promptName, version }),
     });
@@ -300,7 +300,7 @@ const PromptManagementContent = () => {
   const handleDeletePrompt = (promptName: string) => {
     setConfirmModal({
       open: true,
-      title: t('settings.promptManagement.messages.confirmDeletePromptTitle', { defaultValue: 'Delete Prompt' }),
+      title: t('settings.promptManagement.messages.confirmDeletePromptTitle'),
       description: t('settings.promptManagement.messages.confirmDeletePrompt'),
       onConfirm: () => deleteMutation.mutate(promptName),
     });

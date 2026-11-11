@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string, opts?: any) => (opts?.defaultValue as string) ?? key }),
-}));
+vi.mock('react-i18next', async () => {
+  const { mockT } = await import('@/test/mockT');
+  return { useTranslation: () => ({ t: mockT }) };
+});
 const onboardingApi = vi.hoisted(() => ({
   getSampleDataStatus: vi.fn(),
   seedSampleData: vi.fn(),

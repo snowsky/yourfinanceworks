@@ -78,10 +78,10 @@ export function ExpenseTable({
     const canShowAction = Boolean(status || fileCount > 0 || e.imported_from_attachment) && canPerformActions() && e.status !== 'pending_approval' && e.status !== 'approved';
     const isActionDisabled = (!e.imported_from_attachment && fileCount === 0) || processingLocks.has(e.id) || uploadingId === e.id;
     const fileSummary = fileCount > 0
-      ? `${fileCount} ${t('expenses.file_count', { defaultValue: 'file(s)', count: fileCount })}`
+      ? `${fileCount} ${t('expenses.file_count', { count: fileCount })}`
       : e.imported_from_attachment
-        ? t('expenses.imported_receipt', { defaultValue: 'Imported receipt' })
-        : t('expenses.no_receipt', { defaultValue: 'No receipt' });
+        ? t('expenses.imported_receipt')
+        : t('expenses.no_receipt');
 
     const statusMeta = (() => {
       switch (status) {
@@ -105,25 +105,25 @@ export function ExpenseTable({
           };
         case 'failed':
           return {
-            label: t('common.failed', { defaultValue: 'Failed' }),
+            label: t('common.failed'),
             icon: AlertCircle,
             className: 'bg-destructive/10 text-destructive border-destructive/30',
           };
         case 'cancelled':
           return {
-            label: t('common.cancelled', { defaultValue: 'Cancelled' }),
+            label: t('common.cancelled'),
             icon: X,
             className: 'bg-muted/60 text-muted-foreground border-border',
           };
         case 'not_started':
           return {
-            label: t('common.not_started', { defaultValue: 'Not Started' }),
+            label: t('common.not_started'),
             icon: FileSearch,
             className: 'bg-muted text-muted-foreground border-border',
           };
         default:
           return {
-            label: t('common.not_available', { defaultValue: 'N/A' }),
+            label: t('common.not_available'),
             icon: FileSearch,
             className: 'bg-muted/50 text-muted-foreground border-transparent',
           };
@@ -151,8 +151,8 @@ export function ExpenseTable({
             className="h-7 w-7 shrink-0"
             onClick={() => onRequeue(e.id)}
             disabled={isActionDisabled}
-            title={t('expenses.process_again', { defaultValue: 'Process Again' })}
-            aria-label={t('expenses.process_again', { defaultValue: 'Process Again' })}
+            title={t('expenses.process_again')}
+            aria-label={t('expenses.process_again')}
           >
             {processingLocks.has(e.id) || uploadingId === e.id ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -170,8 +170,8 @@ export function ExpenseTable({
     const hasKnownFileCount = Array.isArray(attachments[e.id]) || typeof e.attachments_count === 'number';
     const isUploading = uploadingId === e.id;
     const fileSummary = fileCount > 0
-      ? `${fileCount} ${t('expenses.file_count', { defaultValue: 'file(s)', count: fileCount })}`
-      : t('expenses.no_receipt', { defaultValue: 'No receipt' });
+      ? `${fileCount} ${t('expenses.file_count', { count: fileCount })}`
+      : t('expenses.no_receipt');
     const canPreview = !hasKnownFileCount || fileCount > 0;
 
     const openPreview = async () => {
@@ -195,7 +195,7 @@ export function ExpenseTable({
             {fileSummary}
           </Badge>
           <div className="max-w-[130px] truncate text-[11px] leading-none text-muted-foreground">
-            {isUploading ? t('expenses.uploading') : t('expenses.receipt_attachments', { defaultValue: 'Receipt attachments' })}
+            {isUploading ? t('expenses.uploading') : t('expenses.receipt_attachments')}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
@@ -254,19 +254,19 @@ export function ExpenseTable({
                 aria-label="Select all"
               />
             </TableHead>
-            {isVisible('id') && <TableHead className="font-bold text-foreground">{t('expenses.table.id', { defaultValue: 'ID' })}</TableHead>}
+            {isVisible('id') && <TableHead className="font-bold text-foreground">{t('expenses.table.id')}</TableHead>}
             <TableHead className="font-bold text-foreground">{t('expenses.table.date')}</TableHead>
             <TableHead className="font-bold text-foreground">{t('expenses.table.category')}</TableHead>
             {isVisible('vendor') && <TableHead className="font-bold text-foreground">{t('expenses.table.vendor')}</TableHead>}
-            {isVisible('labels') && <TableHead className="font-bold text-foreground">{t('expenses.table.labels', { defaultValue: 'Labels' })}</TableHead>}
+            {isVisible('labels') && <TableHead className="font-bold text-foreground">{t('expenses.table.labels')}</TableHead>}
             <TableHead className="font-bold text-foreground">{t('expenses.table.amount')}</TableHead>
             {isVisible('total') && <TableHead className="font-bold text-foreground">{t('expenses.table.total')}</TableHead>}
             {isVisible('invoice') && <TableHead className="font-bold text-foreground">{t('expenses.table.invoice')}</TableHead>}
-            {isVisible('statement') && <TableHead className="font-bold text-foreground">{t('expenses.table.statement', { defaultValue: 'Statement' })}</TableHead>}
-            {isVisible('approval_status') && <TableHead className="font-bold text-foreground">{t('expenses.table.approval_status', { defaultValue: 'Status' })}</TableHead>}
-            {isVisible('created_at_by') && <TableHead className="font-bold text-foreground">{t('expenses.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>}
+            {isVisible('statement') && <TableHead className="font-bold text-foreground">{t('expenses.table.statement')}</TableHead>}
+            {isVisible('approval_status') && <TableHead className="font-bold text-foreground">{t('expenses.table.approval_status')}</TableHead>}
+            {isVisible('created_at_by') && <TableHead className="font-bold text-foreground">{t('expenses.table.created_at_by')}</TableHead>}
             {isVisible('analyzed') && <TableHead className="font-bold text-foreground">{t('expenses.table.analyzed')}</TableHead>}
-            {isVisible('review') && <TableHead className="font-bold text-foreground">{t('expenses.review.title', { defaultValue: 'Review' })}</TableHead>}
+            {isVisible('review') && <TableHead className="font-bold text-foreground">{t('expenses.review.title')}</TableHead>}
             {isVisible('receipt') && <TableHead className="font-bold text-foreground">{t('expenses.table.receipt')}</TableHead>}
             <TableHead className="sticky right-0 z-30 w-[88px] bg-muted/80 text-center font-bold text-foreground shadow-[-6px_0_10px_-6px_hsl(var(--foreground)/0.35)]">{t('expenses.table.actions')}</TableHead>
           </TableRow>
@@ -331,7 +331,7 @@ export function ExpenseTable({
                                 await expenseApi.updateExpense(e.id, { labels: next });
                                 setExpenses((prev) => prev.map((x) => (x.id === e.id ? { ...x, labels: next } as Expense : x)));
                               } catch (err: any) {
-                                toast.error(err?.message || t('expenses.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
+                                toast.error(err?.message || t('expenses.labels.remove_failed'));
                               }
                             }}
                           >
@@ -342,7 +342,7 @@ export function ExpenseTable({
                     ))}
                     {canPerformActions() && (
                       <Input
-                        placeholder={t('expenses.labels.label_placeholder', { defaultValue: 'Add label...' })}
+                        placeholder={t('expenses.labels.label_placeholder')}
                         value={newLabelValueById[e.id] || ''}
                         className="w-[100px] h-7 text-[10px] px-2 bg-muted/20 border-border/40 focus:bg-background transition-all"
                         onChange={(ev) => setNewLabelValueById((prev) => ({ ...prev, [e.id]: ev.target.value }))}
@@ -352,14 +352,14 @@ export function ExpenseTable({
                             if (!raw) return;
                             const existing = e.labels || [];
                             if (existing.includes(raw)) { setNewLabelValueById((prev) => ({ ...prev, [e.id]: '' })); return; }
-                            if (existing.length >= 10) { toast.error(t('max_labels_reached', { defaultValue: 'Maximum of 10 labels reached' })); return; }
+                            if (existing.length >= 10) { toast.error(t('max_labels_reached')); return; }
                             try {
                               const next = [...existing, raw];
                               await expenseApi.updateExpense(e.id, { labels: next });
                               setExpenses((prev) => prev.map((x) => (x.id === e.id ? { ...x, labels: next } as Expense : x)));
                               setNewLabelValueById((prev) => ({ ...prev, [e.id]: '' }));
                             } catch (err: any) {
-                              toast.error(err?.message || t('expenses.labels.add_failed', { defaultValue: 'Failed to add label' }));
+                              toast.error(err?.message || t('expenses.labels.add_failed'));
                             }
                           }
                         }}
@@ -414,10 +414,10 @@ export function ExpenseTable({
                     onRun={() => onRunReview(e.id)}
                     onCancel={() => onCancelReview(e.id)}
                     labels={{
-                      view: t('expenses.review.view_report', { defaultValue: 'View review report' }),
-                      run: t('expenses.review.trigger', { defaultValue: 'Run review' }),
-                      cancel: t('expenses.review.cancel', { defaultValue: 'Cancel review' }),
-                      clear: t('expenses.review.clear_status', { defaultValue: 'Clear review status' }),
+                      view: t('expenses.review.view_report'),
+                      run: t('expenses.review.trigger'),
+                      cancel: t('expenses.review.cancel'),
+                      clear: t('expenses.review.clear_status'),
                     }}
                   />
                 </TableCell>}

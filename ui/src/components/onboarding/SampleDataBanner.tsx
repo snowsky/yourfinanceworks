@@ -27,11 +27,11 @@ export function SampleDataBanner({ onChanged }: SampleDataBannerProps) {
     setBusy(true);
     try {
       await onboardingApi.seedSampleData();
-      toast.success(t('onboarding.sample_loaded', { defaultValue: 'Example data loaded.' }));
+      toast.success(t('onboarding.sample_loaded'));
       await refresh();
       onChanged?.();
     } catch (e: any) {
-      toast.error(e?.message || t('onboarding.sample_load_failed', { defaultValue: 'Could not load example data.' }));
+      toast.error(e?.message || t('onboarding.sample_load_failed'));
     } finally {
       setBusy(false);
     }
@@ -41,11 +41,11 @@ export function SampleDataBanner({ onChanged }: SampleDataBannerProps) {
     setBusy(true);
     try {
       await onboardingApi.clearSampleData();
-      toast.success(t('onboarding.sample_removed', { defaultValue: 'Sample data removed.' }));
+      toast.success(t('onboarding.sample_removed'));
       await refresh();
       onChanged?.();
     } catch (e: any) {
-      toast.error(e?.message || t('onboarding.sample_remove_failed', { defaultValue: 'Could not remove sample data.' }));
+      toast.error(e?.message || t('onboarding.sample_remove_failed'));
     } finally {
       setBusy(false);
     }
@@ -57,13 +57,13 @@ export function SampleDataBanner({ onChanged }: SampleDataBannerProps) {
     return (
       <div className="flex items-center justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
         <div>
-          <p className="font-semibold">{t('onboarding.sample_title', { defaultValue: 'New here?' })}</p>
+          <p className="font-semibold">{t('onboarding.sample_title')}</p>
           <p className="text-sm text-muted-foreground">
-            {t('onboarding.sample_body', { defaultValue: 'Load example data to see how everything works. You can remove it anytime.' })}
+            {t('onboarding.sample_body')}
           </p>
         </div>
         <Button onClick={load} disabled={busy}>
-          {t('onboarding.sample_load', { defaultValue: 'Load example data' })}
+          {t('onboarding.sample_load')}
         </Button>
       </div>
     );
@@ -73,10 +73,10 @@ export function SampleDataBanner({ onChanged }: SampleDataBannerProps) {
     return (
       <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 px-4 py-2 text-sm">
         <span className="text-muted-foreground">
-          {t('onboarding.sample_viewing', { defaultValue: "You're viewing sample data." })}
+          {t('onboarding.sample_viewing')}
         </span>
         <Button variant="ghost" size="sm" onClick={remove} disabled={busy}>
-          {t('onboarding.sample_remove', { defaultValue: 'Remove sample data' })}
+          {t('onboarding.sample_remove')}
         </Button>
       </div>
     );

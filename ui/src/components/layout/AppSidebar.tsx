@@ -315,7 +315,7 @@ export function AppSidebar() {
     try {
       await clearAuthSession();
     } catch {
-      toast.error(t('auth.logout_failed', { defaultValue: 'Unable to log out. Please try again.' }));
+      toast.error(t('auth.logout_failed'));
       return;
     }
     queryClient.clear();
@@ -355,7 +355,7 @@ export function AppSidebar() {
     },
     {
       path: '/approvals',
-      label: t('navigation.approvals', { defaultValue: 'Approvals' }),
+      label: t('navigation.approvals'),
       icon: <ListChecks className="w-5 h-5" />,
       tourId: 'nav-approvals'
     },
@@ -379,7 +379,7 @@ export function AppSidebar() {
     },
     ...((!roleLoading && isAdminInCurrentOrg && isFeatureEnabled('workflow_automation')) ? [{
       path: '/workflows',
-      label: t('navigation.workflows', { defaultValue: 'Workflows' }),
+      label: t('navigation.workflows'),
       icon: <Workflow className="w-5 h-5" />,
       tourId: 'nav-workflows'
     }] : []),
@@ -391,19 +391,19 @@ export function AppSidebar() {
     },
     ...((isFeatureEnabled('cash_flow') || isFeatureEnabled('net_worth')) ? [{
       path: '/finances',
-      label: t('navigation.finances', { defaultValue: 'Finances' }),
+      label: t('navigation.finances'),
       icon: <TrendingUp className="w-5 h-5" />,
       tourId: 'nav-finances'
     }] : []),
     ...(isFeatureEnabled('anomaly_detection') ? [{
       path: '/anomalies',
-      label: t('navigation.anomalies', { defaultValue: 'Fraud Checks' }),
+      label: t('navigation.anomalies'),
       icon: <ShieldAlert className="w-5 h-5" />,
       tourId: 'nav-anomalies'
     }] : []),
     ...(isFeatureEnabled('subscription_detection') ? [{
       path: '/subscriptions',
-      label: t('navigation.subscriptions', { defaultValue: 'Subscriptions' }),
+      label: t('navigation.subscriptions'),
       icon: <Repeat className="w-5 h-5" />,
       tourId: 'nav-subscriptions'
     }] : []),
@@ -437,7 +437,7 @@ export function AppSidebar() {
     // Only show Analytics for admin or superuser if user has enabled it
     ...((!roleLoading && (isSuperUser || isAdminInCurrentOrg) && showAnalytics) ? [{
       path: '/analytics',
-      label: t('navigation.analytics', { defaultValue: 'Analytics' }),
+      label: t('navigation.analytics'),
       icon: <LineChart className="w-5 h-5" />,
       tourId: 'nav-analytics'
     }] : []),
@@ -510,7 +510,7 @@ export function AppSidebar() {
               <div className="space-y-1">
                 <div className="px-3 mb-3">
                   <h3 className="text-xs font-semibold text-sidebar-foreground uppercase tracking-wider">
-                    {t('navigation.section.core', { defaultValue: 'Core' })}
+                    {t('navigation.section.core')}
                   </h3>
                 </div>
                 {mainMenuItems.map((item) => (
@@ -551,7 +551,7 @@ export function AppSidebar() {
               <div className="space-y-1">
                 <div className="px-3 mb-3">
                   <h3 className="text-xs font-semibold text-sidebar-foreground uppercase tracking-wider">
-                    {t('navigation.section.administration', { defaultValue: 'Administration' })}
+                    {t('navigation.section.administration')}
                   </h3>
                 </div>
                 {settingsMenuItems.map((item) => (
@@ -594,7 +594,7 @@ export function AppSidebar() {
                   <div className="space-y-1">
                     <div className="px-3 mb-3">
                       <h3 className="text-xs font-semibold text-sidebar-foreground uppercase tracking-wider">
-                        {t('navigation.section.plugins', { defaultValue: 'Plugins' })}
+                        {t('navigation.section.plugins')}
                       </h3>
                     </div>
                     {pluginMenuItems.map((item) => {
@@ -684,8 +684,8 @@ export function AppSidebar() {
               </span>
               <span className="text-[11px] text-sidebar-foreground truncate">
                 {currentOrgRole === 'admin'
-                  ? t('roles.administrator', { defaultValue: 'Administrator' })
-                  : t('roles.user', { defaultValue: 'User' })}
+                  ? t('roles.administrator')
+                  : t('roles.user')}
               </span>
             </div>
             <Button

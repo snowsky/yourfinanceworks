@@ -15,7 +15,7 @@ export function StatementUploadButton({ onUpload }: StatementUploadButtonProps) 
   return (
     <ProfessionalButton onClick={onUpload} disabled={!hasFeature} className={!hasFeature ? 'opacity-50 cursor-not-allowed' : ''}>
       <Plus className="w-4 h-4 mr-2" />
-      {t('statements.new_statement', { defaultValue: 'New Statement' })}
+      {t('statements.new_statement')}
     </ProfessionalButton>
   );
 }

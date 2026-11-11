@@ -238,7 +238,7 @@ const ExpenseSummary: React.FC<ExpenseSummaryProps> = ({ className }) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
-            {t('expenses.expense_categories', { defaultValue: 'Expense Categories' })}
+            {t('expenses.expense_categories')}
           </CardTitle>
         </CardHeader>
         <CardContent>

@@ -50,17 +50,16 @@ vi.mock('@/components/ui/language-switcher', () => ({
   LanguageSwitcher: () => <div data-testid="language-switcher">Language Switcher</div>
 }));
 
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    // Mirror i18next: return the provided defaultValue when present, else the key —
-    // the component renders section/nav labels via t(key, { defaultValue: 'Label' }).
-    t: (key: string, opts?: { defaultValue?: string }) =>
-      opts && typeof opts === 'object' && opts.defaultValue ? opts.defaultValue : key
-  }),
-  // i18n/index.ts (pulled in transitively) calls `.use(initReactI18next)` at import;
-  // the mock must provide it or collection fails before any test runs.
-  initReactI18next: { type: '3rdParty', init: () => {} }
-}));
+vi.mock('react-i18next', async () => {
+  // Resolves keys from the real en.json, like i18next would.
+  const { mockT } = await import('@/test/mockT');
+  return {
+    useTranslation: () => ({ t: mockT }),
+    // i18n/index.ts (pulled in transitively) calls `.use(initReactI18next)` at import;
+    // the mock must provide it or collection fails before any test runs.
+    initReactI18next: { type: '3rdParty', init: () => {} },
+  };
+});
 
 // AppSidebar reads useFeatures() to gate nav items; provide a stub that enables all.
 vi.mock('@/contexts/FeatureContext', () => ({
@@ -221,9 +220,9 @@ describe('AppSidebar Plugin Integration', () => {
     expect(screen.getByText('Administration')).toBeInTheDocument();
 
     // Should show main navigation items
-    expect(screen.getByText('navigation.dashboard')).toBeInTheDocument();
-    expect(screen.getByText('navigation.clients')).toBeInTheDocument();
-    expect(screen.getByText('navigation.invoices')).toBeInTheDocument();
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Clients')).toBeInTheDocument();
+    expect(screen.getByText('Invoices')).toBeInTheDocument();
   });
 
   it('should handle plugin section visibility correctly', async () => {

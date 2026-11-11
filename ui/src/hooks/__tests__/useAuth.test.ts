@@ -9,7 +9,10 @@ vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }))
 vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ clear }) }))
 vi.mock('@/lib/api', () => ({ authApi: { getCurrentUser: vi.fn() } }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (_key: string, options: { defaultValue: string }) => options.defaultValue }) }))
+vi.mock('react-i18next', async () => {
+  const { mockT } = await import('@/test/mockT');
+  return { useTranslation: () => ({ t: mockT }) }
+})
 const user: User = { id: 1, email: 'user@example.com', role: 'admin' }
 beforeEach(() => {
  vi.clearAllMocks()

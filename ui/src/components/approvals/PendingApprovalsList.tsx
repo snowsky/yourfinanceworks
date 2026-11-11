@@ -143,7 +143,7 @@ export function PendingApprovalsList({ onApprovalAction }: PendingApprovalsListP
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
-            placeholder={t('expenses.search_placeholder', { defaultValue: 'Search by vendor, category, or notes...' })}
+            placeholder={t('expenses.search_placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"

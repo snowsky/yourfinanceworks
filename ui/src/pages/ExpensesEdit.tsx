@@ -91,7 +91,7 @@ export default function ExpensesEdit() {
           setClientOptions(res.items.map(c => ({ id: c.id, name: c.name })));
         } catch { }
       } catch (e: any) {
-        toast.error(e?.message || t('expenses.failed_to_load', { defaultValue: 'Failed to load expense' }));
+        toast.error(e?.message || t('expenses.failed_to_load'));
       } finally {
         setLoading(false);
       }
@@ -137,7 +137,7 @@ export default function ExpensesEdit() {
     const hasNewFiles = newFiles.length > 0;
     const willHaveAnyAttachments = effectiveExistingAfterSave > 0 || hasNewFiles;
     if ((!form.amount || Number(form.amount) === 0) && !willHaveAnyAttachments) {
-      toast.error(t('expenses.amount_required_with_attachment', { defaultValue: 'Amount is required unless at least one attachment is kept or newly added' }));
+      toast.error(t('expenses.amount_required_with_attachment'));
       return false;
     }
     if (!form.category) {
@@ -290,7 +290,7 @@ export default function ExpensesEdit() {
     } catch (e: unknown) {
       if (previewRequestRef.current === requestId) {
         const message = e instanceof Error ? e.message : null;
-        toast.error(message || t('expenses.failed_to_download_attachment', { defaultValue: 'Failed to download attachment' }));
+        toast.error(message || t('expenses.failed_to_download_attachment'));
         setPreview(prev => ({ ...prev, loading: false }));
       }
     } finally {
@@ -363,7 +363,7 @@ export default function ExpensesEdit() {
                 className="shadow-lg"
                 leftIcon={<CheckCircle className="h-4 w-4" />}
               >
-                {saving ? t('common.saving', { defaultValue: 'Saving...' }) :
+                {saving ? t('common.saving') :
                   (submitForApproval ? t('expenses.save_and_submit_for_approval') : t('expenses.buttons.save_changes'))}
               </ProfessionalButton>
             </div>
@@ -405,7 +405,7 @@ export default function ExpensesEdit() {
             {(form as any)?.analysis_status && (
               <div className="mt-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{t('expenses.analysis_status', { defaultValue: 'Analysis Status' })}:</span>
+                  <span className="text-sm font-medium">{t('expenses.analysis_status')}:</span>
                   <Badge
                     variant={
                       (form as any).analysis_status === 'done' ? 'default' :
@@ -702,7 +702,7 @@ export default function ExpensesEdit() {
             <div className="sm:col-span-2">
               <label className="text-sm">{t('expenses.max_attachments')}</label>
               {(form as any)?.analysis_status === 'done' && (
-                <div className="text-xs text-muted-foreground mt-1">{t('expenses.attachments_cannot_delete', { defaultValue: 'Attachments cannot be deleted after analysis is completed.' })}</div>
+                <div className="text-xs text-muted-foreground mt-1">{t('expenses.attachments_cannot_delete')}</div>
               )}
               {!hasAIExpenseFeature && (
                 <Alert className="my-3 border-warning/30 bg-warning/10">
@@ -723,10 +723,10 @@ export default function ExpensesEdit() {
                   }} />
                   {t('expenses.upload')}
                 </label>
-                <div className="text-sm text-muted-foreground">{newFiles.length} {t('expenses.new_files', { defaultValue: 'new file(s)' })}</div>
+                <div className="text-sm text-muted-foreground">{newFiles.length} {t('expenses.new_files')}</div>
               </div>
               <div className="mt-3">
-                <div className="text-sm font-medium mb-2">{t('expenses.existing_attachments', { defaultValue: 'Existing attachments' })}</div>
+                <div className="text-sm font-medium mb-2">{t('expenses.existing_attachments')}</div>
                 {attachments.length === 0 ? (
                   <div className="text-sm text-muted-foreground">{t('expenses.none')}</div>
                 ) : (
@@ -737,7 +737,7 @@ export default function ExpensesEdit() {
                           <div className={`truncate text-sm font-medium flex items-center gap-2 ${pendingDelete.has(att.id) ? 'line-through text-muted-foreground' : ''}`}>
                             {att.filename}
                             {pendingDelete.has(att.id) && (
-                              <Badge variant="destructive" className="text-[10px] h-4 px-1">{t('expenses.to_delete', { defaultValue: 'DELETE' })}</Badge>
+                              <Badge variant="destructive" className="text-[10px] h-4 px-1">{t('expenses.to_delete')}</Badge>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
@@ -856,9 +856,7 @@ export default function ExpensesEdit() {
                       <Alert className="border-warning/30 bg-warning/10">
                         <AlertCircle className="h-4 w-4 text-warning" />
                         <AlertDescription className="text-warning">
-                          {t('common.feature_not_licensed', {
-                            defaultValue: 'Approval workflows require a commercial license. Please upgrade your license to use this feature.'
-                          })}
+                          {t('common.feature_not_licensed')}
                         </AlertDescription>
                       </Alert>
                     ) : (
@@ -899,7 +897,7 @@ export default function ExpensesEdit() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/expenses')}>{t('common.cancel')}</Button>
           <Button onClick={onSave} disabled={saving || (submitForApproval && (!selectedApproverId || !isApprovalsEnabled))}>
-            {saving ? t('common.saving', { defaultValue: 'Saving...' }) :
+            {saving ? t('common.saving') :
               (submitForApproval ? t('expenses.save_and_submit_for_approval') : t('expenses.buttons.save_changes'))}
           </Button>
         </div>
@@ -923,23 +921,23 @@ export default function ExpensesEdit() {
         }}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>{preview.filename || t('expenses.preview', { defaultValue: 'Preview' })}</DialogTitle>
+              <DialogTitle>{preview.filename || t('expenses.preview')}</DialogTitle>
             </DialogHeader>
             <div className="max-h-[70vh] overflow-auto">
               {preview.loading && (
                 <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
                   <Loader2 className="h-8 w-8 animate-spin" />
-                  <span>{t('expenses.loading_attachment', { defaultValue: 'Loading attachment...' })}</span>
+                  <span>{t('expenses.loading_attachment')}</span>
                 </div>
               )}
               {preview.url && (preview.contentType || '').startsWith('image/') && (
-                <img src={preview.url} alt={preview.filename || t('expenses.attachment', { defaultValue: 'attachment' })} className="max-w-full h-auto" />
+                <img src={preview.url} alt={preview.filename || t('expenses.attachment')} className="max-w-full h-auto" />
               )}
               {preview.url && (preview.contentType || '').startsWith('application/pdf') && (
-                <iframe src={preview.url} className="w-full h-[70vh]" title={t('expenses.pdf_preview', { defaultValue: 'PDF Preview' })} />
+                <iframe src={preview.url} className="w-full h-[70vh]" title={t('expenses.pdf_preview')} />
               )}
               {preview.url && preview.contentType && !((preview.contentType || '').startsWith('image/') || (preview.contentType || '').startsWith('application/pdf')) && (
-                <div className="text-sm text-muted-foreground">{t('expenses.cannot_preview', { defaultValue: 'This file type cannot be previewed. Please download instead.' })}</div>
+                <div className="text-sm text-muted-foreground">{t('expenses.cannot_preview')}</div>
               )}
             </div>
             <div className="flex gap-2">

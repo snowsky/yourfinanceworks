@@ -125,7 +125,7 @@ describe('PendingApprovalsList', () => {
       expect(screen.getByText('Restaurant ABC')).toBeInTheDocument();
     });
 
-    const searchInput = screen.getByPlaceholderText('Search by vendor, category, or notes...');
+    const searchInput = screen.getByPlaceholderText('expenses.search_placeholder');
     await userEvent.type(searchInput, 'Uber');
 
     // Should filter to show only Uber expense

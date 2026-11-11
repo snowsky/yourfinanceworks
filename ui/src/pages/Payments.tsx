@@ -273,7 +273,7 @@ const Payments = () => {
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/25">
                 <Activity className="h-3 w-3 mr-1" />
-                {t('common.total', { defaultValue: 'Total' })}: {totalCount}
+                {t('common.total')}: {totalCount}
               </Badge>
               <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20">
                 <DollarSign className="h-3 w-3 mr-1" />
@@ -281,7 +281,7 @@ const Payments = () => {
               </Badge>
               <Badge variant="secondary" className="bg-blue-500/10 text-blue-700 border-blue-500/20">
                 <CreditCard className="h-3 w-3 mr-1" />
-                {t('payments.completed', { defaultValue: 'Completed' })}: {completedCount}
+                {t('payments.completed')}: {completedCount}
               </Badge>
             </div>
           </div>
@@ -352,17 +352,17 @@ const Payments = () => {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 border-b border-border/50">
-                        {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>}
+                        {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id')}</TableHead>}
                         <TableHead className="font-bold text-foreground">{t('payments.table.invoice')}</TableHead>
                         <TableHead className="font-bold text-foreground">{t('payments.table.client')}</TableHead>
                         <TableHead className="font-bold text-foreground">{t('payments.table.date')}</TableHead>
                         <TableHead className="font-bold text-foreground">{t('payments.table.amount')}</TableHead>
-                        {isVisible('currency') && <TableHead className="font-bold text-foreground">{t('payments.table.currency', { defaultValue: 'Currency' })}</TableHead>}
+                        {isVisible('currency') && <TableHead className="font-bold text-foreground">{t('payments.table.currency')}</TableHead>}
                         {isVisible('method') && <TableHead className="font-bold text-foreground">{t('payments.table.method')}</TableHead>}
-                        {isVisible('reference') && <TableHead className="font-bold text-foreground">{t('payments.table.reference', { defaultValue: 'Reference' })}</TableHead>}
-                        {isVisible('notes') && <TableHead className="font-bold text-foreground">{t('payments.table.notes', { defaultValue: 'Notes' })}</TableHead>}
+                        {isVisible('reference') && <TableHead className="font-bold text-foreground">{t('payments.table.reference')}</TableHead>}
+                        {isVisible('notes') && <TableHead className="font-bold text-foreground">{t('payments.table.notes')}</TableHead>}
                         <TableHead className="font-bold text-foreground">{t('payments.table.status')}</TableHead>
-                        <TableHead className="text-right font-bold text-foreground">{t('payments.table.actions', { defaultValue: 'Actions' })}</TableHead>
+                        <TableHead className="text-right font-bold text-foreground">{t('payments.table.actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

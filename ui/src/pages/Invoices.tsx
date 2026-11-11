@@ -124,11 +124,11 @@ const Invoices = () => {
     try {
       setIsAcceptingReview(true);
       await invoiceApi.acceptReview(selectedReviewInvoice.id);
-      toast.success(t('invoices.review.accepted_success', { defaultValue: 'Review accepted successfully' }));
+      toast.success(t('invoices.review.accepted_success'));
       setReviewModalOpen(false);
       invalidateInvoices();
     } catch (error) {
-      toast.error(t('invoices.review.accept_failed', { defaultValue: 'Failed to accept review' }));
+      toast.error(t('invoices.review.accept_failed'));
     } finally {
       setIsAcceptingReview(false);
     }
@@ -140,11 +140,11 @@ const Invoices = () => {
     try {
       setIsRejectingReview(true);
       await invoiceApi.rejectReview(selectedReviewInvoice.id);
-      toast.success(t('invoices.review.dismissed_success', { defaultValue: 'Review dismissed' }));
+      toast.success(t('invoices.review.dismissed_success'));
       setReviewModalOpen(false);
       invalidateInvoices();
     } catch (error) {
-      toast.error(t('invoices.review.dismiss_failed', { defaultValue: 'Failed to dismiss review' }));
+      toast.error(t('invoices.review.dismiss_failed'));
     } finally {
       setIsRejectingReview(false);
     }
@@ -156,11 +156,11 @@ const Invoices = () => {
     try {
       setIsRetriggeringReview(true);
       await invoiceApi.reReview(selectedReviewInvoice.id);
-      toast.success(t('invoices.review.retriggered_success', { defaultValue: 'Review re-triggered' }));
+      toast.success(t('invoices.review.retriggered_success'));
       setReviewModalOpen(false);
       invalidateInvoices();
     } catch (error) {
-      toast.error(t('invoices.review.retrigger_failed', { defaultValue: 'Failed to re-trigger review' }));
+      toast.error(t('invoices.review.retrigger_failed'));
     } finally {
       setIsRetriggeringReview(false);
     }
@@ -209,7 +209,7 @@ const Invoices = () => {
 
   // Helper function to get locale for date formatting
   const getLocale = () => {
-    const language = t('language', { defaultValue: 'en' });
+    const language = t('language');
     switch (language) {
       case 'es':
         return 'es-ES';
@@ -331,10 +331,7 @@ const Invoices = () => {
   const confirmBulkDelete = async () => {
     try {
       await invoiceApi.bulkDelete(selectedIds);
-      toast.success(t('invoices.bulk_delete_success', {
-        count: selectedIds.length,
-        defaultValue: 'Successfully deleted {{count}} invoice'
-      }) + (selectedIds.length > 1 ? 's' : ''));
+      toast.success(t('invoices.bulk_delete_success', { count: selectedIds.length }) + (selectedIds.length > 1 ? 's' : ''));
       setSelectedIds([]);
       invalidateInvoices();
       // Refresh recycle bin if open
@@ -350,7 +347,7 @@ const Invoices = () => {
     } catch (error) {
       let errorMessage = error instanceof Error
         ? error.message
-        : t('invoices.bulk_delete_failed', { defaultValue: 'Failed to delete invoices' });
+        : t('invoices.bulk_delete_failed');
 
       // Check if it's the linked expenses error and use translated version
       if (errorMessage.includes('linked expenses')) {
@@ -366,11 +363,11 @@ const Invoices = () => {
   const handleRestoreInvoice = async (invoiceId: number) => {
     try {
       await api.post(`/invoices/${invoiceId}/restore`, { new_status: 'draft' });
-      toast.success(t('invoices.restore_success', { defaultValue: 'Invoice restored successfully' }));
+      toast.success(t('invoices.restore_success'));
       fetchDeletedInvoices();
       invalidateInvoices();
     } catch (error) {
-      toast.error(t('invoices.restore_failed', { defaultValue: 'Failed to restore invoice' }));
+      toast.error(t('invoices.restore_failed'));
     }
   };
 
@@ -388,7 +385,7 @@ const Invoices = () => {
       toast.success(t('recycleBin.invoice_permanently_deleted'));
       fetchDeletedInvoices();
     } catch (error) {
-      toast.error(t('invoices.permanent_delete_failed', { defaultValue: 'Failed to permanently delete invoice' }));
+      toast.error(t('invoices.permanent_delete_failed'));
     } finally {
       setPermanentDeleteModalOpen(false);
       setInvoiceToPermanentlyDelete(null);
@@ -444,32 +441,32 @@ const Invoices = () => {
       await invoiceApi.updateInvoice(newInvoice.id, {
         due_date: toDateInputValue(addOneCalendarMonth(clonedAt)),
       });
-      toast.success(t('invoices.clone_success', { number: newInvoice.number, defaultValue: 'Cloned as {{number}}' }));
+      toast.success(t('invoices.clone_success', { number: newInvoice.number }));
       invalidateInvoices();
       // Redirect to edit
       navigate(`/invoices/edit/${newInvoice.id}`);
     } catch (error) {
-      toast.error(t('invoices.clone_failed', { defaultValue: 'Failed to clone invoice' }));
+      toast.error(t('invoices.clone_failed'));
     }
   };
 
   const handleRunReview = async (invoiceId: number) => {
     try {
       await invoiceApi.reReview(invoiceId);
-      toast.success(t('invoices.review.triggered', { defaultValue: 'Review triggered. The agent will process it shortly.' }));
+      toast.success(t('invoices.review.triggered'));
       invalidateInvoices();
     } catch (error: any) {
-      toast.error(error?.message || t('invoices.review.trigger_failed', { defaultValue: 'Failed to trigger review' }));
+      toast.error(error?.message || t('invoices.review.trigger_failed'));
     }
   };
 
   const handleCancelReview = async (invoiceId: number) => {
     try {
       await invoiceApi.cancelReview(invoiceId);
-      toast.success(t('invoices.review.cancelled', { defaultValue: 'Review cancelled.' }));
+      toast.success(t('invoices.review.cancelled'));
       invalidateInvoices();
     } catch (error: any) {
-      toast.error(error?.message || t('invoices.review.cancel_failed', { defaultValue: 'Failed to cancel review' }));
+      toast.error(error?.message || t('invoices.review.cancel_failed'));
     }
   };
 
@@ -479,14 +476,11 @@ const Invoices = () => {
     try {
       setIsBulkLoading(true);
       await Promise.all(selectedIds.map(id => invoiceApi.reReview(id)));
-      toast.success(t('invoices.review.bulk_triggered', {
-        count: selectedIds.length,
-        defaultValue: 'Review triggered for {{count}} invoices.'
-      }));
+      toast.success(t('invoices.review.bulk_triggered', { count: selectedIds.length }));
       setSelectedIds([]);
       invalidateInvoices();
     } catch (error: any) {
-      toast.error(error?.message || t('invoices.review.bulk_trigger_failed', { defaultValue: 'Failed to trigger bulk review' }));
+      toast.error(error?.message || t('invoices.review.bulk_trigger_failed'));
     } finally {
       setIsBulkLoading(false);
     }
@@ -523,10 +517,10 @@ const Invoices = () => {
               <p className="text-muted-foreground text-sm md:text-base max-w-2xl">{t('invoices.description')}</p>
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/25">
-                  {t('common.total', { defaultValue: 'Total' })}: {totalInvoices}
+                  {t('common.total')}: {totalInvoices}
                 </Badge>
                 <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/20">
-                  {t('invoices.review.title', { defaultValue: 'Review' })}: {pendingReviewCount}
+                  {t('invoices.review.title')}: {pendingReviewCount}
                 </Badge>
               </div>
             </div>
@@ -540,7 +534,7 @@ const Invoices = () => {
                   disabled={loading}
                 >
                   <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                  {t('common.refresh', { defaultValue: 'Refresh' })}
+                  {t('common.refresh')}
                 </ProfessionalButton>
                 <ProfessionalButton
                   variant="outline"
@@ -572,7 +566,7 @@ const Invoices = () => {
                           <div className="flex flex-col">
                             <span>{t('invoices.create_manually')}</span>
                             <span className="text-xs text-muted-foreground">
-                              {t('invoices.create_manually_hint', { defaultValue: 'Create manually' })}
+                              {t('invoices.create_manually_hint')}
                             </span>
                           </div>
                         </Link>
@@ -584,7 +578,7 @@ const Invoices = () => {
                             <div className="flex flex-col">
                               <span>{t('invoices.import_from_pdf')}</span>
                               <span className="text-xs text-muted-foreground">
-                                {t('invoices.import_from_pdf_hint', { defaultValue: 'Upload and extract from PDF' })}
+                                {t('invoices.import_from_pdf_hint')}
                               </span>
                             </div>
                           </Link>
@@ -596,7 +590,7 @@ const Invoices = () => {
                           <div className="flex flex-col">
                             <span>{t('invoices.create_with_inventory')}</span>
                             <span className="text-xs text-muted-foreground">
-                              {t('invoices.create_with_inventory_hint', { defaultValue: 'From inventory catalog' })}
+                              {t('invoices.create_with_inventory_hint')}
                             </span>
                           </div>
                         </Link>
@@ -684,8 +678,8 @@ const Invoices = () => {
                                   variant="ghost"
                                   size="icon-sm"
                                   onClick={() => handleRestoreInvoice(invoice.id)}
-                                  title={t('recycleBin.restore_invoice', { defaultValue: 'Restore invoice' })}
-                                  aria-label={t('recycleBin.restore_invoice', { defaultValue: 'Restore invoice' })}
+                                  title={t('recycleBin.restore_invoice')}
+                                  aria-label={t('recycleBin.restore_invoice')}
                                   className="hover:bg-success/10 hover:text-success"
                                 >
                                   <RotateCcw className="h-4 w-4" />
@@ -694,8 +688,8 @@ const Invoices = () => {
                                   variant="ghost"
                                   size="icon-sm"
                                   onClick={() => handlePermanentDelete(invoice.id)}
-                                  title={t('recycleBin.permanently_delete', { defaultValue: 'Permanently delete' })}
-                                  aria-label={t('recycleBin.permanently_delete', { defaultValue: 'Permanently delete' })}
+                                  title={t('recycleBin.permanently_delete')}
+                                  aria-label={t('recycleBin.permanently_delete')}
                                   className="hover:bg-destructive/10 hover:text-destructive"
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -813,7 +807,7 @@ const Invoices = () => {
                 <div className="relative">
                   <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder={t('invoices.filter_by_label', { defaultValue: 'Filter by label' })}
+                    placeholder={t('invoices.filter_by_label')}
                     className="pl-9 w-full sm:w-[150px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
                     value={labelFilter}
                     onChange={(e) => setLabelFilter(e.target.value)}
@@ -833,7 +827,7 @@ const Invoices = () => {
               <div className="flex items-center gap-3 flex-wrap justify-end xl:ml-auto">
                 {/* Page Size */}
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
+                  <span className="text-sm text-muted-foreground">{t('common.page_size')}</span>
                   <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
                     <SelectTrigger className="w-[100px] h-10 rounded-lg border-border/50 bg-muted/30">
                       <SelectValue />
@@ -893,7 +887,7 @@ const Invoices = () => {
                   <div className="relative group flex-1 md:flex-initial min-w-[200px]">
                     <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <Input
-                      placeholder={t('invoices.bulk_label_placeholder', { defaultValue: 'Add or remove label' })}
+                      placeholder={t('invoices.bulk_label_placeholder')}
                       value={bulkLabel}
                       onChange={(e) => setBulkLabel(e.target.value)}
                       className="pl-8 h-9 text-sm border-primary/20 focus:border-primary/40 bg-background/50"
@@ -1033,17 +1027,17 @@ const Invoices = () => {
                             aria-label="Select all"
                           />
                         </TableHead>
-                        {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>}
+                        {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id')}</TableHead>}
                         <TableHead className="font-bold text-foreground">{t('invoices.table.invoice')}</TableHead>
                         <TableHead className="font-bold text-foreground">{t('invoices.table.client')}</TableHead>
-                        {isVisible('labels') && <TableHead className="font-bold text-foreground">{t('common.labels', { defaultValue: 'Labels' })}</TableHead>}
+                        {isVisible('labels') && <TableHead className="font-bold text-foreground">{t('common.labels')}</TableHead>}
                         {isVisible('due_date') && <TableHead className="font-bold text-foreground">{t('invoices.table.due_date')}</TableHead>}
                         {isVisible('total_paid') && <TableHead className="text-right font-bold text-foreground">{t('invoices.table.total_paid')}</TableHead>}
                         {isVisible('outstanding_balance') && <TableHead className="text-right font-bold text-foreground">{t('invoices.table.outstanding_balance')}</TableHead>}
                         <TableHead className="font-bold text-foreground">{t('invoices.table.status')}</TableHead>
-                        {isVisible('review') && <TableHead className="font-bold text-foreground">{t('invoices.review.title', { defaultValue: 'Review' })}</TableHead>}
-                        {isVisible('statement') && <TableHead className="font-bold text-foreground">{t('invoices.table.statement', { defaultValue: 'Statement' })}</TableHead>}
-                        {isVisible('created_at_by') && <TableHead className="font-bold text-foreground">{t('invoices.table.created_at_by', { defaultValue: 'Created at / by' })}</TableHead>}
+                        {isVisible('review') && <TableHead className="font-bold text-foreground">{t('invoices.review.title')}</TableHead>}
+                        {isVisible('statement') && <TableHead className="font-bold text-foreground">{t('invoices.table.statement')}</TableHead>}
+                        {isVisible('created_at_by') && <TableHead className="font-bold text-foreground">{t('invoices.table.created_at_by')}</TableHead>}
                         <TableHead className="sticky right-0 z-30 w-[88px] bg-muted/80 text-center font-bold text-foreground shadow-[-6px_0_10px_-6px_hsl(var(--foreground)/0.35)]">{t('invoices.table.actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1078,14 +1072,14 @@ const Invoices = () => {
                                 >
                                   {label}
                                   <button
-                                    aria-label={t('invoices.remove_label', { defaultValue: 'Remove label' })}
+                                    aria-label={t('invoices.remove_label')}
                                     className="hover:text-destructive transition-colors"
                                     onClick={() => {
                                       const next = invoice.labels?.filter((_, i) => i !== idx) || [];
                                       invoiceApi.updateInvoice(invoice.id, { labels: next }).then(() => {
                                         invalidateInvoices();
                                       }).catch((err: any) => {
-                                        toast.error(err?.message || t('invoices.labelRemoveFailed', { defaultValue: 'Failed to remove label' }));
+                                        toast.error(err?.message || t('invoices.labelRemoveFailed'));
                                       });
                                     }}
                                   >
@@ -1094,7 +1088,7 @@ const Invoices = () => {
                                 </Badge>
                               ))}
                               <Input
-                                placeholder={t('expenses.labels.label_placeholder', { defaultValue: 'Add label...' })}
+                                placeholder={t('expenses.labels.label_placeholder')}
                                 className="w-[100px] h-7 text-[10px] px-2 bg-muted/20 border-border/40 focus:bg-background transition-all"
                                 value={newLabelValueById[invoice.id] || ''}
                                 onChange={(ev) => setNewLabelValueById((prev) => ({ ...prev, [invoice.id]: ev.target.value }))}
@@ -1111,7 +1105,7 @@ const Invoices = () => {
                                       invalidateInvoices();
                                       setNewLabelValueById((prev) => ({ ...prev, [invoice.id]: '' }));
                                     }).catch((err: any) => {
-                                      toast.error(err?.message || t('invoices.labelAddFailed', { defaultValue: 'Failed to add label' }));
+                                      toast.error(err?.message || t('invoices.labelAddFailed'));
                                     });
                                   }
                                 }}
@@ -1156,10 +1150,10 @@ const Invoices = () => {
                               onRun={() => handleRunReview(invoice.id)}
                               onCancel={() => handleCancelReview(invoice.id)}
                               labels={{
-                                view: t('invoices.review.view_report', { defaultValue: 'View review report' }),
-                                run: t('invoices.review.trigger', { defaultValue: 'Run review' }),
-                                cancel: t('invoices.review.cancel', { defaultValue: 'Cancel review' }),
-                                clear: t('invoices.review.clear_status', { defaultValue: 'Clear review status' }),
+                                view: t('invoices.review.view_report'),
+                                run: t('invoices.review.trigger'),
+                                cancel: t('invoices.review.cancel'),
+                                clear: t('invoices.review.clear_status'),
                               }}
                             />
                           </TableCell>}
@@ -1167,7 +1161,7 @@ const Invoices = () => {
                             {typeof invoice.statement_id === 'number' && typeof invoice.statement_transaction_id === 'number' ? (
                               <Link to={`/statements?id=${invoice.statement_id}&txn=${invoice.statement_transaction_id}`} className="text-primary hover:underline">#{invoice.statement_transaction_id}</Link>
                             ) : (
-                              <span className="text-muted-foreground">{t('expenses.none', { defaultValue: '—' })}</span>
+                              <span className="text-muted-foreground">{t('expenses.none')}</span>
                             )}
                           </TableCell>}
                           {isVisible('created_at_by') && <TableCell>
@@ -1239,7 +1233,7 @@ const Invoices = () => {
                   <Link to="/invoices/new">
                     <ProfessionalButton variant="gradient" size="lg" className="shadow-lg">
                       <Plus className="h-4 w-4" />
-                      {t('invoices.create_your_first_invoice', { defaultValue: 'Create Your First Invoice' })}
+                      {t('invoices.create_your_first_invoice')}
                     </ProfessionalButton>
                   </Link>
                 )}
@@ -1248,11 +1242,7 @@ const Invoices = () => {
             {/* Pagination */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-border/50">
               <div className="text-sm text-muted-foreground">
-                {t('common.showing_results', {
-                  shown: invoices.length,
-                  total: totalInvoices,
-                  defaultValue: 'Showing {{shown}} of {{total}} results'
-                })}
+                {t('common.showing_results', { shown: invoices.length, total: totalInvoices })}
               </div>
               <div className="flex items-center gap-2">
                 <ProfessionalButton

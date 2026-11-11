@@ -189,7 +189,7 @@ export function ApprovalDashboard() {
             title={t('approvalDashboard.approved_today')}
             value={stats?.approved_today?.toString() || '0'}
             icon={CheckCircle}
-            description={t('approvalDashboard.items_approved_today', { defaultValue: 'Items approved today' })}
+            description={t('approvalDashboard.items_approved_today')}
             loading={loading}
             variant="success"
           />
@@ -198,7 +198,7 @@ export function ApprovalDashboard() {
             title={t('approvalDashboard.rejected_today')}
             value={stats?.rejected_today?.toString() || '0'}
             icon={XCircle}
-            description={t('approvalDashboard.items_rejected_today', { defaultValue: 'Items rejected today' })}
+            description={t('approvalDashboard.items_rejected_today')}
             loading={loading}
             variant="destructive"
           />
@@ -260,7 +260,7 @@ export function ApprovalDashboard() {
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                         <Input
-                          placeholder={t('approvalDashboard.search_invoices_placeholder', { defaultValue: 'Search by invoice number or client...' })}
+                          placeholder={t('approvalDashboard.search_invoices_placeholder')}
                           value={invoiceSearchQuery}
                           onChange={(e) => setInvoiceSearchQuery(e.target.value)}
                           className="pl-10"

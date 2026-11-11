@@ -57,7 +57,7 @@ export function useAttachmentManagement({ invoice, attachment, isEdit }: UseAtta
       setAttachmentPreview({ open: true, url, contentType: blob.type || null, filename });
     } catch (e) {
       console.error('Preview failed:', e);
-      toast.error(t('invoices.preview_failed', { defaultValue: 'Preview failed' }));
+      toast.error(t('invoices.preview_failed'));
     } finally {
       setAttachmentPreviewLoading({ id: null, loading: false });
     }
@@ -79,7 +79,7 @@ export function useAttachmentManagement({ invoice, attachment, isEdit }: UseAtta
       });
     } catch (e) {
       console.error('Preview failed:', e);
-      toast.error(t('invoices.preview_failed', { defaultValue: 'Preview failed' }));
+      toast.error(t('invoices.preview_failed'));
     } finally {
       setAttachmentPreviewLoading({ id: null, loading: false });
     }
@@ -104,10 +104,10 @@ export function useAttachmentManagement({ invoice, attachment, isEdit }: UseAtta
         onUpdate(updatedInvoice);
       }
 
-      toast.success(t('invoices.attachment_deleted', { defaultValue: 'Attachment deleted successfully' }));
+      toast.success(t('invoices.attachment_deleted'));
     } catch (error) {
       console.error('Failed to delete attachment:', error);
-      toast.error(t('invoices.delete_attachment_failed', { defaultValue: 'Failed to delete attachment' }));
+      toast.error(t('invoices.delete_attachment_failed'));
     }
   }, [invoice?.id, t]);
 
@@ -131,7 +131,7 @@ export function useAttachmentManagement({ invoice, attachment, isEdit }: UseAtta
     setInvoiceAttachments([]);
     setIsUploading(false);
     if (results.length > 0) {
-      toast.success(t('invoices.attachments_uploaded', { count: results.length, defaultValue: 'Attachments uploaded successfully' }));
+      toast.success(t('invoices.attachments_uploaded', { count: results.length }));
     }
     return results;
   }, [invoiceAttachments, t]);

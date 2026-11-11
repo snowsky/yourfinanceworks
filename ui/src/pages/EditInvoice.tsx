@@ -275,7 +275,7 @@ const EditInvoice = () => {
       await invoiceApi.reReview(invoice.id);
 
       addNotification?.('success', 'Review Triggered', `Review successfully triggered for invoice #${invoice.number}.`);
-      toast.success(t('invoices.review_triggered_success', { defaultValue: 'Review triggered successfully' }));
+      toast.success(t('invoices.review_triggered_success'));
 
       // Refresh data
       const data = await invoiceApi.getInvoice(invoice.id);
@@ -395,7 +395,7 @@ const EditInvoice = () => {
                   onClick={handleTriggerReview}
                   leftIcon={<RotateCcw className="h-4 w-4" />}
                 >
-                  {t('invoices.trigger_review', { defaultValue: 'Trigger Review' })}
+                  {t('invoices.trigger_review')}
                 </ProfessionalButton>
               )}
               <ProfessionalButton

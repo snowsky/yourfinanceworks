@@ -46,12 +46,12 @@ export function UploadModal({
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>{t('statements.upload_statement', { defaultValue: 'Upload Statement' })}</DialogTitle>
+          <DialogTitle>{t('statements.upload_statement')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 overflow-y-auto flex-1 px-1">
           <div>
             <label className="text-sm font-medium mb-2 block">
-              {t('statements.select_provider', { defaultValue: 'Statement Provider' })}
+              {t('statements.select_provider')}
             </label>
             <Select value={selectedProvider} onValueChange={setSelectedProvider}>
               <SelectTrigger>

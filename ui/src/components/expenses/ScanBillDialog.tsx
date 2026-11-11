@@ -71,7 +71,7 @@ export function ScanBillDialog({ onCreated }: ScanBillDialogProps) {
     } catch (err: any) {
       setAvailable(false);
       setFields({});
-      toast.error(err?.message || t('expenses.scan_failed', { defaultValue: 'Could not scan the receipt.' }));
+      toast.error(err?.message || t('expenses.scan_failed'));
     } finally {
       setPhase('review');
     }
@@ -98,11 +98,11 @@ export function ScanBillDialog({ onCreated }: ScanBillDialogProps) {
       };
       const created = await expenseApi.createExpense(payload as any);
       await expenseApi.uploadReceipt(created.id, file);
-      toast.success(t('expenses.scan_saved', { defaultValue: 'Expense created from the scanned bill.' }));
+      toast.success(t('expenses.scan_saved'));
       onCreated?.();
       close();
     } catch (err: any) {
-      toast.error(err?.message || t('expenses.scan_save_failed', { defaultValue: 'Could not create the expense.' }));
+      toast.error(err?.message || t('expenses.scan_save_failed'));
       setBusy(false);
     }
   };
@@ -115,19 +115,19 @@ export function ScanBillDialog({ onCreated }: ScanBillDialogProps) {
         className="shadow-lg"
         onClick={() => setOpen(true)}
       >
-        <ScanLine className="w-4 h-4 mr-2" /> {t('expenses.scan_bill', { defaultValue: 'Scan a bill' })}
+        <ScanLine className="w-4 h-4 mr-2" /> {t('expenses.scan_bill')}
       </ProfessionalButton>
 
       <Dialog open={open} onOpenChange={(o) => { if (!o) close(); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('expenses.scan_bill', { defaultValue: 'Scan a bill' })}</DialogTitle>
+            <DialogTitle>{t('expenses.scan_bill')}</DialogTitle>
           </DialogHeader>
 
           {phase === 'select' && (
             <div className="space-y-2">
               <label htmlFor="scan-file" className="text-sm text-muted-foreground">
-                {t('expenses.scan_pick', { defaultValue: 'Choose a receipt to read automatically.' })}
+                {t('expenses.scan_pick')}
               </label>
               <input
                 id="scan-file"
@@ -141,7 +141,7 @@ export function ScanBillDialog({ onCreated }: ScanBillDialogProps) {
 
           {phase === 'reading' && (
             <p className="text-sm text-muted-foreground">
-              {t('expenses.scan_reading', { defaultValue: 'Reading your bill…' })}
+              {t('expenses.scan_reading')}
             </p>
           )}
 
@@ -149,9 +149,7 @@ export function ScanBillDialog({ onCreated }: ScanBillDialogProps) {
             <div className="space-y-3">
               {!available && (
                 <p className="text-sm text-amber-600">
-                  {t('expenses.scan_unavailable', {
-                    defaultValue: "Couldn't read it automatically — enter the details.",
-                  })}
+                  {t('expenses.scan_unavailable')}
                 </p>
               )}
               <div className="grid grid-cols-2 gap-3">
@@ -174,18 +172,18 @@ export function ScanBillDialog({ onCreated }: ScanBillDialogProps) {
                 disabled={busy}
                 className="text-xs text-muted-foreground underline hover:text-foreground"
               >
-                {t('expenses.scan_choose_other', { defaultValue: 'Choose a different file' })}
+                {t('expenses.scan_choose_other')}
               </button>
             </div>
           )}
 
           <DialogFooter>
             <ProfessionalButton variant="outline" size="default" onClick={close} disabled={busy}>
-              {t('common.cancel', { defaultValue: 'Cancel' })}
+              {t('common.cancel')}
             </ProfessionalButton>
             {phase === 'review' && (
               <ProfessionalButton variant="default" size="default" onClick={save} disabled={busy || !fields.amount}>
-                {t('expenses.scan_save', { defaultValue: 'Save expense' })}
+                {t('expenses.scan_save')}
               </ProfessionalButton>
             )}
           </DialogFooter>

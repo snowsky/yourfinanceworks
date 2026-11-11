@@ -175,7 +175,7 @@ const Clients = () => {
       setClients(prev => prev.filter(c => !selectedIds.includes(c.id)));
       setSelectedIds([]);
       setBulkDeleteModalOpen(false);
-      toast.success(t('clients.bulk_delete_success', { count: selectedIds.length, defaultValue: 'Clients deleted successfully' }));
+      toast.success(t('clients.bulk_delete_success', { count: selectedIds.length }));
     } catch (error) {
       console.error("Failed to delete clients:", error);
       toast.error(getErrorMessage(error, t));
@@ -196,7 +196,7 @@ const Clients = () => {
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/25">
                   <Users className="h-3 w-3 mr-1" />
-                  {t('common.total', { defaultValue: 'Total' })}: {totalClients}
+                  {t('common.total')}: {totalClients}
                 </Badge>
                 <Badge variant="secondary" className="bg-success/10 text-success border-success/20">
                   <DollarSign className="h-3 w-3 mr-1" />
@@ -243,7 +243,7 @@ const Clients = () => {
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <Tag className="h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder={t('clients.filter_by_label', { defaultValue: 'Filter by label' })}
+                    placeholder={t('clients.filter_by_label')}
                     className="w-full sm:w-[150px] h-10 rounded-lg border-border/50 bg-muted/30 focus:bg-background transition-colors"
                     value={labelFilter}
                     onChange={(e) => setLabelFilter(e.target.value)}
@@ -253,7 +253,7 @@ const Clients = () => {
 
               <div className="flex items-center gap-3 flex-wrap justify-end">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{t('common.page_size', { defaultValue: 'Page Size' })}</span>
+                  <span className="text-sm text-muted-foreground">{t('common.page_size')}</span>
                   <Select value={String(pageSize)} onValueChange={(v) => {
                     const pageSizeValue = typeof v === 'string' ? Number(v) : 50;
                     setPageSize(pageSizeValue);
@@ -295,7 +295,7 @@ const Clients = () => {
                   <div className="relative group flex-1 md:flex-initial min-w-[200px]">
                     <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <Input
-                      placeholder={t('clients.bulk_label_placeholder', { defaultValue: 'Add or remove label' })}
+                      placeholder={t('clients.bulk_label_placeholder')}
                       value={bulkLabel}
                       onChange={(e) => setBulkLabel(e.target.value)}
                       className="pl-8 h-9 text-sm border-primary/20 focus:border-primary/40 bg-background/50"
@@ -320,9 +320,9 @@ const Clients = () => {
                           setTotalClients(data.total);
                           setSelectedIds([]);
                           setBulkLabel('');
-                          toast.success(t('clients.labels.added', { defaultValue: 'Labels added' }));
+                          toast.success(t('clients.labels.added'));
                         } catch (e: any) {
-                          toast.error(e?.message || t('clients.labels.add_failed', { defaultValue: 'Failed to add label' }));
+                          toast.error(e?.message || t('clients.labels.add_failed'));
                         }
                       }}
                       className="h-9 px-3 gap-1.5"
@@ -348,9 +348,9 @@ const Clients = () => {
                           setTotalClients(data.total);
                           setSelectedIds([]);
                           setBulkLabel('');
-                          toast.success(t('clients.labels.removed', { defaultValue: 'Labels removed' }));
+                          toast.success(t('clients.labels.removed'));
                         } catch (e: any) {
-                          toast.error(e?.message || t('clients.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
+                          toast.error(e?.message || t('clients.labels.remove_failed'));
                         }
                       }}
                       className="h-9 px-3 gap-1.5"
@@ -394,7 +394,7 @@ const Clients = () => {
                       <TableHead className="w-[40px]">
                         <Checkbox
                           checked={filteredClients.length > 0 && selectedIds.length === filteredClients.length}
-                          aria-label={t('common.select_all', { defaultValue: 'Select all' })}
+                          aria-label={t('common.select_all')}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               setSelectedIds(filteredClients.map(c => c.id));
@@ -404,10 +404,10 @@ const Clients = () => {
                           }}
                         />
                       </TableHead>
-                      {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id', { defaultValue: 'ID' })}</TableHead>}
+                      {isVisible('id') && <TableHead className="font-bold text-foreground">{t('common.id')}</TableHead>}
                       <TableHead className="font-bold text-foreground">{t('clients.table.name')}</TableHead>
                       <TableHead className="font-bold text-foreground">{t('clients.table.email')}</TableHead>
-                      {isVisible('labels') && <TableHead className="font-bold text-foreground">{t('common.labels', { defaultValue: 'Labels' })}</TableHead>}
+                      {isVisible('labels') && <TableHead className="font-bold text-foreground">{t('common.labels')}</TableHead>}
                       {isVisible('phone') && <TableHead className="font-bold text-foreground">{t('clients.table.phone')}</TableHead>}
                       {isVisible('address') && <TableHead className="font-bold text-foreground">{t('clients.table.address')}</TableHead>}
                       {isVisible('currency') && <TableHead className="font-bold text-foreground">{t('clients.table.preferred_currency')}</TableHead>}
@@ -422,7 +422,7 @@ const Clients = () => {
                         <TableCell>
                           <Checkbox
                             checked={selectedIds.includes(client.id)}
-                            aria-label={t('clients.select_client', { defaultValue: 'Select client' })}
+                            aria-label={t('clients.select_client')}
                             onCheckedChange={(checked) => {
                               if (checked) {
                                 setSelectedIds(prev => [...prev, client.id]);
@@ -445,14 +445,14 @@ const Clients = () => {
                               >
                                 {label}
                                 <button
-                                  aria-label={t('clients.remove_label', { defaultValue: 'Remove label' })}
+                                  aria-label={t('clients.remove_label')}
                                   className="hover:text-destructive transition-colors"
                                   onClick={() => {
                                     const next = client.labels?.filter((_, i) => i !== idx) || [];
                                     clientApi.updateClient(client.id, { labels: next }).then(() => {
                                       setClients((prev) => prev.map((x) => (x.id === client.id ? { ...x, labels: next } : x)));
                                     }).catch((err: any) => {
-                                      toast.error(err?.message || t('clients.labels.remove_failed', { defaultValue: 'Failed to remove label' }));
+                                      toast.error(err?.message || t('clients.labels.remove_failed'));
                                     });
                                   }}
                                 >
@@ -461,7 +461,7 @@ const Clients = () => {
                               </Badge>
                             ))}
                             <Input
-                              placeholder={t('expenses.labels.label_placeholder', { defaultValue: 'Add label...' })}
+                              placeholder={t('expenses.labels.label_placeholder')}
                               className="w-[100px] h-7 text-[10px] px-2 bg-muted/20 border-border/40 focus:bg-background transition-all"
                               value={newLabelValueById[client.id] || ''}
                               onChange={(ev) => setNewLabelValueById((prev) => ({ ...prev, [client.id]: ev.target.value }))}
@@ -478,7 +478,7 @@ const Clients = () => {
                                     setClients((prev) => prev.map((x) => (x.id === client.id ? { ...x, labels: next } : x)));
                                     setNewLabelValueById((prev) => ({ ...prev, [client.id]: '' }));
                                   }).catch((err: any) => {
-                                    toast.error(err?.message || t('clients.labels.add_failed', { defaultValue: 'Failed to add label' }));
+                                    toast.error(err?.message || t('clients.labels.add_failed'));
                                   });
                                 }
                               }}
@@ -551,11 +551,7 @@ const Clients = () => {
             {filteredClients.length > 0 && (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-border/50">
                 <div className="text-sm text-muted-foreground">
-                {t('common.showing_results', {
-                  shown: filteredClients.length,
-                  total: totalClients,
-                  defaultValue: 'Showing {{shown}} of {{total}} results'
-                })}
+                {t('common.showing_results', { shown: filteredClients.length, total: totalClients })}
                 </div>
                 <div className="flex items-center gap-2">
                   <ProfessionalButton
@@ -627,7 +623,7 @@ const Clients = () => {
       <Dialog open={bulkDeleteModalOpen} onOpenChange={setBulkDeleteModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('clients.bulk_delete_title', { defaultValue: 'Delete Multiple Clients' })}</DialogTitle>
+            <DialogTitle>{t('clients.bulk_delete_title')}</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <p>{t('clients.bulk_delete_confirm', { count: selectedIds.length, defaultValue: `Are you sure you want to delete ${selectedIds.length} clients? This action cannot be undone.` })}</p>
