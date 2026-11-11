@@ -46,6 +46,7 @@ import {
   TableActionMenu
 } from "@/components/ui/professional-table";
 import { getCurrentUser } from '@/utils/auth';
+import { formatDate } from '@/utils/formatDate';
 import { useOrganizations } from '@/hooks/useOrganizations';
 import { UserPermissionsDialog } from '@/components/UserPermissionsDialog';
 
@@ -542,7 +543,7 @@ export default function UsersPage() {
                         </ProfessionalTableCell>
                         <ProfessionalTableCell>{getInviteStatusBadge(status)}</ProfessionalTableCell>
                         <ProfessionalTableCell>{invite.invited_by || "-"}</ProfessionalTableCell>
-                        <ProfessionalTableCell className="text-muted-foreground">{new Date(invite.expires_at).toLocaleDateString()}</ProfessionalTableCell>
+                        <ProfessionalTableCell className="text-muted-foreground">{formatDate(invite.expires_at)}</ProfessionalTableCell>
                         <ProfessionalTableCell>
                           {status === 'pending' && (
                             <div className="flex gap-2">
@@ -657,7 +658,7 @@ export default function UsersPage() {
                         {member.is_active ? t('users.active') : t('users.inactive')}
                       </StatusBadge>
                     </ProfessionalTableCell>
-                    <ProfessionalTableCell className="text-muted-foreground">{new Date(member.created_at).toLocaleDateString()}</ProfessionalTableCell>
+                    <ProfessionalTableCell className="text-muted-foreground">{formatDate(member.created_at)}</ProfessionalTableCell>
                     <ProfessionalTableCell className="text-right">
                       <TableActionMenu
                         actions={[
