@@ -229,6 +229,38 @@
       "sentTitle": "Check your email",
       "sentBody": "If {{email}} matches an account, a secure sign-in link is on its way. It expires in 60 minutes."
     },
+    "dashboard": {
+      "loadFailed": "Failed to load your portal.",
+      "signOut": "Sign out",
+      "totalOutstanding": "Total outstanding",
+      "oneInvoice": "1 invoice",
+      "manyInvoices": "{{count}} invoices",
+      "yourInvoices": "Your invoices",
+      "noInvoices": "No invoices yet.",
+      "due": "Due {{date}}",
+      "amountDue": "{{amount}} due",
+      "downloadPdf": "Download PDF",
+      "downloadPdfFor": "Download PDF for invoice {{number}}",
+      "downloadFailed": "Failed to download PDF.",
+      "yourDetails": "Your details",
+      "edit": "Edit",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "address": "Address"
+    },
+    "status": {
+      "paid": "Paid",
+      "partially_paid": "Partially paid",
+      "overdue": "Overdue",
+      "pending": "Pending",
+      "sent": "Sent",
+      "draft": "Draft",
+      "cancelled": "Cancelled"
+    },
     "verify": {
       "signingIn": "Signing you in…",
       "failedTitle": "Sign-in failed",
