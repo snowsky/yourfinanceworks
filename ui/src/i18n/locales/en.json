@@ -3235,6 +3235,53 @@
     }
   },
   "editClient": {
+    "backToClients": "Back to clients",
+    "tabs": {
+      "overview": "Overview",
+      "details": "Details",
+      "activity": "Activity",
+      "tasks": "Tasks",
+      "contacts": "Contacts"
+    },
+    "stages": {
+      "lead": "Lead",
+      "prospect": "Prospect",
+      "quoted": "Quoted",
+      "active_client": "Active Client",
+      "at_risk": "At Risk",
+      "inactive": "Inactive"
+    },
+    "relationshipStatuses": {
+      "healthy": "Healthy",
+      "needs_follow_up": "Needs Follow Up",
+      "at_risk": "At Risk",
+      "inactive": "Inactive"
+    },
+    "overview": {
+      "outstanding": "Outstanding",
+      "noOverdueInvoices": "No overdue invoices",
+      "oneOverdueInvoice": "1 overdue invoice",
+      "manyOverdueInvoices": "{{count}} overdue invoices",
+      "openInvoices": "Open Invoices",
+      "openInvoicesHint": "Invoices still awaiting payment",
+      "openTasks": "Open Tasks",
+      "openTasksHint": "Reminder-backed follow-ups",
+      "lastContact": "Last Contact",
+      "notSet": "Not set",
+      "nextFollowUp": "Next Follow-Up",
+      "nextFollowUpOn": "Next follow-up: {{date}}",
+      "nextFollowUpNone": "No follow-up scheduled",
+      "relationshipRecord": "Relationship Record",
+      "owner": "Owner",
+      "selectOwner": "Select owner",
+      "unassigned": "Unassigned",
+      "stage": "Stage",
+      "relationshipStatus": "Relationship Status",
+      "source": "Source",
+      "sourcePlaceholder": "Referral, website, accountant...",
+      "saveRecord": "Save record",
+      "noOpenTasks": "No open client tasks yet."
+    },
     "loadingClientData": "Loading client data...",
     "clientNotFound": "Client Not Found",
     "clientNotFoundDescription": "The client you're looking for doesn't exist or couldn't be loaded.",

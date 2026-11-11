@@ -17,6 +17,7 @@ const FILES = [
   'pages/SharedRecord.tsx',
   'pages/portal/PortalLogin.tsx',
   'pages/portal/PortalVerify.tsx',
+  'pages/EditClient.tsx',
 ];
 
 const lookup = (key: string) =>
@@ -38,6 +39,25 @@ describe('public page translation keys', () => {
     expect(types.length).toBeGreaterThan(0);
     for (const type of [...types, 'record']) {
       expect(typeof lookup(`sharedRecord.types.${type}`)).toBe('string');
+    }
+  });
+});
+
+describe('edit client option labels', () => {
+  it('has a label for every stage, relationship status and tab', () => {
+    const source = readFileSync(resolve(__dirname, '../EditClient.tsx'), 'utf8');
+    const values = (name: string) => {
+      const block = source.match(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\]`))?.[1] ?? '';
+      return [...block.matchAll(/value: "([a-z_]+)"/g)].map((m) => m[1]);
+    };
+    const stages = values('STAGE_OPTIONS');
+    const statuses = values('RELATIONSHIP_OPTIONS');
+    expect(stages.length).toBeGreaterThan(0);
+    expect(statuses.length).toBeGreaterThan(0);
+    for (const v of stages) expect(typeof lookup(`editClient.stages.${v}`)).toBe('string');
+    for (const v of statuses) expect(typeof lookup(`editClient.relationshipStatuses.${v}`)).toBe('string');
+    for (const tab of ['overview', 'details', 'activity', 'tasks', 'contacts']) {
+      expect(typeof lookup(`editClient.tabs.${tab}`)).toBe('string');
     }
   });
 });
