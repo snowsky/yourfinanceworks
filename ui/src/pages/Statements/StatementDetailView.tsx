@@ -181,7 +181,7 @@ export function StatementDetailView({
                 variant="outline"
                 onClick={async () => {
                   if (reprocessingLocks.has(selected)) {
-                    toast.warning('Already processing...');
+                    toast.warning(t('statements.alreadyProcessing'));
                     return;
                   }
                   const addNotification = (window as any).addAINotification;
@@ -391,7 +391,7 @@ export function StatementDetailView({
                         {t('common.processing')}
                       </Badge>
                     ) : detail.status === 'failed' ? (
-                      <Badge variant="destructive" className="h-6">Failed</Badge>
+                      <Badge variant="destructive" className="h-6">{t('statements.status_failed')}</Badge>
                     ) : detail.status === 'uploaded' ? (
                       <Badge variant="secondary" className="h-6 bg-warning/10 text-warning border-warning/30 capitalize">
                         {t('common.uploaded')}
@@ -925,7 +925,7 @@ export function StatementDetailView({
                                       disabled={readOnly}
                                       onClick={() => {
                                         const backendId = (r as any).backend_id;
-                                        if (!backendId) { toast.error('Transaction has not been saved yet'); return; }
+                                        if (!backendId) { toast.error(t('statements.transactionNotSaved')); return; }
                                         setTransactionToDelete({ idx, backendId });
                                         setDeleteTransactionModalOpen(true);
                                       }}
@@ -1069,7 +1069,7 @@ export function StatementDetailView({
                           disabled={readOnly}
                           onClick={() => {
                             const backendId = (r as any).backend_id;
-                            if (!backendId) { toast.error('Transaction has not been saved yet'); return; }
+                            if (!backendId) { toast.error(t('statements.transactionNotSaved')); return; }
                             setTransactionToDelete({ idx, backendId });
                             setDeleteTransactionModalOpen(true);
                           }}

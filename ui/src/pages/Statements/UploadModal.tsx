@@ -79,9 +79,9 @@ export function UploadModal({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">Auto-detect (AI)</SelectItem>
-                <SelectItem value="debit">Debit Card (Standard)</SelectItem>
-                <SelectItem value="credit">Credit Card (Inverted)</SelectItem>
+                <SelectItem value="auto">{t('statements.autoDetect')}</SelectItem>
+                <SelectItem value="debit">{t('statements.debitStandard')}</SelectItem>
+                <SelectItem value="credit">{t('statements.creditInverted')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -132,7 +132,7 @@ export function UploadModal({
             </div>
             {files.length > 0 && (
               <div className="mt-4">
-                <div className="text-sm font-medium mb-2">Selected Files:</div>
+                <div className="text-sm font-medium mb-2">{t('statements.selectedFiles')}</div>
                 <div className="space-y-1 max-h-32 overflow-y-auto">
                   {files.map((file, index) => (
                     <div key={index} className="flex items-center gap-2 text-sm bg-muted/50 p-2 rounded-md group border border-transparent hover:border-border/50 transition-all overflow-hidden">
