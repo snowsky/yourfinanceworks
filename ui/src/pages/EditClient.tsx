@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClientForm } from "@/components/clients/ClientForm";
 import { clientApi, Client, ClientRecordResponse, getErrorMessage, userApi } from "@/lib/api";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft, CheckCircle2, Clock3, DollarSign, Plus } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2, Clock3, DollarSign, FileText, Plus } from "lucide-react";
 import { ClientNotes } from "@/components/clients/ClientNotes";
 import { ClientActivityFeed } from "@/components/clients/ClientActivityFeed";
 import { CrmContactsPanel } from "@/components/clients/CrmContactsPanel";
@@ -47,6 +47,11 @@ const TASK_PRIORITY_OPTIONS = [
 function formatDateTime(value?: string | null) {
   if (!value) return "Not set";
   return new Date(value).toLocaleString();
+}
+
+// "Apr 2, 2026" rather than the ambiguous 4/2/2026
+function formatShortDate(value: string) {
+  return new Date(value).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
 function toLocalDateTimeInputValue(date: Date) {
@@ -102,14 +107,13 @@ function SummaryCard({
   return (
     <ProfessionalCard variant="elevated">
       <ProfessionalCardContent className="p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{title}</p>
-            <p className="mt-2 text-2xl font-bold text-foreground">{value}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-          </div>
-          <div className="rounded-xl bg-primary/10 p-3 text-primary">{icon}</div>
+        {/* Icon shares the label row so the value gets the card's full width */}
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">{title}</p>
+          <div className="shrink-0 rounded-xl bg-primary/10 p-2 text-primary" aria-hidden="true">{icon}</div>
         </div>
+        <p className="mt-2 break-words text-2xl font-bold text-foreground">{value}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </ProfessionalCardContent>
     </ProfessionalCard>
   );
@@ -443,18 +447,22 @@ const EditClient = () => {
         {/* Hero Header */}
         <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-8 backdrop-blur-sm">
           <div className="flex items-center justify-between gap-6">
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <div className="flex items-center gap-3">
                 <ProfessionalButton
                   variant="outline"
                   size="icon-sm"
                   onClick={() => navigate('/clients')}
                   className="rounded-full"
+                  aria-label={t('editClient.backToClients')}
                 >
-                  <ArrowLeft className="h-4 w-4" />
+                  <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                 </ProfessionalButton>
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t('editClient.editClient')}
+                </span>
               </div>
-              <h1 className="text-4xl font-bold tracking-tight">{t('editClient.editClient')}</h1>
+              <h1 className="break-words text-4xl font-bold tracking-tight">{client?.name || t('editClient.editClient')}</h1>
               <p className="text-lg text-muted-foreground">{t('editClient.updateClientInformation')}</p>
             </div>
             {client?.id && <ShareButton recordType="client" recordId={client.id} />}
@@ -477,7 +485,7 @@ const EditClient = () => {
                 }
               `}
             >
-              {tab}
+              {t(`editClient.tabs.${tab.toLowerCase()}`)}
             </button>
           ))}
         </div>
@@ -487,27 +495,37 @@ const EditClient = () => {
           <div className="space-y-8">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               <SummaryCard
-                title="Outstanding"
+                title={t('editClient.overview.outstanding')}
                 value={new Intl.NumberFormat(undefined, { style: 'currency', currency: client.preferred_currency || 'USD' }).format(clientRecord.summary.total_outstanding || 0)}
-                description={`${clientRecord.summary.overdue_invoices_count} overdue invoice(s)`}
+                description={
+                  !clientRecord.summary.overdue_invoices_count
+                    ? t('editClient.overview.noOverdueInvoices')
+                    : clientRecord.summary.overdue_invoices_count === 1
+                      ? t('editClient.overview.oneOverdueInvoice')
+                      : t('editClient.overview.manyOverdueInvoices', { count: clientRecord.summary.overdue_invoices_count })
+                }
                 icon={<DollarSign className="h-5 w-5" />}
               />
               <SummaryCard
-                title="Open Invoices"
+                title={t('editClient.overview.openInvoices')}
                 value={String(clientRecord.summary.open_invoices_count)}
-                description="Invoices still awaiting payment"
-                icon={<Clock3 className="h-5 w-5" />}
+                description={t('editClient.overview.openInvoicesHint')}
+                icon={<FileText className="h-5 w-5" />}
               />
               <SummaryCard
-                title="Open Tasks"
+                title={t('editClient.overview.openTasks')}
                 value={String(clientRecord.summary.open_tasks_count)}
-                description="Reminder-backed follow-ups"
+                description={t('editClient.overview.openTasksHint')}
                 icon={<CheckCircle2 className="h-5 w-5" />}
               />
               <SummaryCard
-                title="Last Contact"
-                value={clientRecord.client.last_contact_at ? new Date(clientRecord.client.last_contact_at).toLocaleDateString() : "Not set"}
-                description={`Next: ${clientRecord.client.next_follow_up_at ? new Date(clientRecord.client.next_follow_up_at).toLocaleDateString() : "not scheduled"}`}
+                title={t('editClient.overview.lastContact')}
+                value={clientRecord.client.last_contact_at ? formatShortDate(clientRecord.client.last_contact_at) : t('editClient.overview.notSet')}
+                description={
+                  clientRecord.client.next_follow_up_at
+                    ? t('editClient.overview.nextFollowUpOn', { date: formatShortDate(clientRecord.client.next_follow_up_at) })
+                    : t('editClient.overview.nextFollowUpNone')
+                }
                 icon={<Clock3 className="h-5 w-5" />}
               />
             </div>
@@ -515,18 +533,18 @@ const EditClient = () => {
             <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
               <ProfessionalCard variant="elevated">
                 <ProfessionalCardHeader>
-                  <ProfessionalCardTitle>Relationship Record</ProfessionalCardTitle>
+                  <ProfessionalCardTitle>{t('editClient.overview.relationshipRecord')}</ProfessionalCardTitle>
                 </ProfessionalCardHeader>
                 <ProfessionalCardContent className="space-y-5">
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Owner</label>
+                      <label className="text-sm font-medium">{t('editClient.overview.owner')}</label>
                       <Select value={recordForm.owner_user_id || "unassigned"} onValueChange={(value) => setRecordForm((current) => ({ ...current, owner_user_id: value === "unassigned" ? "" : value }))}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select owner" />
+                          <SelectValue placeholder={t('editClient.overview.selectOwner')} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="unassigned">Unassigned</SelectItem>
+                          <SelectItem value="unassigned">{t('editClient.overview.unassigned')}</SelectItem>
                           {users.map((user) => (
                             <SelectItem key={user.id} value={String(user.id)}>
                               {user.name || user.email}
@@ -537,7 +555,7 @@ const EditClient = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Stage</label>
+                      <label className="text-sm font-medium">{t('editClient.overview.stage')}</label>
                       <Select value={recordForm.stage} onValueChange={(value) => setRecordForm((current) => ({ ...current, stage: value }))}>
                         <SelectTrigger>
                           <SelectValue />
@@ -545,7 +563,7 @@ const EditClient = () => {
                         <SelectContent>
                           {STAGE_OPTIONS.map((option) => (
                             <SelectItem key={option.value} value={option.value}>
-                              {option.label}
+                              {t(`editClient.stages.${option.value}`)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -553,7 +571,7 @@ const EditClient = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Relationship Status</label>
+                      <label className="text-sm font-medium">{t('editClient.overview.relationshipStatus')}</label>
                       <Select value={recordForm.relationship_status} onValueChange={(value) => setRecordForm((current) => ({ ...current, relationship_status: value }))}>
                         <SelectTrigger>
                           <SelectValue />
@@ -561,7 +579,7 @@ const EditClient = () => {
                         <SelectContent>
                           {RELATIONSHIP_OPTIONS.map((option) => (
                             <SelectItem key={option.value} value={option.value}>
-                              {option.label}
+                              {t(`editClient.relationshipStatuses.${option.value}`)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -569,21 +587,21 @@ const EditClient = () => {
                     </div>
 
                     <ProfessionalInput
-                      label="Source"
+                      label={t('editClient.overview.source')}
                       value={recordForm.source}
                       onChange={(event) => setRecordForm((current) => ({ ...current, source: event.target.value }))}
-                      placeholder="Referral, website, accountant..."
+                      placeholder={t('editClient.overview.sourcePlaceholder')}
                     />
 
                     <ProfessionalInput
-                      label="Last Contact"
+                      label={t('editClient.overview.lastContact')}
                       type="datetime-local"
                       value={recordForm.last_contact_at}
                       onChange={(event) => setRecordForm((current) => ({ ...current, last_contact_at: event.target.value }))}
                     />
 
                     <ProfessionalInput
-                      label="Next Follow-Up"
+                      label={t('editClient.overview.nextFollowUp')}
                       type="datetime-local"
                       value={recordForm.next_follow_up_at}
                       onChange={(event) => setRecordForm((current) => ({ ...current, next_follow_up_at: event.target.value }))}
@@ -596,7 +614,7 @@ const EditClient = () => {
                       onClick={() => updateRecordMutation.mutate()}
                       loading={updateRecordMutation.isPending}
                     >
-                      Save record
+                      {t('editClient.overview.saveRecord')}
                     </ProfessionalButton>
                   </div>
                 </ProfessionalCardContent>
@@ -604,11 +622,11 @@ const EditClient = () => {
 
               <ProfessionalCard variant="elevated">
                 <ProfessionalCardHeader>
-                  <ProfessionalCardTitle>Open Tasks</ProfessionalCardTitle>
+                  <ProfessionalCardTitle>{t('editClient.overview.openTasks')}</ProfessionalCardTitle>
                 </ProfessionalCardHeader>
                 <ProfessionalCardContent className="space-y-4">
                   {clientRecord.open_tasks.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No open client tasks yet.</p>
+                    <p className="text-sm text-muted-foreground">{t('editClient.overview.noOpenTasks')}</p>
                   ) : (
                     clientRecord.open_tasks.map((task) => (
                       <div key={task.id} className="rounded-xl border border-border/50 bg-muted/20 p-4">
