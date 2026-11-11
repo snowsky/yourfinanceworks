@@ -29,6 +29,11 @@ const fallbackCurrencySymbols: { [key: string]: { symbol: string; decimals: numb
   'BRL': { symbol: 'R$', decimals: 2 }
 };
 
+// Fixed decimals with thousands separators (1840 -> "1,840.00"), in the same
+// en-US grouping the dashboard figures use.
+const formatAmount = (amount: number, decimals: number) =>
+  amount.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+
 export function CurrencyDisplay({
   amount = 0,
   currency = 'USD',
@@ -85,11 +90,10 @@ export function CurrencyDisplay({
       // Show loading state or fallback
       const fallback = fallbackCurrencySymbols[safeCurrencyCode.toUpperCase()];
       const info = fallback || { symbol: safeCurrencyCode, decimals: 2 };
-      const formattedAmount = safeAmount.toFixed(info.decimals);
-      return `${info.symbol}${formattedAmount}`;
+      return `${info.symbol}${formatAmount(safeAmount, info.decimals)}`;
     }
 
-    const formattedAmount = safeAmount.toFixed(currencyInfo.decimals);
+    const formattedAmount = formatAmount(safeAmount, currencyInfo.decimals);
     const symbol = currencyInfo.symbol;
 
     if (showCode) {
