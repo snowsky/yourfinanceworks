@@ -41,7 +41,7 @@ def legacy_schema(conn, expense_mapping=True):
     conn.execute(metadata.tables["time_entries"].insert().values(id=1, amount=125.5, hourly_rate=100))
 
 
-def migrate(conn):
+def migrate(conn, latest=True):
     import importlib.util
     path = Path(__file__).parents[1] / "alembic/versions/028_add_project_profitability.py"
     assert path.exists(), "profitability migration is missing"
@@ -51,6 +51,11 @@ def migrate(conn):
     assert migration.down_revision == "027_add_net_worth_tables"
     with Operations.context(MigrationContext.configure(conn)):
         migration.upgrade()
+        for filename in (('029_entry_cost_revisions.py', '030_project_invoice_snapshots.py') if latest else ()):
+            next_spec = importlib.util.spec_from_file_location('next_profitability_migration', path.parent / filename)
+            next_migration = importlib.util.module_from_spec(next_spec)
+            next_spec.loader.exec_module(next_migration)
+            next_migration.upgrade()
 
 
 def test_old_tenant_upgrade_preserves_time_and_unknown_costs(connection):
@@ -79,7 +84,7 @@ def test_new_tenant_has_same_schema(connection):
     with upgraded.begin() as old:
         legacy_schema(old)
         migrate(old)
-        for table in ("contributor_cost_rates", "time_entry_costs", "time_entry_cost_expenses", "project_invoice_sources"):
+        for table in ("contributor_cost_rates", "time_entry_costs", "time_entry_cost_expenses", "project_invoice_sources", "project_invoice_links"):
             actual = sa.inspect(connection).get_columns(table)
             prior = sa.inspect(old).get_columns(table)
             assert [(c["name"], c["nullable"]) for c in actual] == [(c["name"], c["nullable"]) for c in prior]
@@ -148,8 +153,8 @@ def test_migration_revision_graph_reaches_profitability():
     config = Config()
     config.set_main_option("script_location", str(Path(__file__).parents[1] / "alembic"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["029_entry_cost_revisions"]
-    assert [revision.revision for revision in scripts.iterate_revisions("heads", "027_add_net_worth_tables")] == ["029_entry_cost_revisions", "028_project_profitability"]
+    assert scripts.get_heads() == ["030_project_invoice_snapshots"]
+    assert [revision.revision for revision in scripts.iterate_revisions("heads", "027_add_net_worth_tables")] == ["030_project_invoice_snapshots", "029_entry_cost_revisions", "028_project_profitability"]
 
 
 def test_metadata_created_legacy_expenses_gain_mapping(connection):
@@ -173,7 +178,7 @@ def test_invalid_cost_methods_are_rejected(connection):
 def test_private_cost_revision_upgrade_and_downgrade(connection):
     import importlib.util
     legacy_schema(connection)
-    migrate(connection)
+    migrate(connection, latest=False)
     path = Path(__file__).parents[1] / 'alembic/versions/029_entry_cost_revisions.py'
     spec = importlib.util.spec_from_file_location('cost_revisions_migration', path)
     migration = importlib.util.module_from_spec(spec)

@@ -11,6 +11,7 @@ from .models import Project, TimeEntry
 from .cost_models import TimeEntryCost, TimeEntryCostExpense
 from .cost_schemas import ProjectProfitabilityInput, ProfitabilityEntry, ProfitabilityExpense
 from .profitability_calculations import calculate_profitability
+from .invoice_attribution import _get_project_billing_summary
 
 
 def get_project_profitability(db: Session, project_id: int):
@@ -25,7 +26,7 @@ def get_project_profitability(db: Session, project_id: int):
     linked_ids = {i for ids in links.values() for i in ids}
     expenses = db.query(Expense).filter(or_(Expense.project_id == project_id, Expense.id.in_(linked_ids))).order_by(Expense.id).all()
     approvals = defaultdict(list)
-    for approval in db.query(ExpenseApproval).filter(ExpenseApproval.expense_id.in_([e.id for e in expenses])):
+    for approval in (db.query(ExpenseApproval).filter(ExpenseApproval.expense_id.in_([e.id for e in expenses])) if expenses else []):
         approvals[approval.expense_id].append(approval)
     expense_inputs = []
     for expense in expenses:
@@ -50,9 +51,11 @@ def get_project_profitability(db: Session, project_id: int):
             cost_currency=cost.currency if cost else None, expense_ids=links[entry.id],
         ))
     currency = db.query(SupportedCurrency).filter_by(code=project.currency).first()
-    return calculate_profitability(ProjectProfitabilityInput(
+    result = calculate_profitability(ProjectProfitabilityInput(
         project_id=project.id, currency=project.currency, billing_method=project.billing_method,
         decimal_places=currency.decimal_places if currency else 2,
         budget_hours=project.budget_hours, budget_amount=project.budget_amount,
         entries=entry_inputs, expenses=expense_inputs,
     ))
+    result.billing = _get_project_billing_summary(db, project, entries, expenses, currency)
+    return result

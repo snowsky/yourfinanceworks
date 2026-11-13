@@ -125,9 +125,28 @@ class ProjectExpenseBucket(StrictCostModel):
     cost_basis: Literal['amount'] = 'amount'
 
 
+class BillingUnresolvedInvoice(StrictCostModel):
+    invoice_id: int
+    reasons: list[str]
+
+
+class ProjectBillingSummary(StrictCostModel):
+    currency: str
+    unbilled_work_value: Decimal = Decimal(0)
+    invoiced_pre_tax: Decimal = Decimal(0)
+    collected_cash: Decimal = Decimal(0)
+    collections_include_tax: bool = True
+    invoicing_complete: bool = True
+    cash_complete: bool = True
+    attributed_invoice_ids: list[int] = Field(default_factory=list)
+    unresolved_invoice_ids: list[int] = Field(default_factory=list)
+    unresolved_invoices: list[BillingUnresolvedInvoice] = Field(default_factory=list)
+
+
 class ProjectProfitabilityResponse(StrictCostModel):
     project_id: int
     currency: str
+    billing: ProjectBillingSummary | None = None
     status: Literal['complete', 'incomplete', 'unsupported_billing_method']
     work_value: Decimal = Decimal(0)
     known_cost: Decimal = Decimal(0)

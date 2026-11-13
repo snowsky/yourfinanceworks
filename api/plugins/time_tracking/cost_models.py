@@ -47,6 +47,7 @@ class ProjectInvoiceSource(Base):
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="RESTRICT"), nullable=False, index=True)
     time_entry_id = Column(Integer, ForeignKey("time_entries.id", ondelete="RESTRICT"), nullable=True, unique=True)
     expense_id = Column(Integer, ForeignKey("expenses.id", ondelete="RESTRICT"), nullable=True, unique=True)
+    snapshot = Column(JSON, nullable=True)
     __table_args__ = (
         CheckConstraint("(time_entry_id IS NOT NULL AND expense_id IS NULL) OR (time_entry_id IS NULL AND expense_id IS NOT NULL)", name="ck_project_invoice_source_exactly_one"),
     )
@@ -60,3 +61,10 @@ class TimeEntryCostRevision(Base):
     actor_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False)
     snapshot = Column(JSON, nullable=False)
+
+
+class ProjectInvoiceLink(Base):
+    """Durable discovery even after every invoice line/source link is removed."""
+    __tablename__ = 'project_invoice_links'
+    project_id = Column(Integer, ForeignKey('projects.id', ondelete='RESTRICT'), primary_key=True)
+    invoice_id = Column(Integer, ForeignKey('invoices.id', ondelete='CASCADE'), primary_key=True)
