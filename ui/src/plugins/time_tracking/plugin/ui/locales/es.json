@@ -102,7 +102,8 @@
       "payment_currency_mismatch": "La moneda del pago difiere del proyecto",
       "unsupported_credit_line": "Atribución de línea de abono no disponible",
       "unsupported_credit_or_discount": "Abono o descuento requiere revisión",
-      "unsupported_invoice_status_or_credit_refund": "Atribución de estado, abono o reembolso no disponible",
+      "unsupported_invoice_status": "El estado de la factura no permite una atribución fiable",
+      "unsupported_credit_or_refund_status": "Atribución de abonos o reembolsos no disponible",
       "unsupported_negative_payment_or_refund": "Pago negativo o reembolso no asignable"
     }
   }

@@ -102,7 +102,8 @@
       "payment_currency_mismatch": "Devise de paiement différente du projet",
       "unsupported_credit_line": "Attribution de ligne d’avoir indisponible",
       "unsupported_credit_or_discount": "Avoir ou remise à vérifier",
-      "unsupported_invoice_status_or_credit_refund": "Attribution indisponible pour état, avoir ou remboursement",
+      "unsupported_invoice_status": "L’état de la facture ne permet pas une attribution fiable",
+      "unsupported_credit_or_refund_status": "Attribution des avoirs ou remboursements indisponible",
       "unsupported_negative_payment_or_refund": "Paiement négatif ou remboursement non attribuable"
     }
   }

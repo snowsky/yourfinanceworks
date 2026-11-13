@@ -102,7 +102,8 @@
       "payment_currency_mismatch": "Zahlungswährung weicht vom Projekt ab",
       "unsupported_credit_line": "Gutschriftposition nicht zuordenbar",
       "unsupported_credit_or_discount": "Gutschrift oder Rabatt prüfen",
-      "unsupported_invoice_status_or_credit_refund": "Zuordnung für Status, Gutschrift oder Erstattung nicht verfügbar",
+      "unsupported_invoice_status": "Rechnungsstatus erlaubt keine zuverlässige Zuordnung",
+      "unsupported_credit_or_refund_status": "Zuordnung von Gutschriften oder Erstattungen nicht verfügbar",
       "unsupported_negative_payment_or_refund": "Negative Zahlung oder Erstattung nicht zuordenbar"
     }
   }

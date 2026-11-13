@@ -102,7 +102,8 @@
       "payment_currency_mismatch": "Payment currency differs from the project",
       "unsupported_credit_line": "Credit line attribution unavailable",
       "unsupported_credit_or_discount": "Credit or discount requires review",
-      "unsupported_invoice_status_or_credit_refund": "Invoice status, credit or refund attribution unavailable",
+      "unsupported_invoice_status": "Invoice status does not support reliable attribution",
+      "unsupported_credit_or_refund_status": "Credit or refund attribution unavailable",
       "unsupported_negative_payment_or_refund": "Negative payment or refund cannot be allocated"
     }
   }
