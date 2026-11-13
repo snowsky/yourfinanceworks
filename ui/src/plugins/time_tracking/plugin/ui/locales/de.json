@@ -113,5 +113,25 @@
       "unsupported_credit_or_refund_status": "Zuordnung von Gutschriften oder Erstattungen nicht verfügbar",
       "unsupported_negative_payment_or_refund": "Negative Zahlung oder Erstattung nicht zuordenbar"
     }
+  },
+  "unbilled_view": {
+    "loading": "Nicht abgerechnete Einträge werden geladen…",
+    "load_error": "Nicht abgerechnete Einträge konnten nicht geladen werden. Bitte erneut versuchen.",
+    "retry": "Erneut versuchen",
+    "title": "Nicht abgerechnete Zeiteinträge",
+    "select_all": "Alle auswählen",
+    "time": "Zeit",
+    "empty": "Alle Zeiteinträge wurden abgerechnet.",
+    "total": "Gesamter nicht abgerechneter Betrag",
+    "selected": "{{count}} Zeiteinträge zur Abrechnung ausgewählt",
+    "generating": "Rechnung wird erstellt…",
+    "generate": "Rechnung erstellen"
+  },
+  "tabs": {
+    "overview": "Übersicht",
+    "kanban": "Kanban",
+    "tasks": "Aufgaben",
+    "time_entries": "Zeiteinträge",
+    "unbilled": "Nicht abgerechnet"
   }
 }

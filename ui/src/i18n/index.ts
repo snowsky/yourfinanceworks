@@ -1,4 +1,4 @@
-import i18n from 'i18next';
+import i18n, { type Resource } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
@@ -8,7 +8,7 @@ import es from './locales/es.json';
 import fr from './locales/fr.json';
 import de from './locales/de.json';
 
-const resources = {
+const resources: Resource = {
   en: {
     translation: en,
   },
@@ -51,6 +51,17 @@ for (const [path, mod] of Object.entries(_pluginLocaleGlob)) {
   }
 }
 
+// Locale modules are already eager imports. Register them before the first
+// render too: enabled plugins are restored without calling the enable action.
+for (const [namespace, locales] of Object.entries(_pluginLocaleMap)) {
+  for (const [language, data] of Object.entries(locales)) {
+    resources[language] ??= {};
+    resources[language][namespace] = data;
+  }
+}
+const localeNamespace = (pluginId: string) =>
+  _pluginLocaleMap[pluginId] ? pluginId : pluginId.replaceAll('-', '_');
+
 // Plugin translation management
 export interface PluginTranslations {
   [pluginId: string]: {
@@ -60,7 +71,8 @@ export interface PluginTranslations {
 
 // Load plugin translations dynamically
 export const loadPluginTranslations = async (pluginId: string, languages: string[] = ['en', 'es', 'fr', 'de']) => {
-  const pluginLocales = _pluginLocaleMap[pluginId];
+  const namespace = localeNamespace(pluginId);
+  const pluginLocales = _pluginLocaleMap[namespace];
   if (!pluginLocales) {
     console.warn(`No locale files found for plugin "${pluginId}"`);
     return {};
@@ -69,7 +81,7 @@ export const loadPluginTranslations = async (pluginId: string, languages: string
   for (const lang of languages) {
     const data = pluginLocales[lang] ?? pluginLocales['en'];
     if (data) {
-      i18n.addResourceBundle(lang, pluginId, data, true, true);
+      i18n.addResourceBundle(lang, namespace, data, true, true);
     }
   }
 
@@ -80,7 +92,7 @@ export const loadPluginTranslations = async (pluginId: string, languages: string
 export const unloadPluginTranslations = (pluginId: string, languages: string[] = ['en', 'es', 'fr', 'de']) => {
   try {
     for (const lang of languages) {
-      i18n.removeResourceBundle(lang, pluginId);
+      i18n.removeResourceBundle(lang, localeNamespace(pluginId));
     }
   } catch (error) {
     console.error(`Failed to unload plugin translations for ${pluginId}:`, error);
@@ -89,7 +101,7 @@ export const unloadPluginTranslations = (pluginId: string, languages: string[] =
 
 // Check if plugin translations are loaded
 export const arePluginTranslationsLoaded = (pluginId: string, language: string = i18n.language): boolean => {
-  return i18n.hasResourceBundle(language, pluginId);
+  return i18n.hasResourceBundle(language, localeNamespace(pluginId));
 };
 
 i18n

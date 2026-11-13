@@ -113,5 +113,25 @@
       "unsupported_credit_or_refund_status": "Atribución de abonos o reembolsos no disponible",
       "unsupported_negative_payment_or_refund": "Pago negativo o reembolso no asignable"
     }
+  },
+  "unbilled_view": {
+    "loading": "Cargando elementos sin facturar…",
+    "load_error": "No se pudieron cargar los elementos sin facturar. Inténtalo de nuevo.",
+    "retry": "Reintentar",
+    "title": "Tiempo sin facturar",
+    "select_all": "Seleccionar todo",
+    "time": "Tiempo",
+    "empty": "Todas las entradas de tiempo se han facturado.",
+    "total": "Saldo total sin facturar",
+    "selected": "{{count}} entradas seleccionadas para facturar",
+    "generating": "Generando factura…",
+    "generate": "Generar factura"
+  },
+  "tabs": {
+    "overview": "Resumen",
+    "kanban": "Kanban",
+    "tasks": "Tareas",
+    "time_entries": "Entradas de tiempo",
+    "unbilled": "Sin facturar"
   }
 }

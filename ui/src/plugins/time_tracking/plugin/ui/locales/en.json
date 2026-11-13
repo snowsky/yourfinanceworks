@@ -113,5 +113,25 @@
       "unsupported_credit_or_refund_status": "Credit or refund attribution unavailable",
       "unsupported_negative_payment_or_refund": "Negative payment or refund cannot be allocated"
     }
+  },
+  "unbilled_view": {
+    "loading": "Loading unbilled items…",
+    "load_error": "Unbilled items could not be loaded. Try again.",
+    "retry": "Try again",
+    "title": "Unbilled Time Entries",
+    "select_all": "Select All",
+    "time": "Time",
+    "empty": "All time entries have been billed.",
+    "total": "Total Unbilled Balance",
+    "selected": "{{count}} time entries selected for invoicing",
+    "generating": "Generating Invoice…",
+    "generate": "Generate Invoice"
+  },
+  "tabs": {
+    "overview": "Overview",
+    "kanban": "Kanban",
+    "tasks": "Tasks",
+    "time_entries": "Time Entries",
+    "unbilled": "Unbilled"
   }
 }

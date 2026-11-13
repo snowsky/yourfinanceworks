@@ -194,6 +194,18 @@ def ensure_tenant_required_columns(tenant_db_url: str, tenant_id: int) -> bool:
         with engine.connect() as conn:
             inspector = inspect(conn)
 
+            # Existing tenants use create_all at startup, which cannot add
+            # columns to an existing expenses table (mirrors 007/028).
+            if "expenses" in inspector.get_table_names():
+                existing = {c["name"] for c in inspector.get_columns("expenses")}
+                for column, definition in {"project_id": "INTEGER", "invoiced": "BOOLEAN DEFAULT FALSE"}.items():
+                    if column not in existing:
+                        logger.info(f"[tenant {tenant_id}] Adding expenses.{column}")
+                        clause = "IF NOT EXISTS " if conn.dialect.name == "postgresql" else ""
+                        conn.execute(text(f"ALTER TABLE expenses ADD COLUMN {clause}{column} {definition}"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_expenses_project_id ON expenses (project_id)"))
+                conn.commit()
+
             # bank_statements: rollup_expense_id (mirrors alembic 025).
             if "bank_statements" in inspector.get_table_names():
                 existing = {c["name"] for c in inspector.get_columns("bank_statements")}
