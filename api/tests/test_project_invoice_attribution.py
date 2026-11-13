@@ -336,3 +336,16 @@ def test_separate_expense_reimbursements_after_proportional_discount(db, expense
     db.add(InvoiceItem(invoice_id=inv.id, description='unmapped', quantity=1, price=0, amount=0)); db.flush()
     result = get_project_billing_summary(db, 1)
     assert not result.invoicing_complete and result.expense_reimbursements_pre_tax == 0
+
+
+@pytest.mark.parametrize('field', ['price', 'quantity'])
+@pytest.mark.parametrize('raw,persisted', [('12.34567', '12.3457'), ('12.34565', '12.3457'), ('12.34564', '12.3456')])
+def test_line_fingerprint_uses_persisted_numeric_precision(field, raw, persisted):
+    from plugins.time_tracking.invoice_attribution import line_snapshot
+    line = InvoiceItem(description='precise', quantity=1, price=1, amount=12.35)
+    setattr(line, field, Decimal(raw))
+    snapshot = line_snapshot(line)
+    setattr(line, field, Decimal(persisted))
+    assert line_snapshot(line) == snapshot
+    setattr(line, field, Decimal(persisted) + Decimal('0.0001'))
+    assert line_snapshot(line) != snapshot

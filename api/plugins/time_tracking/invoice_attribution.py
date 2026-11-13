@@ -14,9 +14,16 @@ def money(value):
 
 
 def line_snapshot(item):
+    # Flush leaves assigned values in memory; PostgreSQL rounds Numeric columns.
+    # Fingerprint both new and reloaded lines at the persisted column precision.
+    def numeric_value(name):
+        scale = InvoiceItem.__table__.c[name].type.scale
+        return str(money(getattr(item, name)).quantize(
+            Decimal(1).scaleb(-scale), rounding=ROUND_HALF_UP).normalize())
+
     return dict(description=item.description, inventory_item_id=item.inventory_item_id,
-                unit_of_measure=item.unit_of_measure, quantity=str(money(item.quantity).normalize()),
-                price=str(money(item.price).normalize()), amount=str(money(item.amount).normalize()))
+                unit_of_measure=item.unit_of_measure, quantity=numeric_value("quantity"),
+                price=numeric_value("price"), amount=str(money(item.amount).normalize()))
 
 
 def source_snapshot(source):
