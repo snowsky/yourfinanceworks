@@ -25,10 +25,13 @@ from sqlalchemy import func
 
 from core.models.database import get_db
 from core.models.models import MasterUser
+from .invoice_attribution import record_project_invoice_sources
+from .cost_models import ProjectInvoiceSource
 from core.models.models_per_tenant import Client, Invoice, InvoiceItem, Expense
 from core.routers.auth import get_current_user
 from core.utils.audit import log_audit_event
 
+from .cost_service import snapshot_entry_cost
 from .models import Project, ProjectCustomField, ProjectKanbanColumn, ProjectTask, TimeEntry
 from .schemas import (
     ProjectCreate, ProjectUpdate, ProjectResponse,
@@ -931,19 +934,18 @@ def create_invoice_from_project(
         .all()
     )
 
-    expenses = []
-    if payload.expense_ids:
-        try:
-            expenses = (
-                db.query(Expense)
-                .filter(
-                    Expense.id.in_(payload.expense_ids),
-                    getattr(Expense, "project_id") == project_id,  # noqa: B009
-                )
-                .all()
-            )
-        except Exception:
-            pass
+    expenses = (
+        db.query(Expense).filter(Expense.id.in_(payload.expense_ids), Expense.project_id == project_id,
+                                 Expense.invoiced.is_(False), Expense.is_deleted.is_(False)).all()
+        if payload.expense_ids else []
+    )
+    if ({e.id for e in time_entries} != set(payload.time_entry_ids)
+            or {e.id for e in expenses} != set(payload.expense_ids)):
+        raise HTTPException(400, "Selected sources must be unbilled records in this project")
+    if any(e.invoice_id is not None for e in time_entries + expenses):
+        raise HTTPException(400, "Selected sources already belong to an invoice")
+    if any(e.currency != project.currency for e in expenses):
+        raise HTTPException(400, "Selected expense currency must match project currency")
 
     # Build invoice line items
     line_items = []
@@ -993,36 +995,44 @@ def create_invoice_from_project(
         updated_at=now,
         created_by_user_id=current_user.id
     )
-    db.add(invoice)
-    db.flush()  # get invoice.id
+    try:
+        db.add(invoice)
+        db.flush()  # get invoice.id
 
-    # Add line items
-    for item in line_items:
-        db.add(InvoiceItem(
-            invoice_id=invoice.id,
-            description=item["description"],
-            quantity=item["quantity"],
-            price=item["price"],
-            amount=item["amount"],
-        ))
+        # Keep line IDs paired with their source, without changing legacy pricing.
+        invoice_items = []
+        for item in line_items:
+            line = InvoiceItem(
+                invoice_id=invoice.id, description=item["description"],
+                quantity=item["quantity"], price=item["price"], amount=item["amount"],
+            )
+            db.add(line)
+            invoice_items.append(line)
+        db.flush()
 
-    # Mark time entries as invoiced
-    for entry in time_entries:
-        entry.invoiced = True
-        entry.invoice_id = invoice.id
-        entry.invoice_number = invoice_number
-        entry.status = "invoiced"
-        entry.updated_at = now
+        # Mark time entries as invoiced
+        for entry in time_entries:
+            entry.invoiced = True
+            entry.invoice_id = invoice.id
+            entry.invoice_number = invoice_number
+            entry.status = "invoiced"
+            entry.updated_at = now
 
-    # Mark expenses as invoiced (if column exists)
-    for exp in expenses:
-        try:
+        for exp in expenses:
             exp.invoiced = True
             exp.invoice_id = invoice.id
-        except Exception:
-            pass
 
-    db.commit()
+        sources = [ProjectInvoiceSource(
+            invoice_item_id=line.id, project_id=project_id, time_entry_id=entry.id,
+        ) for line, entry in zip(invoice_items[:len(time_entries)], time_entries)]
+        sources.extend(ProjectInvoiceSource(
+            invoice_item_id=line.id, project_id=project_id, expense_id=exp.id,
+        ) for line, exp in zip(invoice_items[len(time_entries):], expenses))
+        record_project_invoice_sources(db, project_id, sources)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(invoice)
 
     log_audit_event(
@@ -1461,8 +1471,14 @@ def timer_start(
         created_at=now,
         updated_at=now,
     )
-    db.add(entry)
-    db.commit()
+    try:
+        db.add(entry)
+        db.flush()
+        snapshot_entry_cost(db, entry)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(entry)
 
     log_audit_event(
@@ -1692,6 +1708,7 @@ async def import_time_entries_csv(
     reused_project_ids: set[int] = set()
     created_task_ids: set[int] = set()
     shared_missing_project: Optional[Project] = None
+    imported_entries: list[TimeEntry] = []
 
     for index, row in enumerate(rows, start=2):
         try:
@@ -1868,6 +1885,7 @@ async def import_time_entries_csv(
             )
             entry.compute_amount()
             db.add(entry)
+            imported_entries.append(entry)
             result.created_time_entries += 1
         except Exception as exc:
             result.skipped_rows += 1
@@ -1880,7 +1898,14 @@ async def import_time_entries_csv(
             detail={"message": "No time entries could be imported", "errors": [e.model_dump() for e in result.errors]},
         )
 
-    db.commit()
+    try:
+        db.flush()
+        for entry in imported_entries:
+            snapshot_entry_cost(db, entry)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     result.created_projects = len(created_project_ids)
     result.reused_projects = len(reused_project_ids - created_project_ids)
     result.created_tasks = len(created_task_ids)
@@ -1949,8 +1974,14 @@ def create_time_entry(
         updated_at=now,
     )
     entry.compute_amount()
-    db.add(entry)
-    db.commit()
+    try:
+        db.add(entry)
+        db.flush()
+        snapshot_entry_cost(db, entry)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(entry)
 
     log_audit_event(

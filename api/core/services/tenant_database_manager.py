@@ -209,6 +209,10 @@ class TenantDatabaseManager:
                 **pool_engine_kwargs(),  # env-tunable; defaults = pool_size 5 / overflow 10 / timeout 10
             )
 
+            # Register optional plugin tables for newly created tenant databases.
+            from plugins.loader import plugin_loader
+            plugin_loader.import_models()
+
             # Create all tables in tenant database
             TenantBase.metadata.create_all(bind=tenant_engine)
 

@@ -197,3 +197,7 @@ class TimeEntry(Base):
 
     def __repr__(self):
         return f"<TimeEntry(id={self.id}, project_id={self.project_id}, status='{self.status}')>"
+
+
+# Register private tables whenever the plugin loader imports this module.
+from . import cost_models  # noqa: E402,F401

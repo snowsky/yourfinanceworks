@@ -1,32 +1,25 @@
 # Time Tracking Next Features TODO
 
-## Recommended Next Feature: Project Profitability View
+## Hourly Project Profitability — Implemented, Delivery Verification in Progress
 
-Build a project-level profitability dashboard that helps users understand whether a project is financially healthy before invoicing.
+See [feature documentation](../features/PROJECT_PROFITABILITY.md) for cost basis, rate snapshots/backfill, supplier replacements, permissions, and invoice/payment attribution limits.
 
-### Core Metrics
+Implemented in the feature branch:
 
-- Billed time amount
-- Unbilled time amount
-- Project expenses
-- Budget hours used
-- Budget amount used
-- Effective hourly rate
-- Gross margin estimate
-- Remaining budget
+- Tenant-admin profitability tab with time work value, known delivery costs, contribution, margin, coverage, budgets, contributor/task hourly costs, and a separate expense bucket.
+- Effective-dated contributor costs, creation/import/timer snapshots, explicit legacy backfill preview/apply, and supplier expense replacement without double counting.
+- Distinct unbilled work, pre-tax invoiced value, and actual attributed collections, with explicit incomplete/unallocated states.
+- Hour/amount budget warnings at 80% and 100%; localized explanation and unsupported fixed-price state.
 
-### UI Placement
+Do not mark deployed or end-to-end verified until the delivery report records the corresponding evidence. API HTTP/auth, migration, frontend, browser, and deployed-service checks are separate boundaries.
 
-- Add as a new project detail tab: `Profitability`
-- Reuse the existing project summary and unbilled data where possible
-- Show compact metric cards first, then supporting breakdowns by task, time entry, and expense category
+### Deferred Profitability Work
 
-### Useful Follow-Ups
-
-- Warn when a project is close to exceeding budget
-- Highlight tasks with high time burn against estimates
-- Show invoice readiness: completed billable work, unbilled entries, and expenses
-- Add export support for profitability summaries
+- Fixed-fee and retainer accounting.
+- Profitability exports and cross-client rankings.
+- Cost-to-finish forecasts, payroll integration, and cross-project supplier allocation.
+- Fully allocated per-contributor margins and reliable historical/mixed-project payment allocation.
+- Task burn warnings and outbound budget notifications.
 
 ## Other Strong Candidates
 

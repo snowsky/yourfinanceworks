@@ -32,6 +32,12 @@ def register_time_tracking_plugin(app, mcp_registry=None, feature_gate=None):
     from .router import projects_router, time_entries_router
     from core.utils.plugin_access_guard import require_plugin_access
 
+    from .profitability_router import profitability_router
+    app.include_router(
+        profitability_router, prefix="/api/v1/projects", tags=["projects"],
+        dependencies=[Depends(require_plugin_access("time-tracking"))],
+    )
+
     # Register project routes under /api/v1/projects
     app.include_router(
         projects_router,

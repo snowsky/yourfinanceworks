@@ -1,7 +1,7 @@
 """add rollup_expense_id to bank_statements
 
 Revision ID: 025_add_rollup_expense_id
-Revises: 024_add_project_task_kanban
+Revises: 024_project_task_kanban
 Create Date: 2026-05-21
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = "025_add_rollup_expense_id"
-down_revision: Union[str, Sequence[str], None] = "024_add_project_task_kanban"
+down_revision: Union[str, Sequence[str], None] = "024_project_task_kanban"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
