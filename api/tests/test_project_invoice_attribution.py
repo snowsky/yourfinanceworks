@@ -116,7 +116,7 @@ def invoice_route():
     from datetime import timezone
     from types import SimpleNamespace
     from plugins.time_tracking.schemas import ProjectInvoiceResponse
-    tree = ast.parse(Path('api/plugins/time_tracking/router.py').read_text())
+    tree = ast.parse((Path(__file__).resolve().parents[1] / 'plugins/time_tracking/router.py').read_text())
     node = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'create_invoice_from_project')
     node.decorator_list = []
     node.args.defaults = [ast.Constant(None) for _ in node.args.defaults]
@@ -207,7 +207,7 @@ def test_snapshot_migration_retains_legacy_rows(db):
         conn.execute(text('DROP TABLE project_invoice_sources'))
         conn.execute(text('CREATE TABLE project_invoice_sources (invoice_item_id INTEGER PRIMARY KEY, project_id INTEGER, time_entry_id INTEGER, expense_id INTEGER)'))
         conn.execute(text('INSERT INTO project_invoice_sources VALUES (1, 1, 1, NULL)'))
-        spec = importlib.util.spec_from_file_location('snapshot_migration',Path('api/alembic/versions/030_project_invoice_snapshots.py'))
+        spec = importlib.util.spec_from_file_location('snapshot_migration',(Path(__file__).resolve().parents[1] / 'alembic/versions/030_project_invoice_snapshots.py'))
         migration = importlib.util.module_from_spec(spec); spec.loader.exec_module(migration)
         migration.op = Operations(MigrationContext.configure(conn))
         migration.upgrade()
@@ -276,3 +276,32 @@ def test_all_writable_line_metadata_edits_invalidate_attribution(db, field, valu
     restored = get_project_billing_summary(db, 1)
     assert restored.invoicing_complete and restored.cash_complete
     assert (restored.invoiced_pre_tax, restored.collected_cash) == (1000, 300)
+
+
+def test_invoice_read_queries_do_not_scale_per_invoice(db):
+    from plugins.time_tracking.cost_models import ProjectInvoiceLink
+    def add_invoice(number):
+        row = Invoice(number=f'BATCH-{number}', client_id=1, due_date=datetime(2026,2,1),
+                      subtotal=0, amount=0, currency='USD', status='pending')
+        db.add(row)
+        db.flush()
+        db.add(ProjectInvoiceLink(project_id=1, invoice_id=row.id))
+        db.flush()
+    def query_count():
+        queries = []
+        def count(conn, cursor, statement, parameters, context, executemany):
+            queries.append(statement)
+        event.listen(db.bind, 'before_cursor_execute', count)
+        try:
+            result = get_project_billing_summary(db, 1)
+        finally:
+            event.remove(db.bind, 'before_cursor_execute', count)
+        return len(queries), result
+    add_invoice(1)
+    one, _ = query_count()
+    for number in range(2,13):
+        add_invoice(number)
+    many, result = query_count()
+    assert many == one
+    assert len(result.unresolved_invoice_ids) == 12
+    assert not result.invoicing_complete and result.collected_cash == 0

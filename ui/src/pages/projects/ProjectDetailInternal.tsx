@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
+import { useProjectEntryLink } from '@/plugins/time_tracking/plugin/ui/useProjectEntryLink';
 import { DndContext, DragEndEvent, useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import {
@@ -35,7 +36,8 @@ export default function ProjectDetailInternal() {
   const { t: costT } = useTranslation('time_tracking', { keyPrefix: 'profitability' });
   const { id } = useParams<{ id: string }>();
   const projectId = parseInt(id || '0', 10);
-  const [tab, setTab] = useState<TabType>(() => new URLSearchParams(window.location.search).has('time_entry_id') ? 'Time Entries' : 'Overview');
+  const [tab, setTab] = useState<TabType>('Overview');
+  const location = useLocation();
   const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -50,6 +52,8 @@ export default function ProjectDetailInternal() {
   const { data: summary } = useProjectSummary(projectId);
   const { data: tasks = [] } = useProjectTasks(projectId);
   const { data: timeEntries = [] } = useTimeEntries({ project_id: projectId });
+  const selectTimeEntries = React.useCallback(() => setTab('Time Entries'), []);
+  useProjectEntryLink(location.search, timeEntries, tab, selectTimeEntries);
   const { data: unbilled } = useUnbilledItems(projectId);
   const createInvoice = useCreateInvoiceFromProject(projectId);
   const deleteEntry = useDeleteTimeEntry();
@@ -123,7 +127,7 @@ export default function ProjectDetailInternal() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 pb-20">
+    <div className="min-w-0 space-y-8 animate-in fade-in duration-700 pb-20">
       <PageHeader
         title={
           isEditing ? (
@@ -166,7 +170,7 @@ export default function ProjectDetailInternal() {
           { label: project.name }
         ]}
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex max-w-full flex-wrap items-center gap-3">
             {isEditing ? (
               <>
                 <ProfessionalButton
@@ -244,7 +248,7 @@ export default function ProjectDetailInternal() {
         }
       />
 
-      <div className="flex gap-2 p-1 bg-background/50 backdrop-blur-sm rounded-xl border border-border/50 shadow-inner w-fit">
+      <div className="flex gap-2 p-1 bg-background/50 backdrop-blur-sm rounded-xl border border-border/50 shadow-inner w-fit max-w-full overflow-x-auto">
         {([...TABS, ...(costAccess.allowed ? ['Profitability' as const] : [])]).map((t) => (
           <Button
             key={t}
@@ -252,7 +256,7 @@ export default function ProjectDetailInternal() {
             size="sm"
             onClick={() => setTab(t)}
             className={cn(
-              "h-8 px-4 rounded-lg font-medium transition-all duration-200",
+              "h-8 shrink-0 px-4 rounded-lg font-medium transition-all duration-200",
               tab === t && "bg-card shadow-sm text-primary"
             )}
           >

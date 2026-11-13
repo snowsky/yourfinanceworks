@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from core.models.models_per_tenant import User, AuditLog, Expense
 from .models import Project, TimeEntry
@@ -37,8 +38,19 @@ def set_cost_rate(db: Session, actor, payload: CostRateWrite) -> CostRateRespons
     if existing:
         raise HTTPException(409, 'A cost rate already exists for this effective date')
     row = ContributorCostRate(**payload.model_dump())
-    db.add(row)
-    db.flush()
+    try:
+        # A savepoint keeps the caller transaction usable when concurrent requests
+        # race past the friendly existence check above.
+        with db.begin_nested():
+            db.add(row)
+            db.flush()
+    except IntegrityError as exc:
+        if db.query(ContributorCostRate).filter_by(
+            user_id=payload.user_id, currency=payload.currency,
+            effective_from=payload.effective_from,
+        ).first() is not None:
+            raise HTTPException(409, 'A cost rate already exists for this effective date') from exc
+        raise
     _audit(db, actor, 'CREATE', row.id, {'user_id': row.user_id, 'reason': 'contributor_cost_setup'})
     return CostRateResponse.model_validate(row)
 

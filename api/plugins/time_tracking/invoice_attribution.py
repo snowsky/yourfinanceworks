@@ -1,5 +1,6 @@
 """Conservative project billing read model; provenance is never inferred from text."""
 from decimal import Decimal, ROUND_HALF_UP
+from collections import defaultdict
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from core.models.models_per_tenant import Expense, Invoice, InvoiceItem, Payment, SupportedCurrency
@@ -75,22 +76,34 @@ def _get_project_billing_summary(db, project, entries, expenses, currency):
     result.unbilled_work_value = rounded(sum((money(e.duration_minutes) / 60 * money(e.hourly_rate)
         for e in entries if e.billable and not e.invoiced and e.invoice_id is None
         and e.status in {'logged', 'approved', 'invoiced'} and e.duration_minutes is not None), Decimal(0)))
+    if not invoice_ids:
+        return result
+    invoices = {row.id: row for row in db.query(Invoice).filter(Invoice.id.in_(invoice_ids))}
+    items_by_invoice, payments_by_invoice = defaultdict(list), defaultdict(list)
+    for item in db.query(InvoiceItem).filter(InvoiceItem.invoice_id.in_(invoice_ids)):
+        items_by_invoice[item.invoice_id].append(item)
+    mappings = {row.invoice_item_id: row for row in db.query(ProjectInvoiceSource).join(
+        InvoiceItem, ProjectInvoiceSource.invoice_item_id == InvoiceItem.id,
+    ).filter(InvoiceItem.invoice_id.in_(invoice_ids))}
+    for payment in db.query(Payment).filter(Payment.invoice_id.in_(invoice_ids)):
+        payments_by_invoice[payment.invoice_id].append(payment)
+    time_sources = {row.id: row for row in entries}
+    expense_sources = {row.id: row for row in expenses}
     for invoice_id in sorted(invoice_ids):
-        invoice = db.get(Invoice, invoice_id)
+        invoice = invoices.get(invoice_id)
         reasons = []
         if invoice is None:
             reasons.append('missing_invoice')
         elif invoice.is_deleted:
             reasons.append('deleted_invoice')
         elif invoice.status not in {'draft', 'pending', 'sent', 'overdue', 'paid', 'partially_paid'}:
-            reasons.append('unsupported_invoice_status_or_credit_refund')
+            reasons.append('unsupported_credit_or_refund_status' if invoice.status in {'refunded', 'credited'} else 'unsupported_invoice_status')
         elif invoice.currency != project.currency:
             reasons.append('invoice_currency_mismatch')
         elif invoice.client_id != project.client_id:
             reasons.append('invoice_client_mismatch')
-        items = db.query(InvoiceItem).filter_by(invoice_id=invoice_id).all()
+        items = items_by_invoice[invoice_id]
         item_ids = {item.id for item in items}
-        mappings = {s.invoice_item_id: s for s in db.query(ProjectInvoiceSource).filter(ProjectInvoiceSource.invoice_item_id.in_(item_ids))}
         if not items:
             reasons.append('missing_invoice_lines')
         for item in items:
@@ -98,7 +111,7 @@ def _get_project_billing_summary(db, project, entries, expenses, currency):
             if mapping is None or mapping.project_id != project_id:
                 reasons.append('mixed_or_unmapped_invoice_lines')
                 continue
-            source = db.get(TimeEntry, mapping.time_entry_id) if mapping.time_entry_id is not None else db.get(Expense, mapping.expense_id)
+            source = time_sources.get(mapping.time_entry_id) if mapping.time_entry_id is not None else expense_sources.get(mapping.expense_id)
             snapshot = mapping.snapshot
             if not snapshot:
                 reasons.append('missing_provenance_snapshot')
@@ -122,7 +135,7 @@ def _get_project_billing_summary(db, project, entries, expenses, currency):
             net = subtotal - (subtotal * discount / 100 if invoice.discount_type == 'percentage' else min(discount, subtotal))
             result.invoiced_pre_tax += rounded(net)
             result.attributed_invoice_ids.append(invoice_id)
-            payments = db.query(Payment).filter_by(invoice_id=invoice_id).all()
+            payments = payments_by_invoice[invoice_id]
             for payment in payments:
                 if payment.currency != project.currency:
                     reasons.append('payment_currency_mismatch')

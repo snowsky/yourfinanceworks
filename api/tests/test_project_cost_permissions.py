@@ -121,3 +121,81 @@ def test_deactivated_admin_denied_and_extra_fields_rejected(db):
     assert exc.value.status_code == 403
     with pytest.raises(ValidationError):
         CostRateWrite(user_id=2, currency='USD', effective_from=date.today(), hourly_cost='0', is_admin=True)
+
+
+def test_concurrent_rate_insert_is_409_on_disposable_postgres(monkeypatch):
+    import os
+    import uuid
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+    from sqlalchemy import event
+    from sqlalchemy.orm import sessionmaker
+    url = os.getenv('PROFITABILITY_TEST_DATABASE_URL')
+    if not url or not url.startswith('postgresql'):
+        pytest.skip('Requires explicit disposable PostgreSQL URL')
+    schema = 'rates_' + uuid.uuid4().hex
+    admin = create_engine(url)
+    with admin.begin() as conn:
+        conn.exec_driver_sql(f'CREATE SCHEMA {schema}')
+    from sqlalchemy.engine import make_url
+    engine = create_engine(make_url(url).update_query_dict({'options': f'-csearch_path={schema}'}))
+    Sessions = sessionmaker(bind=engine)
+    monkeypatch.setenv('ENCRYPTION_ENABLED', 'false')
+    try:
+        Base.metadata.create_all(engine)
+        with Sessions() as db:
+            db.execute(User.__table__.insert(), [dict(id=1, email='admin', hashed_password='x', role='admin', is_active=True),
+                                                 dict(id=2, email='worker', hashed_password='x', role='user', is_active=True)])
+            db.commit()
+        barrier = threading.Barrier(2, timeout=10)
+        from plugins.time_tracking.cost_models import ContributorCostRate
+        def before_insert(mapper, conn, target):
+            barrier.wait()
+        event.listen(ContributorCostRate, 'before_insert', before_insert)
+        def insert():
+            with Sessions() as db:
+                try:
+                    rate(db)
+                    db.commit()
+                    return 200
+                except HTTPException as exc:
+                    db.rollback()
+                    return exc.status_code
+        try:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                results = list(executor.map(lambda _: insert(), range(2)))
+            assert sorted(results) == [200,409]
+        finally:
+            event.remove(ContributorCostRate, 'before_insert', before_insert)
+        with Sessions() as db:
+            assert db.query(ContributorCostRate).count() == 1
+            db.execute(Client.__table__.insert().values(id=1, name='client'))
+            db.add(Project(id=1, client_id=1, name='concurrent backfill', currency='USD'))
+            db.flush()
+            db.add_all([TimeEntry(id=i, project_id=1, client_id=1, user_id=2,
+                started_at=datetime(2026,2,1), duration_minutes=60, hourly_rate=100,
+                status='logged') for i in (1,2)])
+            db.commit()
+            preview = preview_cost_backfill(db, 1, [1,2])
+        start = threading.Barrier(2, timeout=10)
+        def backfill():
+            with Sessions() as db:
+                start.wait()
+                try:
+                    result = apply_cost_backfill(db, actor, preview)
+                    db.commit()
+                    return 200, result.applied_entry_ids
+                except HTTPException as exc:
+                    db.rollback()
+                    return exc.status_code, []
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            applied = list(executor.map(lambda _: backfill(), range(2)))
+        assert sorted(status for status, ids in applied) == [200,409]
+        assert [ids for status, ids in applied if status == 200] == [[1,2]]
+        with Sessions() as db:
+            assert db.query(TimeEntryCost).count() == 2
+    finally:
+        engine.dispose()
+        with admin.begin() as conn:
+            conn.exec_driver_sql(f'DROP SCHEMA {schema} CASCADE')
+        admin.dispose()

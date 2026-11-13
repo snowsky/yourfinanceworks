@@ -200,7 +200,7 @@ def test_profitability_route_requires_tenant_admin():
     # Full HTTP dependency execution remains the deployed-image integration task.
     import ast
     from pathlib import Path
-    source=Path('api/plugins/time_tracking/profitability_router.py').read_text()
+    source=(Path(__file__).resolve().parents[1] / 'plugins/time_tracking/profitability_router.py').read_text()
     tree=ast.parse(source)
     route=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='read_project_profitability')
     assert 'Depends(cost_admin)' in ast.get_source_segment(source,route)

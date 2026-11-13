@@ -78,16 +78,6 @@ def test_frozen_rate_duration_date_nonbillable_and_rollback(db, amount):
     assert db.get(TimeEntryCost, 1) is None
 
 
-@pytest.mark.parametrize('path', ['timer_start', 'create_time_entry', 'import_time_entries_csv'])
-def test_creation_paths_snapshot_before_commit(path):
-    # Structural integration guard; full HTTP auth execution requires deployment deps.
-    source = Path('api/plugins/time_tracking/router.py').read_text()
-    function = next(n for n in ast.walk(ast.parse(source)) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == path)
-    text = ast.get_source_segment(source, function)
-    assert 'snapshot_entry_cost(db, entry)' in text
-    assert text.index('snapshot_entry_cost(db, entry)') < text.rindex('db.commit()')
-
-
 def route_functions():
     """Execute exact route bodies without importing unavailable cloud/auth modules.
 
@@ -100,7 +90,7 @@ def route_functions():
     from plugins.time_tracking.models import ProjectTask
     from plugins.time_tracking import schemas
     import io, csv
-    tree = ast.parse(Path('api/plugins/time_tracking/router.py').read_text())
+    tree = ast.parse((Path(__file__).resolve().parents[1] / 'plugins/time_tracking/router.py').read_text())
     names = {'timer_start', 'timer_stop', 'create_time_entry', 'update_time_entry',
              'import_time_entries_csv', '_resolve_hourly_rate', '_enrich_time_entry',
              '_parse_float', '_parse_int', '_parse_bool', '_parse_datetime',
@@ -193,10 +183,10 @@ def test_ordinary_schema_export_and_mcp_have_no_private_costs():
     private = {'hourly_cost', 'source_rate_id', 'cost_method', 'cost', 'expense_ids'}
     for name in ['TimeEntryCreate', 'TimeEntryUpdate', 'TimeEntryResponse', 'TimerStartRequest', 'TimerStopRequest']:
         assert not private & getattr(schemas, name).model_fields.keys()
-    source = Path('api/plugins/time_tracking/router.py').read_text()
+    source = (Path(__file__).resolve().parents[1] / 'plugins/time_tracking/router.py').read_text()
     node = next(n for n in ast.walk(ast.parse(source)) if isinstance(n, ast.FunctionDef) and n.name == 'export_monthly')
     assert not any(name in ast.get_source_segment(source, node) for name in private)
-    mcp = Path('api/plugins/time_tracking/mcp/time_tracking_provider.py').read_text()
+    mcp = (Path(__file__).resolve().parents[1] / 'plugins/time_tracking/mcp/time_tracking_provider.py').read_text()
     assert 'cost_service' not in mcp and 'TimeEntryCost' not in mcp and 'hourly_cost' not in mcp
 
 

@@ -102,10 +102,15 @@ def test_snapshot_and_source_uniqueness(connection):
         with pytest.raises(sa.exc.IntegrityError):
             with connection.begin_nested():
                 connection.exec_driver_sql(sql)
+    connection.exec_driver_sql("INSERT INTO invoice_items (id) VALUES (2), (3)")
     connection.exec_driver_sql("INSERT INTO project_invoice_sources (invoice_item_id, project_id, time_entry_id) VALUES (1, 1, 1)")
     with pytest.raises(sa.exc.IntegrityError):
         with connection.begin_nested():
-            connection.exec_driver_sql("INSERT INTO project_invoice_sources (invoice_item_id, project_id, time_entry_id) VALUES (1, 1, 1)")
+            connection.exec_driver_sql("INSERT INTO project_invoice_sources (invoice_item_id, project_id, time_entry_id) VALUES (2, 1, 1)")
+    connection.exec_driver_sql("INSERT INTO project_invoice_sources (invoice_item_id, project_id, expense_id) VALUES (2, 1, 1)")
+    with pytest.raises(sa.exc.IntegrityError):
+        with connection.begin_nested():
+            connection.exec_driver_sql("INSERT INTO project_invoice_sources (invoice_item_id, project_id, expense_id) VALUES (3, 1, 1)")
     connection.exec_driver_sql("INSERT INTO time_entry_cost_expenses (time_entry_id, expense_id) VALUES (1, 1)")
     with pytest.raises(sa.exc.IntegrityError):
         with connection.begin_nested():
@@ -123,7 +128,14 @@ class NoTimePlugin(MetaPathFinder):
 sys.meta_path.insert(0, NoTimePlugin())
 from core.models.models_per_tenant import Base
 from sqlalchemy import create_engine
+from plugins.loader import PluginLoader
+from fastapi import FastAPI
+loader = PluginLoader()
+loader.import_models()
+app = FastAPI()
+loader.register_all(app)
 assert 'projects' not in Base.metadata.tables
+assert not any('profitability' in route.path for route in app.routes)
 Base.metadata.create_all(create_engine('sqlite://'))
 """
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
@@ -193,3 +205,45 @@ def test_private_cost_revision_upgrade_and_downgrade(connection):
         migration.downgrade()
     assert 'time_entry_cost_revisions' not in sa.inspect(connection).get_table_names()
     assert connection.exec_driver_sql('SELECT amount FROM time_entries').scalar() == 125.5
+
+
+def test_actual_alembic_027_to_030_on_disposable_postgres(monkeypatch):
+    """Execute env.py + Alembic revision traversal, not Operations-only DDL."""
+    url = os.getenv('PROFITABILITY_TEST_DATABASE_URL')
+    if not url or not url.startswith('postgresql'):
+        pytest.skip('Requires explicit disposable PostgreSQL URL')
+    import uuid
+    from alembic import command
+    from alembic.config import Config
+    schema = 'profitability_' + uuid.uuid4().hex
+    admin = sa.create_engine(url)
+    with admin.begin() as conn:
+        conn.exec_driver_sql(f'CREATE SCHEMA {schema}')
+    isolated_url = sa.engine.make_url(url).update_query_dict({'options': f'-csearch_path={schema}'})
+    isolated = sa.create_engine(isolated_url)
+    try:
+        with isolated.begin() as conn:
+            legacy_schema(conn)
+        config = Config()
+        config.set_main_option('script_location', str(Path(__file__).resolve().parents[1] / 'alembic'))
+        config.set_main_option('sqlalchemy.url', isolated_url.render_as_string(hide_password=False).replace('%', '%%'))
+        monkeypatch.setenv('ALEMBIC_DB_TYPE', 'tenant')
+        monkeypatch.delenv('TENANT_ID', raising=False)
+        command.stamp(config, '027_add_net_worth_tables')
+        command.upgrade(config, '030_project_invoice_snapshots')
+        with isolated.connect() as conn:
+            assert conn.exec_driver_sql('SELECT version_num FROM alembic_version').scalar() == '030_project_invoice_snapshots'
+            assert conn.exec_driver_sql('SELECT amount, hourly_rate FROM time_entries').one() == (125.5,100)
+            assert conn.exec_driver_sql('SELECT count(*) FROM time_entry_costs').scalar() == 0
+            from core.models.models_per_tenant import Base
+            import plugins.time_tracking.cost_models
+            for table in ('contributor_cost_rates', 'time_entry_costs', 'time_entry_cost_expenses',
+                          'time_entry_cost_revisions', 'project_invoice_sources', 'project_invoice_links'):
+                actual = sa.inspect(conn).get_columns(table)
+                expected = Base.metadata.tables[table].columns
+                assert [(c['name'], c['nullable']) for c in actual] == [(c.name, c.nullable) for c in expected]
+    finally:
+        isolated.dispose()
+        with admin.begin() as conn:
+            conn.exec_driver_sql(f'DROP SCHEMA {schema} CASCADE')
+        admin.dispose()
