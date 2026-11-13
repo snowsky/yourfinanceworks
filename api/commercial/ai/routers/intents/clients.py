@@ -1,27 +1,8 @@
 # Copyright (c) 2026 YourFinanceWORKS
 # This file is part of the Commercial module of YourFinanceWORKS.
-"""clients intent handler — create / search / list with regex-driven argument extraction.
+"""Read-only client search/list handler.
 
-Three sub-paths keyed off the chat message:
-
-  * "create" / "add" / "new"  -> regex-extract name (+optional email/phone),
-                                 call create_client, render a confirmation.
-  * "search" / "find"         -> regex-extract a query term, call
-                                 search_clients (or list_clients(limit=10)
-                                 if no query was captured).
-  * default                   -> list_clients with a planner-friendly page:
-                                 limit=1000 for a count request,
-                                 limit=20 otherwise.
-
-Count-intent detection (``how many``, ``count``, ``total number``, ``number of``)
-also switches the render path to a short "you have N clients" line instead
-of the full dashboard.
-
-A latent bug in the legacy branch caused the create-path response to never
-reach the user (the post-create render gate excluded create-keyword messages
-but the create branch didn't return on its own). This handler fixes that:
-the create path returns its envelope directly from ``_handle_create``.
-Documented in the PR that introduces this module.
+Creation requests fall through; only the shared confirmation dispatcher writes.
 """
 
 from __future__ import annotations
@@ -105,7 +86,7 @@ class ClientsHandler:
         lower = ctx.lower_message
 
         if is_create_intent(lower):
-            return await self._handle_create(ctx, lower)
+            return None  # Writes are handled only by the proposal/confirmation gate.
 
         is_search, query = detect_search_intent(lower)
         if is_search and query:
@@ -138,22 +119,6 @@ class ClientsHandler:
             return mcp_envelope(ctx, NO_CLIENTS_MESSAGE)
         return mcp_envelope(ctx, format_clients_response(clients))
 
-    async def _handle_create(self, ctx: IntentContext, lower: str) -> Optional[dict]:
-        name, email, phone = extract_create_client_args(lower)
-        if not name:
-            return mcp_envelope(ctx, NAME_REQUIRED_MESSAGE)
-
-        result = await ctx.tools.create_client(name=name, email=email, phone=phone)
-        if not result.get("success"):
-            return mcp_envelope(
-                ctx,
-                f"Failed to create client: {result.get('error', 'Unknown error')}",
-            )
-
-        return mcp_envelope(
-            ctx,
-            format_create_client_response(result.get("data") or {}, fallback_name=name),
-        )
 
 
 def format_count_response(count: int) -> str:

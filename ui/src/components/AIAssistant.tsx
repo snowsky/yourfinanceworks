@@ -590,6 +590,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     return stored === null ? true : stored === 'true';
   });
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const historyLoading = useRef(false);
   const [hasMoreHistory, setHasMoreHistory] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [historyOffset, setHistoryOffset] = useState(0);
@@ -598,16 +599,28 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const nextMessageId = useRef(-1);
+  const pollingTimers = useRef(new Set<ReturnType<typeof setInterval>>());
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    const timers = pollingTimers.current;
+    return () => {
+      mounted.current = false;
+      timers.forEach(timer => clearInterval(timer));
+      timers.clear();
+    };
+  }, []);
 
-  // Helper to update the last AI message (thinking indicator) with actual content
-  const updateAiMessage = useCallback((content: React.ReactNode | string) => {
+  // Bind each asynchronous response to its own placeholder.
+  const updateMessage = useCallback((id: number, content: React.ReactNode | string) => {
+    if (!mounted.current) return;
     setMessages((prev) => {
-      const updated = [...prev.slice(0, -1), {
-        id: prev.length,
-        sender: 'ai' as const,
+      const updated = prev.map(message => message.id === id ? {
+        ...message,
         text: typeof content === 'string' ? <EnhancedAIResponse text={content} /> : content,
         timestamp: new Date().toISOString()
-      }];
+      } : message);
       if (!isOpen) {
         setHasUnreadMessages(true);
         localStorage.setItem('ai-assistant-unread', 'true');
@@ -689,14 +702,16 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
 
   // Fetch chat history when chat is opened
   useEffect(() => {
-    if (isOpen && !settingsLoading && settings && (settings as any).enable_ai_assistant) {
+    if (isOpen && !historyLoaded && !historyLoading.current && !settingsLoading && settings && (settings as any).enable_ai_assistant) {
+      historyLoading.current = true;
       (async () => {
         try {
           // Load the last 20 messages (offset 0 = most recent)
           const history = await api.get('/ai/chat/history?limit=20&offset=0') as any[];
+          if (!mounted.current) return;
           if (Array.isArray(history) && history.length > 0) {
-            const loadedMessages = history.map((msg: any, idx: number) => ({
-              id: idx + 1,
+            const loadedMessages = history.map((msg: any) => ({
+              id: msg.id,
               sender: msg.sender,
               text: msg.sender === 'ai' ? <EnhancedAIResponse text={msg.message} /> : msg.message,
               timestamp: msg.created_at
@@ -737,6 +752,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
             }, 200);
           }
         } catch (e) {
+          if (!mounted.current) return;
           console.error('Failed to load AI chat history:', e);
           // On error, show welcome message
           setMessages([{ id: 1, sender: 'ai', text: <EnhancedAIResponse text={t('aiAssistant.welcomeMessage')} /> }]);
@@ -754,10 +770,12 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
               scrollArea.scrollTop = scrollArea.scrollHeight;
             }
           }, 200);
+        } finally {
+          historyLoading.current = false;
         }
       })();
     }
-  }, [isOpen, settingsLoading, settings, t]);
+  }, [isOpen, historyLoaded, settingsLoading, settings, t]);
 
   // Rest of the component hooks...
   const [isStreamingVisible, setIsStreamingVisible] = useState(false);
@@ -770,12 +788,8 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
       setIsGenerating(false);
       setIsThinking(false);
       setIsStreamingVisible(false);
-      setHistoryLoaded(false); // Reset history loaded so it reloads when dialog opens again
-      setHistoryOffset(0);
-      setHasMoreHistory(true);
-      setIsLoadingMore(false);
-      setJustLoadedHistory(false);
-      setIsInitialLoad(true);
+      // Preserve message identities, including in-flight replies, while closed.
+
     } else {
       // Clear unread indicator when opened
       setHasUnreadMessages(false);
@@ -798,8 +812,8 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
         // but we want to prepend in chronological order (oldest first)
         const reversedHistory = moreHistory.reverse();
 
-        const newMessages = reversedHistory.map((msg: any, idx: number) => ({
-          id: messages.length + idx + 1,
+        const newMessages = reversedHistory.map((msg: any) => ({
+          id: msg.id,
           sender: msg.sender,
           text: msg.sender === 'ai' ? <EnhancedAIResponse text={msg.message} /> : msg.message,
           timestamp: msg.created_at
@@ -981,6 +995,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
   // Helper function to save chat messages
   const saveChatMessage = async (message: string, sender: 'user' | 'ai') => {
     try {
+      if (!mounted.current) return;
       await aiApiRequest('/ai/chat/message', {
         method: 'POST',
         body: JSON.stringify({
@@ -988,6 +1003,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
           sender
         })
       });
+      setHistoryOffset(offset => offset + 1);
     } catch (error) {
       console.error(`Failed to save ${sender} message:`, error);
     }
@@ -1002,7 +1018,8 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
       'holdings not', 'portfolio not', 'wrong holding', 'incorrect holding',
     ].some((kw) => text.includes(kw));
 
-  const handlePromptImprovementChat = async (message: string) => {
+  const handlePromptImprovementChat = async (message: string, messageId: number) => {
+    const updateAiMessage = (content: React.ReactNode | string) => updateMessage(messageId, content);
     const docId = (pageContext as any)?.entity?.id as number | undefined;
     const docType = (pageContext as any)?.entity?.type as 'invoice' | 'expense' | 'bank_statement' | 'portfolio' | undefined;
 
@@ -1014,39 +1031,43 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
       return;
     }
 
+    if (!mounted.current) return;
     // Show initial progress card (stops the thinking indicator)
     updateAiMessage(<PromptImprovementProgress job={job} />);
 
+    let polling = false;
     const pollInterval = setInterval(async () => {
+      if (polling || !mounted.current) return;
+      polling = true;
       try {
         const updated = await promptImprovementApi.getJob(job.job_id);
-        // Update the last message in place by replacing it
-        setMessages((prev) => {
-          const updated2 = [...prev];
-          updated2[updated2.length - 1] = {
-            ...updated2[updated2.length - 1],
-            text: <PromptImprovementProgress job={updated} />,
-          };
-          return updated2;
-        });
+        if (!mounted.current) return;
+        updateAiMessage(<PromptImprovementProgress job={updated} />);
 
         if (['succeeded', 'exhausted', 'failed'].includes(updated.status)) {
           clearInterval(pollInterval);
+          pollingTimers.current.delete(pollInterval);
           await saveChatMessage(updated.result_summary || updated.error_message || '', 'ai');
         }
       } catch (err) {
         console.error('Prompt improvement poll error:', err);
         clearInterval(pollInterval);
+        pollingTimers.current.delete(pollInterval);
+      } finally {
+        polling = false;
       }
     }, 3000);
+    pollingTimers.current.add(pollInterval);
   };
 
   const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim();
-    if (textToSend === '') return;
+    if (textToSend === '' || !historyLoaded) return;
+    const replyId = nextMessageId.current--;
+    const updateAiMessage = (content: React.ReactNode | string) => updateMessage(replyId, content);
 
     const newMessage: Message = {
-      id: messages.length + 1,
+      id: nextMessageId.current--,
       sender: 'user',
       text: textToSend,
       timestamp: new Date().toISOString()
@@ -1061,7 +1082,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     setIsThinking(true);
     setIsGenerating(true);
     const typingMessage: Message = {
-      id: messages.length + 2,
+      id: replyId,
       sender: 'ai',
       text: <EnhancedAIResponse text={t('aiAssistant.thinking')} />,
       timestamp: new Date().toISOString()
@@ -1113,6 +1134,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
               action={res.data}
               onConfirm={async (a) => {
                 const done = await onboardingAssistantApi.sendOnboardingMessage({ message: '', confirmed_action: a });
+                if (!done.success) throw new Error(done.error || 'Action failed');
                 const doneText = done?.data?.response ?? 'Done.';
                 await saveChatMessage(doneText, 'ai');
                 updateAiMessage(doneText);
@@ -1139,41 +1161,8 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
         } else {
           throw new Error('Failed to get payment data');
         }
-      } else if (
-        lowerText.includes('expense') || lowerText.includes('expenses') ||
-        lowerText.includes('list expenses') || lowerText.includes('show expenses')
-      ) {
-        const response = await api.post('/ai/chat', {
-          message: textToSend,
-          config_id: defaultAIConfig?.id || 0,
-          page_context: pageContext
-        }) as any;
-        if (response.success) {
-          const aiResponse = response.data.response || response.data.message || "I'm sorry, I couldn't generate a response.";
-          await saveChatMessage(aiResponse, 'ai');
-          updateAiMessage(aiResponse);
-        } else {
-          throw new Error(response.error || 'Failed to get AI response');
-        }
-      } else if (
-        lowerText.includes('statement') || lowerText.includes('statements') ||
-        lowerText.includes('bank statement') || lowerText.includes('show statements') ||
-        lowerText.includes('list statements')
-      ) {
-        const response = await api.post('/ai/chat', {
-          message: textToSend,
-          config_id: defaultAIConfig?.id || 0,
-          page_context: pageContext
-        }) as any;
-        if (response.success) {
-          const aiResponse = response.data.response || response.data.message || "I'm sorry, I couldn't generate a response.";
-          await saveChatMessage(aiResponse, 'ai');
-          updateAiMessage(aiResponse);
-        } else {
-          throw new Error(response.error || 'Failed to get AI response');
-        }
       } else if (isPromptImprovementIntent(lowerText)) {
-        await handlePromptImprovementChat(textToSend);
+        await handlePromptImprovementChat(textToSend, replyId);
       } else {
         const response = await aiApiRequest('/ai/chat', {
           method: 'POST',
@@ -1184,9 +1173,26 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
           })
         }) as any;
         if (response.success) {
-          const aiResponse = response.data.response || response.data.message || "I'm sorry, I couldn't generate a response.";
-          await saveChatMessage(aiResponse, 'ai');
-          updateAiMessage(aiResponse);
+          if (response.data?.type === 'proposed_action') {
+            await saveChatMessage(onboardingAiSummary(response.data), 'ai');
+            updateAiMessage(<ConfirmActionCard
+              action={response.data}
+              onConfirm={async (action) => {
+                const done = await aiApiRequest('/ai/chat', {
+                  method: 'POST', body: JSON.stringify({ message: '', confirmed_action: action }),
+                });
+                if (!done.success) throw new Error(done.error || 'Action failed');
+                const text = done.data.response;
+                await saveChatMessage(text, 'ai');
+                updateAiMessage(text);
+              }}
+              onCancel={() => updateAiMessage("No problem — let me know when you’re ready.")}
+            />);
+          } else {
+            const aiResponse = response.data.response || response.data.message || "I'm sorry, I couldn't generate a response.";
+            await saveChatMessage(aiResponse, 'ai');
+            updateAiMessage(aiResponse);
+          }
         } else {
           throw new Error(response.error || 'Failed to get AI response');
         }
@@ -1194,19 +1200,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     } catch (error) {
       console.error("Error getting AI response:", error);
       const errorMessage = t("aiAssistant.error_message");
-      setMessages((prev) => {
-        const updated = [...prev.slice(0, -1), {
-          id: prev.length,
-          sender: 'ai' as const,
-          text: <EnhancedAIResponse text={errorMessage} />,
-          timestamp: new Date().toISOString()
-        }];
-        if (!isOpen) {
-          setHasUnreadMessages(true);
-          localStorage.setItem('ai-assistant-unread', 'true');
-        }
-        return updated;
-      });
+      updateAiMessage(errorMessage);
       setIsThinking(false);
       setIsGenerating(false);
     }
@@ -1388,6 +1382,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                     variant="outline"
                     size="sm"
                     className="rounded-full bg-white/50 dark:bg-black/20 backdrop-blur border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-xs shadow-sm hover:shadow-md transition-all whitespace-nowrap"
+                    disabled={!historyLoaded}
                     onClick={() => handleQuickAction(t('aiAssistant.analyzePatterns'))}
                   >
                     <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
@@ -1397,6 +1392,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                     variant="outline"
                     size="sm"
                     className="rounded-full bg-white/50 dark:bg-black/20 backdrop-blur border-pink-200 dark:border-pink-800 text-pink-600 dark:text-pink-400 text-xs shadow-sm hover:shadow-md transition-all whitespace-nowrap"
+                    disabled={!historyLoaded}
                     onClick={() => handleQuickAction(t('aiAssistant.suggestActions'))}
                   >
                     <Target className="mr-1.5 h-3.5 w-3.5" />
@@ -1406,6 +1402,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                     variant="outline"
                     size="sm"
                     className="rounded-full bg-white/50 dark:bg-black/20 backdrop-blur border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-xs shadow-sm hover:shadow-md transition-all whitespace-nowrap"
+                    disabled={!historyLoaded}
                     onClick={() => handleQuickAction(t('aiAssistant.getStarted'))}
                   >
                     {t('aiAssistant.getStarted')}
@@ -1414,6 +1411,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                     variant="outline"
                     size="sm"
                     className="rounded-full bg-white/50 dark:bg-black/20 backdrop-blur border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-xs shadow-sm hover:shadow-md transition-all whitespace-nowrap"
+                    disabled={!historyLoaded}
                     onClick={() => handleQuickAction(t('aiAssistant.paymentCharts'))}
                   >
                     📈
@@ -1423,6 +1421,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                     variant="outline"
                     size="sm"
                     className="rounded-full bg-white/50 dark:bg-black/20 backdrop-blur border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-400 text-xs shadow-sm hover:shadow-md transition-all whitespace-nowrap"
+                    disabled={!historyLoaded}
                     onClick={() => handleQuickAction('improve prompt - extraction issue')}
                   >
                     <Wrench className="mr-1.5 h-3.5 w-3.5" />
@@ -1432,6 +1431,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
 
                 <div className="relative flex items-center gap-2 bg-card/60 backdrop-blur-xl border border-border/50 p-2 pl-4 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.04)] focus-within:shadow-[0_8px_30px_rgb(0,0,0,0.08)] focus-within:border-border transition-all duration-300">
                   <Input
+                    disabled={!historyLoaded}
                     placeholder={t('aiAssistant.inputPlaceholder')}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -1450,7 +1450,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                         : "bg-muted text-muted-foreground cursor-not-allowed"
                     )}
                     onClick={() => handleSendMessage()}
-                    disabled={!input.trim()}
+                    disabled={!input.trim() || !historyLoaded}
                   >
                     {isGenerating ? <Loader className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 ml-0.5" />}
                   </Button>
