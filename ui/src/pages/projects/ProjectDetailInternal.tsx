@@ -33,6 +33,7 @@ type TabType = typeof TABS[number] | 'Profitability';
 
 export default function ProjectDetailInternal() {
   const costAccess = useCostAccess();
+  const { t: projectT } = useTranslation('time_tracking');
   const { t: costT } = useTranslation('time_tracking', { keyPrefix: 'profitability' });
   const { id } = useParams<{ id: string }>();
   const projectId = parseInt(id || '0', 10);
@@ -54,7 +55,7 @@ export default function ProjectDetailInternal() {
   const { data: timeEntries = [] } = useTimeEntries({ project_id: projectId });
   const selectTimeEntries = React.useCallback(() => setTab('Time Entries'), []);
   useProjectEntryLink(location.search, timeEntries, tab, selectTimeEntries);
-  const { data: unbilled } = useUnbilledItems(projectId);
+  const { data: unbilled, isError: unbilledError, refetch: retryUnbilled } = useUnbilledItems(projectId);
   const createInvoice = useCreateInvoiceFromProject(projectId);
   const deleteEntry = useDeleteTimeEntry();
   const updateProject = useUpdateProject(projectId);
@@ -260,7 +261,7 @@ export default function ProjectDetailInternal() {
               tab === t && "bg-card shadow-sm text-primary"
             )}
           >
-            {t === 'Profitability' ? costT('title') : t}
+            {t === 'Profitability' ? costT('title') : projectT(`tabs.${t.toLowerCase().replaceAll(' ', '_')}`)}
           </Button>
         ))}
       </div>
@@ -281,6 +282,8 @@ export default function ProjectDetailInternal() {
         {tab === 'Unbilled' && (
           <UnbilledTab
             unbilled={unbilled}
+            isError={unbilledError}
+            onRetry={() => void retryUnbilled()}
             selectedIds={selectedEntryIds}
             onToggleEntry={(id: number) =>
               setSelectedEntryIds((prev) =>
@@ -1233,8 +1236,10 @@ function TimeEntriesTab({ entries, tasks, project, onDelete }: { entries: TimeEn
   );
 }
 
-function UnbilledTab({ unbilled, selectedIds, onToggleEntry, onSelectAll, isAllSelected, onInvoice, isInvoicing, currency }: any) {
-  if (!unbilled) return <div className="text-muted-foreground animate-pulse py-8">Auditing unbilled items…</div>;
+export function UnbilledTab({ isError, onRetry, unbilled, selectedIds, onToggleEntry, onSelectAll, isAllSelected, onInvoice, isInvoicing, currency }: any) {
+  const { t } = useTranslation('time_tracking', { keyPrefix: 'unbilled_view' });
+  if (isError) return <div role="alert" className="py-8 space-y-3"><p>{t('load_error')}</p><Button onClick={onRetry}>{t('retry')}</Button></div>;
+  if (!unbilled) return <div className="text-muted-foreground animate-pulse py-8">{t('loading')}</div>;
 
   return (
     <div className="space-y-6">
@@ -1243,7 +1248,7 @@ function UnbilledTab({ unbilled, selectedIds, onToggleEntry, onSelectAll, isAllS
         <div className="px-6 py-4 border-b border-border/30 bg-muted/30 flex items-center justify-between">
           <h3 className="text-foreground font-bold text-sm flex items-center gap-2">
             <Clock className="w-4 h-4 text-primary" />
-            Unbilled Time Entries
+            {t('title')}
           </h3>
           {unbilled.time_entries.length > 0 && (
             <div className="flex items-center gap-2">
@@ -1261,7 +1266,7 @@ function UnbilledTab({ unbilled, selectedIds, onToggleEntry, onSelectAll, isAllS
                 className="rounded-lg h-4 w-4 border-border shadow-sm text-primary focus:ring-primary/20 cursor-pointer"
               />
               <label htmlFor="select-all-time" className="text-xs font-medium text-muted-foreground cursor-pointer select-none">
-                Select All
+                {t('select_all')}
               </label>
             </div>
           )}
@@ -1276,7 +1281,7 @@ function UnbilledTab({ unbilled, selectedIds, onToggleEntry, onSelectAll, isAllS
                 className="rounded-lg h-5 w-5 border-border shadow-sm text-primary focus:ring-primary/20 cursor-pointer"
               />
               <div className="flex-1 min-w-0">
-                <div className="text-foreground font-bold text-sm tracking-tight">{entry.description || entry.task_name || 'Time'}</div>
+                <div className="text-foreground font-bold text-sm tracking-tight">{entry.description || entry.task_name || t('time')}</div>
                 <div className="text-muted-foreground text-[10px] sm:text-xs mt-0.5 flex items-center gap-2">
                   <span className="font-semibold">{new Date(entry.started_at).toLocaleDateString()}</span>
                   <span className="opacity-30">•</span>
@@ -1292,7 +1297,7 @@ function UnbilledTab({ unbilled, selectedIds, onToggleEntry, onSelectAll, isAllS
         {unbilled.time_entries.length === 0 && (
           <div className="flex flex-col items-center justify-center py-10 opacity-60">
              <AlertCircle className="w-8 h-8 mb-2" />
-             <p className="text-sm font-medium">All time entries have been billed.</p>
+             <p className="text-sm font-medium">{t('empty')}</p>
           </div>
         )}
       </ProfessionalCard>
@@ -1300,12 +1305,12 @@ function UnbilledTab({ unbilled, selectedIds, onToggleEntry, onSelectAll, isAllS
       {/* Totals + invoice button */}
       <ProfessionalCard variant="elevated" className="p-6 flex flex-col sm:flex-row items-center justify-between gap-6 border-l-4 border-l-primary shadow-xl">
         <div className="flex flex-col">
-          <span className="text-muted-foreground text-[11px] font-bold uppercase tracking-widest mb-1">Total Unbilled Balance</span>
+          <span className="text-muted-foreground text-[11px] font-bold uppercase tracking-widest mb-1">{t('total')}</span>
           <div className="text-4xl font-extrabold tracking-tighter text-foreground">
             {currency} {unbilled.grand_total.toFixed(2)}
           </div>
           <p className="text-xs text-muted-foreground font-medium mt-1">
-            {selectedIds.length} time entries selected for invoicing
+            {t('selected', { count: selectedIds.length })}
           </p>
         </div>
         <ProfessionalButton
@@ -1316,7 +1321,7 @@ function UnbilledTab({ unbilled, selectedIds, onToggleEntry, onSelectAll, isAllS
           className="shadow-xl shadow-primary/20 w-full sm:w-auto"
           leftIcon={<FileText className="w-5 h-5" />}
         >
-          {isInvoicing ? 'Generating Invoice…' : 'Generate Invoice'}
+          {isInvoicing ? t('generating') : t('generate')}
         </ProfessionalButton>
       </ProfessionalCard>
     </div>

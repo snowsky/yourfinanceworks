@@ -113,5 +113,25 @@
       "unsupported_credit_or_refund_status": "Attribution des avoirs ou remboursements indisponible",
       "unsupported_negative_payment_or_refund": "Paiement négatif ou remboursement non attribuable"
     }
+  },
+  "unbilled_view": {
+    "loading": "Chargement des éléments non facturés…",
+    "load_error": "Impossible de charger les éléments non facturés. Réessayez.",
+    "retry": "Réessayer",
+    "title": "Temps non facturé",
+    "select_all": "Tout sélectionner",
+    "time": "Temps",
+    "empty": "Toutes les heures ont été facturées.",
+    "total": "Solde total non facturé",
+    "selected": "{{count}} entrées sélectionnées pour la facturation",
+    "generating": "Création de la facture…",
+    "generate": "Créer une facture"
+  },
+  "tabs": {
+    "overview": "Vue d’ensemble",
+    "kanban": "Kanban",
+    "tasks": "Tâches",
+    "time_entries": "Saisies de temps",
+    "unbilled": "Non facturé"
   }
 }
