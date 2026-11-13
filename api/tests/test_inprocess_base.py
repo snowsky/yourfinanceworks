@@ -19,20 +19,21 @@ async def test_unimplemented_method_delegates_to_http_fallback(monkeypatch):
     calls = {}
 
     class _FakeHTTP:
-        def __init__(self, base_url, jwt_token):
-            calls["constructed"] = (base_url, jwt_token)
+        def __init__(self, base_url, jwt_token, tenant_id):
+            calls["constructed"] = (base_url, jwt_token, tenant_id)
         async def list_statements(self, **kwargs):
             calls["list_statements"] = kwargs
             return {"items": []}
 
     import commercial.ai.inprocess.base as base_mod
     monkeypatch.setattr(base_mod, "AuthenticatedAPIClient", _FakeHTTP)
+    monkeypatch.setattr(base_mod, "get_tenant_context", lambda: 42)
     monkeypatch.setattr(base_mod, "create_access_token", lambda data, expires_delta=None: "TOKEN")
 
     c = InProcessAPIClient(db="DB", current_user=_user())
     result = await c.list_statements(skip=0, limit=10)  # not implemented in-process -> fallback
     assert result == {"items": []}
-    assert calls["constructed"] == ("http://localhost:8000/api/v1", "TOKEN")
+    assert calls["constructed"] == ("http://localhost:8000/api/v1", "TOKEN", 42)
     assert calls["list_statements"] == {"skip": 0, "limit": 10}
 
 

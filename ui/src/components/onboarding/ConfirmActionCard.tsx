@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { OnboardingAction, ProposedAction } from '@/lib/api/onboarding';
@@ -30,10 +30,29 @@ export function ConfirmActionCard({
   onCancel,
 }: {
   action: ProposedAction;
-  onConfirm: (a: OnboardingAction) => void;
+  onConfirm: (a: OnboardingAction) => void | Promise<void>;
   onCancel: () => void;
 }) {
-  const fields = FIELDS[action.action] ?? [];
+  const configuredFields = FIELDS[action.action] ?? [];
+  const fields = [...configuredFields, ...Object.keys(action.params)
+    .filter(key => !configuredFields.some(field => field.key === key))
+    .map(key => ({ key, label: key.replace(/_/g, ' '), placeholder: undefined }))];
+  const submitting = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const confirm = async () => {
+    if (submitting.current) return;
+    submitting.current = true;
+    setBusy(true);
+    setError('');
+    try {
+      await onConfirm({ action: action.action, params });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Action failed');
+      submitting.current = false;
+      setBusy(false);
+    }
+  };
   const [params, setParams] = useState<Record<string, unknown>>({ ...action.params });
 
   return (
@@ -43,17 +62,19 @@ export function ConfirmActionCard({
         <label key={f.key} className="block text-xs">
           {f.label}
           <Input
-            value={String(params[f.key] ?? '')}
+            disabled={busy}
+            value={Array.isArray(params[f.key]) ? (params[f.key] as unknown[]).join(', ') : String(params[f.key] ?? '')}
             placeholder={f.placeholder}
-            onChange={(e) => setParams((p) => ({ ...p, [f.key]: e.target.value }))}
+            onChange={(e) => setParams((p) => ({ ...p, [f.key]: Array.isArray(action.params[f.key]) ? e.target.value.split(',').map(value => value.trim()).filter(Boolean) : e.target.value }))}
           />
         </label>
       ))}
+      <div role="alert">{error}</div>
       <div className="flex gap-2 pt-1">
-        <Button size="sm" onClick={() => onConfirm({ action: action.action, params })}>
+        <Button size="sm" disabled={busy} onClick={confirm}>
           Confirm
         </Button>
-        <Button size="sm" variant="outline" onClick={onCancel}>
+        <Button size="sm" variant="outline" disabled={busy} onClick={onCancel}>
           Cancel
         </Button>
       </div>

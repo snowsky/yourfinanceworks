@@ -17,12 +17,16 @@ logger = logging.getLogger(__name__)
 
 # Helper class for authenticated API requests
 class AuthenticatedAPIClient(BaseAPIClient):
-    def __init__(self, base_url: str, jwt_token: str, *, http_client: httpx.AsyncClient = None):
+    def __init__(self, base_url: str, jwt_token: str, *, tenant_id: int = None, http_client: httpx.AsyncClient = None):
         super().__init__(base_url, http_client=http_client)
         self.jwt_token = jwt_token
+        self.tenant_id = tenant_id
 
     async def _get_auth_headers(self) -> Dict[str, str]:
-        return {"Authorization": f"Bearer {self.jwt_token}"}
+        headers = {"Authorization": f"Bearer {self.jwt_token}"}
+        if self.tenant_id is not None:
+            headers["X-Tenant-ID"] = str(self.tenant_id)
+        return headers
 
     async def _make_request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
         """Make authenticated request using JWT token"""
@@ -101,6 +105,9 @@ class AuthenticatedAPIClient(BaseAPIClient):
         return filtered_clients[skip:end_idx]
 
     # Invoice Management Methods
+    async def create_invoice(self, invoice_data: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._make_request("POST", "/invoices/", json=invoice_data)
+
     async def list_invoices(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
         return await self._make_request(
             "GET",

@@ -10,6 +10,7 @@ import logging
 from datetime import timedelta
 
 from core.routers.auth import create_access_token
+from core.models.database import get_tenant_context
 from commercial.ai.routers.auth_client import AuthenticatedAPIClient
 from commercial.ai.inprocess.clients_domain import ClientsInProcessMixin
 
@@ -22,6 +23,7 @@ class InProcessAPIClient(ClientsInProcessMixin):
     def __init__(self, db, current_user):
         self._db = db
         self._current_user = current_user
+        self._tenant_id = get_tenant_context()
         self._fallback = None
 
     def _get_fallback(self) -> AuthenticatedAPIClient:
@@ -30,8 +32,16 @@ class InProcessAPIClient(ClientsInProcessMixin):
                 data={"sub": self._current_user.email},
                 expires_delta=timedelta(minutes=30),
             )
-            self._fallback = AuthenticatedAPIClient(base_url=_SELF_BASE_URL, jwt_token=token)
+            if self._tenant_id is None:
+                raise ValueError("AI tool requests require an active tenant context")
+            self._fallback = AuthenticatedAPIClient(
+                base_url=_SELF_BASE_URL, jwt_token=token, tenant_id=self._tenant_id
+            )
         return self._fallback
+
+    async def _make_request(self, method, endpoint, **kwargs):
+        """Support MCP tools using the shared HTTP request surface explicitly."""
+        return await self._get_fallback()._make_request(method, endpoint, **kwargs)
 
     def __getattr__(self, name):
         # Only reached for attributes NOT found normally (i.e. not yet migrated).
