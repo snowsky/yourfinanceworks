@@ -134,6 +134,7 @@ class ProjectBillingSummary(StrictCostModel):
     currency: str
     unbilled_work_value: Decimal = Decimal(0)
     invoiced_pre_tax: Decimal = Decimal(0)
+    expense_reimbursements_pre_tax: Decimal = Decimal(0)
     collected_cash: Decimal = Decimal(0)
     collections_include_tax: bool = True
     invoicing_complete: bool = True

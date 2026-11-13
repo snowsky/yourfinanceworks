@@ -225,3 +225,29 @@ def test_partially_approved_unsubmission(db, states, complete):
     assert (result.status == 'complete') is complete
     assert result.known_cost == (Decimal('500') if complete else Decimal('400'))
     assert result.contribution == (Decimal('500') if complete else None)
+
+
+def test_supplier_partial_soft_then_hard_delete_retains_evidence_and_explicit_relink(db):
+    from sqlalchemy import text
+    from tests.test_project_cost_permissions import actor
+    from plugins.time_tracking.cost_service import replace_entry_cost_method
+    from plugins.time_tracking.cost_models import TimeEntryCostRevision
+    db.execute(text('PRAGMA foreign_keys=ON'))
+    assert db.execute(text('PRAGMA foreign_keys')).scalar() == 1
+    expense(db, id=1, amount=100)
+    expense(db, id=2, amount=50)
+    replace_entry_cost_method(db, actor, 1, 'supplier_expense', [1, 2])
+    assert get_project_profitability(db, 1).status == 'complete'
+    db.get(Expense, 1).is_deleted = True
+    db.flush()
+    assert get_project_profitability(db, 1).status == 'incomplete'
+    db.execute(text('DELETE FROM expenses WHERE id=1'))
+    db.expire_all()
+    result = get_project_profitability(db, 1)
+    assert result.status == 'incomplete' and result.contribution is None
+    assert result.known_cost == 50 and result.missing_hours == Decimal('1.5')
+    assert sorted(row.expense_id for row in db.query(TimeEntryCostExpense)) == [1, 2]
+    # An administrator explicitly confirms the remaining bill is the full replacement.
+    replace_entry_cost_method(db, actor, 1, 'supplier_expense', [2])
+    assert get_project_profitability(db, 1).status == 'complete'
+    assert db.query(TimeEntryCostRevision).order_by(TimeEntryCostRevision.id.desc()).first().snapshot['expense_ids'] == [1, 2]

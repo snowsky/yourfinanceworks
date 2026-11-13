@@ -18,7 +18,7 @@ Legacy entries start with unknown costs. An administrator selects entries, previ
 
 ## Supplier bills
 
-Switch subcontractor time from hourly cost to **supplier expense** and explicitly link project expenses. An expense can cover multiple entries but contributes once. Hourly estimates are replaced, with private revision history retained. Missing, recycled, or ineligible linked expenses leave the affected time unresolved.
+Switch subcontractor time from hourly cost to **supplier expense** and explicitly link project expenses. An expense can cover multiple entries but contributes once. Hourly estimates are replaced, with private revision history retained. Missing, recycled, or ineligible linked expenses leave the affected time unresolved. Expected expense IDs survive permanent deletion, so deleting only one of several linked bills cannot falsely restore complete coverage. Only an explicit administrator replacement changes those expected links; the prior links remain in private revision history.
 
 Contributor and task breakdowns show hourly labor costs. Supplier replacements and all other expenses remain in a separate project-expenses bucket; the feature does not invent per-person allocations. Allocate a bill spanning projects into separate project expense records without duplicating its total. Automatic detection of arbitrary duplicate manual expenses is outside this feature.
 
@@ -26,7 +26,7 @@ Contributor and task breakdowns show hourly labor costs. Supplier replacements a
 
 Unbilled work value, pre-tax invoiced value, and collected cash are separate measures and must not be added together. New project invoices preserve explicit source-to-line attribution in their creation transaction without changing invoice pricing. Invoice edits or missing/unmapped lines can make attribution unresolved. Legacy invoices without reliable provenance remain unattributed.
 
-A fully attributed single-project invoice can show actual valid partial payment records; cash may include tax, while invoiced value is pre-tax after supported discounts. Mixed-project/manual invoices, unsupported credits/refunds, and payment currency mismatches remain visibly unallocated. A status such as “paid” alone does not create cash. Expense reimbursements are not added to time work value.
+A fully attributed single-project invoice can show actual valid partial payment records; cash may include tax, while invoiced value is pre-tax after supported discounts. Mixed-project/manual invoices, unsupported credits/refunds, and payment currency mismatches remain visibly unallocated. A status such as “paid” alone does not create cash. Attributed expense-line reimbursements appear separately as pre-tax amounts after discount. Supported invoice discounts are allocated proportionally by each line’s pre-discount amount, using invoice-line amounts rather than recorded expense costs. Only fully attributed invoices contribute; known reimbursements carry the same completeness indicator as invoiced value. Expense reimbursements are never added to time work value.
 
 ## Access and supported scope
 
@@ -38,4 +38,4 @@ Hourly projects are supported. Existing fixed-price projects keep their workflow
 
 Focused tests use disposable databases and `--noconftest`: the repository's default API test conftest drops its configured test database and must not run against shared or deployed data. See the [browser evidence](../test-reports/project-profitability-2026-11-12/README.md) for screenshots and its fixture boundary. Task 7 recorded 113 focused backend passes plus one final query regression, PostgreSQL migration/concurrency checks, 18 frontend passes, and a successful final clean-source frontend build; the delivery report distinguishes actual HTTP routes from ORM-seeded expenses/payments. Deployed service and client portal runtime remain unverified.
 
-This introduces tenant migrations 028–030 and an administrator-facing feature, so it warrants a release note and the project's next feature version during the normal release process. No publication or deployment is included in the implementation.
+This introduces tenant migrations 028–031 and an administrator-facing feature, so it warrants a release note and the project's next feature version during the normal release process. No publication or deployment is included in the implementation.

@@ -38,7 +38,9 @@ class TimeEntryCost(Base):
 class TimeEntryCostExpense(Base):
     __tablename__ = "time_entry_cost_expenses"
     time_entry_id = Column(Integer, ForeignKey("time_entries.id", ondelete="CASCADE"), primary_key=True)
-    expense_id = Column(Integer, ForeignKey("expenses.id", ondelete="CASCADE"), primary_key=True)
+    # Historical expected IDs survive hard deletion; only explicit cost replacement removes them.
+    # New links are validated against active same-project expenses by cost_service.
+    expense_id = Column(Integer, primary_key=True)
 
 
 class ProjectInvoiceSource(Base):

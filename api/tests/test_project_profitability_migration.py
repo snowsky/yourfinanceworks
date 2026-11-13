@@ -51,7 +51,7 @@ def migrate(conn, latest=True):
     assert migration.down_revision == "027_add_net_worth_tables"
     with Operations.context(MigrationContext.configure(conn)):
         migration.upgrade()
-        for filename in (('029_entry_cost_revisions.py', '030_project_invoice_snapshots.py') if latest else ()):
+        for filename in (('029_entry_cost_revisions.py', '030_project_invoice_snapshots.py', '031_preserve_supplier_cost_evidence.py') if latest else ()):
             next_spec = importlib.util.spec_from_file_location('next_profitability_migration', path.parent / filename)
             next_migration = importlib.util.module_from_spec(next_spec)
             next_spec.loader.exec_module(next_migration)
@@ -165,8 +165,8 @@ def test_migration_revision_graph_reaches_profitability():
     config = Config()
     config.set_main_option("script_location", str(Path(__file__).parents[1] / "alembic"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["030_project_invoice_snapshots"]
-    assert [revision.revision for revision in scripts.iterate_revisions("heads", "027_add_net_worth_tables")] == ["030_project_invoice_snapshots", "029_entry_cost_revisions", "028_project_profitability"]
+    assert scripts.get_heads() == ["031_supplier_cost_evidence"]
+    assert [revision.revision for revision in scripts.iterate_revisions("heads", "027_add_net_worth_tables")] == ["031_supplier_cost_evidence", "030_project_invoice_snapshots", "029_entry_cost_revisions", "028_project_profitability"]
 
 
 def test_metadata_created_legacy_expenses_gain_mapping(connection):
@@ -207,7 +207,7 @@ def test_private_cost_revision_upgrade_and_downgrade(connection):
     assert connection.exec_driver_sql('SELECT amount FROM time_entries').scalar() == 125.5
 
 
-def test_actual_alembic_027_to_030_on_disposable_postgres(monkeypatch):
+def test_actual_alembic_027_to_031_on_disposable_postgres(monkeypatch):
     """Execute env.py + Alembic revision traversal, not Operations-only DDL."""
     url = os.getenv('PROFITABILITY_TEST_DATABASE_URL')
     if not url or not url.startswith('postgresql'):
@@ -230,9 +230,9 @@ def test_actual_alembic_027_to_030_on_disposable_postgres(monkeypatch):
         monkeypatch.setenv('ALEMBIC_DB_TYPE', 'tenant')
         monkeypatch.delenv('TENANT_ID', raising=False)
         command.stamp(config, '027_add_net_worth_tables')
-        command.upgrade(config, '030_project_invoice_snapshots')
+        command.upgrade(config, '031_supplier_cost_evidence')
         with isolated.connect() as conn:
-            assert conn.exec_driver_sql('SELECT version_num FROM alembic_version').scalar() == '030_project_invoice_snapshots'
+            assert conn.exec_driver_sql('SELECT version_num FROM alembic_version').scalar() == '031_supplier_cost_evidence'
             assert conn.exec_driver_sql('SELECT amount, hourly_rate FROM time_entries').one() == (125.5,100)
             assert conn.exec_driver_sql('SELECT count(*) FROM time_entry_costs').scalar() == 0
             from core.models.models_per_tenant import Base
@@ -247,3 +247,23 @@ def test_actual_alembic_027_to_030_on_disposable_postgres(monkeypatch):
         with admin.begin() as conn:
             conn.exec_driver_sql(f'DROP SCHEMA {schema} CASCADE')
         admin.dispose()
+
+
+def test_migrated_supplier_evidence_survives_actual_expense_delete(connection):
+    import importlib.util
+    legacy_schema(connection)
+    migrate(connection, latest=False)
+    connection.exec_driver_sql('INSERT INTO expenses (id) VALUES (2)')
+    connection.exec_driver_sql('INSERT INTO time_entry_cost_expenses VALUES (1, 1), (1, 2)')
+    path = Path(__file__).parents[1] / 'alembic/versions/031_preserve_supplier_cost_evidence.py'
+    spec = importlib.util.spec_from_file_location('supplier_evidence_migration', path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    with Operations.context(MigrationContext.configure(connection)):
+        migration.upgrade()
+    connection.exec_driver_sql('DELETE FROM expenses WHERE id=1')
+    assert connection.exec_driver_sql('SELECT expense_id FROM time_entry_cost_expenses ORDER BY expense_id').scalars().all() == [1, 2]
+    fks = sa.inspect(connection).get_foreign_keys('time_entry_cost_expenses')
+    assert [row['constrained_columns'] for row in fks] == [['time_entry_id']]
+    from plugins.time_tracking.cost_models import TimeEntryCostExpense
+    assert {tuple(fk.column_keys) for fk in TimeEntryCostExpense.__table__.foreign_key_constraints} == {('time_entry_id',)}

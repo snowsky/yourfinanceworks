@@ -134,6 +134,12 @@ def _get_project_billing_summary(db, project, entries, expenses, currency):
         else:
             net = subtotal - (subtotal * discount / 100 if invoice.discount_type == 'percentage' else min(discount, subtotal))
             result.invoiced_pre_tax += rounded(net)
+            # Allocate supported invoice discounts by each line's pre-discount amount.
+            # This is a separate invoice measure, never part of time work value.
+            expense_lines = sum((money(item.amount) for item in items
+                                 if mappings[item.id].expense_id is not None), Decimal(0))
+            result.expense_reimbursements_pre_tax += rounded(
+                expense_lines * net / subtotal if subtotal else Decimal(0))
             result.attributed_invoice_ids.append(invoice_id)
             payments = payments_by_invoice[invoice_id]
             for payment in payments:

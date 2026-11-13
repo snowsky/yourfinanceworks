@@ -18,7 +18,7 @@ export interface ProjectProfitabilityResponse {
   unresolved_records: CostRecord[]; excluded_records: CostRecord[]; contributors: Breakdown[]; tasks: Breakdown[];
   expense_bucket: { amount: Decimal; expense_ids: number[]; cost_basis: 'amount' };
   hours_budget_percent: Decimal | null; amount_budget_percent: Decimal | null; budget_warnings: string[];
-  billing: null | { currency: string; unbilled_work_value: Decimal; invoiced_pre_tax: Decimal; collected_cash: Decimal; collections_include_tax: boolean; invoicing_complete: boolean; cash_complete: boolean; attributed_invoice_ids: number[]; unresolved_invoice_ids: number[]; unresolved_invoices: { invoice_id: number; reasons: string[] }[] };
+  billing: null | { currency: string; unbilled_work_value: Decimal; invoiced_pre_tax: Decimal; expense_reimbursements_pre_tax: Decimal; collected_cash: Decimal; collections_include_tax: boolean; invoicing_complete: boolean; cash_complete: boolean; attributed_invoice_ids: number[]; unresolved_invoice_ids: number[]; unresolved_invoices: { invoice_id: number; reasons: string[] }[] };
 }
 export const getProjectProfitability = (id: number, signal?: AbortSignal) => apiRequest<ProjectProfitabilityResponse>(`/projects/${id}/profitability`, { signal });
 export const profitabilityApi = {

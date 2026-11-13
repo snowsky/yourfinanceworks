@@ -241,8 +241,9 @@ def test_provenance_restricts_hard_source_deletion(db):
     assert db.get(TimeEntry,1) is not None
 
 
-def test_known_totals_retained_when_another_invoice_is_unresolved(db):
-    inv, _, _ = make_invoice(db)
+@pytest.mark.parametrize('expense_only', [True, False])
+def test_known_totals_retained_when_another_invoice_is_unresolved(db, expense_only):
+    inv, _, _ = make_invoice(db, expense_only)
     db.add(Payment(invoice_id=inv.id,amount=300,currency='USD'))
     legacy = Invoice(number='LEGACY',client_id=1,due_date=datetime(2026,2,1),subtotal=50,amount=50,currency='USD',status='paid')
     db.add(legacy); db.flush()
@@ -250,6 +251,7 @@ def test_known_totals_retained_when_another_invoice_is_unresolved(db):
     db.add(InvoiceItem(invoice_id=legacy.id,description='legacy',quantity=1,price=50,amount=50)); db.flush()
     result = get_project_billing_summary(db,1)
     assert (result.invoiced_pre_tax,result.collected_cash) == (1000,300)
+    assert result.expense_reimbursements_pre_tax == (1000 if expense_only else 0)
     assert result.unresolved_invoice_ids == [legacy.id]
     assert not result.invoicing_complete and not result.cash_complete
 
@@ -305,3 +307,32 @@ def test_invoice_read_queries_do_not_scale_per_invoice(db):
     assert many == one
     assert len(result.unresolved_invoice_ids) == 12
     assert not result.invoicing_complete and result.collected_cash == 0
+
+
+@pytest.mark.parametrize('expense_only', [True, False])
+@pytest.mark.parametrize('discount_type,discount,expected', [('percentage', 10, '90'), ('fixed', 55, '95'), ('fixed', 2000, '0')])
+def test_separate_expense_reimbursements_after_proportional_discount(db, expense_only, discount_type, discount, expected):
+    inv, line, source = make_invoice(db, expense_only)
+    if expense_only:
+        inv.subtotal = 100
+        source.amount = line.price = line.amount = 100
+        record_project_invoice_sources(db, 1, [db.get(ProjectInvoiceSource, line.id)])
+        expected = '90' if discount_type == 'percentage' else '45' if discount == 55 else '0'
+    else:
+        inv.subtotal = 1100
+        reimbursement = Expense(project_id=1, amount=80, currency='USD', category='other', status='recorded', invoice_id=inv.id, invoiced=True)
+        expense_line = InvoiceItem(invoice_id=inv.id, description='Expense reimbursement', quantity=1, price=100, amount=100)
+        db.add_all([reimbursement, expense_line]); db.flush()
+        record_project_invoice_sources(db, 1, [ProjectInvoiceSource(invoice_item_id=expense_line.id, project_id=1, expense_id=reimbursement.id)])
+    inv.discount_type, inv.discount_value = discount_type, discount
+    db.flush()
+    result = get_project_billing_summary(db, 1)
+    assert result.invoicing_complete
+    assert result.expense_reimbursements_pre_tax == Decimal(expected)
+    assert result.unbilled_work_value == (Decimal('150') if expense_only else 0)
+    from plugins.time_tracking.profitability_service import get_project_profitability
+    assert get_project_profitability(db, 1).work_value == (150 if expense_only else 1000)
+    # Any unmatched line invalidates the entire invoice reimbursement attribution.
+    db.add(InvoiceItem(invoice_id=inv.id, description='unmapped', quantity=1, price=0, amount=0)); db.flush()
+    result = get_project_billing_summary(db, 1)
+    assert not result.invoicing_complete and result.expense_reimbursements_pre_tax == 0
