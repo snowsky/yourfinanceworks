@@ -1,6 +1,6 @@
 # Hourly-first project profitability
 
-Status: proposed design, awaiting user approval. Research baseline: local main at 2ec792dd. No product implementation is authorized by this document alone.
+Status: approved by the user on 2026-11-12 for implementation planning. Research baseline: local main at 2ec792dd. Implementation plan: `docs/superpowers/plans/2026-11-12-hourly-project-profitability.md`.
 
 ## Intent and agreed scope
 
