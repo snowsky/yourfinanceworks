@@ -51,3 +51,17 @@ class CostBackfillPreview(StrictCostModel):
 
 class CostBackfillResult(StrictCostModel):
     applied_entry_ids: list[int]
+
+
+class EntryCostReplacement(StrictCostModel):
+    method: Literal['hourly', 'supplier_expense']
+    expense_ids: list[int] = Field(default_factory=list, max_length=1000)
+
+
+class EntryCostResponse(StrictCostModel):
+    time_entry_id: int
+    method: Literal['hourly', 'supplier_expense']
+    hourly_cost: Decimal | None
+    currency: str
+    source_rate_id: int | None
+    version: int

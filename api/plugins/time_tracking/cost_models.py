@@ -1,7 +1,7 @@
 """Private cost and invoice provenance tables; never serialize through time APIs."""
 from sqlalchemy import (
     CheckConstraint, Column, Date, ForeignKey, Integer, Numeric, String,
-    UniqueConstraint,
+    UniqueConstraint, DateTime, JSON,
 )
 from core.models.models_per_tenant import Base
 
@@ -50,3 +50,13 @@ class ProjectInvoiceSource(Base):
     __table_args__ = (
         CheckConstraint("(time_entry_id IS NOT NULL AND expense_id IS NULL) OR (time_entry_id IS NULL AND expense_id IS NOT NULL)", name="ck_project_invoice_source_exactly_one"),
     )
+
+
+class TimeEntryCostRevision(Base):
+    """Sensitive prior snapshots; accessible only through protected cost routes."""
+    __tablename__ = "time_entry_cost_revisions"
+    id = Column(Integer, primary_key=True)
+    time_entry_id = Column(Integer, ForeignKey("time_entries.id", ondelete="CASCADE"), nullable=False, index=True)
+    actor_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    snapshot = Column(JSON, nullable=False)

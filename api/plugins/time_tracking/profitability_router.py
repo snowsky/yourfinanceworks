@@ -5,8 +5,8 @@ from core.models.database import get_db
 from core.models.models import MasterUser
 from core.routers.auth import get_current_user
 from .cost_models import ContributorCostRate
-from .cost_schemas import CostRateWrite, CostRateResponse, CostBackfillRequest, CostBackfillPreview, CostBackfillResult
-from .cost_service import require_cost_admin, set_cost_rate, preview_cost_backfill, apply_cost_backfill
+from .cost_schemas import CostRateWrite, CostRateResponse, CostBackfillRequest, CostBackfillPreview, CostBackfillResult, EntryCostReplacement, EntryCostResponse
+from .cost_service import require_cost_admin, set_cost_rate, preview_cost_backfill, apply_cost_backfill, replace_entry_cost_method
 
 profitability_router = APIRouter()
 
@@ -49,6 +49,22 @@ def apply_backfill(project_id: int, payload: CostBackfillPreview, db: Session = 
         raise HTTPException(422, 'Preview project does not match request')
     try:
         result = apply_cost_backfill(db, actor, payload)
+        db.commit()
+        return result
+    except Exception:
+        db.rollback()
+        raise
+
+
+@profitability_router.put('/{project_id}/entry-costs/{entry_id}', response_model=EntryCostResponse)
+def replace_entry_cost(project_id: int, entry_id: int, payload: EntryCostReplacement,
+                       db: Session = Depends(get_db), actor=Depends(cost_admin)):
+    from fastapi import HTTPException
+    from .models import TimeEntry
+    if db.query(TimeEntry).filter_by(id=entry_id, project_id=project_id).first() is None:
+        raise HTTPException(404, 'Time entry not found for project')
+    try:
+        result = EntryCostResponse.model_validate(replace_entry_cost_method(db, actor, entry_id, payload.method, payload.expense_ids))
         db.commit()
         return result
     except Exception:

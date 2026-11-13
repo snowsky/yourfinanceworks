@@ -2,13 +2,14 @@
 import hashlib
 import json
 from decimal import Decimal
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from core.models.models_per_tenant import User, AuditLog
+from core.models.models_per_tenant import User, AuditLog, Expense
 from .models import Project, TimeEntry
-from .cost_models import ContributorCostRate, TimeEntryCost
+from .cost_models import ContributorCostRate, TimeEntryCost, TimeEntryCostExpense, TimeEntryCostRevision
 from .cost_schemas import CostRateWrite, CostRateResponse, CostBackfillEntry, CostBackfillPreview, CostBackfillResult
 
 
@@ -123,3 +124,48 @@ def apply_cost_backfill(db: Session, actor, preview: CostBackfillPreview) -> Cos
     _audit(db, actor, 'UPDATE', current.project_id, {'entry_ids': applied, 'reason': 'explicit_missing_cost_backfill'})
     db.flush()
     return CostBackfillResult(applied_entry_ids=applied)
+
+
+def replace_entry_cost_method(db: Session, actor, entry_id: int, method: str, expense_ids: list[int]) -> TimeEntryCost:
+    require_cost_admin(db, actor)
+    entry = db.query(TimeEntry).filter_by(id=entry_id).with_for_update().first()
+    if entry is None:
+        raise HTTPException(404, 'Time entry not found')
+    project = db.get(Project, entry.project_id)
+    ids = sorted(set(expense_ids))
+    if method not in {'hourly', 'supplier_expense'} or (method == 'hourly' and ids) or (method == 'supplier_expense' and not ids):
+        raise HTTPException(422, 'Choose hourly without expenses or supplier expense with explicit links')
+    if method == 'supplier_expense':
+        expenses = db.query(Expense).filter(Expense.id.in_(ids), Expense.project_id == entry.project_id,
+            Expense.is_deleted.is_(False)).with_for_update().all()
+        if len(expenses) != len(ids):
+            raise HTTPException(422, 'Active expenses must belong to the same project')
+        if any(e.currency != project.currency for e in expenses):
+            raise HTTPException(422, 'Expense currency must match the project')
+    rate = _rate(db, entry, project.currency) if method == 'hourly' else None
+    if method == 'hourly' and rate is None:
+        raise HTTPException(422, 'No matching hourly cost rate for the work date')
+    cost = db.query(TimeEntryCost).filter_by(time_entry_id=entry_id).populate_existing().first()
+    old_links = db.query(TimeEntryCostExpense).filter_by(time_entry_id=entry_id).all()
+    # Remove links before staging an incomplete new snapshot (queries autoflush).
+    db.query(TimeEntryCostExpense).filter_by(time_entry_id=entry_id).delete(synchronize_session='fetch')
+    if cost:
+        db.add(TimeEntryCostRevision(time_entry_id=entry_id, actor_id=actor.id,
+            created_at=datetime.now(timezone.utc), snapshot={
+                'method': cost.method, 'hourly_cost': str(cost.hourly_cost) if cost.hourly_cost is not None else None,
+                'currency': cost.currency, 'source_rate_id': cost.source_rate_id,
+                'version': cost.version, 'expense_ids': sorted(link.expense_id for link in old_links)}))
+        cost.version += 1
+    else:
+        cost = TimeEntryCost(time_entry_id=entry_id, version=1)
+        db.add(cost)
+    # Private audit above freezes prior supplier links before replacing them.
+    cost.method = method
+    cost.currency = project.currency
+    cost.hourly_cost = rate.hourly_cost if rate else None
+    cost.source_rate_id = rate.id if rate else None
+    for expense_id in ids:
+        db.add(TimeEntryCostExpense(time_entry_id=entry_id, expense_id=expense_id))
+    _audit(db, actor, 'UPDATE', entry_id, {'reason': 'explicit_entry_cost_replacement'})
+    db.flush()
+    return cost

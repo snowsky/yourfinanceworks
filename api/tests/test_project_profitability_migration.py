@@ -148,8 +148,8 @@ def test_migration_revision_graph_reaches_profitability():
     config = Config()
     config.set_main_option("script_location", str(Path(__file__).parents[1] / "alembic"))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ["028_project_profitability"]
-    assert [revision.revision for revision in scripts.iterate_revisions("heads", "027_add_net_worth_tables")] == ["028_project_profitability"]
+    assert scripts.get_heads() == ["029_entry_cost_revisions"]
+    assert [revision.revision for revision in scripts.iterate_revisions("heads", "027_add_net_worth_tables")] == ["029_entry_cost_revisions", "028_project_profitability"]
 
 
 def test_metadata_created_legacy_expenses_gain_mapping(connection):
@@ -168,3 +168,23 @@ def test_invalid_cost_methods_are_rejected(connection):
                 connection.exec_driver_sql(f"INSERT INTO time_entry_costs (time_entry_id, method, hourly_cost, currency) VALUES (1, {values}, 'USD')")
     connection.exec_driver_sql("INSERT INTO time_entry_costs (time_entry_id, method, hourly_cost, currency) VALUES (1, 'hourly', 0, 'USD')")
     assert connection.exec_driver_sql("SELECT hourly_cost FROM time_entry_costs").scalar() == 0
+
+
+def test_private_cost_revision_upgrade_and_downgrade(connection):
+    import importlib.util
+    legacy_schema(connection)
+    migrate(connection)
+    path = Path(__file__).parents[1] / 'alembic/versions/029_entry_cost_revisions.py'
+    spec = importlib.util.spec_from_file_location('cost_revisions_migration', path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    with Operations.context(MigrationContext.configure(connection)):
+        migration.upgrade()
+        from plugins.time_tracking.cost_models import TimeEntryCostRevision
+        connection.execute(TimeEntryCostRevision.__table__.insert().values(
+            time_entry_id=1, actor_id=1, created_at=__import__('datetime').datetime.now(),
+            snapshot={'method': 'hourly', 'hourly_cost': '40.000000'}))
+        assert connection.execute(sa.select(TimeEntryCostRevision.snapshot)).scalar()['hourly_cost'] == '40.000000'
+        migration.downgrade()
+    assert 'time_entry_cost_revisions' not in sa.inspect(connection).get_table_names()
+    assert connection.exec_driver_sql('SELECT amount FROM time_entries').scalar() == 125.5

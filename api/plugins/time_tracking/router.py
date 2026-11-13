@@ -29,6 +29,7 @@ from core.models.models_per_tenant import Client, Invoice, InvoiceItem, Expense
 from core.routers.auth import get_current_user
 from core.utils.audit import log_audit_event
 
+from .cost_service import snapshot_entry_cost
 from .models import Project, ProjectCustomField, ProjectKanbanColumn, ProjectTask, TimeEntry
 from .schemas import (
     ProjectCreate, ProjectUpdate, ProjectResponse,
@@ -1461,8 +1462,14 @@ def timer_start(
         created_at=now,
         updated_at=now,
     )
-    db.add(entry)
-    db.commit()
+    try:
+        db.add(entry)
+        db.flush()
+        snapshot_entry_cost(db, entry)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(entry)
 
     log_audit_event(
@@ -1692,6 +1699,7 @@ async def import_time_entries_csv(
     reused_project_ids: set[int] = set()
     created_task_ids: set[int] = set()
     shared_missing_project: Optional[Project] = None
+    imported_entries: list[TimeEntry] = []
 
     for index, row in enumerate(rows, start=2):
         try:
@@ -1868,6 +1876,7 @@ async def import_time_entries_csv(
             )
             entry.compute_amount()
             db.add(entry)
+            imported_entries.append(entry)
             result.created_time_entries += 1
         except Exception as exc:
             result.skipped_rows += 1
@@ -1880,7 +1889,14 @@ async def import_time_entries_csv(
             detail={"message": "No time entries could be imported", "errors": [e.model_dump() for e in result.errors]},
         )
 
-    db.commit()
+    try:
+        db.flush()
+        for entry in imported_entries:
+            snapshot_entry_cost(db, entry)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     result.created_projects = len(created_project_ids)
     result.reused_projects = len(reused_project_ids - created_project_ids)
     result.created_tasks = len(created_task_ids)
@@ -1949,8 +1965,14 @@ def create_time_entry(
         updated_at=now,
     )
     entry.compute_amount()
-    db.add(entry)
-    db.commit()
+    try:
+        db.add(entry)
+        db.flush()
+        snapshot_entry_cost(db, entry)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(entry)
 
     log_audit_event(
