@@ -1,11 +1,11 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiRequest, expenseApi } from '@/lib/api';
+import { apiRequest, expenseApi, type Expense } from '@/lib/api';
 import { getCurrentUser } from '@/utils/auth';
 import { projectApi, timeEntryApi, type TimeEntry } from './api';
 import { getProjectProfitability, profitabilityApi, type TenantContributor, type BackfillPreview, type CostRateWrite, type Replacement } from './profitability-api';
 
-const events = ['storage', 'org-switched', 'user-updated', 'auth-updated'];
+const events = ['storage', 'org-switched', 'user-updated', 'auth-updated', 'auth-changed'];
 let authorizationEpoch = 0;
 const listeners = new Set<() => void>();
 const authorizationChanged = () => { authorizationEpoch += 1; listeners.forEach(notify => notify()); };
@@ -55,7 +55,16 @@ export function useCostSetup(projectId: number, currency: string, contributor: n
         if (page.length < 500) return entries;
       }
     };
-    const [users, entries, expenses, tasks] = await Promise.all([apiRequest<TenantContributor[]>('/auth/users'), loadEntries(), expenseApi.getExpenses(), projectApi.listTasks(projectId)]);
+    const loadExpenses = async () => {
+      const expenses: Expense[] = [];
+      for (let skip = 0; ; skip += 100) {
+        guard();
+        const page = await expenseApi.getExpensesPaginated({ skip, limit: 100 });
+        expenses.push(...page.expenses);
+        if (!page.expenses.length || expenses.length >= page.total) return expenses;
+      }
+    };
+    const [users, entries, expenses, tasks] = await Promise.all([apiRequest<TenantContributor[]>('/auth/users'), loadEntries(), loadExpenses(), projectApi.listTasks(projectId)]);
     guard(); return { users, entries, expenses, tasks };
   } });
   const rates = useQuery({ queryKey: ['cost-rates', access.scope, contributor, currency], enabled: access.allowed && !!contributor && !!currency, gcTime: 0, queryFn: async () => { guard(); const result = await profitabilityApi.rates(contributor, currency); guard(); return result; } });
