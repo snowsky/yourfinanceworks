@@ -5,8 +5,10 @@ from core.models.database import get_db
 from core.models.models import MasterUser
 from core.routers.auth import get_current_user
 from .cost_models import ContributorCostRate
-from .cost_schemas import CostRateWrite, CostRateResponse, CostBackfillRequest, CostBackfillPreview, CostBackfillResult, EntryCostReplacement, EntryCostResponse
+from .cost_schemas import CostRateWrite, CostRateResponse, CostBackfillRequest, CostBackfillPreview, CostBackfillResult, EntryCostReplacement, EntryCostResponse, ProjectProfitabilityResponse
 from .cost_service import require_cost_admin, set_cost_rate, preview_cost_backfill, apply_cost_backfill, replace_entry_cost_method
+
+from .profitability_service import get_project_profitability
 
 profitability_router = APIRouter()
 
@@ -70,3 +72,8 @@ def replace_entry_cost(project_id: int, entry_id: int, payload: EntryCostReplace
     except Exception:
         db.rollback()
         raise
+
+
+@profitability_router.get('/{project_id}/profitability', response_model=ProjectProfitabilityResponse)
+def read_project_profitability(project_id: int, db: Session = Depends(get_db), actor=Depends(cost_admin)):
+    return get_project_profitability(db, project_id)
