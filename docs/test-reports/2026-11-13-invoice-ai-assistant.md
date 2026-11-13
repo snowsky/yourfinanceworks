@@ -2,9 +2,11 @@
 
 Fixed active-tenant propagation into fallback API calls; routed chat writes through explicit confirmation; tied asynchronous responses and prompt-job polling to stable message IDs; added bounded, retained, user-scoped conversation context.
 
+Pre-merge review also fixed explicit request delegation for statement tools and the missing authenticated invoice-creation method.
+
 ## Validation
 
-- Isolated backend regressions: 12 passed (`pytest --noconftest api/tests/test_assistant_safety.py`). Uses mocked external dependencies and a real SQLite query for history isolation/retention.
+- Isolated backend regressions: 13 passed (`pytest --noconftest api/tests/test_assistant_safety.py`). Uses mocked external dependencies and a real SQLite query for history isolation/retention.
 - Assistant/onboarding UI tests: 22 passed in 6 files.
 - ESLint for the new assistant test and confirmation card: passed. The existing assistant file still has legacy lint violations.
 - Changed Python modules parse successfully; `git diff --check` passes.

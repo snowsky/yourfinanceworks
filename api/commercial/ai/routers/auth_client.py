@@ -105,6 +105,9 @@ class AuthenticatedAPIClient(BaseAPIClient):
         return filtered_clients[skip:end_idx]
 
     # Invoice Management Methods
+    async def create_invoice(self, invoice_data: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._make_request("POST", "/invoices/", json=invoice_data)
+
     async def list_invoices(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
         return await self._make_request(
             "GET",

@@ -39,6 +39,10 @@ class InProcessAPIClient(ClientsInProcessMixin):
             )
         return self._fallback
 
+    async def _make_request(self, method, endpoint, **kwargs):
+        """Support MCP tools using the shared HTTP request surface explicitly."""
+        return await self._get_fallback()._make_request(method, endpoint, **kwargs)
+
     def __getattr__(self, name):
         # Only reached for attributes NOT found normally (i.e. not yet migrated).
         if name.startswith("_"):

@@ -148,8 +148,12 @@ async def test_fallback_http_request_has_tenant_header(monkeypatch):
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
         client = auth.AuthenticatedAPIClient('http://test', 'token', tenant_id=42, http_client=http)
         await client.list_invoices()
+        await client.create_invoice({'client_id': 3, 'amount': 25, 'status': 'draft', 'due_date': '2026-12-01'})
     assert requests[0].headers['x-tenant-id'] == '42'
     assert requests[0].headers['authorization'] == 'Bearer token'
+    assert requests[1].method == 'POST'
+    assert requests[1].url.path == '/invoices/'
+    assert requests[1].headers['x-tenant-id'] == '42'
 
 
 @pytest.mark.asyncio
@@ -222,3 +226,28 @@ async def test_chat_passes_history_to_completion(monkeypatch):
     assert result['data']['response'] == 'B explained'
     load_history.assert_called_once_with(db, 7, request.message)
     assert complete.call_args.kwargs['messages'] == [*history, {'role': 'user', 'content': request.message}]
+
+
+@pytest.mark.asyncio
+async def test_confirmed_statement_tools_use_tenant_fallback(actions, monkeypatch):
+    http = SimpleNamespace(_make_request=AsyncMock(return_value={'statement': {'labels': [], 'transactions': []}}))
+    base = load_module(monkeypatch, 'tested_statement_base', 'commercial/ai/inprocess/base.py', {
+        'core.routers.auth': {'create_access_token': lambda **kwargs: 'test-token'},
+        'core.models.database': {'get_tenant_context': lambda: 42},
+        'commercial.ai.routers.auth_client': {'AuthenticatedAPIClient': lambda **kwargs: http},
+        'commercial.ai.inprocess.clients_domain': {'ClientsInProcessMixin': type('Mixin', (), {})},
+    })
+    bank = load_module(monkeypatch, 'tested_bank_tools', 'MCP/tools/bank_statements.py', {})
+    tools = bank.BankStatementToolsMixin()
+    tools.api_client = base.InProcessAPIClient(None, SimpleNamespace(email='test@example.com'))
+    monkeypatch.setattr(actions, '_init_tools', AsyncMock(return_value=tools))
+    for action, params in [
+        ('reprocess_statement', {'statement_id': 7}),
+        ('update_statement', {'statement_id': 7, 'notes': 'Reviewed', 'add_labels': ['checked']}),
+    ]:
+        result = await actions.handle_early_actions('', '', None, None, None, None,
+            confirmed_action={'action': action, 'params': params})
+        assert result['success'], result
+    assert http._make_request.await_count == 3
+    assert http._make_request.call_args.args == ('PUT', '/statements/7')
+    assert http._make_request.call_args.kwargs['json'] == {'notes': 'Reviewed', 'labels': ['checked']}
