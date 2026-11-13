@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import * as Dialog from '@radix-ui/react-dialog';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageCircle, Send, Sparkles, Zap, CheckCircle, AlertCircle, BarChart3, Lightbulb, Target, Loader, Wrench, Maximize2, Minimize2 } from 'lucide-react';
+import { MessageCircle, Send, Sparkles, X, ArrowDown, CheckCircle, AlertCircle, BarChart3, Lightbulb, Target, Loader, Wrench, Maximize2, Minimize2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -23,6 +23,8 @@ interface Message {
   sender: 'user' | 'ai';
   text: string | React.ReactNode;
   timestamp?: string;
+  pending?: boolean;
+  failed?: boolean;
 }
 
 // --- Helper Components for Rich UI ---
@@ -245,17 +247,8 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
 
 // Styled AI Response Component
 const StyledAIResponse = ({ children }: { children: React.ReactNode }) => (
-  <div className="bg-white/50 dark:bg-black/20 backdrop-blur-sm p-4 rounded-2xl border border-border/50 shadow-sm">
-    <div className="flex items-start gap-3">
-      <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full p-2 shadow-sm shrink-0">
-        <Sparkles className="h-4 w-4 text-white" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-foreground leading-relaxed text-[0.95rem]">
-          {children}
-        </div>
-      </div>
-    </div>
+  <div className="min-w-0 rounded-2xl rounded-tl-sm border border-border/70 bg-card p-4 text-sm leading-7 shadow-sm sm:p-5">
+    {children}
   </div>
 );
 
@@ -392,68 +385,10 @@ const EnhancedAIResponse = ({ text }: { text: string }) => {
     // Not JSON, continue to string parsing
   }
 
-  // 2. Regular Text parsing
-  const lowerText = text.toLowerCase();
-
-  // Create formatted content using MarkdownRenderer
-  const content = <MarkdownRenderer content={text} />;
-
-  if (lowerText.includes('error') || lowerText.includes('sorry') || lowerText.includes('failed')) {
-    return (
-      <div className="bg-destructive/10 backdrop-blur-sm p-4 rounded-2xl border border-destructive/30">
-        <div className="flex items-start gap-3">
-          <div className="bg-gradient-to-br from-red-500 to-pink-600 rounded-full p-2 shadow-sm shrink-0">
-            <AlertCircle className="h-4 w-4 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-destructive leading-relaxed font-medium text-[0.95rem]">
-              {content}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (lowerText.includes('success') || lowerText.includes('great') || lowerText.includes('excellent')) {
-    return (
-      <div className="bg-success/10 backdrop-blur-sm p-4 rounded-2xl border border-success/30">
-        <div className="flex items-start gap-3">
-          <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-full p-2 shadow-sm shrink-0">
-            <CheckCircle className="h-4 w-4 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-success leading-relaxed font-medium text-[0.95rem]">
-              {content}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (lowerText.includes('configuration') || lowerText.includes('settings')) {
-    return (
-      <div className="bg-primary/10 backdrop-blur-sm p-4 rounded-2xl border border-primary/30">
-        <div className="flex items-start gap-3">
-          <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full p-2 shadow-sm shrink-0">
-            <Zap className="h-4 w-4 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-primary leading-relaxed text-[0.95rem]">
-              {content}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Default styled response
-  return <StyledAIResponse>{content}</StyledAIResponse>;
+  return <StyledAIResponse><MarkdownRenderer content={text} /></StyledAIResponse>;
 };
 
-const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
+const AIAssistant = React.forwardRef<HTMLDivElement>((_props, ref) => {
   // Check authentication and user role first
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -573,8 +508,7 @@ const AIAssistant = React.forwardRef<HTMLDivElement>((props, ref) => {
 });
 
 // Separate component for authenticated admin users
-const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>((props, ref) => {
-  const { user } = props;
+const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>((_props, ref) => {
   const { t } = useTranslation();
   const { pageContext } = usePageContext();
 
@@ -583,6 +517,9 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
   const [messages, setMessages] = useState<Message[]>(
     [{ id: 1, sender: 'ai', text: <EnhancedAIResponse text={t('aiAssistant.welcomeMessage')} /> }]
   );
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const followLatest = useRef(true);
+  const [showJump, setShowJump] = useState(false);
   const [input, setInput] = useState('');
   const [hasUnreadMessages, setHasUnreadMessages] = useState(() => {
     // Check localStorage for persisted unread state, default to true only on first visit
@@ -600,6 +537,10 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const nextMessageId = useRef(-1);
+  const isGenerating = messages.some(message => message.pending);
+  useEffect(() => {
+    if (isOpen && historyLoaded) composerRef.current?.focus();
+  }, [isOpen, historyLoaded]);
   const pollingTimers = useRef(new Set<ReturnType<typeof setInterval>>());
   const mounted = useRef(true);
   useEffect(() => {
@@ -613,11 +554,13 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
   }, []);
 
   // Bind each asynchronous response to its own placeholder.
-  const updateMessage = useCallback((id: number, content: React.ReactNode | string) => {
+  const updateMessage = useCallback((id: number, content: React.ReactNode | string, failed = false) => {
     if (!mounted.current) return;
     setMessages((prev) => {
       const updated = prev.map(message => message.id === id ? {
         ...message,
+        pending: false,
+        failed,
         text: typeof content === 'string' ? <EnhancedAIResponse text={content} /> : content,
         timestamp: new Date().toISOString()
       } : message);
@@ -627,14 +570,14 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
       }
       return updated;
     });
-    setIsThinking(false);
-    setIsGenerating(false);
+
   }, [isOpen]);
 
   // Auto-scroll to bottom when messages change (but not when loading history)
   const scrollToBottom = useCallback(() => {
     // Use setTimeout to ensure DOM has updated
     setTimeout(() => {
+      if (!followLatest.current) return;
       if (messagesEndRef.current) {
         messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
       }
@@ -645,10 +588,9 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     // Only scroll to bottom on initial load or when new messages are added (not when loading history)
     // We can detect new messages by checking if the last message is newer than what we had before
     if (messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
       const isNewMessage = !isLoadingMore && !justLoadedHistory;
 
-      if (isInitialLoad || isNewMessage) {
+      if (isInitialLoad || (isNewMessage && followLatest.current)) {
         scrollToBottom();
         if (isInitialLoad) {
           setIsInitialLoad(false);
@@ -661,7 +603,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
   }, [messages, scrollToBottom, isInitialLoad, isLoadingMore]);
 
   // Fetch user settings to check the enable_ai_assistant flag (only for admin users)
-  const { data: settings, isLoading: settingsLoading, error: settingsError, refetch: refetchSettings } = useQuery({
+  const { data: settings, isLoading: settingsLoading, error: settingsError } = useQuery({
     queryKey: ['settings'],
     queryFn: () => api.get('/settings/'),
     refetchInterval: (query) => {
@@ -688,7 +630,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
   });
 
   // Fetch AI configurations - only when AI assistant is open
-  const { data: aiConfigs, isLoading: aiConfigsLoading } = useQuery({
+  const { data: aiConfigs } = useQuery({
     queryKey: ['ai-configs'],
     queryFn: () => api.get('/ai-config/'),
     enabled: isOpen && !settingsLoading && !!(settings && (settings as any).enable_ai_assistant),
@@ -728,7 +670,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
               }
 
               // Also try scrolling the ScrollArea viewport directly as fallback
-              const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]');
+              const scrollArea = scrollAreaRef.current;
               if (scrollArea) {
                 scrollArea.scrollTop = scrollArea.scrollHeight;
               }
@@ -745,7 +687,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
                 messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
               }
 
-              const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]');
+              const scrollArea = scrollAreaRef.current;
               if (scrollArea) {
                 scrollArea.scrollTop = scrollArea.scrollHeight;
               }
@@ -765,7 +707,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
               messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
             }
 
-            const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]');
+            const scrollArea = scrollAreaRef.current;
             if (scrollArea) {
               scrollArea.scrollTop = scrollArea.scrollHeight;
             }
@@ -777,21 +719,8 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     }
   }, [isOpen, historyLoaded, settingsLoading, settings, t]);
 
-  // Rest of the component hooks...
-  const [isStreamingVisible, setIsStreamingVisible] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isThinking, setIsThinking] = useState(false);
-
-  // Reset loading states when modal closes
   useEffect(() => {
-    if (!isOpen) {
-      setIsGenerating(false);
-      setIsThinking(false);
-      setIsStreamingVisible(false);
-      // Preserve message identities, including in-flight replies, while closed.
-
-    } else {
-      // Clear unread indicator when opened
+    if (isOpen) {
       setHasUnreadMessages(false);
       localStorage.setItem('ai-assistant-unread', 'false');
     }
@@ -859,12 +788,12 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
           handleLoadMoreHistory();
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1, root: scrollAreaRef.current }
     );
 
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
-  }, [hasMoreHistory, isLoadingMore, historyLoaded, handleLoadMoreHistory]);
+  }, [isOpen, hasMoreHistory, isLoadingMore, historyLoaded, handleLoadMoreHistory]);
 
   // Effects for keyboard shortcuts etc.
   useEffect(() => {
@@ -1063,6 +992,8 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
   const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim();
     if (textToSend === '' || !historyLoaded) return;
+    followLatest.current = true;
+    setShowJump(false);
     const replyId = nextMessageId.current--;
     const updateAiMessage = (content: React.ReactNode | string) => updateMessage(replyId, content);
 
@@ -1075,19 +1006,16 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     setMessages((prev) => [...prev, newMessage]);
     if (!messageText) setInput('');
 
-    // Save user message to backend
-    await saveChatMessage(textToSend, 'user');
-
     // Show typing indicator
-    setIsThinking(true);
-    setIsGenerating(true);
     const typingMessage: Message = {
       id: replyId,
       sender: 'ai',
+      pending: true,
       text: <EnhancedAIResponse text={t('aiAssistant.thinking')} />,
       timestamp: new Date().toISOString()
     };
     setMessages((prev) => [...prev, typingMessage]);
+    await saveChatMessage(textToSend, 'user');
 
     // Get translated quick action texts (lowercase)
     const analyzePatternsText = t('aiAssistant.analyzePatterns').toLowerCase();
@@ -1200,9 +1128,7 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     } catch (error) {
       console.error("Error getting AI response:", error);
       const errorMessage = t("aiAssistant.error_message");
-      updateAiMessage(errorMessage);
-      setIsThinking(false);
-      setIsGenerating(false);
+      updateMessage(replyId, errorMessage, true);
     }
   };
 
@@ -1215,255 +1141,127 @@ const AuthenticatedAIAssistant = React.forwardRef<HTMLDivElement, { user: any }>
     setIsFullscreen(!isFullscreen);
   };
 
+  const quickActions = [
+    { label: t('aiAssistant.analyzePatterns'), icon: BarChart3 },
+    { label: t('aiAssistant.suggestActions'), icon: Target },
+    { label: t('aiAssistant.paymentCharts'), icon: Lightbulb },
+    { label: t('aiAssistant.getStarted'), icon: Sparkles },
+    { label: t('aiAssistant.improvePrompt'), message: 'improve prompt - extraction issue', icon: Wrench },
+  ];
+
   return (
-    <div className="fixed bottom-6 right-6 z-50">
-      <div>
-        <Button
-          className={cn(
-            "rounded-full w-16 h-16 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_12px_40px_rgb(0,0,0,0.18)]",
-            "bg-gradient-to-br from-[#2b5876] via-[#4e4376] to-[#2b5876] dark:from-indigo-600 dark:via-purple-600 dark:to-indigo-600",
-            "hover:scale-105 transition-all duration-300 border border-white/10 backdrop-blur-md transform-gpu",
-            isOpen ? "scale-0 opacity-0" : "scale-100 opacity-100"
-          )}
-          onClick={() => setIsOpen(true)}
-        >
-          <MessageCircle className="h-8 w-8 text-white drop-shadow-md" />
-          {hasUnreadMessages && (
-            <span className="absolute -top-1 -right-1 flex h-3 w-3 pointer-events-none">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
-            </span>
-          )}
+    <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog.Trigger asChild>
+        <Button aria-label={t('aiAssistant.openChat')}
+          className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-2xl bg-primary text-primary-foreground shadow-lg transition-transform hover:-translate-y-0.5 motion-reduce:transition-none">
+          <MessageCircle className="h-6 w-6" aria-hidden="true" />
+          {hasUnreadMessages && <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-background bg-primary" />}
         </Button>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm" />
+        <Dialog.Content ref={ref} onOpenAutoFocus={event => {
+          if (historyLoaded) { event.preventDefault(); composerRef.current?.focus(); }
+        }} className={cn(
+          "fixed inset-0 z-50 flex min-h-0 flex-col overflow-hidden border border-border bg-background shadow-2xl outline-none",
+          !isFullscreen && "sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-[min(820px,90dvh)] sm:w-[calc(100%-3rem)] sm:max-w-3xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
+        )}>
+          <header className="flex shrink-0 items-center gap-3 border-b px-4 py-4 sm:px-6">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Sparkles className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <Dialog.Title className="text-base font-semibold tracking-tight sm:text-lg">{t('aiAssistant.title')}</Dialog.Title>
+              <Dialog.Description className="mt-0.5 text-xs leading-5 text-muted-foreground">{t('aiAssistant.subtitle')}</Dialog.Description>
+            </div>
+            <Button variant="ghost" size="icon" onClick={toggleFullscreen}
+              aria-label={isFullscreen ? t('aiAssistant.exitFullscreen') : t('aiAssistant.enterFullscreen')}
+              className="hidden shrink-0 sm:inline-flex">
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
+            <Dialog.Close asChild>
+              <Button variant="ghost" size="icon" aria-label={t('aiAssistant.closeChat')} className="shrink-0">
+                <X className="h-5 w-5" aria-hidden="true" />
+              </Button>
+            </Dialog.Close>
+          </header>
 
-        {isOpen && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-6">
-            {/* Backdrop */}
-            <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm transform-gpu will-change-transform"
-              onClick={() => setIsOpen(false)}
-            />
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground sm:px-6">
+            <span role="status" className="flex items-center gap-2">
+              {!historyLoaded || isGenerating ? <Loader className="h-3 w-3 animate-spin" aria-hidden="true" /> : <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+              {t(!historyLoaded ? 'aiAssistant.loadingHistory' : isGenerating ? 'aiAssistant.thinking' : 'aiAssistant.ready')}
+            </span>
+            {typeof (settings as any)?.ai_chat_history_retention_days === 'number' &&
+              <span>{t('aiAssistant.chatHistoryRetentionNotice', { days: (settings as any).ai_chat_history_retention_days })}</span>}
+          </div>
 
-            {/* Dialog Panel */}
-            <div className={cn(
-              "relative flex flex-col bg-background/95 w-full shadow-2xl overflow-hidden transform-gpu will-change-transform",
-              "backdrop-blur-xl border border-white/20 dark:border-white/10",
-              isFullscreen
-                ? 'h-[100dvh] w-full sm:rounded-none'
-                : 'h-[85vh] sm:h-[800px] max-h-[800px] sm:w-[500px] sm:rounded-[2rem] rounded-t-[2rem]'
-            )}>
-
-              {/* Header */}
-              <div className="relative shrink-0 p-4 sm:p-6 flex items-center justify-between z-20">
-                {/* Glass Header Background */}
-                <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#4e4376]/10 to-transparent pointer-events-none" />
-
-                <div className="relative flex items-center gap-4 z-20">
-                  <div className="bg-gradient-to-br from-[#2b5876] to-[#4e4376] rounded-2xl p-2.5 shadow-lg shadow-indigo-500/20 ring-1 ring-white/20">
-                    <MessageCircle className="h-6 w-6 text-white" />
+          <div ref={scrollAreaRef} role="region" aria-label={t('aiAssistant.conversation')}
+            onScroll={event => {
+              const viewport = event.currentTarget;
+              const nearBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 80;
+              followLatest.current = nearBottom;
+              setShowJump(!nearBottom);
+            }} className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/15 px-4 py-6 sm:px-6">
+            <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+              <div ref={sentinelRef} className="h-px" />
+              {isLoadingMore && <p className="text-center text-xs text-muted-foreground">{t('aiAssistant.loadingHistory')}</p>}
+              {!historyLoaded && <div className="space-y-3 animate-pulse" aria-hidden="true">
+                <div className="h-16 w-4/5 rounded-2xl bg-muted" /><div className="ml-auto h-12 w-1/2 rounded-2xl bg-muted" />
+              </div>}
+              {historyLoaded && messages.map(msg => (
+                <article key={msg.id} className={cn("min-w-0", msg.sender === 'user' ? 'ml-auto max-w-[90%] sm:max-w-[80%]' : 'w-full')}>
+                  <div className={cn("mb-1.5 flex items-center gap-2 text-xs text-muted-foreground", msg.sender === 'user' && 'justify-end')}>
+                    <span className="font-medium">{t(msg.sender === 'user' ? 'aiAssistant.you' : 'aiAssistant.assistant')}</span>
+                    {msg.timestamp && <time dateTime={msg.timestamp}>{formatMessageTime(msg.timestamp, (settings as any)?.timezone)}</time>}
                   </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-foreground">
-                      {t('aiAssistant.title')}
-                    </h2>
-                    <div className="flex items-center gap-1.5">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                      </span>
-                      <p className="text-muted-foreground text-xs font-medium">Online</p>
-                    </div>
+                  <div role={msg.failed ? 'alert' : undefined} className={cn("min-w-0 break-words [overflow-wrap:anywhere]",
+                    msg.sender === 'user' && 'whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-primary px-4 py-3 text-sm leading-6 text-primary-foreground',
+                    msg.failed && 'rounded-2xl border border-destructive/30 bg-destructive/5 p-3 text-destructive'
+                  )}>
+                    {msg.pending ? <div className="flex items-center gap-2 rounded-2xl border bg-card px-4 py-4 text-sm text-muted-foreground">
+                      <Loader className="h-4 w-4 animate-spin" aria-hidden="true" /><span>{t('aiAssistant.preparingReply')}</span>
+                    </div> : msg.sender === 'user' ? msg.text : typeof msg.text === 'string' ? <EnhancedAIResponse text={msg.text} /> : msg.text}
                   </div>
-                </div>
-
-                <div className="relative flex items-center gap-1 z-20">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={toggleFullscreen}
-                    aria-label={isFullscreen ? t('aiAssistant.exitFullscreen') : t('aiAssistant.enterFullscreen')}
-                    title={isFullscreen ? t('aiAssistant.exitFullscreen') : t('aiAssistant.enterFullscreen')}
-                    className="text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
-                  >
-                    {isFullscreen ? (
-                      <Minimize2 className="h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      <Maximize2 className="h-4 w-4" aria-hidden="true" />
-                    )}
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsOpen(false)}
-                    className="text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
-                  >
-                    ✕
-                  </Button>
-                </div>
-              </div>
-
-              {/* Retention notice */}
-              {(() => {
-                const s = settings as any;
-                return s && typeof s.ai_chat_history_retention_days === 'number' ? (
-                  <div className="px-6 pb-2 text-[10px] sm:text-xs text-muted-foreground text-center opacity-60">
-                    🕒
-                    {t('aiAssistant.chatHistoryRetentionNotice', { days: s.ai_chat_history_retention_days })}
-                  </div>
-                ) : null;
-              })()}
-
-              {/* Messages Area */}
-              <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 sm:px-6 relative z-20">
-                <div className="flex flex-col space-y-6 pb-4 pt-2">
-                  {/* Sentinel element for Intersection Observer to detect when user scrolls to top */}
-                  <div ref={sentinelRef} className="h-1" />
-                  {isLoadingMore && (
-                    <div className="flex justify-center py-4">
-                      <Loader className="h-5 w-5 animate-spin text-muted-foreground" />
-                    </div>
-                  )}
-                  {messages.map((msg) => {
-                    // Check if message is "rich" (not user, and usually object or long text)
-                    const isRichContent = msg.sender === 'ai' && typeof msg.text !== 'string';
-
-                    return (
-                      <div
-                        key={msg.id}
-                        className={cn(
-                          "flex flex-col w-full",
-                          msg.sender === 'user' ? "items-end" : "items-start"
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "flex w-full",
-                            msg.sender === 'user' ? "justify-end max-w-[85%] sm:max-w-[75%]" :
-                              isRichContent ? "justify-start w-full max-w-full" : "justify-start max-w-[90%] sm:max-w-[85%]"
-                          )}
-                        >
-                          <div className={cn(
-                            "relative px-5 py-3.5 shadow-sm text-sm leading-6",
-                            msg.sender === 'user'
-                              ? "bg-[#2b5876] text-white rounded-2xl rounded-tr-sm"
-                              : isRichContent ? "w-full p-0 bg-transparent shadow-none" : "text-foreground rounded-2xl rounded-tl-sm w-full bg-white/50 dark:bg-black/20"
-                          )}>
-                            {msg.sender === 'user' ? (
-                              msg.text
-                            ) : (
-                              typeof msg.text === 'string' ? (
-                                <EnhancedAIResponse text={msg.text} />
-                              ) : (
-                                msg.text
-                              )
-                            )}
-                          </div>
-                        </div>
-                        {msg.timestamp && (
-                          <div className={cn(
-                            "text-[10px] text-muted-foreground/60 mt-1 px-2",
-                            msg.sender === 'user' ? "text-right" : "text-left"
-                          )}>
-                            {formatMessageTime(msg.timestamp, (settings as any)?.timezone)}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                  <div ref={messagesEndRef} />
-                </div>
-              </ScrollArea>
-
-              {/* Input Area */}
-              <div className="p-4 sm:p-6 bg-gradient-to-t from-background via-background/80 to-transparent pt-10 z-30">
-                <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide mask-fade-right">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full bg-white/50 dark:bg-black/20 backdrop-blur border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-xs shadow-sm hover:shadow-md transition-all whitespace-nowrap"
-                    disabled={!historyLoaded}
-                    onClick={() => handleQuickAction(t('aiAssistant.analyzePatterns'))}
-                  >
-                    <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
-                    {t('aiAssistant.analyzePatterns')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full bg-white/50 dark:bg-black/20 backdrop-blur border-pink-200 dark:border-pink-800 text-pink-600 dark:text-pink-400 text-xs shadow-sm hover:shadow-md transition-all whitespace-nowrap"
-                    disabled={!historyLoaded}
-                    onClick={() => handleQuickAction(t('aiAssistant.suggestActions'))}
-                  >
-                    <Target className="mr-1.5 h-3.5 w-3.5" />
-                    {t('aiAssistant.suggestActions')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full bg-white/50 dark:bg-black/20 backdrop-blur border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-xs shadow-sm hover:shadow-md transition-all whitespace-nowrap"
-                    disabled={!historyLoaded}
-                    onClick={() => handleQuickAction(t('aiAssistant.getStarted'))}
-                  >
-                    {t('aiAssistant.getStarted')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full bg-white/50 dark:bg-black/20 backdrop-blur border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-xs shadow-sm hover:shadow-md transition-all whitespace-nowrap"
-                    disabled={!historyLoaded}
-                    onClick={() => handleQuickAction(t('aiAssistant.paymentCharts'))}
-                  >
-                    📈
-                    {t('aiAssistant.paymentCharts')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full bg-white/50 dark:bg-black/20 backdrop-blur border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-400 text-xs shadow-sm hover:shadow-md transition-all whitespace-nowrap"
-                    disabled={!historyLoaded}
-                    onClick={() => handleQuickAction('improve prompt - extraction issue')}
-                  >
-                    <Wrench className="mr-1.5 h-3.5 w-3.5" />
-                    Improve Prompt
-                  </Button>
-                </div>
-
-                <div className="relative flex items-center gap-2 bg-card/60 backdrop-blur-xl border border-border/50 p-2 pl-4 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.04)] focus-within:shadow-[0_8px_30px_rgb(0,0,0,0.08)] focus-within:border-border transition-all duration-300">
-                  <Input
-                    disabled={!historyLoaded}
-                    placeholder={t('aiAssistant.inputPlaceholder')}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        handleSendMessage();
-                      }
-                    }}
-                    className="border-0 bg-transparent shadow-none focus-visible:ring-0 px-0 text-base placeholder:text-muted-foreground/60 h-auto py-2.5"
-                  />
-                  <Button
-                    className={cn(
-                      "rounded-full w-10 h-10 shrink-0 shadow-md transition-all duration-200 flex items-center justify-center p-0",
-                      input.trim()
-                        ? "bg-[#2b5876] hover:bg-[#2b5876]/90 text-white translate-x-0 opacity-100"
-                        : "bg-muted text-muted-foreground cursor-not-allowed"
-                    )}
-                    onClick={() => handleSendMessage()}
-                    disabled={!input.trim() || !historyLoaded}
-                  >
-                    {isGenerating ? <Loader className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 ml-0.5" />}
-                  </Button>
-                </div>
-                <div className="text-[10px] text-center text-muted-foreground/40 mt-3">
-                  AI can make mistakes. Please check important information.
-                </div>
-              </div>
+                </article>
+              ))}
+              <div ref={messagesEndRef} />
             </div>
           </div>
-        )}
-      </div>
-    </div>
+          {showJump && <div className="relative z-10 flex h-0 justify-center">
+            <Button size="sm" variant="secondary" className="-translate-y-12 rounded-full border shadow-md" onClick={() => {
+              followLatest.current = true; setShowJump(false); scrollToBottom();
+            }}><ArrowDown className="mr-2 h-3 w-3" />{t('aiAssistant.latestMessages')}</Button>
+          </div>}
+
+          <footer className="shrink-0 border-t bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pt-4">
+            <div className="mb-3 flex flex-wrap gap-1.5" aria-label={t('aiAssistant.quickActions')}>
+              {quickActions.map(({ label, icon: Icon, message }) => <Button key={label} variant="outline" size="sm"
+                className="h-8 rounded-lg px-2.5 text-xs font-normal text-muted-foreground hover:text-foreground"
+                disabled={!historyLoaded} onClick={() => handleQuickAction(message || label)}>
+                <Icon className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />{label}
+              </Button>)}
+            </div>
+            <div className="rounded-xl border bg-card p-2 shadow-sm focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10">
+              <Textarea ref={composerRef} rows={2} disabled={!historyLoaded} aria-label={t('aiAssistant.inputPlaceholder')}
+                placeholder={t('aiAssistant.inputPlaceholder')} value={input} onChange={event => setInput(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
+                    event.preventDefault(); void handleSendMessage();
+                  }
+                }} className="max-h-40 min-h-[60px] resize-y border-0 bg-transparent p-2 text-base shadow-none focus-visible:ring-0 sm:text-sm" />
+              <div className="flex items-center justify-between gap-2 pl-2">
+                <span className="text-[11px] text-muted-foreground">{t('aiAssistant.keyboardHint')}</span>
+                <Button size="sm" onClick={() => handleSendMessage()} disabled={!input.trim() || !historyLoaded}
+                  aria-label={t('aiAssistant.sendMessage')} className="shrink-0 rounded-lg">
+                  <Send className="mr-2 h-3.5 w-3.5" aria-hidden="true" />{t('aiAssistant.sendMessage')}
+                </Button>
+              </div>
+            </div>
+            <p className="mt-2 text-center text-[11px] leading-4 text-muted-foreground">{t('aiAssistant.disclaimer')}</p>
+          </footer>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 });
 
