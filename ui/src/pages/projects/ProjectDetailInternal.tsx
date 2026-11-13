@@ -23,13 +23,19 @@ import { ProfessionalButton } from '@/components/ui/professional-button';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 
+import { useCostAccess } from '@/plugins/time_tracking/plugin/ui/profitability-hooks';
+import { ProjectProfitability } from '@/plugins/time_tracking/plugin/ui/components/ProjectProfitability';
+import { useTranslation } from 'react-i18next';
+
 const TABS = ['Overview', 'Kanban', 'Tasks', 'Time Entries', 'Unbilled'] as const;
-type TabType = typeof TABS[number];
+type TabType = typeof TABS[number] | 'Profitability';
 
 export default function ProjectDetailInternal() {
+  const costAccess = useCostAccess();
+  const { t: costT } = useTranslation('time_tracking', { keyPrefix: 'profitability' });
   const { id } = useParams<{ id: string }>();
   const projectId = parseInt(id || '0', 10);
-  const [tab, setTab] = useState<TabType>('Overview');
+  const [tab, setTab] = useState<TabType>(() => new URLSearchParams(window.location.search).has('time_entry_id') ? 'Time Entries' : 'Overview');
   const [selectedEntryIds, setSelectedEntryIds] = useState<number[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -239,7 +245,7 @@ export default function ProjectDetailInternal() {
       />
 
       <div className="flex gap-2 p-1 bg-background/50 backdrop-blur-sm rounded-xl border border-border/50 shadow-inner w-fit">
-        {TABS.map((t) => (
+        {([...TABS, ...(costAccess.allowed ? ['Profitability' as const] : [])]).map((t) => (
           <Button
             key={t}
             variant={tab === t ? 'secondary' : 'ghost'}
@@ -250,12 +256,13 @@ export default function ProjectDetailInternal() {
               tab === t && "bg-card shadow-sm text-primary"
             )}
           >
-            {t}
+            {t === 'Profitability' ? costT('title') : t}
           </Button>
         ))}
       </div>
 
       <ContentSection>
+        {tab === 'Profitability' && costAccess.allowed && <ProjectProfitability key={`${costAccess.scope}:${projectId}`} projectId={projectId} />}
         {tab === 'Overview' && <OverviewTab summary={summary} project={project} />}
         {tab === 'Kanban' && <KanbanTab projectId={projectId} project={project} />}
         {tab === 'Tasks' && <TasksTab projectId={projectId} tasks={tasks} projectHourlyRate={project.hourly_rate} />}
@@ -1108,7 +1115,7 @@ function TimeEntriesTab({ entries, tasks, project, onDelete }: { entries: TimeEn
   return (
     <div className="space-y-3">
       {entries.map((entry) => (
-        <ProfessionalCard key={entry.id} className="p-4 bg-card/50 border border-border/50 hover:border-primary/20 transition-all hover:shadow-md group">
+        <ProfessionalCard id={`time-entry-${entry.id}`} key={entry.id} className="p-4 bg-card/50 border border-border/50 hover:border-primary/20 transition-all hover:shadow-md group">
           {editingId === entry.id ? (
             /* ── Inline edit form ── */
             <div className="space-y-3">
