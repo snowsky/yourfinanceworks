@@ -205,3 +205,23 @@ def test_profitability_route_requires_tenant_admin():
     route=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='read_project_profitability')
     assert 'Depends(cost_admin)' in ast.get_source_segment(source,route)
     assert '/{project_id}/profitability' in ast.unparse(route.decorator_list[0])
+
+
+@pytest.mark.parametrize('states,complete', [
+    (['approved', 'cancelled'], True),
+    (['approved', 'pending'], False),
+    (['approved', 'rejected', 'cancelled'], False),
+    (['approved'], False),
+])
+def test_partially_approved_unsubmission(db, states, complete):
+    setup_cost(db)
+    expense(db, status='recorded')
+    for level, status in enumerate(states, 1):
+        db.add(ExpenseApproval(
+            expense_id=1, approver_id=1, status=status,
+            approval_level=level, submitted_at=datetime(2026, 2, 1),
+        ))
+    result = get_project_profitability(db, 1)
+    assert (result.status == 'complete') is complete
+    assert result.known_cost == (Decimal('500') if complete else Decimal('400'))
+    assert result.contribution == (Decimal('500') if complete else None)

@@ -32,7 +32,11 @@ def expense_eligibility(expense, project_id, currency):
         if not states or any(s != 'approved' for s in states):
             return 'unresolved_approval', False
     elif expense.status == 'recorded':
-        if any(s != 'cancelled' for s in states):
+        # Unsubmission cancels pending levels but preserves approved levels.
+        # Require cancelled evidence when a prior approved level remains; a
+        # recorded row with approvals alone is an inconsistent final state.
+        if ('rejected' in states or
+                ('approved' in states and 'cancelled' not in states)):
             return 'unresolved_approval', False
     else:
         return 'unknown_expense_status', False
