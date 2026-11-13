@@ -13,7 +13,8 @@ def money(value):
 
 
 def line_snapshot(item):
-    return dict(description=item.description, quantity=str(money(item.quantity).normalize()),
+    return dict(description=item.description, inventory_item_id=item.inventory_item_id,
+                unit_of_measure=item.unit_of_measure, quantity=str(money(item.quantity).normalize()),
                 price=str(money(item.price).normalize()), amount=str(money(item.amount).normalize()))
 
 

@@ -252,3 +252,27 @@ def test_known_totals_retained_when_another_invoice_is_unresolved(db):
     assert (result.invoiced_pre_tax,result.collected_cash) == (1000,300)
     assert result.unresolved_invoice_ids == [legacy.id]
     assert not result.invoicing_complete and not result.cash_complete
+
+
+@pytest.mark.parametrize('field,value', [('inventory_item_id', 1), ('unit_of_measure', 'days')])
+def test_all_writable_line_metadata_edits_invalidate_attribution(db, field, value):
+    from core.models.models_per_tenant import InventoryItem
+    inv, line, _ = make_invoice(db)
+    db.add(InventoryItem(id=1, name='service', unit_price=100, currency='USD'))
+    db.add(Payment(invoice_id=inv.id, amount=300, currency='USD'))
+    db.flush()
+    original = get_project_billing_summary(db, 1)
+    assert original.invoicing_complete and original.cash_complete
+    assert (original.invoiced_pre_tax, original.collected_cash) == (1000, 300)
+    setattr(line, field, value)
+    db.flush()
+    changed = get_project_billing_summary(db, 1)
+    assert not changed.invoicing_complete and not changed.cash_complete
+    assert (changed.invoiced_pre_tax, changed.collected_cash) == (0, 0)
+    assert changed.unresolved_invoice_ids == [inv.id]
+    assert 'changed_or_deleted_invoice_source_or_line' in changed.unresolved_invoices[0].reasons
+    setattr(line, field, None)
+    db.flush()
+    restored = get_project_billing_summary(db, 1)
+    assert restored.invoicing_complete and restored.cash_complete
+    assert (restored.invoiced_pre_tax, restored.collected_cash) == (1000, 300)
