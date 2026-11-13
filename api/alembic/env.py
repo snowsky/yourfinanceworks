@@ -32,6 +32,9 @@ db_type = os.getenv('ALEMBIC_DB_TYPE', 'master')  # 'master' or 'tenant'
 if db_type == 'master':
     target_metadata = MasterBase.metadata if MasterBase else None
 else:
+    # Load discovered optional plugin tables for tenant autogeneration.
+    from plugins.loader import plugin_loader
+    plugin_loader.import_models()
     target_metadata = TenantBase.metadata if TenantBase else None
 
 # other values from the config, defined by the needs of env.py,

@@ -294,6 +294,10 @@ class Expense(Base):
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True, index=True)
     created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # User attribution
 
+    # Optional plugin mapping: no FK to plugin metadata when it is unavailable.
+    project_id = Column(Integer, nullable=True, index=True)
+    invoiced = Column(Boolean, nullable=True, default=False, server_default="false")
+
     # Inventory purchase fields
     is_inventory_purchase = Column(Boolean, default=False, nullable=False)
     inventory_items = Column(EncryptedJSON(),nullable=True)  # Encrypted sensitive inventory data
